@@ -24,22 +24,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-if (CMAKE_HOST_UNIX)
-  add_definitions(
-    # build position independent
-    #
-    -fPIC
-  )
-endif (CMAKE_HOST_UNIX)
-
-if (CMAKE_HOST_WIN32)
-  add_definitions(
-    # export libipt symbols
-    #
-    /Dpt_export=__declspec\(dllexport\)
-  )
-endif (CMAKE_HOST_WIN32)
-
 include_directories(
   internal/include
 )
@@ -56,7 +40,26 @@ set(LIBIPT_FILES
   src/pt_packet.c
   src/pt_last_ip.c
   src/pt_tnt_cache.c
+  src/pt_ild.c
 )
+
+if (CMAKE_HOST_UNIX)
+  add_definitions(
+    # build position independent
+    #
+    -fPIC
+  )
+  set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/init.c)
+endif (CMAKE_HOST_UNIX)
+
+if (CMAKE_HOST_WIN32)
+  add_definitions(
+    # export libipt symbols
+    #
+    /Dpt_export=__declspec\(dllexport\)
+  )
+  set(LIBIPT_FILES ${LIBIPT_FILES} src/windows/init.c)
+endif (CMAKE_HOST_WIN32)
 
 add_library(libipt SHARED
   ${LIBIPT_FILES}
@@ -122,6 +125,11 @@ add_executable(ptunit-image
   src/pt_image.c
 )
 
+add_executable(ptunit-ild
+  test/src/ptunit-ild.c
+  src/pt_ild.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
@@ -129,6 +137,7 @@ target_link_libraries(ptunit-cpp ptunit libipt)
 target_link_libraries(ptunit-retstack ptunit)
 target_link_libraries(ptunit-section_file ptunit)
 target_link_libraries(ptunit-image ptunit)
+target_link_libraries(ptunit-ild ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap
