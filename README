@@ -1,0 +1,172 @@
+Intel(R) Processor Trace Decoder Library
+========================================
+
+
+This contains a library for decoding Intel(R) Processor Trace (PT) together with
+sample implementations of simple tools built on top of the library that show how
+to use the library in your own tool.
+
+
+Contents
+--------
+
+  README        this file
+
+  libipt        A packet encoder/decoder library
+                A document describing the usage of the decoder library
+
+
+Optional Contents and Samples
+-----------------------------
+
+  ptdump        Example implementation of a packet dumper
+
+  ptxed         Example implementation of a trace disassembler
+
+  pttc          A trace test generator
+
+  script        A collection of scripts
+
+
+Dependencies
+------------
+
+We use cmake for building.
+
+  cmake         The cross-platform open-source build system.
+                http://www.cmake.org
+
+
+Other packages you need for some of the above optional components.
+
+  check         A unit test framework for C.
+                http://sourceforge.net/projects/check
+
+                This is needed for libipt and pttc unit tests.
+
+  xed           The Intel x86 instruction encoder and decoder.
+                http://www.pintool.org - version 2.12
+
+                This is needed to build and run the trace disassembler example.
+
+  yasm          The Yasm Modular Assembler
+                http://github.com/yasm
+
+                This is needed to run pttc.
+
+Features
+--------
+
+Some of the tools support separately enabled features.  Features are
+enabled by defining the respective FEATURE_<name> pre-processor macro
+or by setting the respective FEATURE_<name> cmake variable.
+
+The following features are supported:
+
+  MMAP          Map files into memory.
+
+  ELF           Support for the ELF object format.
+
+
+Building on Linux and OS X
+--------------------------
+
+Navigate to your desired destination directory and call ccmake with the
+source directory:
+
+  $ cd /path/to/dest
+  $ ccmake /path/to/pt/src
+
+After configuring the cmake cache, build normally:
+
+  $ make
+
+
+Building on Windows
+-------------------
+
+Start the cmake GUI and follow the instructions.
+
+
+Getting Started
+---------------
+
+After building, you may want to start by running a simple test to see what the
+different tools are doing.
+
+We start by compiling an existing test, which consists of a small assembly
+program with interleaved PT directives:
+
+  $ pttc test/src/loop.ptt
+  loop-ptxed.exp
+  loop-ptdump.exp
+
+This produces the following output files:
+
+  loop.lst          a yasm assembly listing file
+  loop.bin          a raw binary file
+  loop.pt           a PT file
+  loop-ptxed.exp    the expected ptxed output
+  loop-ptdump.exp   the expected ptdump output
+
+The latter two files are generated based on the @pt .exp(<tool>) directives
+found in the .ptt file.  They are used for automated testing but are otherwise
+not interesting for us at this point.
+
+
+Let's dump the PT packets:
+
+  $ ptdump loop.pt
+  00  psb
+  10  fup        3: 0x0000000000100000
+  17  psbend
+  19  tnt8       !!.
+  1a  tip.pgd    3: 0x0000000000100013
+
+The ptdump tool takes a PT file as input and dumps the packets in a more or less
+human-readable form.  The number on the very left is the offset into the PT
+stream in hex.  This is followed by the PT packet opcode and the packet payload.
+
+
+Now let's reconstruct the control flow.  For this, we need the PT as well as the
+corresponding binary image.  We need to specify the load address given by the
+org directive in the .ptt file when we use a raw binary file.
+
+  $ ptxed --pt loop.pt --raw loop.bin 0x100000
+  0x0000000000100000  mov rax, 0x0
+  0x0000000000100007  jmp 0x10000d
+  0x000000000010000d  cmp rax, 0x1
+  0x0000000000100011  jle 0x100009
+  0x0000000000100009  add rax, 0x1
+  0x000000000010000d  cmp rax, 0x1
+  0x0000000000100011  jle 0x100009
+  0x0000000000100009  add rax, 0x1
+  0x000000000010000d  cmp rax, 0x1
+  0x0000000000100011  jle 0x100009
+  [disabled]
+
+Ptxed prints disassembled instructions in execution order as well as status
+messages enclosed in brackets.
+
+
+For further information, see
+
+  libipt/doc/pt_decoding.txt   on how to use the PT decoder library in your own
+                               tool
+
+  ptdump/src/                  on how to use the packet decoding layer of libipt
+                               for your own tool
+
+  ptxed/src/                   on how to use the querying layer of libipt for
+                               your own tool
+
+  pttc/README                  on how to write your own tests and how to use
+                               pttc for testing your own tool
+
+
+Maintainers
+-----------
+
+  Markus Metzger        <markus.t.metzger@intel.com>
+  Thilo Schmitt         <thilo.schmitt@intel.com>
+  Christian Himpel      <christian.himpel@intel.com>
