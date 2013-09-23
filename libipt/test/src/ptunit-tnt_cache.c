@@ -31,14 +31,12 @@
 #include "pt_error.h"
 #include "pt_packet.h"
 
-#include "suites.h"
-#include "pt_check.h"
+#include "ptunit.h"
 
 #include <string.h>
-#include <check.h>
 
 
-START_TEST(check_tnt_cache_init)
+static struct ptunit_result init(void)
 {
 	struct pt_tnt_cache tnt_cache;
 
@@ -46,18 +44,20 @@ START_TEST(check_tnt_cache_init)
 
 	pt_tnt_cache_init(&tnt_cache);
 
-	ck_uint64_eq(tnt_cache.tnt, 0ull);
-	ck_uint64_eq(tnt_cache.index, 0ull);
-}
-END_TEST
+	ptu_uint_eq(tnt_cache.tnt, 0ull);
+	ptu_uint_eq(tnt_cache.index, 0ull);
 
-START_TEST(check_tnt_cache_init_null)
+	return ptu_passed();
+}
+
+static struct ptunit_result init_null(void)
 {
 	pt_tnt_cache_init(NULL);
-}
-END_TEST
 
-START_TEST(check_tnt_cache_is_empty_initial)
+	return ptu_passed();
+}
+
+static struct ptunit_result is_empty_initial(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int status;
@@ -65,11 +65,12 @@ START_TEST(check_tnt_cache_is_empty_initial)
 	pt_tnt_cache_init(&tnt_cache);
 
 	status = pt_tnt_cache_is_empty(&tnt_cache);
-	ck_int_eq(status, 1);
-}
-END_TEST
+	ptu_int_eq(status, 1);
 
-START_TEST(check_tnt_cache_is_empty_no)
+	return ptu_passed();
+}
+
+static struct ptunit_result is_empty_no(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int status;
@@ -77,11 +78,12 @@ START_TEST(check_tnt_cache_is_empty_no)
 	tnt_cache.index = 1ull;
 
 	status = pt_tnt_cache_is_empty(&tnt_cache);
-	ck_int_eq(status, 0);
-}
-END_TEST
+	ptu_int_eq(status, 0);
 
-START_TEST(check_tnt_cache_is_empty_yes)
+	return ptu_passed();
+}
+
+static struct ptunit_result is_empty_yes(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int status;
@@ -89,20 +91,22 @@ START_TEST(check_tnt_cache_is_empty_yes)
 	tnt_cache.index = 0ull;
 
 	status = pt_tnt_cache_is_empty(&tnt_cache);
-	ck_int_eq(status, 1);
-}
-END_TEST
+	ptu_int_eq(status, 1);
 
-START_TEST(check_tnt_cache_is_empty_null)
+	return ptu_passed();
+}
+
+static struct ptunit_result is_empty_null(void)
 {
 	int status;
 
 	status = pt_tnt_cache_is_empty(NULL);
-	ck_int_eq(status, -pte_invalid);
-}
-END_TEST
+	ptu_int_eq(status, -pte_invalid);
 
-START_TEST(check_tnt_cache_query_taken)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_taken(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int status;
@@ -111,12 +115,13 @@ START_TEST(check_tnt_cache_query_taken)
 	tnt_cache.index = 1ull;
 
 	status = pt_tnt_cache_query(&tnt_cache);
-	ck_int_eq(status, 1);
-	ck_uint64_eq(tnt_cache.index, 0);
-}
-END_TEST
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(tnt_cache.index, 0);
 
-START_TEST(check_tnt_cache_query_not_taken)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_not_taken(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int status;
@@ -125,12 +130,13 @@ START_TEST(check_tnt_cache_query_not_taken)
 	tnt_cache.index = 1ull;
 
 	status = pt_tnt_cache_query(&tnt_cache);
-	ck_int_eq(status, 0);
-	ck_uint64_eq(tnt_cache.index, 0);
-}
-END_TEST
+	ptu_int_eq(status, 0);
+	ptu_uint_eq(tnt_cache.index, 0);
 
-START_TEST(check_tnt_cache_query_empty)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_empty(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int status;
@@ -138,20 +144,22 @@ START_TEST(check_tnt_cache_query_empty)
 	tnt_cache.index = 0ull;
 
 	status = pt_tnt_cache_query(&tnt_cache);
-	ck_int_eq(status, -pte_bad_query);
-}
-END_TEST
+	ptu_int_eq(status, -pte_bad_query);
 
-START_TEST(check_tnt_cache_query_null)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_null(void)
 {
 	int status;
 
 	status = pt_tnt_cache_query(NULL);
-	ck_int_eq(status, -pte_invalid);
-}
-END_TEST
+	ptu_int_eq(status, -pte_invalid);
 
-START_TEST(check_tnt_cache_update_tnt)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_tnt(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	struct pt_packet_tnt packet;
@@ -163,13 +171,14 @@ START_TEST(check_tnt_cache_update_tnt)
 	packet.payload = 8ull;
 
 	errcode = pt_tnt_cache_update_tnt(&tnt_cache, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(tnt_cache.tnt, 8ull);
-	ck_uint64_eq(tnt_cache.index, 1ull << 3);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(tnt_cache.tnt, 8ull);
+	ptu_uint_eq(tnt_cache.index, 1ull << 3);
 
-START_TEST(check_tnt_cache_update_tnt_not_empty)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_tnt_not_empty(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	struct pt_packet_tnt packet;
@@ -179,23 +188,25 @@ START_TEST(check_tnt_cache_update_tnt_not_empty)
 	tnt_cache.index = 12ull;
 
 	errcode = pt_tnt_cache_update_tnt(&tnt_cache, &packet, NULL);
-	ck_int_eq(errcode, -pte_bad_context);
-	ck_uint64_eq(tnt_cache.tnt, 42ull);
-	ck_uint64_eq(tnt_cache.index, 12ull);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_bad_context);
+	ptu_uint_eq(tnt_cache.tnt, 42ull);
+	ptu_uint_eq(tnt_cache.index, 12ull);
 
-START_TEST(check_tnt_cache_update_tnt_null_tnt)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_tnt_null_tnt(void)
 {
 	struct pt_packet_tnt packet;
 	int errcode;
 
 	errcode = pt_tnt_cache_update_tnt(NULL, &packet, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_invalid);
 
-START_TEST(check_tnt_cache_update_tnt_null_packet)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_tnt_null_packet(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int errcode;
@@ -204,44 +215,34 @@ START_TEST(check_tnt_cache_update_tnt_null_packet)
 	tnt_cache.index = 12ull;
 
 	errcode = pt_tnt_cache_update_tnt(&tnt_cache, NULL, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-	ck_uint64_eq(tnt_cache.tnt, 42ull);
-	ck_uint64_eq(tnt_cache.index, 12ull);
+	ptu_int_eq(errcode, -pte_invalid);
+	ptu_uint_eq(tnt_cache.tnt, 42ull);
+	ptu_uint_eq(tnt_cache.index, 12ull);
+
+	return ptu_passed();
 }
-END_TEST
 
-Suite *suite_pt_tnt_cache(void)
+int main(int argc, const char **argv)
 {
-	TCase *init, *is_empty, *query, *update_tnt;
-	Suite *suite;
+	struct ptunit_suite suite;
 
-	init = tcase_create("init");
-	tcase_add_test(init, check_tnt_cache_init);
-	tcase_add_test(init, check_tnt_cache_init_null);
+	suite = ptunit_mk_suite(argc, argv);
 
-	is_empty = tcase_create("is-empty");
-	tcase_add_test(init, check_tnt_cache_is_empty_initial);
-	tcase_add_test(init, check_tnt_cache_is_empty_no);
-	tcase_add_test(init, check_tnt_cache_is_empty_yes);
-	tcase_add_test(init, check_tnt_cache_is_empty_null);
+	ptu_run(suite, init);
+	ptu_run(suite, init_null);
+	ptu_run(suite, is_empty_initial);
+	ptu_run(suite, is_empty_no);
+	ptu_run(suite, is_empty_yes);
+	ptu_run(suite, is_empty_null);
+	ptu_run(suite, query_taken);
+	ptu_run(suite, query_not_taken);
+	ptu_run(suite, query_empty);
+	ptu_run(suite, query_null);
+	ptu_run(suite, update_tnt);
+	ptu_run(suite, update_tnt_not_empty);
+	ptu_run(suite, update_tnt_null_tnt);
+	ptu_run(suite, update_tnt_null_packet);
 
-	query = tcase_create("query");
-	tcase_add_test(init, check_tnt_cache_query_taken);
-	tcase_add_test(init, check_tnt_cache_query_not_taken);
-	tcase_add_test(init, check_tnt_cache_query_empty);
-	tcase_add_test(init, check_tnt_cache_query_null);
-
-	update_tnt = tcase_create("update-tnt");
-	tcase_add_test(init, check_tnt_cache_update_tnt);
-	tcase_add_test(init, check_tnt_cache_update_tnt_not_empty);
-	tcase_add_test(init, check_tnt_cache_update_tnt_null_tnt);
-	tcase_add_test(init, check_tnt_cache_update_tnt_null_packet);
-
-	suite = suite_create("tnt-cache");
-	suite_add_tcase(suite, init);
-	suite_add_tcase(suite, is_empty);
-	suite_add_tcase(suite, query);
-	suite_add_tcase(suite, update_tnt);
-
-	return suite;
+	ptunit_report(&suite);
+	return suite.nr_fails;
 }

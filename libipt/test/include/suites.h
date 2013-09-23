@@ -37,6 +37,5 @@ extern Suite *suite_pt_packet_decode(void);
 extern Suite *suite_pt_query(void);
 extern Suite *suite_pt_use(void);
 extern Suite *suite_pt_packet(void);
-extern Suite *suite_pt_tnt_cache(void);
 
 #endif /* __SUITES_H__ */

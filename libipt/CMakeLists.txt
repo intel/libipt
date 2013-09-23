@@ -74,7 +74,6 @@ if (CHECK)
     test/src/check_pt_use.c
     test/src/check_pt_packet.c
     test/src/pt_decoder_fixture.c
-    test/src/check_pt_tnt_cache.c
   )
 
   include_directories(test/include)
@@ -86,4 +85,10 @@ add_executable(ptunit-last_ip
   src/pt_last_ip.c
 )
 
+add_executable(ptunit-tnt_cache
+  test/src/ptunit-tnt_cache.c
+  src/pt_tnt_cache.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
+target_link_libraries(ptunit-tnt_cache ptunit)
