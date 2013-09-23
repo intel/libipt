@@ -69,6 +69,7 @@ endif (FEATURE_ELF)
 include_directories(
   include
   libipt/include
+  ptunit/include
 )
 
 if (CMAKE_HOST_WIN32)
@@ -92,6 +93,10 @@ if (CMAKE_HOST_WIN32)
     # allow functions to ignore parameters
     #
     /wd4100
+
+    # prevent complaints on do {} while(0) constructs
+    #
+    /wd4127
 
     # warnings are errors
     #
@@ -193,3 +198,4 @@ add_subdirectory(libipt)
 add_subdirectory(ptdump)
 add_subdirectory(ptxed)
 add_subdirectory(pttc)
+add_subdirectory(ptunit)

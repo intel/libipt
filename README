@@ -25,6 +25,8 @@ Optional Contents and Samples
 
   pttc          A trace test generator
 
+  ptunit        A simple unit test system
+
   script        A collection of scripts
 
 
