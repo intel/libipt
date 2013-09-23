@@ -31,14 +31,12 @@
 #include "pt_error.h"
 #include "pt_packet.h"
 
-#include "suites.h"
-#include "pt_check.h"
+#include "ptunit.h"
 
 #include <string.h>
-#include <check.h>
 
 
-START_TEST(check_last_ip_init)
+static struct ptunit_result init(void)
 {
 	struct pt_last_ip last_ip;
 
@@ -46,19 +44,21 @@ START_TEST(check_last_ip_init)
 
 	pt_last_ip_init(&last_ip);
 
-	ck_uint64_eq(last_ip.ip, 0ull);
-	ck_uint_eq(last_ip.need_full_ip, 1);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_uint_eq(last_ip.ip, 0ull);
+	ptu_uint_eq(last_ip.need_full_ip, 1);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_init_null)
+	return ptu_passed();
+}
+
+static struct ptunit_result init_null(void)
 {
 	pt_last_ip_init(NULL);
-}
-END_TEST
 
-START_TEST(check_last_ip_status_initial)
+	return ptu_passed();
+}
+
+static struct ptunit_result status_initial(void)
 {
 	struct pt_last_ip last_ip;
 	int errcode;
@@ -66,11 +66,12 @@ START_TEST(check_last_ip_status_initial)
 	pt_last_ip_init(&last_ip);
 
 	errcode = pt_last_ip_query(NULL, &last_ip);
-	ck_int_eq(errcode, -pte_noip);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_noip);
 
-START_TEST(check_last_ip_status)
+	return ptu_passed();
+}
+
+static struct ptunit_result status(void)
 {
 	struct pt_last_ip last_ip;
 	int errcode;
@@ -79,20 +80,22 @@ START_TEST(check_last_ip_status)
 	last_ip.suppressed = 0;
 
 	errcode = pt_last_ip_query(NULL, &last_ip);
-	ck_int_eq(errcode, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
 
-START_TEST(check_last_ip_status_null)
+	return ptu_passed();
+}
+
+static struct ptunit_result status_null(void)
 {
 	int errcode;
 
 	errcode = pt_last_ip_query(NULL, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_invalid);
 
-START_TEST(check_last_ip_status_noip)
+	return ptu_passed();
+}
+
+static struct ptunit_result status_noip(void)
 {
 	struct pt_last_ip last_ip;
 	int errcode;
@@ -101,11 +104,12 @@ START_TEST(check_last_ip_status_noip)
 	last_ip.suppressed = 0;
 
 	errcode = pt_last_ip_query(NULL, &last_ip);
-	ck_int_eq(errcode, -pte_noip);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_noip);
 
-START_TEST(check_last_ip_status_suppressed)
+	return ptu_passed();
+}
+
+static struct ptunit_result status_suppressed(void)
 {
 	struct pt_last_ip last_ip;
 	int errcode;
@@ -114,11 +118,12 @@ START_TEST(check_last_ip_status_suppressed)
 	last_ip.suppressed = 1;
 
 	errcode = pt_last_ip_query(NULL, &last_ip);
-	ck_int_eq(errcode, -pte_ip_suppressed);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_ip_suppressed);
 
-START_TEST(check_last_ip_query_initial)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_initial(void)
 {
 	struct pt_last_ip last_ip;
 	uint64_t ip;
@@ -127,11 +132,12 @@ START_TEST(check_last_ip_query_initial)
 	pt_last_ip_init(&last_ip);
 
 	errcode = pt_last_ip_query(&ip, &last_ip);
-	ck_int_eq(errcode, -pte_noip);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_noip);
 
-START_TEST(check_last_ip_query)
+	return ptu_passed();
+}
+
+static struct ptunit_result query(void)
 {
 	struct pt_last_ip last_ip;
 	uint64_t ip, exp = 42ull;
@@ -142,23 +148,25 @@ START_TEST(check_last_ip_query)
 	last_ip.suppressed = 0;
 
 	errcode = pt_last_ip_query(&ip, &last_ip);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, exp);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, exp);
 
-START_TEST(check_last_ip_query_null)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_null(void)
 {
 	uint64_t ip = 13ull;
 	int errcode;
 
 	errcode = pt_last_ip_query(&ip, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-	ck_uint64_eq(ip, 13ull);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_invalid);
+	ptu_uint_eq(ip, 13ull);
 
-START_TEST(check_last_ip_query_noip)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_noip(void)
 {
 	struct pt_last_ip last_ip;
 	uint64_t ip = 13ull;
@@ -169,12 +177,13 @@ START_TEST(check_last_ip_query_noip)
 	last_ip.suppressed = 0;
 
 	errcode = pt_last_ip_query(&ip, &last_ip);
-	ck_int_eq(errcode, -pte_noip);
-	ck_uint64_eq(ip, 0ull);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_noip);
+	ptu_uint_eq(ip, 0ull);
 
-START_TEST(check_last_ip_query_suppressed)
+	return ptu_passed();
+}
+
+static struct ptunit_result query_suppressed(void)
 {
 	struct pt_last_ip last_ip;
 	uint64_t ip = 13ull;
@@ -185,12 +194,13 @@ START_TEST(check_last_ip_query_suppressed)
 	last_ip.suppressed = 1;
 
 	errcode = pt_last_ip_query(&ip, &last_ip);
-	ck_int_eq(errcode, -pte_ip_suppressed);
-	ck_uint64_eq(ip, 0ull);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_ip_suppressed);
+	ptu_uint_eq(ip, 0ull);
 
-START_TEST(check_last_ip_update_ip_suppressed)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_suppressed(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -204,14 +214,15 @@ START_TEST(check_last_ip_update_ip_suppressed)
 	packet.ip = 13ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, 42ull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 1);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, 42ull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 1);
 
-START_TEST(check_last_ip_update_ip_upd16)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_upd16(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -225,14 +236,15 @@ START_TEST(check_last_ip_update_ip_upd16)
 	packet.ip = 0xccc013ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, 0xffc013ull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, 0xffc013ull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_upd32)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_upd32(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -246,14 +258,15 @@ START_TEST(check_last_ip_update_ip_upd32)
 	packet.ip = 0xcc0000c013ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, 0xff0000c013ull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, 0xff0000c013ull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_sext48)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_sext48(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -267,14 +280,15 @@ START_TEST(check_last_ip_update_ip_sext48)
 	packet.ip = 0xff00000000ffull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, 0xffffff00000000ffull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, 0xffffff00000000ffull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_suppressed_noip)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_suppressed_noip(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -288,14 +302,15 @@ START_TEST(check_last_ip_update_ip_suppressed_noip)
 	packet.ip = 13ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, 42ull);
-	ck_uint_eq(last_ip.need_full_ip, 1);
-	ck_uint_eq(last_ip.suppressed, 1);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, 42ull);
+	ptu_uint_eq(last_ip.need_full_ip, 1);
+	ptu_uint_eq(last_ip.suppressed, 1);
 
-START_TEST(check_last_ip_update_ip_upd16_noip)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_upd16_noip(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -309,14 +324,15 @@ START_TEST(check_last_ip_update_ip_upd16_noip)
 	packet.ip = 0xccc013ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, -pte_noip);
-	ck_uint64_eq(last_ip.ip, 0xff0042ull);
-	ck_uint_eq(last_ip.need_full_ip, 1);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_noip);
+	ptu_uint_eq(last_ip.ip, 0xff0042ull);
+	ptu_uint_eq(last_ip.need_full_ip, 1);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_upd32_noip)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_upd32_noip(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -330,14 +346,15 @@ START_TEST(check_last_ip_update_ip_upd32_noip)
 	packet.ip = 0xcc0000c013ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, -pte_noip);
-	ck_uint64_eq(last_ip.ip, 0xff00000420ull);
-	ck_uint_eq(last_ip.need_full_ip, 1);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_noip);
+	ptu_uint_eq(last_ip.ip, 0xff00000420ull);
+	ptu_uint_eq(last_ip.need_full_ip, 1);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_sext48_noip)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_sext48_noip(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -351,14 +368,15 @@ START_TEST(check_last_ip_update_ip_sext48_noip)
 	packet.ip = 0xff00000000ffull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, 0);
-	ck_uint64_eq(last_ip.ip, 0xffffff00000000ffull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(last_ip.ip, 0xffffff00000000ffull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_bad_packet)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_bad_packet(void)
 {
 	struct pt_last_ip last_ip;
 	struct pt_packet_ip packet;
@@ -372,24 +390,26 @@ START_TEST(check_last_ip_update_ip_bad_packet)
 	packet.ip = 0ull;
 
 	errcode = pt_last_ip_update_ip(&last_ip, &packet, NULL);
-	ck_int_eq(errcode, -pte_bad_packet);
-	ck_uint64_eq(last_ip.ip, 0x7fffffffffffffffull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 0);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_bad_packet);
+	ptu_uint_eq(last_ip.ip, 0x7fffffffffffffffull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 0);
 
-START_TEST(check_last_ip_update_ip_null_ip)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_null_ip(void)
 {
 	struct pt_packet_ip packet;
 	int errcode;
 
 	errcode = pt_last_ip_update_ip(NULL, &packet, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-}
-END_TEST
+	ptu_int_eq(errcode, -pte_invalid);
 
-START_TEST(check_last_ip_update_ip_null_packet)
+	return ptu_passed();
+}
+
+static struct ptunit_result update_ip_null_packet(void)
 {
 	struct pt_last_ip last_ip;
 	int errcode;
@@ -399,54 +419,44 @@ START_TEST(check_last_ip_update_ip_null_packet)
 	last_ip.suppressed = 0;
 
 	errcode = pt_last_ip_update_ip(&last_ip, NULL, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-	ck_uint64_eq(last_ip.ip, 0x7fffffffffffffffull);
-	ck_uint_eq(last_ip.need_full_ip, 0);
-	ck_uint_eq(last_ip.suppressed, 0);
+	ptu_int_eq(errcode, -pte_invalid);
+	ptu_uint_eq(last_ip.ip, 0x7fffffffffffffffull);
+	ptu_uint_eq(last_ip.need_full_ip, 0);
+	ptu_uint_eq(last_ip.suppressed, 0);
+
+	return ptu_passed();
 }
-END_TEST
 
-Suite *suite_pt_last_ip(void)
+int main(int argc, const char **argv)
 {
-	TCase *init, *status, *query, *update_ip;
-	Suite *suite;
+	struct ptunit_suite suite;
 
-	init = tcase_create("init");
-	tcase_add_test(init, check_last_ip_init);
-	tcase_add_test(init, check_last_ip_init_null);
+	suite = ptunit_mk_suite(argc, argv);
 
-	status = tcase_create("status");
-	tcase_add_test(status, check_last_ip_status_initial);
-	tcase_add_test(status, check_last_ip_status);
-	tcase_add_test(status, check_last_ip_status_null);
-	tcase_add_test(status, check_last_ip_status_noip);
-	tcase_add_test(status, check_last_ip_status_suppressed);
+	ptu_run(suite, init);
+	ptu_run(suite, init_null);
+	ptu_run(suite, status_initial);
+	ptu_run(suite, status);
+	ptu_run(suite, status_null);
+	ptu_run(suite, status_noip);
+	ptu_run(suite, status_suppressed);
+	ptu_run(suite, query_initial);
+	ptu_run(suite, query);
+	ptu_run(suite, query_null);
+	ptu_run(suite, query_noip);
+	ptu_run(suite, query_suppressed);
+	ptu_run(suite, update_ip_suppressed);
+	ptu_run(suite, update_ip_upd16);
+	ptu_run(suite, update_ip_upd32);
+	ptu_run(suite, update_ip_sext48);
+	ptu_run(suite, update_ip_suppressed_noip);
+	ptu_run(suite, update_ip_upd16_noip);
+	ptu_run(suite, update_ip_upd32_noip);
+	ptu_run(suite, update_ip_sext48_noip);
+	ptu_run(suite, update_ip_bad_packet);
+	ptu_run(suite, update_ip_null_ip);
+	ptu_run(suite, update_ip_null_packet);
 
-	query = tcase_create("query");
-	tcase_add_test(query, check_last_ip_query_initial);
-	tcase_add_test(query, check_last_ip_query);
-	tcase_add_test(query, check_last_ip_query_null);
-	tcase_add_test(query, check_last_ip_query_noip);
-	tcase_add_test(query, check_last_ip_query_suppressed);
-
-	update_ip = tcase_create("update-ip");
-	tcase_add_test(update_ip, check_last_ip_update_ip_suppressed);
-	tcase_add_test(update_ip, check_last_ip_update_ip_upd16);
-	tcase_add_test(update_ip, check_last_ip_update_ip_upd32);
-	tcase_add_test(update_ip, check_last_ip_update_ip_sext48);
-	tcase_add_test(update_ip, check_last_ip_update_ip_suppressed_noip);
-	tcase_add_test(update_ip, check_last_ip_update_ip_upd16_noip);
-	tcase_add_test(update_ip, check_last_ip_update_ip_upd32_noip);
-	tcase_add_test(update_ip, check_last_ip_update_ip_sext48_noip);
-	tcase_add_test(update_ip, check_last_ip_update_ip_bad_packet);
-	tcase_add_test(update_ip, check_last_ip_update_ip_null_ip);
-	tcase_add_test(update_ip, check_last_ip_update_ip_null_packet);
-
-	suite = suite_create("last-ip");
-	suite_add_tcase(suite, init);
-	suite_add_tcase(suite, query);
-	suite_add_tcase(suite, status);
-	suite_add_tcase(suite, update_ip);
-
-	return suite;
+	ptunit_report(&suite);
+	return suite.nr_fails;
 }

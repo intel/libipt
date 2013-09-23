@@ -73,7 +73,6 @@ if (CHECK)
     test/src/check_pt_sync.c
     test/src/check_pt_use.c
     test/src/check_pt_packet.c
-    test/src/check_pt_last_ip.c
     test/src/pt_decoder_fixture.c
     test/src/check_pt_tnt_cache.c
   )
@@ -81,3 +80,10 @@ if (CHECK)
   include_directories(test/include)
   target_link_libraries(check-libipt check)
 endif (CHECK)
+
+add_executable(ptunit-last_ip
+  test/src/ptunit-last_ip.c
+  src/pt_last_ip.c
+)
+
+target_link_libraries(ptunit-last_ip ptunit)
