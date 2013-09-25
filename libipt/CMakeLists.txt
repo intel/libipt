@@ -68,7 +68,6 @@ if (CHECK)
 
     test/src/check.c
     test/src/check_pt_packet_decode.c
-    test/src/check_pt_query.c
     test/src/check_pt_state.c
     test/src/check_pt_sync.c
     test/src/check_pt_use.c
@@ -90,5 +89,18 @@ add_executable(ptunit-tnt_cache
   src/pt_tnt_cache.c
 )
 
+add_executable(ptunit-query
+  test/src/ptunit-query.c
+  src/pt_query.c
+  src/pt_encode.c
+  src/pt_last_ip.c
+  src/pt_state.c
+  src/pt_packet_decode.c
+  src/pt_sync.c
+  src/pt_tnt_cache.c
+  src/pt_config.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
+target_link_libraries(ptunit-query ptunit)

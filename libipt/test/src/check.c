@@ -38,7 +38,6 @@ int main(void)
 	srunner_add_suite(srunner, suite_pt_state());
 	srunner_add_suite(srunner, suite_pt_sync());
 	srunner_add_suite(srunner, suite_pt_packet_decode());
-	srunner_add_suite(srunner, suite_pt_query());
 	srunner_add_suite(srunner, suite_pt_use());
 
 	srunner_run_all(srunner, CK_ENV);
