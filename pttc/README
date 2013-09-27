@@ -132,7 +132,7 @@ file.  Empty lines can be used to structure the expected output text.
 In exp files, the address of a yasm label can be substituted with the
 syntax with:
 
-	%[0]label[.<number>].
+	%[?0]label[.<number>].
 
 
 That means, labels are prefixed with '%', e.g. %label and the address of
@@ -149,6 +149,11 @@ The least significant bytes of an address can be masked by appending '.'
 and the number of bytes that should be kept, e.g. %label.2 and the
 address of label will be substitued but only the 2 least significant
 bytes are kept.
+
+A prefix of '?' in combination with masking, e.g. %?label.2, replaces
+the masked out parts with '?'.  The non-masked out part is implicitly
+filled with leading zeroes.
+
 
 The packet number of pt directives can also be substituted in the
 output.  These numbers are printed in decimal.  The syntax is:

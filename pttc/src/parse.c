@@ -239,9 +239,10 @@ static int p_gen_expfile(struct parser *p)
 		for (;;) {
 			char *tmp, label[256];
 			uint64_t addr;
-			int i, zero_padding, status;
+			int i, zero_padding, qmark_padding, qmark_size, status;
 
 			zero_padding = 0;
+			qmark_padding = 0;
 
 			/* find the label character in the string.
 			 * if there is no label character, we just print
@@ -276,6 +277,13 @@ static int p_gen_expfile(struct parser *p)
 			/* check if zero padding is requested.  */
 			if (*line == '0') {
 				zero_padding = 1;
+				line += 1;
+			}
+			/* chek if ? padding is requested.  */
+			else if (*line == '?') {
+				qmark_padding = 1;
+				zero_padding = 1;
+				qmark_size = 0;
 				line += 1;
 			}
 
@@ -340,9 +348,39 @@ static int p_gen_expfile(struct parser *p)
 				}
 				addr &= (1 << (n << 3)) - 1;
 				line = endptr;
+
+				qmark_size = 8 - n;
 			}
 
-			if (zero_padding)
+			if (qmark_padding) {
+				int i;
+
+				status = fprintf(f, "0x");
+				if (status < 0) {
+					errcode = -err_file_write;
+					goto error;
+				}
+
+				for (i = 0; i < qmark_size; ++i) {
+					status = fprintf(f, "??");
+					if (status < 0) {
+						errcode = -err_file_write;
+						goto error;
+					}
+				}
+
+				for (; i < 8; ++i) {
+					uint8_t byte;
+
+					byte = (uint8_t)(addr >> ((7 - i) * 8));
+
+					status = fprintf(f, "%02" PRIx8, byte);
+					if (status < 0) {
+						errcode = -err_file_write;
+						goto error;
+					}
+				}
+			} else if (zero_padding)
 				status = fprintf(f, "0x%016" PRIx64, addr);
 			else
 				status = fprintf(f, "0x%" PRIx64, addr);
