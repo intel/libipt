@@ -133,7 +133,6 @@ for ptt in $*; do
 			run rm $diff
 		else
 			echo $diff
-			status=1
 		fi
 	done
 done
