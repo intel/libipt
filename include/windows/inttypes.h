@@ -49,6 +49,10 @@
 #  define PRIx32 "x"
 #endif
 
+#ifndef PRIx8
+#  define PRIx8 "x"
+#endif
+
 #ifndef SCNx64
 #  define SCNx64 "llx"
 #endif
