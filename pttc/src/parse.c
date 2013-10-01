@@ -243,6 +243,7 @@ static int p_gen_expfile(struct parser *p)
 
 			zero_padding = 0;
 			qmark_padding = 0;
+			qmark_size = 0;
 
 			/* find the label character in the string.
 			 * if there is no label character, we just print
