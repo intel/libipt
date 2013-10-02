@@ -69,6 +69,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_ip_suppressed:
 		return "ip has been suppressed";
+
+	case pte_nomap:
+		return "no memory mapped at this address";
 	}
 
 	/* Should not reach here. */

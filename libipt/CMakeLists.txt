@@ -112,8 +112,22 @@ add_executable(ptunit-retstack
   src/pt_retstack.c
 )
 
+add_executable(ptunit-section_file
+  test/src/ptunit-section.c
+  src/pt_section_file.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
 target_link_libraries(ptunit-cpp ptunit libipt)
 target_link_libraries(ptunit-retstack ptunit)
+target_link_libraries(ptunit-section_file ptunit)
+
+if (FEATURE_MMAP)
+  add_executable(ptunit-section_mmap
+    test/src/ptunit-section.c
+    src/posix/pt_section_mmap.c
+  )
+  target_link_libraries(ptunit-section_mmap ptunit)
+endif (FEATURE_MMAP)
