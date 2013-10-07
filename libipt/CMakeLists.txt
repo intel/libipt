@@ -117,12 +117,18 @@ add_executable(ptunit-section_file
   src/pt_section_file.c
 )
 
+add_executable(ptunit-image
+  test/src/ptunit-image.c
+  src/pt_image.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
 target_link_libraries(ptunit-cpp ptunit libipt)
 target_link_libraries(ptunit-retstack ptunit)
 target_link_libraries(ptunit-section_file ptunit)
+target_link_libraries(ptunit-image ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap
