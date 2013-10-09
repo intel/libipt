@@ -130,6 +130,11 @@ static int opt_load_pt(const char **argv)
 	size_t size;
 	int errcode;
 
+	if (opt_decoder) {
+		fprintf(stderr, "%s: duplicate pt sources.\n", opt_prog);
+		return -1;
+	}
+
 	pt = map_file(argv[0], &size);
 	if (!pt)
 		return -1;
@@ -371,12 +376,6 @@ static int opt_arg_error(struct option *opt)
 	return -1;
 }
 
-static int duplicate_option(struct option *opt)
-{
-	fprintf(stderr, "%s: %s: duplicate option.\n", opt_prog, opt->name);
-	return -1;
-}
-
 static int unknown_option(const char *name)
 {
 	fprintf(stderr, "%s: %s: unknown option. Use --help or -h for help.\n",
@@ -384,7 +383,7 @@ static int unknown_option(const char *name)
 	return -1;
 }
 
-static int scan_options(int argc, const char **argv)
+static int process_options(int argc, const char **argv)
 {
 	size_t a, o;
 
@@ -397,16 +396,17 @@ static int scan_options(int argc, const char **argv)
 
 			if ((opt->name && (strcmp(name, opt->name) == 0)) ||
 			    (opt->abbrv && (strcmp(name, opt->abbrv) == 0))) {
-				int s;
-
-				if (opt->argv)
-					return duplicate_option(opt);
+				int s, errcode;
 
 				opt->argv = &argv[a];
 
 				for (s = 0; s < opt->argc; ++s)
 					if (!argv[a++])
 						return opt_arg_error(opt);
+
+				errcode = opt->process(opt->argv);
+				if (errcode < 0)
+					return errcode;
 
 				break;
 			}
@@ -415,25 +415,6 @@ static int scan_options(int argc, const char **argv)
 
 		if (o == num_opts)
 			return unknown_option(name);
-	}
-
-	return 0;
-}
-
-static int process_options(void)
-{
-	size_t o;
-
-	for (o = 0; o < num_opts; ++o) {
-		struct option *opt = &opts[o];
-
-		if (opt->argv) {
-			int errcode;
-
-			errcode = opt->process(opt->argv);
-			if (errcode < 0)
-				return errcode;
-		}
 	}
 
 	if (!opt_decoder) {
@@ -500,11 +481,7 @@ extern int main(int argc, const char **argv)
 	opt_prog = argv[0];
 	opt_pflags = pf_ptev_compression;
 
-	errcode = scan_options(argc, argv);
-	if (errcode < 0)
-		return errcode;
-
-	errcode = process_options();
+	errcode = process_options(argc, argv);
 	if (errcode < 0)
 		return errcode;
 
