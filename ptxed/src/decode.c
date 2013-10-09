@@ -38,23 +38,12 @@
 
 static void print_inst(struct disas_state *state)
 {
-	static int suppressed;
+	if (state->flags & pf_speculative)
+		printf("? ");
 
-	if (disas_is_suppressed(state->ip)) {
-		if (!suppressed)
-			printf("[suppressed]\n");
+	(void)disas_print_inst(state);
 
-		suppressed = 1;
-	} else {
-		if (state->flags & pf_speculative)
-			printf("? ");
-
-		(void)disas_print_inst(state);
-
-		printf("\n");
-
-		suppressed = 0;
-	}
+	printf("\n");
 }
 
 static int proceed_cond_branch(struct disas_state *state)

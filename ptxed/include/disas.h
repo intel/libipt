@@ -89,23 +89,6 @@ struct disas_state {
 	uint8_t call_top;
 };
 
-/* An address-based disassembly filter.
- *
- * If at least one filter is present,instructions that do not fall into any of
- * the filter ranges are suppressed.
- *
- * Use disas_is_suppressed() to query the above property.
- */
-struct disas_filter {
-	/* The next filter in a linear list of filters. */
-	struct disas_filter *next;
-
-	/* The begin and end linear address of this filter. The filtered range
-	 * is [begin; end[.
-	 */
-	uint64_t begin, end;
-};
-
 /* Initialize the disassembler state. */
 extern void disas_init(struct disas_state *, struct pt_decoder *,
 		       struct load_map *);
@@ -216,27 +199,5 @@ extern int disas_pop_call(struct disas_state *);
  * Returns -@err.
  */
 extern int diag(const char *, struct disas_state *, enum pt_error_code err);
-
-/* Add an address range to be focused on.
- *
- * Instructions in the range [begin; end[ will be printed.
- */
-extern int disas_filter(uint64_t begin, uint64_t end);
-
-/* Clear filters.
- *
- * Removes all existing filters, thus printing all instructions.
- */
-extern void disas_clear_filters();
-
-/* Check whether the instruction at @ip is suppressed.
- *
- * An address is suppressed if there is at least one filter and the address is
- * not contained in any of the filters.
- *
- * Returns 1 if the instruction at @ip is suppressed.
- * Returns 0 if the instruction at @ip is not suppressed.
- */
-extern int disas_is_suppressed(uint64_t ip);
 
 #endif /* __DISAS_H__ */

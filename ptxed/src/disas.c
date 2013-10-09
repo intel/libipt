@@ -40,9 +40,6 @@
 #include <stdio.h>
 
 
-/* The disassembly filters. */
-static struct disas_filter *filters;
-
 static void ctor(void)
 {
 	static int xed;
@@ -281,48 +278,4 @@ int diag(const char *msg, struct disas_state *state, enum pt_error_code err)
 	       pt_get_decoder_pos(state->decoder), state->ip, msg);
 
 	return -err;
-}
-
-int disas_filter(uint64_t begin, uint64_t end)
-{
-	struct disas_filter *next;
-
-	next = malloc(sizeof(*next));
-	if (!next)
-		return -pte_nomem;
-
-	next->next = filters;
-	next->begin = begin;
-	next->end = end;
-
-	filters = next;
-
-	return 0;
-}
-
-void disas_clear_filters()
-{
-	while (filters) {
-		struct disas_filter *trash;
-
-		trash = filters;
-		filters = filters->next;
-
-		free(trash);
-	}
-}
-
-int disas_is_suppressed(uint64_t ip)
-{
-	struct disas_filter *it;
-
-	if (!filters)
-		return 0;
-
-	for (it = filters; it; it = it->next) {
-		if ((it->begin <= ip) && (ip < it->end))
-			return 0;
-	}
-
-	return 1;
 }

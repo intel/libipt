@@ -77,25 +77,6 @@ int opt_pflags;
 /* The default execution mode. */
 enum pt_exec_mode opt_exec_mode = ptem_64bit;
 
-/* The disassembly filter specs. */
-struct opt_filters_spec {
-	/* The next filter spec in a linear list of filter specs. */
-	struct opt_filters_spec *next;
-
-	/* The name of the file to be filtered.
-	 *
-	 * NULL, if this is not a file filter.
-	 */
-	const char *file;
-
-	/* The address range to be filtered.
-	 *
-	 * This will only be considered if the above file is NULL.
-	 */
-	uint64_t begin, end;
-};
-static struct opt_filters_spec *opt_filters;
-
 
 static int help(const char **);
 
@@ -227,24 +208,6 @@ static int opt_16(const char **argv)
 	return 0;
 }
 
-static int opt_filter_file(const char **argv)
-{
-	struct opt_filters_spec *next;
-
-	next = malloc(sizeof(*next));
-	if (!next)
-		return -pte_nomem;
-
-	next->file = argv[0];
-	next->begin = 0;
-	next->end = 0;
-	next->next = opt_filters;
-
-	opt_filters = next;
-
-	return 0;
-}
-
 struct option opts[] = {
 	{
 		/* .name = */ "--help",
@@ -327,14 +290,6 @@ struct option opts[] = {
 		/* .argc = */ 0,
 		/* .args = */ NULL,
 		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--filter-file",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_filter_file,
-		/* .argc = */ 1,
-		/* .args = */ "<file>",
-		/* .argv = */ NULL
 	}
 };
 
@@ -357,7 +312,7 @@ static int help(const char **argv)
 	       "  --64                     set the default execution mode to 64bit (default).\n"
 	       "  --32                     set the default execution mode to 32bit.\n"
 	       "  --16                     set the default execution mode to 16bit.\n"
-	       "  --filter-file <file>     restrict the trace disassembly to <file>.\n\n"
+	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
 #else /* defined(FEATURE_ELF) */
@@ -427,44 +382,6 @@ static int process_options(int argc, const char **argv)
 		fprintf(stderr,
 			"%s: no image file specified specified.\n", opt_prog);
 		return -1;
-	}
-
-	/* Process filter options. */
-	while (opt_filters) {
-		struct opt_filters_spec *flt;
-		int errcode;
-
-		flt = opt_filters;
-		opt_filters = flt->next;
-
-		errcode = 0;
-		if (flt->file) {
-			struct load_map *it = opt_loadmap;
-			int found = 0;
-
-			for (; it; it = it->next) {
-				if (!it->file)
-					continue;
-				if (!strstr(it->file, flt->file))
-					continue;
-
-				found = 1;
-				errcode = disas_filter(it->address,
-						       it->address + it->size);
-				if (errcode)
-					break;
-			}
-
-			if (!found)
-				fprintf(stderr, "warning: no such file: %s. "
-					"ignoring filter.\n", flt->file);
-		} else
-			errcode = disas_filter(flt->begin, flt->end);
-
-		free(flt);
-
-		if (errcode)
-			return errcode;
 	}
 
 	return 0;
