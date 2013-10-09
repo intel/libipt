@@ -163,7 +163,24 @@ static int opt_load_pt(const char **argv)
 
 static int opt_load_elf(const char **argv)
 {
-	return load_elf(argv[0], &opt_loadmap, 0);
+	uint64_t base;
+	char *sep, *rest;
+
+	base = 0;
+	sep = strstr(argv[0], ":");
+	if (sep) {
+		errno = 0;
+		base = strtoull(sep+1, &rest, 0);
+		if (errno || *rest) {
+			fprintf(stderr, "%s: bad base argument: %s.\n",
+				opt_prog, sep+1);
+			return -1;
+		}
+
+		*sep = 0;
+	}
+
+	return load_elf(argv[0], &opt_loadmap, base);
 }
 
 #endif /* defined(FEATURE_ELF) */
@@ -270,7 +287,7 @@ struct option opts[] = {
 		/* .abbrv = */ NULL,
 		/* .process = */ opt_load_elf,
 		/* .argc = */ 1,
-		/* .args = */ "<file>",
+		/* .args = */ "<file>[:<base>]",
 		/* .argv = */ NULL
 	},
 #endif /* defined(FEATURE_ELF) */
@@ -322,19 +339,20 @@ static int help(const char **argv)
 {
 	printf("usage: %s [<options>]\n\n"
 	       "options:\n"
-	       "  --help|-h              this text.\n"
-	       "  --version              display version information and exit.\n"
-	       "  --no-zret              assume no return compression.\n"
-	       "  --no-inst              do not print instructions (only addresses).\n"
-	       "  --pt <file>            load the processor trace data from <file>.\n"
+	       "  --help|-h                this text.\n"
+	       "  --version                display version information and exit.\n"
+	       "  --no-zret                assume no return compression.\n"
+	       "  --no-inst                do not print instructions (only addresses).\n"
+	       "  --pt <file>              load the processor trace data from <file>.\n"
 #if defined(FEATURE_ELF)
-	       "  --elf <<file>          load an ELF from <file>.\n"
+	       "  --elf <<file>[:<base>]   load an ELF from <file> at address <base>.\n"
+	       "                           use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
-	       "  --raw <file> <base>    load a raw binary from <file> at address <base>.\n"
-	       "  --64                   set the default execution mode to 64bit (default).\n"
-	       "  --32                   set the default execution mode to 32bit.\n"
-	       "  --16                   set the default execution mode to 16bit.\n"
-	       "  --filter-file <file>   restrict the trace disassembly to <file>.\n\n"
+	       "  --raw <file> <base>      load a raw binary from <file> at address <base>.\n"
+	       "  --64                     set the default execution mode to 64bit (default).\n"
+	       "  --32                     set the default execution mode to 32bit.\n"
+	       "  --16                     set the default execution mode to 16bit.\n"
+	       "  --filter-file <file>     restrict the trace disassembly to <file>.\n\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
 #else /* defined(FEATURE_ELF) */
