@@ -67,13 +67,13 @@ enum pt_opcode_mask {
 	pt_opm_fup		= pt_opm_tip,
 
 	/* The bit mask for the compression bits in the opcode. */
-	pt_opm_ipc		= 0xc0,
+	pt_opm_ipc		= 0xe0,
 
 	/* The shift right value for ipc bits. */
-	pt_opm_ipc_shr		= 6,
+	pt_opm_ipc_shr		= 5,
 
 	/* The bit mask for the compression bits after shifting. */
-	pt_opm_ipc_shr_mask	= 0x3,
+	pt_opm_ipc_shr_mask	= 0x7,
 };
 
 /* The size of the various opcodes in bytes. */
