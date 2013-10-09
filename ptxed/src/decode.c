@@ -448,7 +448,7 @@ void disas(struct pt_decoder *decoder, struct load_map *elfmap)
 
 		default:
 			/* We exited the proceed loop due to an error. */
-			printf("[%" PRIu64 ", 0x%" PRIx64 ": "
+			printf("[0x%" PRIx64 ", 0x%" PRIx64 ": "
 			       "resyncing due to error (%d): %s]\n",
 			       pt_get_decoder_pos(decoder), state.ip, errcode,
 			       pt_errstr(errcode));
