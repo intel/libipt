@@ -1583,18 +1583,6 @@ START_TEST(check_header_pad)
 }
 END_TEST
 
-/* Check aspects of the decoder state that should not be modified when decoding
- * PSB in header context.
- */
-static void check_header_non_psb_state(struct pt_decoder *decoder)
-{
-	ck_uint64_eq(decoder->tsc, 0);
-
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
-}
-
 START_TEST(check_header_psb)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
@@ -1605,22 +1593,12 @@ START_TEST(check_header_psb)
 
 	check_encode_psb(encoder);
 
-	decoder->flags = 0xdeadbeef;
-	decoder->tnt.tnt = 0xdeadbeef;
-	decoder->tnt.index = 0xdeadbeef;
-
 	sync = decoder->sync;
 
 	errcode = pt_decode_psb.header(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_ptr(decoder->sync, sync);
-
-	pt_last_ip_init(&dfix->last_ip);
-	ck_last_ip();
-	ck_tnt_cache();
-
-	check_header_non_psb_state(decoder);
 }
 END_TEST
 
@@ -2111,18 +2089,6 @@ START_TEST(check_decode_pad)
 }
 END_TEST
 
-/* Check aspects of the decoder state that should not be modified when decoding
- * PSB.
- */
-static void check_non_psb_state(struct pt_decoder *decoder)
-{
-	ck_uint64_eq(decoder->tsc, 0);
-
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
-}
-
 START_TEST(check_decode_psb)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
@@ -2134,22 +2100,12 @@ START_TEST(check_decode_psb)
 	pos = check_encode_psb(encoder);
 	check_encode_psbend(encoder);
 
-	decoder->flags = 0xdeadbeef;
-	decoder->tnt.tnt = 0xdeadbeef;
-	decoder->tnt.index = 0xdeadbeef;
-
 	sync = decoder->sync;
 
 	errcode = pt_decode_psb.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, pos);
 	ck_ptr(decoder->sync, sync);
-
-	pt_last_ip_init(&dfix->last_ip);
-	ck_last_ip();
-	ck_tnt_cache();
-
-	check_non_psb_state(decoder);
 }
 END_TEST
 
@@ -2164,22 +2120,12 @@ START_TEST(check_decode_psb_ovf)
 	pos = check_encode_psb(encoder);
 	check_encode_ovf(encoder);
 
-	decoder->flags = 0xdeadbeef;
-	decoder->tnt.tnt = 0xdeadbeef;
-	decoder->tnt.index = 0xdeadbeef;
-
 	sync = decoder->sync;
 
 	errcode = pt_decode_psb.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, pos);
 	ck_ptr(decoder->sync, sync);
-
-	pt_last_ip_init(&dfix->last_ip);
-	ck_last_ip();
-	ck_tnt_cache();
-
-	check_non_psb_state(decoder);
 }
 END_TEST
 

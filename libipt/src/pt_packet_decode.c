@@ -165,8 +165,6 @@ static int header_psb(struct pt_decoder *decoder)
 	if (size < 0)
 		return size;
 
-	pt_reset(decoder);
-
 	decoder->pos += size;
 	return 0;
 }

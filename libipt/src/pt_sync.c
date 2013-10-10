@@ -30,6 +30,7 @@
 #include "pt_packet_decode.h"
 
 #include "pt_decode.h"
+#include "pt_packet.h"
 #include "pt_opcode.h"
 #include "pt_error.h"
 
@@ -115,18 +116,21 @@ static const uint8_t *pt_find_psb(const uint8_t *pos,
  */
 static int pt_sync_decoder(struct pt_decoder *decoder, const uint8_t *pos)
 {
+	struct pt_packet packet;
 	int status;
 
 	decoder->pos = pos;
 
 	/* Let's try to decode the PSB packet we found. */
-	status = pt_decode_psb.header(decoder);
+	status = pt_decode_psb.packet(&packet, decoder);
 	if (status < 0)
 		return -pte_nosync;
 
 	/* We synchronized successfully. */
 	decoder->sync = pos;
 	decoder->pos = pos;
+
+	pt_reset(decoder);
 
 	return 0;
 }
