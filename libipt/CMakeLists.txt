@@ -107,7 +107,13 @@ add_executable(ptunit-cpp
   test/src/ptunit-cpp.cpp
 )
 
+add_executable(ptunit-retstack
+  test/src/ptunit-retstack.c
+  src/pt_retstack.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
 target_link_libraries(ptunit-cpp ptunit libipt)
+target_link_libraries(ptunit-retstack ptunit)
