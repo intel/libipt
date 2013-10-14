@@ -41,7 +41,17 @@ set(LIBIPT_FILES
   src/pt_last_ip.c
   src/pt_tnt_cache.c
   src/pt_ild.c
+  src/pt_image.c
+  src/pt_retstack.c
+  src/pt_insn_decoder.c
+  src/pt_insn.c
 )
+
+if (FEATURE_MMAP)
+  set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/pt_section_mmap.c)
+else (FEATURE_MMAP)
+  set(LIBIPT_FILES ${LIBIPT_FILES} src/pt_section_file.c)
+endif (FEATURE_MMAP)
 
 if (CMAKE_HOST_UNIX)
   add_definitions(

@@ -26,46 +26,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-extern "C" {
-#include "pt_compiler.h"
+#include "pt_insn_decoder.h"
+
 #include "pt_config.h"
-#include "pt_decode.h"
-#include "pt_encode.h"
 #include "pt_error.h"
-#include "pt_opcode.h"
-#include "pt_packet.h"
-#include "pt_query.h"
-#include "pt_version.h"
-#include "pt_insn.h"
 
-#include "ptunit.h"
+
+void pt_insn_reset(struct pt_insn_decoder *decoder)
+{
+	if (!decoder)
+		return;
+
+	decoder->mode = ptem_unknown;
+	decoder->ip = 0ull;
+	decoder->status = 0;
+	decoder->enabled = 0;
+	decoder->process_event = 0;
+	decoder->speculative = 0;
+
+	pt_retstack_init(&decoder->retstack);
 }
 
-static struct ptunit_result init_decoder(void)
+int pt_insn_init(struct pt_insn_decoder *decoder,
+		 const struct pt_config *config)
 {
-	uint8_t buf[1];
-	struct pt_config config;
-	struct pt_decoder *decoder;
+	int errcode;
 
-	pt_configure(&config);
-	config.begin = buf;
-	config.end = buf + sizeof(buf);
+	if (!decoder)
+		return -pte_internal;
 
-	decoder = pt_alloc_decoder(&config);
-	ptu_ptr(decoder);
-	pt_free_decoder(decoder);
+	if (!config)
+		return -pte_invalid;
 
-	return ptu_passed();
-}
+	errcode = pt_decoder_init(&decoder->query, config);
+	if (errcode < 0)
+		return errcode;
 
-int main(int argc, const char **argv)
-{
-	struct ptunit_suite suite;
+	pt_image_init(&decoder->image, NULL);
+	pt_insn_reset(decoder);
 
-	suite = ptunit_mk_suite(argc, argv);
-
-	ptu_run(suite, init_decoder);
-
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return 0;
 }

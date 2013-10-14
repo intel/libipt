@@ -7,32 +7,32 @@ Copyright (C) 2013 Intel Corporation.  All rights reserved.
 Introduction
 ------------
 
-First of all, libipt is not sufficient for producing an execution trace
-disassembly, a trace of linear instruction addresses, or even a trace of from/to
-address pairs by itself. It is meant to decode the raw PT data and to guide a
-user who wants to produce one of the above.
+The Intel(R) Processor Trace Decoder Library provides multiple layers of
+abstraction ranging from PT packet decoding to full execution flow
+reconstruction.
 
-A user of libipt will need to provide an instruction decoder as well as the
-main loop for decoding the trace. The user is expected to drive the decoding.
+The first step in using libipt is hence to choose the layer that suits your
+needs.  We offer the following abstraction layers:
 
-As long as control flow is obvious from the disassembly, the user will continue
-on its own. At places where control flow is not obvious, he will ask libipt for
-guidance. In addition to that, libipt will notify the user about asynchronous
-events.
+  - packets
+  - events
+  - execution flow
+
+The rest of this document describes the above layers in detail.  We start with
+two aspects that are common to all layers: configuration and synchronization.
 
 
 Configuration
 -------------
 
-The first step is to create and configure a PT decoder. The PT configuration
-specifies PT parameters that are required for decoding.
-
-Libipt provides a structure for specifying the PT configuration:
+Libipt provides a structure for specifying the configuration:
 
          struct pt_config;
 
 
-The configuration structure contains the following fields:
+The configuration structure describes parameters that are relevant for decoding
+and also offers a means for customizing decoding.  It contains the following
+fields:
 
   - size                This is to be set to the size of the structure.
 
@@ -70,50 +70,52 @@ in by calling:
 
          int pt_configure(struct pt_config *);
 
-on the system on which PT is collected.
+on the system on which PT is collected.  This will fill in the size and
+cpuid fields.
 
-
-Once the configuration is filled in, a PT decoder can be allocated:
-
-         struct pt_decoder *pt_alloc_decoder(const struct pt_config *);
-
-
-After finishing decoding, the allocated PT decoder should be freed:
-
-         void pt_free_decoder(struct pt_decoder *);
+The configuration is required for allocating a decoder.
 
 
 Synchronization
 ---------------
 
-PT is a stream of variable-length packets. Before we may start decoding, we
-need to synchronize on that stream. At regular intervals, the PT stream
-contains synchronization packets.
+Intel(R) PT is a stream of variable-length packets.  Before we may start
+decoding, we need to synchronize on that stream.  Also in case of errors,
+we would re-synchronize, thereby skipping a portion of the trace.
 
-Libipt provides two functions for synchronization with the PT stream:
+The actual function to use depends on the abstraction layer; they all provide
+similar functionality, though.
 
-         int pt_sync_forward(struct pt_decoder *);
-         int pt_sync_backward(struct pt_decoder *);
+All layers provide functions for synchronizing backward as well as forward,
+and for querying the current offset.  The former will search for the next
+synchronization packet in forward or backward direction, respectively.  The
+latter gives the offset of the synchronization packet in the trace buffer.
 
-They will search for the next synchronization packet in forward or backward
-direction, respectively. By repeatedly calling one of those functions, we may
-iterate over the synchronization points in the stream. This may be used for
-parallel decoding, for example.
-
-Should synchronization fail for some reason, we repeat the request until we
-synchronized successfully or ran out of PT data. This will skip some PT
-segments.
+In its simplest form, we would start by synchronizing forward to the first
+synchronization packet and start decoding from there.  If everything went
+well, we should eventually get an end-of-stream error indicating that we
+successfully decoded the entire trace stream.  In case of other errors, we
+would again synchronize forward to skip a portion of the trace and restart
+decoding from there.
 
 
-Decoding
---------
+
+The packet layer
+----------------
 
 At the lowest level, libipt supports decoding PT packets:
 
          int pt_decode(struct pt_packet *, struct pt_decoder *);
 
 This function decodes the packet at the decoder's current position and returns
-the number of bytes read.
+the number of bytes read on success, or a negative number on error.  It takes
+the following parameters:
+
+  - packet              a struct to be filled according to what was found in
+                        the low-level decode
+
+  - decoder             a PT decoder struct
+
 
 This function can be used to iterate over individual packets in a PT stream for
 dumping or for external decoding. The decoder needs to be advanced by the
@@ -124,26 +126,7 @@ Libipt provides a function to do that:
          int pt_advance(struct pt_decoder *, int);
 
 
-Raw packet information
-----------------------
-
-The lowest level of PT stream processing is interpreting raw bytes and bits,
-separating the stream into packets and understanding the contents of each
-packet. Libipt provides a function that operates on that level:
-
-         int pt_decode(struct pt_packet *packet, struct pt_decoder *decoder);
-
-As parameters it receives
-
-  - packet              a struct to be filled according to what was found in
-                        the low-level decode
-
-  - decoder             a PT decoder struct
-
-It returns the size of the decoded packet, or a negative number on error.
-
-
-Libipt provides a structure to describe packet contents:
+The decoded packet is described by:
 
          struct pt_packet;
 
@@ -277,8 +260,8 @@ struct pt_packet_unknown has the following fields:
   - priv                An optional pointer to a user-defined structure.
 
 
-Queries
--------
+The event layer
+---------------
 
 At a higher level, libipt provides a PT packet decoder that can be used for
 reconstructing the execution flow of the traced application. On this level,
@@ -482,3 +465,51 @@ before.
 The time stamp count is provided by PT at irregular intervals. Although time
 has definitely passed, the time stamp count may be identical for subsequent
 queries.
+
+
+The execution flow layer
+------------------------
+
+On this layer, libipt can be used to iterate over executed instructions in
+execution order.  Beware that this API is currently under construction and
+is likely to change.
+
+Libipt provides a single function to obtain the next instruction in execution
+order:
+
+        int pt_insn_next(struct pt_insn_decoder *, struct pt_insn *);
+
+For each executed instruction, libipt provides:
+
+  - information for disassembling the instruction such as the raw bytes, the
+    instruction length, and the execution mode in which to interpret the bytes.
+
+  - a coarse classification useful for further processing.
+
+  - information about speculative execution as well as events around that
+    instruction such as tracing enable/disable, or interrupts.
+
+
+Before we can start iterating over instructions, we need to allocate and
+synchronize a decoder for this layer:
+
+        struct pt_insn_decoder *pt_insn_alloc(const struct pt_config *);
+
+        int pt_insn_sync_forward(struct pt_insn_decoder *);
+        int pt_insn_sync_backward(struct pt_insn_decoder *);
+
+And we need to describe the process image that has been traced:
+
+        int pt_insn_add_file(...);
+        int pt_insn_remove_by_filename(struct pt_insn_decoder *, const char *);
+
+The image is used for reading memory to decode instructions.
+
+When control leaves the known image, the decoder returns -pte_nomap to
+indicate that there is no memory mapped at the current location.  This
+indicates that either decoding went astray or that the image had been
+incomplete.
+
+Libipt also allows modifying the image during decode by adding new sections
+or by removing all sections associated with one file.  This can be used
+to factor in the effect of shared object loads and unloads.

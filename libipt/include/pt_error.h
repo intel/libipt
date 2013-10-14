@@ -74,7 +74,10 @@ enum pt_error_code {
 	pte_ip_suppressed,
 
 	/* There is no memory mapped at the requested address. */
-	pte_nomap
+	pte_nomap,
+
+	/* An instruction could not be decoded. */
+	pte_bad_insn
 };
 
 

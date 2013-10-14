@@ -26,57 +26,72 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_error.h"
+#ifndef __PT_INSN_DECODER_H__
+#define __PT_INSN_DECODER_H__
 
-const char *pt_errstr(enum pt_error_code errcode)
-{
-	switch (errcode) {
-	case pte_ok:
-		return "OK";
+#include "pt_state.h"
+#include "pt_image.h"
+#include "pt_retstack.h"
+#include "pti-ild.h"
 
-	case pte_internal:
-		return "internal error";
+#include <inttypes.h>
 
-	case pte_invalid:
-		return "invalid argument";
 
-	case pte_nosync:
-		return "decoder out of sync";
+struct pt_insn_decoder {
+	/* The Intel(R) Processor Trace query decoder. */
+	struct pt_decoder query;
 
-	case pte_bad_opc:
-		return "unknown opcode";
+	/* The image of the traced process. */
+	struct pt_image image;
 
-	case pte_bad_packet:
-		return "unknown packet";
+	/* The current Intel(R) Processor Trace event. */
+	struct pt_event event;
 
-	case pte_bad_context:
-		return "unexpected packet context";
+	/* The call/return stack for ret compression. */
+	struct pt_retstack retstack;
 
-	case pte_eos:
-		return "reached end of trace stream";
+	/* The Intel(R) Processor Trace instruction (length) decoder. */
+	pti_ild_t ild;
 
-	case pte_bad_query:
-		return "trace stream does not match query";
+	/* The current IP. */
+	uint64_t ip;
 
-	case pte_nomem:
-		return "out of memory";
+	/* The current execution mode. */
+	enum pt_exec_mode mode;
 
-	case pte_bad_config:
-		return "bad configuration";
+	/* The status of the last decoder query. */
+	int status;
 
-	case pte_noip:
-		return "no ip";
+	/* A collection of flags defining how to proceed flow reconstruction:
+	 *
+	 * - tracing is enabled.
+	 */
+	uint32_t enabled:1;
 
-	case pte_ip_suppressed:
-		return "ip has been suppressed";
+	/* - process @event. */
+	uint32_t process_event:1;
 
-	case pte_nomap:
-		return "no memory mapped at this address";
+	/* - event processing may change the IP. */
+	uint32_t event_may_change_ip:1;
 
-	case pte_bad_insn:
-		return "unknown instruction";
-	}
+	/* - instructions are executed speculatively. */
+	uint32_t speculative:1;
+};
 
-	/* Should not reach here. */
-	return "internal error.";
-}
+
+/* Reset an instruction flow decoder.
+ *
+ * Resets all of @decoder's fields except for @image.
+ */
+extern void pt_insn_reset(struct pt_insn_decoder *decoder);
+
+/* Initialize an instruction flow decoder.
+ *
+ * Returns zero on success; a negative error code otherwise.
+ * Returns -pte_internal, if @decoder is NULL.
+ * Returns -pte_invalid, if @config is NULL.
+ */
+extern int pt_insn_init(struct pt_insn_decoder *decoder,
+			const struct pt_config *config);
+
+#endif /* __PT_INSN_DECODER_H__ */
