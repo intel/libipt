@@ -58,9 +58,11 @@ set(LIBIPT_FILES
   src/pt_tnt_cache.c
 )
 
-add_library(ipt SHARED
+add_library(libipt SHARED
   ${LIBIPT_FILES}
 )
+
+set_target_properties(libipt PROPERTIES PREFIX "")
 
 if (CHECK)
   add_executable(check-libipt

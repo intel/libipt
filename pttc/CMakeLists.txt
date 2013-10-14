@@ -57,7 +57,7 @@ add_executable(pttc
   src/main.c
 )
 
-target_link_libraries(pttc ipt)
+target_link_libraries(pttc libipt)
 
 if (CHECK)
   add_executable(check-pttc
@@ -65,5 +65,5 @@ if (CHECK)
 
     test/src/check.c
   )
-  target_link_libraries(check-pttc ipt check)
+  target_link_libraries(check-pttc libipt check)
 endif (CHECK)

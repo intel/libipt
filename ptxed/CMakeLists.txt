@@ -44,7 +44,7 @@ add_executable(ptxed
   src/ptxed.c
   src/memory.c
 )
-target_link_libraries(ptxed ipt)
+target_link_libraries(ptxed libipt)
 
 if (CMAKE_HOST_UNIX)
   target_link_libraries(ptxed

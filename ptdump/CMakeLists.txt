@@ -35,4 +35,4 @@ add_executable(ptdump
   ../libipt/src/pt_last_ip.c
 )
 
-target_link_libraries(ptdump ipt)
+target_link_libraries(ptdump libipt)
