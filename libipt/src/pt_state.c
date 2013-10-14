@@ -38,30 +38,44 @@
 #include <string.h>
 
 
-struct pt_decoder *pt_alloc_decoder(const struct pt_config *config)
+int pt_decoder_init(struct pt_decoder *decoder, const struct pt_config *config)
 {
-	struct pt_decoder *decoder;
-
-	if (!config)
-		return NULL;
+	if (!decoder || !config)
+		return -pte_invalid;
 
 	if (config->size != sizeof(*config))
-		return NULL;
+		return -pte_bad_config;
 
 	if (!config->begin || !config->end)
-		return NULL;
+		return -pte_bad_config;
 
 	if (config->end < config->begin)
-		return NULL;
+		return -pte_bad_config;
 
-	decoder = (struct pt_decoder *) calloc(sizeof(*decoder), 1);
-	if (!decoder)
-		return NULL;
+	memset(decoder, 0, sizeof(*decoder));
 
 	decoder->config = *config;
 
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
+
+	return 0;
+}
+
+struct pt_decoder *pt_alloc_decoder(const struct pt_config *config)
+{
+	struct pt_decoder *decoder;
+	int errcode;
+
+	decoder = (struct pt_decoder *) malloc(sizeof(*decoder));
+	if (!decoder)
+		return NULL;
+
+	errcode = pt_decoder_init(decoder, config);
+	if (errcode < 0) {
+		free(decoder);
+		decoder = NULL;
+	}
 
 	return decoder;
 }

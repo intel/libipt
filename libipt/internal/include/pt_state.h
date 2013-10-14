@@ -165,6 +165,12 @@ static inline int pt_check_sync(const struct pt_decoder *decoder)
 	return 0;
 }
 
+/* Initialize the decoder.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+extern int pt_decoder_init(struct pt_decoder *, const struct pt_config *);
+
 /* Return the pt_status_flag bit-vector for the current decoder state.
  *
  * Returns a bit-vector of status flags on success.
