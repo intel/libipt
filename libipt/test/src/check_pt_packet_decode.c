@@ -2598,10 +2598,8 @@ START_TEST(check_decode_tip_pge_suppressed)
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
 	errcode = pt_decode_tip_pge.decode(decoder);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, encoder->pos);
-	ck_nonnull(decoder->event);
-	ck_int_eq(decoder->event->type, ptev_enabled);
+	ck_int_eq(errcode, -pte_bad_packet);
+	ck_ptr(decoder->pos, encoder->begin);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
@@ -2759,11 +2757,8 @@ START_TEST(check_decode_tip_pge_event_suppressed)
 	event = pt_enqueue_event(decoder, evb_tip);
 
 	errcode = pt_decode_tip_pge.decode(decoder);
-	ck_int_eq(errcode, 0);
+	ck_int_eq(errcode, -pte_bad_packet);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, pdf_consume_packet);
-	ck_nonnull(decoder->event);
-	ck_int_eq(decoder->event->type, ptev_enabled);
 	ck_last_ip();
 
 	ev = pt_dequeue_event(decoder, evb_tip);
@@ -2855,10 +2850,8 @@ START_TEST(check_decode_tip_pge_overflow_suppressed)
 	decoder->flags &= ~pdf_pt_disabled;
 
 	errcode = pt_decode_tip_pge.decode(decoder);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, encoder->pos);
-	ck_ptr(decoder->event, event);
-	ck_int_eq(decoder->event->type, ptev_overflow);
+	ck_int_eq(errcode, -pte_bad_packet);
+	ck_ptr(decoder->pos, encoder->begin);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
@@ -3307,10 +3300,8 @@ START_TEST(check_decode_fup_overflow_suppressed)
 	event->type = ptev_overflow;
 
 	errcode = pt_decode_fup.decode(decoder);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, encoder->pos);
-	ck_ptr(decoder->event, event);
-	ck_int_eq(decoder->event->type, ptev_overflow);
+	ck_int_eq(errcode, -pte_bad_packet);
+	ck_ptr(decoder->pos, encoder->begin);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
@@ -3652,7 +3643,7 @@ START_TEST(check_decode_ovf_psbend_paging)
 	errcode = pt_decode_ovf.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, (flags | pdf_status_event));
+	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
 	ck_int_eq(decoder->event->type, ptev_paging);
 	ck_uint64_eq(decoder->event->variant.paging.cr3, cr3);
@@ -3682,7 +3673,7 @@ START_TEST(check_decode_ovf_psbend_exec_mode)
 	errcode = pt_decode_ovf.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, (flags | pdf_status_event));
+	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
 	ck_int_eq(decoder->event->type, ptev_exec_mode);
 	ck_int_eq(decoder->event->variant.exec_mode.mode, mode);
@@ -3713,7 +3704,7 @@ START_TEST(check_decode_ovf_psbend_tsx)
 	errcode = pt_decode_ovf.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, (flags | pdf_status_event));
+	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
 	ck_int_eq(decoder->event->type, ptev_tsx);
 	ck_int_eq(decoder->event->variant.tsx.speculative, 0);
@@ -3966,7 +3957,7 @@ START_TEST(check_decode_psbend_paging)
 	errcode = pt_decode_psbend.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, (flags | pdf_status_event));
+	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
 	ck_int_eq(decoder->event->type, ptev_paging);
 	ck_uint64_eq(decoder->event->variant.paging.cr3, cr3);
@@ -3996,7 +3987,7 @@ START_TEST(check_decode_psbend_exec_mode)
 	errcode = pt_decode_psbend.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, (flags | pdf_status_event));
+	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
 	ck_int_eq(decoder->event->type, ptev_exec_mode);
 	ck_int_eq(decoder->event->variant.exec_mode.mode, mode);
@@ -4027,7 +4018,7 @@ START_TEST(check_decode_psbend_tsx)
 	errcode = pt_decode_psbend.decode(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, config->begin);
-	ck_uint64_eq(decoder->flags, (flags | pdf_status_event));
+	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
 	ck_int_eq(decoder->event->type, ptev_tsx);
 	ck_int_eq(decoder->event->variant.tsx.speculative, 0);

@@ -292,39 +292,6 @@ int pt_query_cond_branch(struct pt_decoder *decoder, int *taken)
 	return flags;
 }
 
-/* Check whether an event contains an IP that might be suppressed.
- *
- * Returns 1 if the event contains a suppressible IP.
- * Returns 0 if the event does not contain an IP.
- * Returns -pte_bad_packet if the event IP must not be suppressed.
- * Returns -pte_internal if no event or a corrupted event is given.
- */
-static int event_ip_suppressable(const struct pt_event *ev)
-{
-	if (!ev)
-		return -pte_internal;
-
-	switch (ev->type) {
-	case ptev_disabled:
-	case ptev_async_disabled:
-	case ptev_async_branch:
-	case ptev_async_paging:
-	case ptev_exec_mode:
-	case ptev_tsx:
-		return 1;
-
-	case ptev_paging:
-		return 0;
-
-	case ptev_enabled:
-	case ptev_overflow:
-		return -pte_bad_packet;
-	}
-
-	/* We should not get here. */
-	return -pte_internal;
-}
-
 int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 {
 	int errcode, flags;
@@ -402,24 +369,6 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 		 * configurations.
 		 */
 		if (decoder->event) {
-			int errcode;
-
-			errcode = pt_last_ip_query(NULL, &decoder->ip);
-			if (errcode < 0) {
-				int suppressable;
-
-				suppressable =
-					event_ip_suppressable(decoder->event);
-				if (suppressable < 0)
-					return suppressable;
-
-				if (suppressable)
-					flags |= pts_ip_suppressed;
-			}
-
-			if (decoder->flags & pdf_status_event)
-				flags |= pts_status_event;
-
 			(void) memcpy(event, decoder->event, sizeof(*event));
 			break;
 		}

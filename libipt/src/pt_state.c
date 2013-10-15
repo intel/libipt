@@ -200,6 +200,21 @@ static inline uint8_t pt_queue_inc(uint8_t idx)
 	return idx;
 }
 
+struct pt_event *pt_standalone_event(struct pt_decoder *decoder)
+{
+	struct pt_event *event;
+
+	if (!decoder)
+		return NULL;
+
+	event = &decoder->ev_immed;
+
+	event->ip_suppressed = 0;
+	event->status_update = 0;
+
+	return event;
+}
+
 struct pt_event *pt_enqueue_event(struct pt_decoder *decoder,
 				  enum pt_event_binding evb)
 {
@@ -222,6 +237,8 @@ struct pt_event *pt_enqueue_event(struct pt_decoder *decoder,
 		return NULL;
 
 	ev = &decoder->ev_pend[evb][end];
+	ev->ip_suppressed = 0;
+	ev->status_update = 0;
 
 	end = pt_queue_inc(end);
 	gap = pt_queue_inc(end);

@@ -330,11 +330,11 @@ static int process_pending_events(struct disas_state *state, int status)
 		if (status < 0)
 			return status;
 
-		errcode = proceed_to_event(state, status);
+		errcode = proceed_to_event(state);
 		if (errcode < 0)
 			return errcode;
 
-		errcode = process_event(state, status);
+		errcode = process_event(state);
 		if (errcode < 0)
 			return errcode;
 	}
@@ -365,22 +365,22 @@ static int process_initial_events(struct disas_state *state, int status)
 		if (status < 0)
 			return status;
 
-		errcode = proceed_to_event(state, status);
+		errcode = proceed_to_event(state);
 		if (errcode < 0)
 			return errcode;
 
 		/* Switch to normal event processing once we see the first
 		 * non-status update event.
 		 */
-		initial = initial && (status & pts_status_event);
+		initial = initial && state->event.status_update;
 
 		/* Process initial status update events normally, i.e. without
 		 * checking for state inconsistencies.
 		 */
 		if (initial)
-			status &= ~pts_status_event;
+			state->event.status_update = 0;
 
-		errcode = process_event(state, status);
+		errcode = process_event(state);
 		if (errcode < 0)
 			return errcode;
 	}

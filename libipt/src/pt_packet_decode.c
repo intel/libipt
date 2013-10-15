@@ -214,6 +214,16 @@ static uint64_t pt_read_value(const uint8_t *pos, int size)
 	return val;
 }
 
+static void fill_in_event_ip(struct pt_event *event, uint64_t *ip,
+			     const struct pt_decoder *decoder)
+{
+	int errcode;
+
+	errcode = pt_last_ip_query(ip, &decoder->ip);
+	if (errcode < 0)
+		event->ip_suppressed = 1;
+}
+
 static int extract_ip(struct pt_packet_ip *packet,
 		      const struct pt_decoder *decoder)
 {
@@ -308,14 +318,11 @@ static int consume_tip(struct pt_decoder *decoder, int size)
 static int decode_tip(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t ip;
 	int size;
 
 	size = decode_ip(decoder);
 	if (size < 0)
 		return size;
-
-	pt_last_ip_query(&ip, &decoder->ip);
 
 	/* Process any pending events binding to TIP. */
 	ev = pt_dequeue_event(decoder, evb_tip);
@@ -325,8 +332,8 @@ static int decode_tip(struct pt_decoder *decoder)
 			return -pte_internal;
 
 		case ptev_async_branch:
-			/* Fill in the destination IP. */
-			ev->variant.async_branch.to = ip;
+			fill_in_event_ip(ev, &ev->variant.async_branch.to,
+					 decoder);
 
 			/* The event will consume the packet. */
 			decoder->flags |= pdf_consume_packet;
@@ -334,15 +341,13 @@ static int decode_tip(struct pt_decoder *decoder)
 			break;
 
 		case ptev_async_paging:
-			/* Fill in the destination IP. */
-			ev->variant.async_branch.to = ip;
-
+			fill_in_event_ip(ev, &ev->variant.async_paging.ip,
+					 decoder);
 			break;
 
 		case ptev_exec_mode:
-			/* Fill in the IP. */
-			ev->variant.exec_mode.ip = ip;
-
+			fill_in_event_ip(ev, &ev->variant.exec_mode.ip,
+					 decoder);
 			break;
 		}
 
@@ -545,14 +550,11 @@ static int consume_tip_pge(struct pt_decoder *decoder, int size)
 static int decode_tip_pge(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t ip;
 	int size;
 
 	size = decode_ip(decoder);
 	if (size < 0)
 		return size;
-
-	pt_last_ip_query(&ip, &decoder->ip);
 
 	/* We send the enable event first. This is more convenient for our users
 	 * and does not require them to either store or blindly apply other
@@ -561,9 +563,18 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 	 * We use the consume packet decoder flag to indicate this.
 	 */
 	if (!(decoder->flags & pdf_consume_packet)) {
-		/* This packet signals a standalone enabled event. */
-		ev = &decoder->ev_immed;
+		uint64_t ip;
+		int errcode;
 
+		/* We can't afford a suppressed IP, here. */
+		errcode = pt_last_ip_query(&ip, &decoder->ip);
+		if (errcode < 0)
+			return -pte_bad_packet;
+
+		/* This packet signals a standalone enabled event. */
+		ev = pt_standalone_event(decoder);
+		if (!ev)
+			return -pte_internal;
 		ev->type = ptev_enabled;
 		ev->variant.enabled.ip = ip;
 
@@ -588,16 +599,22 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 			default:
 				return -pte_internal;
 
-			case ptev_overflow:
-				/* Fill in the continuation IP. */
-				ev->variant.overflow.ip = ip;
+			case ptev_overflow: {
+				uint64_t ip;
+				int errcode;
 
+				/* We can't afford a suppressed IP, here. */
+				errcode = pt_last_ip_query(&ip, &decoder->ip);
+				if (errcode < 0)
+					return -pte_bad_packet;
+
+				ev->variant.overflow.ip = ip;
+			}
 				break;
 
 			case ptev_exec_mode:
-				/* Fill in the IP. */
-				ev->variant.exec_mode.ip = ip;
-
+				fill_in_event_ip(ev, &ev->variant.exec_mode.ip,
+						 decoder);
 				break;
 			}
 		}
@@ -657,14 +674,12 @@ static int consume_tip_pgd(struct pt_decoder *decoder, int size)
 static int decode_tip_pgd(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t at, ip = 0;
+	uint64_t at;
 	int size;
 
 	size = decode_ip(decoder);
 	if (size < 0)
 		return size;
-
-	pt_last_ip_query(&ip, &decoder->ip);
 
 	/* Process any pending events binding to TIP. */
 	ev = pt_dequeue_event(decoder, evb_tip);
@@ -682,13 +697,14 @@ static int decode_tip_pgd(struct pt_decoder *decoder)
 
 		ev->type = ptev_async_disabled;
 		ev->variant.async_disabled.at = at;
-		ev->variant.async_disabled.ip = ip;
+		fill_in_event_ip(ev, &ev->variant.async_disabled.ip, decoder);
 	} else {
 		/* This packet signals a standalone disabled event. */
-		ev = &decoder->ev_immed;
-
+		ev = pt_standalone_event(decoder);
+		if (!ev)
+			return -pte_internal;
 		ev->type = ptev_disabled;
-		ev->variant.disabled.ip = ip;
+		fill_in_event_ip(ev, &ev->variant.disabled.ip, decoder);
 	}
 
 	/* Publish the event. */
@@ -739,14 +755,11 @@ static int header_fup(struct pt_decoder *decoder)
 static int decode_fup(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t ip = 0;
-	int size, iperr;
+	int size;
 
 	size = decode_ip(decoder);
 	if (size < 0)
 		return size;
-
-	iperr = pt_last_ip_query(&ip, &decoder->ip);
 
 	/* Process any pending events binding to FUP. */
 	ev = pt_dequeue_event(decoder, evb_fup);
@@ -755,18 +768,24 @@ static int decode_fup(struct pt_decoder *decoder)
 		default:
 			return -pte_internal;
 
-		case ptev_overflow:
-			/* Fill in the continuation IP. */
+		case ptev_overflow: {
+			uint64_t ip;
+			int errcode;
+
+			/* We can't afford a suppressed IP, here. */
+			errcode = pt_last_ip_query(&ip, &decoder->ip);
+			if (errcode < 0)
+				return -pte_bad_packet;
+
 			ev->variant.overflow.ip = ip;
 
 			/* The event will consume the packet. */
 			decoder->flags |= pdf_consume_packet;
-
+		}
 			break;
 
 		case ptev_tsx:
-			/* Fill in the eventing IP. */
-			ev->variant.tsx.ip = ip;
+			fill_in_event_ip(ev, &ev->variant.tsx.ip, decoder);
 
 			/* A non-abort event will consume the packet. */
 			if (!(ev->variant.tsx.aborted))
@@ -798,7 +817,11 @@ static int decode_fup(struct pt_decoder *decoder)
 		 *
 		 * We do need an IP in this case.
 		 */
-		if (iperr < 0)
+		uint64_t ip;
+		int errcode;
+
+		errcode = pt_last_ip_query(&ip, &decoder->ip);
+		if (errcode < 0)
 			return -pte_bad_packet;
 
 		ev = pt_enqueue_event(decoder, evb_tip);
@@ -870,7 +893,9 @@ static int decode_pip(struct pt_decoder *decoder)
 	 */
 	event = pt_find_event(decoder, ptev_async_branch, evb_tip);
 	if (!event) {
-		event = &decoder->ev_immed;
+		event = pt_standalone_event(decoder);
+		if (!event)
+			return -pte_internal;
 		event->type = ptev_paging;
 		event->variant.paging.cr3 = packet.cr3;
 
@@ -929,13 +954,10 @@ static int packet_ovf(struct pt_packet *packet,
 static int process_pending_psb_events(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t ip;
 
 	ev = pt_dequeue_event(decoder, evb_psbend);
 	if (!ev)
 		return 0;
-
-	pt_last_ip_query(&ip, &decoder->ip);
 
 	switch (ev->type) {
 	default:
@@ -945,17 +967,16 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 		break;
 
 	case ptev_exec_mode:
-		/* Fill in the IP. */
-		ev->variant.exec_mode.ip = ip;
-
+		fill_in_event_ip(ev, &ev->variant.exec_mode.ip, decoder);
 		break;
 
 	case ptev_tsx:
-		/* Fill in the IP. */
-		ev->variant.tsx.ip = ip;
-
+		fill_in_event_ip(ev, &ev->variant.tsx.ip, decoder);
 		break;
 	}
+
+	/* Mark the event as status update. */
+	ev->status_update = 1;
 
 	/* Publish the event. */
 	decoder->event = ev;
@@ -969,9 +990,6 @@ static int decode_ovf(struct pt_decoder *decoder)
 	struct pt_event *ev;
 	uint64_t flags;
 	int status, evb;
-
-	/* We mark accumulated psb events as status updates. */
-	decoder->flags |= pdf_status_event;
 
 	status = process_pending_psb_events(decoder);
 	if (status < 0)
@@ -1100,10 +1118,13 @@ static int decode_mode_tsx(struct pt_decoder *decoder,
 
 	/* MODE.TSX is standalone if tracing is disabled. */
 	if (decoder->flags & pdf_pt_disabled) {
-		event = &decoder->ev_immed;
+		event = pt_standalone_event(decoder);
+		if (!event)
+			return -pte_internal;
 
 		/* We don't have an IP in this case. */
 		event->variant.tsx.ip = 0;
+		event->ip_suppressed = 0;
 
 		/* Publish the event. */
 		decoder->event = event;
@@ -1201,9 +1222,6 @@ static int decode_psbend(struct pt_decoder *decoder)
 {
 	int status;
 
-	/* We mark accumulated psb events as status updates. */
-	decoder->flags |= pdf_status_event;
-
 	status = process_pending_psb_events(decoder);
 	if (status < 0)
 		return status;
@@ -1211,9 +1229,6 @@ static int decode_psbend(struct pt_decoder *decoder)
 	/* If we had any psb events, we're done for now. */
 	if (status)
 		return 0;
-
-	/* We're done with status update events. */
-	decoder->flags &= ~pdf_status_event;
 
 	/* Skip the psbend extended opcode that we fetched before if no more
 	 * psbend events are pending.

@@ -34,8 +34,6 @@ struct disas_state;
 
 /* Proceed to the location of the event stored in the decoder state.
  *
- * Status is a pt_status_flag bit-vector returned from the event query.
- *
  * There should not be any indirect branches between the current location and
  * the event location.
  *
@@ -44,16 +42,15 @@ struct disas_state;
  * Returns 0 on success.
  * Returns a negative error code otherwise.
  */
-extern int proceed_to_event(struct disas_state*, int flags);
+extern int proceed_to_event(struct disas_state *);
 
 /* Process the event stored in the disas state.
  *
  * The disassembler is already at the event location.
- * Status is a pt_status_flag bit-vector returned from the event query.
  *
  * Returns 0 on success.
  * Returns a negative error code otherwise.
  */
-extern int process_event(struct disas_state *, int status);
+extern int process_event(struct disas_state *);
 
 #endif /* __EVENT_H__ */

@@ -49,9 +49,6 @@ enum pt_decoder_flag {
 
 	/* The packet will be consumed after all events have been processed. */
 	pdf_consume_packet	= 1 << 1,
-
-	/* The current event is for status update. */
-	pdf_status_event	= 1 << 2
 };
 
 /* Intel(R) Processor Trace event bindings.
@@ -184,6 +181,12 @@ extern int pt_status_flags(struct pt_decoder *);
  * buffer-related fields.
  */
 extern void pt_reset(struct pt_decoder *);
+
+/* Get a standalone event.
+ *
+ * Returns a pointer to the decoder's standalone event struct.
+ */
+extern struct pt_event *pt_standalone_event(struct pt_decoder *);
 
 /* Enqueue an event.
  *

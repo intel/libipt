@@ -33,15 +33,17 @@
 #include "pt_decode.h"
 
 
-static int do_proceed_to_event(struct disas_state *state, int status)
+static int do_proceed_to_event(struct disas_state *state)
 {
 	struct pt_event *ev;
 
 	ev = &state->event;
 
 	switch (ev->type) {
-	case ptev_disabled:
-		if (status & pts_ip_suppressed)
+	case ptev_disabled: {
+		int status;
+
+		if (ev->ip_suppressed)
 			status = proceed_to_inst(state, disas_inst_changes_cpl);
 		else
 			status = proceed_to_ip(state, ev->variant.disabled.ip);
@@ -56,12 +58,13 @@ static int do_proceed_to_event(struct disas_state *state, int status)
 			/* The trace stream ended with disable. Make sure to
 			 * process the event before we terminate.
 			 */
-			(void) process_event(state, status);
+			(void) process_event(state);
 			return status;
 
 		default:
 			return status;
 		}
+	}
 
 	case ptev_async_disabled:
 		return proceed_to_ip(state, ev->variant.async_disabled.at);
@@ -71,7 +74,7 @@ static int do_proceed_to_event(struct disas_state *state, int status)
 
 	case ptev_paging:
 		/* For status update events, we stay where we are. */
-		if (status & pts_status_event)
+		if (ev->status_update)
 			return 0;
 
 		return proceed_to_inst(state, disas_inst_changes_cr3);
@@ -82,7 +85,7 @@ static int do_proceed_to_event(struct disas_state *state, int status)
 		 * Since the paging event is asynchronous, we probably are
 		 * already at the correct location.
 		 */
-		if (status & pts_ip_suppressed)
+		if (ev->ip_suppressed)
 			return 0;
 
 		return proceed_to_ip(state, ev->variant.async_paging.ip);
@@ -94,9 +97,9 @@ static int do_proceed_to_event(struct disas_state *state, int status)
 
 	case ptev_exec_mode:
 		/* The IP must not be suppressed. */
-		if (status & pts_ip_suppressed) {
+		if (ev->ip_suppressed) {
 			/* For status update events, we stay where we are. */
-			if (status & pts_status_event)
+			if (ev->status_update)
 				return 0;
 
 			return -pte_bad_packet;
@@ -108,7 +111,7 @@ static int do_proceed_to_event(struct disas_state *state, int status)
 		/* The IP may be suppressed for this event. In that case, we
 		 * only note the tsx event.
 		 */
-		if (status & pts_ip_suppressed)
+		if (ev->ip_suppressed)
 			return 0;
 
 		return proceed_to_ip(state, ev->variant.tsx.ip);
@@ -118,9 +121,9 @@ static int do_proceed_to_event(struct disas_state *state, int status)
 	return -pte_internal;
 }
 
-int proceed_to_event(struct disas_state *state, int status)
+int proceed_to_event(struct disas_state *state)
 {
-	int flags;
+	int flags, status;
 
 	flags = state->flags;
 
@@ -130,19 +133,23 @@ int proceed_to_event(struct disas_state *state, int status)
 
 	state->flags |= pf_ignore_events;
 
-	status = do_proceed_to_event(state, status);
+	status = do_proceed_to_event(state);
 
 	state->flags = flags;
 
 	return status;
 }
 
-int process_event(struct disas_state *state, int status)
+int process_event(struct disas_state *state)
 {
-	switch (state->event.type) {
+	struct pt_event *ev;
+
+	ev = &state->event;
+
+	switch (ev->type) {
 	case ptev_enabled:
 		/* This event can't be a status update. */
-		if (status & pts_status_event)
+		if (ev->status_update)
 			return -pte_bad_packet;
 
 		printf("[enabled]\n");
@@ -150,17 +157,16 @@ int process_event(struct disas_state *state, int status)
 		state->flags &= ~pf_pt_disabled;
 
 		/* We cannot resync if there is no ip. */
-		if (status & pts_ip_suppressed)
+		if (ev->ip_suppressed)
 			return -pte_bad_packet;
 
-		state->ip = state->event.variant.enabled.ip;
-
+		state->ip = ev->variant.enabled.ip;
 		break;
 
 	case ptev_disabled:
 	case ptev_async_disabled:
 		/* This event can't be a status update. */
-		if (status & pts_status_event)
+		if (ev->status_update)
 			return -pte_bad_packet;
 
 		state->flags |= pf_pt_disabled;
@@ -169,12 +175,12 @@ int process_event(struct disas_state *state, int status)
 
 	case ptev_async_branch:
 		/* This event can't be a status update. */
-		if (status & pts_status_event)
+		if (ev->status_update)
 			return -pte_bad_packet;
 
 		printf("[interrupt]\n");
 
-		state->ip = state->event.variant.async_branch.to;
+		state->ip = ev->variant.async_branch.to;
 		break;
 
 	case ptev_paging:
@@ -184,24 +190,24 @@ int process_event(struct disas_state *state, int status)
 
 	case ptev_overflow:
 		/* This event can't be a status update. */
-		if (status & pts_status_event)
+		if (ev->status_update)
 			return -pte_bad_packet;
 
 		printf("[overflow]\n");
 
 		/* We cannot resync if there is no ip. */
-		if (status & pts_ip_suppressed)
+		if (ev->ip_suppressed)
 			return -pte_bad_packet;
 
 		/* Re-syncing. */
-		state->ip = state->event.variant.overflow.ip;
+		state->ip = ev->variant.overflow.ip;
 		break;
 
 	case ptev_exec_mode: {
 		enum pt_exec_mode mode;
 
-		mode = state->event.variant.exec_mode.mode;
-		if (status & pts_status_event) {
+		mode = ev->variant.exec_mode.mode;
+		if (ev->status_update) {
 			int errcode;
 
 			errcode = disas_check_exec_mode(state, mode);
@@ -222,8 +228,8 @@ int process_event(struct disas_state *state, int status)
 	case ptev_tsx: {
 		int mode;
 
-		mode = state->event.variant.tsx.speculative;
-		if (status & pts_status_event) {
+		mode = ev->variant.tsx.speculative;
+		if (ev->status_update) {
 			int errcode;
 
 			errcode = disas_check_speculation_mode(state, mode);
@@ -239,7 +245,7 @@ int process_event(struct disas_state *state, int status)
 
 		disas_set_speculation_mode(state, mode);
 
-		if (state->event.variant.tsx.aborted)
+		if (ev->variant.tsx.aborted)
 			printf("[aborted]\n");
 	}
 		break;

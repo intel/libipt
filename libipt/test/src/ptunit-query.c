@@ -624,10 +624,11 @@ static struct ptunit_result event_disabled(struct ptu_decoder_fixture *dfix,
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
+	ptu_int_eq(errcode, 0);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, pts_ip_suppressed);
+		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
-		ptu_int_eq(errcode, 0);
+		ptu_uint_eq(event.ip_suppressed, 0);
 		ptu_uint_eq(event.variant.disabled.ip, dfix->last_ip.ip);
 	}
 	ptu_int_eq(event.type, ptev_disabled);
@@ -680,10 +681,11 @@ event_async_disabled(struct ptu_decoder_fixture *dfix,
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
+	ptu_int_eq(errcode, 0);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, pts_ip_suppressed);
+		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
-		ptu_int_eq(errcode, 0);
+		ptu_uint_eq(event.ip_suppressed, 0);
 		ptu_uint_eq(event.variant.async_disabled.ip, dfix->last_ip.ip);
 	}
 	ptu_int_eq(event.type, ptev_async_disabled);
@@ -806,10 +808,11 @@ static struct ptunit_result event_async_branch(struct ptu_decoder_fixture *dfix,
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
+	ptu_int_eq(errcode, 0);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, pts_ip_suppressed);
+		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
-		ptu_int_eq(errcode, 0);
+		ptu_uint_eq(event.ip_suppressed, 0);
 		ptu_uint_eq(event.variant.async_branch.to, dfix->last_ip.ip);
 	}
 	ptu_int_eq(event.type, ptev_async_branch);
@@ -955,12 +958,14 @@ event_async_paging_suppressed(struct ptu_decoder_fixture *dfix)
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
-	ptu_int_eq(errcode, (pts_event_pending | pts_ip_suppressed));
+	ptu_int_eq(errcode, pts_event_pending);
+	ptu_uint_ne(event.ip_suppressed, 0);
 	ptu_int_eq(event.type, ptev_async_branch);
 	ptu_uint_eq(event.variant.async_branch.from, from);
 
 	errcode = pt_query_event(decoder, &event);
-	ptu_int_eq(errcode, pts_ip_suppressed);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_ne(event.ip_suppressed, 0);
 	ptu_int_eq(event.type, ptev_async_paging);
 	ptu_uint_eq(event.variant.async_paging.cr3, cr3);
 
@@ -1162,10 +1167,11 @@ event_exec_mode_tip(struct ptu_decoder_fixture *dfix,
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
+	ptu_int_eq(errcode, 0);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, pts_ip_suppressed);
+		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
-		ptu_int_eq(errcode, 0);
+		ptu_uint_eq(event.ip_suppressed, 0);
 		ptu_uint_eq(event.variant.exec_mode.ip, dfix->last_ip.ip);
 	}
 	ptu_int_eq(event.type, ptev_exec_mode);
@@ -1314,10 +1320,11 @@ static struct ptunit_result event_tsx_fup(struct ptu_decoder_fixture *dfix,
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
+	ptu_int_eq(errcode, 0);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, pts_ip_suppressed);
+		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
-		ptu_int_eq(errcode, 0);
+		ptu_uint_eq(event.ip_suppressed, 0);
 		ptu_uint_eq(event.variant.tsx.ip, dfix->last_ip.ip);
 	}
 	ptu_int_eq(event.type, ptev_tsx);
@@ -1480,10 +1487,12 @@ static struct ptunit_result sync_event(struct ptu_decoder_fixture *dfix,
 	}
 
 	errcode = pt_query_event(decoder, &event);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_ne(event.status_update, 0);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, (pts_ip_suppressed | pts_status_event));
+		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
-		ptu_int_eq(errcode, pts_status_event);
+		ptu_uint_eq(event.ip_suppressed, 0);
 		ptu_uint_eq(event.variant.tsx.ip, dfix->last_ip.ip);
 	}
 	ptu_int_eq(event.type, ptev_tsx);
@@ -1567,7 +1576,8 @@ static struct ptunit_result sync_ovf_event(struct ptu_decoder_fixture *dfix,
 	ptu_uint_eq(addr, fup.ip);
 
 	errcode = pt_query_event(decoder, &event);
-	ptu_int_eq(errcode, (pts_event_pending | pts_status_event));
+	ptu_int_eq(errcode, pts_event_pending);
+	ptu_uint_ne(event.status_update, 0);
 	ptu_int_eq(event.type, ptev_tsx);
 	ptu_int_eq(event.variant.tsx.speculative, 0);
 	ptu_int_eq(event.variant.tsx.aborted, 0);

@@ -53,8 +53,9 @@ START_TEST(check_use_disable_discard_tail)
 
 	/* The user queries the disable event. */
 	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, (pts_event_pending | pts_ip_suppressed));
+	ck_int_eq(errcode, pts_event_pending);
 	ck_int_eq(event.type, ptev_disabled);
+	ck_uint_ne(event.ip_suppressed, 0);
 
 	/* He gives up trying to find the exact disable location and instead
 	 * queries the next event.
@@ -62,6 +63,7 @@ START_TEST(check_use_disable_discard_tail)
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, 0);
 	ck_int_eq(event.type, ptev_enabled);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_uint64_eq(event.variant.enabled.ip, ip);
 
 	/* The user jumps to the enable ip and starts decoding...until he
@@ -93,7 +95,8 @@ START_TEST(check_use_disable_search_tail)
 
 	/* The user queries the disable event. */
 	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, (pts_event_pending | pts_ip_suppressed));
+	ck_int_eq(errcode, pts_event_pending);
+	ck_uint_ne(event.ip_suppressed, 0);
 	ck_int_eq(event.type, ptev_disabled);
 
 	/* He searches for the exact disable location...and arrives at a
@@ -117,6 +120,7 @@ START_TEST(check_use_disable_search_tail)
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, 0);
 	ck_int_eq(event.type, ptev_enabled);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_uint64_eq(event.variant.enabled.ip, ip);
 
 	/* The user jumps to the enable ip and starts decoding...until he
@@ -168,6 +172,7 @@ START_TEST(check_use_context_switch)
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, pts_event_pending);
 	ck_int_eq(event.type, ptev_async_branch);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_uint64_eq(event.variant.async_branch.from, ip[0]);
 	ck_uint64_eq(event.variant.async_branch.to, ip[1]);
 
@@ -179,6 +184,7 @@ START_TEST(check_use_context_switch)
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, pts_event_pending);
 	ck_int_eq(event.type, ptev_exec_mode);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_int_eq(event.variant.exec_mode.mode, mode[1]);
 	ck_uint64_eq(event.variant.exec_mode.ip, ip[1]);
 
@@ -189,6 +195,7 @@ START_TEST(check_use_context_switch)
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, 0);
 	ck_int_eq(event.type, ptev_exec_mode);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_int_eq(event.variant.exec_mode.mode, mode[0]);
 	ck_uint64_eq(event.variant.exec_mode.ip, ip[0]);
 
@@ -244,20 +251,23 @@ START_TEST(check_use_context_switch_cpl)
 	 * We proceed to the event location and note that tracing is disabled.
 	 */
 	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, (pts_event_pending | pts_ip_suppressed));
+	ck_int_eq(errcode, pts_event_pending);
 	ck_int_eq(event.type, ptev_async_disabled);
+	ck_uint_ne(event.ip_suppressed, 0);
 	ck_uint64_eq(event.variant.async_disabled.at, ip);
 
 	/* Query the next event - waiting for the re-enable. */
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, pts_event_pending);
 	ck_int_eq(event.type, ptev_enabled);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_uint64_eq(event.variant.enabled.ip, ip);
 
 	/* We jump the the enable IP and query the pending event. */
 	errcode = pt_query_event(decoder, &event);
 	ck_int_eq(errcode, 0);
 	ck_int_eq(event.type, ptev_exec_mode);
+	ck_uint_eq(event.ip_suppressed, 0);
 	ck_int_eq(event.variant.exec_mode.mode, mode[0]);
 	ck_uint64_eq(event.variant.exec_mode.ip, ip);
 

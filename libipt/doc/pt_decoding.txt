@@ -338,7 +338,8 @@ read via another query function:
          int pt_query_event(struct pt_decoder *, struct pt_event *);
 
 The event will typically contain the linear address at which the event occured,
-except when this is obvious from the disassembly.
+except when this is obvious from the disassembly or when the address has been
+suppressed. The latter will be indicated in the event.
 
 An event may also be marked as status update. This is used for conveying the
 initial state after synchronizing onto the PT stream. During normal decoding,

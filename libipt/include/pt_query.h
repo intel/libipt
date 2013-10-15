@@ -44,9 +44,6 @@ enum pt_status_flag {
 
 	/* The destination address has been suppressed due to CPL filtering. */
 	pts_ip_suppressed	= 1 << 1,
-
-	/* The queried event is for status update. */
-	pts_status_event	= 1 << 2,
 };
 
 /* An Intel(R) Processor Trace event type. */
@@ -81,6 +78,12 @@ enum pt_event_type {
 struct pt_event {
 	/* The type of the event. */
 	enum pt_event_type type;
+
+	/* A flag indicating that the event IP had been suppressed. */
+	uint32_t ip_suppressed:1;
+
+	/* A flag indicating that the event is for status update. */
+	uint32_t status_update:1;
 
 	/* Event specific data. */
 	union {
