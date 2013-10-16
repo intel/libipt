@@ -26,54 +26,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DECODE_H__
-#define __DECODE_H__
+#ifndef __LOAD_ELF_H__
+#define __LOAD_ELF_H__
 
 #include <stdint.h>
 
-struct pt_decoder;
-struct load_map;
-struct disas_state;
+struct pt_insn_decoder;
 
 
-/* Proceed one instruction.
+/* Load an ELF file.
  *
- * Returns a pt_status_flag bit-vector on success.
- * Returns a negative error code otherwise.
+ * Adds sections for all ELF LOAD segments.
+ *
+ * The sections are loaded relative to their virtual addresses specified
+ * in the ELF program header with the lowest address section loaded at @base.
+ *
+ * The name of the program in @prog is used for error reporting.
+ *
+ * Does not load dependent files.
+ * Does not support dynamic relocations.
+ *
+ * Successfully loaded segments are not unloaded in case of errors.
+ *
+ * Returns 0 on success, a negative error code otherwise.
+ * Returns -pte_invalid if @image or @file are NULL.
+ * Returns -pte_bad_config if @file can't be processed.
+ * Returns -pte_nomem if not enough memory can be allocated.
  */
-extern int proceed(struct disas_state *);
+extern int load_elf(struct pt_insn_decoder *decoder, const char *file,
+		    uint64_t base, const char *prog);
 
-/* Proceed to the given location.
- *
- * Returns when the location is reached without fetching the instruction at that
- * location.
- *
- * If the pf_ignore_events flag is set, also returns when an event is
- * pending, again without fetching the instruction at the current ip.
- *
- * Returns a pt_status_flag bit-vector on success.
- * Returns a negative error code otherwise.
- */
-extern int proceed_to_ip(struct disas_state *, uint64_t);
-
-/* Proceed to the next instruction satisfying @pred.
- *
- * Returns when the location is reached after fetching the instruction at that
- * location.
- *
- * If the pf_ignore_events flag is set, also returns when an event is
- * pending without fetching the instruction at the current ip.
- *
- * Returns a pt_status_flag bit-vector on success.
- * Returns a negative error code otherwise.
- */
-extern int proceed_to_inst(struct disas_state *,
-			   int (*pred)(struct disas_state *));
-
-/* Disassemble the entire trace as far as possible.
- *
- * Resync if necessary.
- */
-extern void disas(struct pt_decoder *, struct load_map *);
-
-#endif /* __DECODE_H__ */
+#endif /* __LOAD_ELF_H__ */

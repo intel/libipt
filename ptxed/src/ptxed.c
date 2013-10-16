@@ -26,241 +26,72 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_decode.h"
+#if defined(FEATURE_ELF)
+# include "load_elf.h"
+#endif /* defined(FEATURE_ELF) */
+
 #include "pt_config.h"
 #include "pt_version.h"
+#include "pt_error.h"
+#include "pt_insn.h"
 
-#include "load.h"
-#include "disas.h"
-#include "decode.h"
-#include "memory.h"
-
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <inttypes.h>
+#include <errno.h>
+
+#include <xed-state.h>
+#include <xed-init.h>
+#include <xed-error-enum.h>
+#include <xed-decode.h>
+#include <xed-decoded-inst.h>
+#include <xed-machine-mode-enum.h>
 
 
-struct option {
-	/* The long option name. */
-	const char *name;
+/* A collection of options. */
+struct ptxed_options {
+	/* Do not print the instruction. */
+	uint32_t dont_print_insn:1;
 
-	/* A short abbreviation of the option name. */
-	const char *abbrv;
+	/* Remain as quiet as possible - excluding error messages. */
+	uint32_t quiet:1;
 
-	/* The function to process the option. */
-	int (*process)(const char **);
-
-	/* The argument count for this option. */
-	int argc;
-
-	/* A string enumerating the option's arguments. */
-	const char *args;
-
-	/* The raw arguments of the option. */
-	const char **argv;
+	/* Print statistics (overrides quiet). */
+	uint32_t print_stats:1;
 };
 
-/* The name of the program. */
-static const char *opt_prog = "ptdump";
-
-/* The loaded executable file. */
-static struct load_map *opt_loadmap;
-
-/* The pt decoder. */
-static struct pt_decoder *opt_decoder;
-
-/* The disassembler's initial proceed flags. */
-int opt_pflags;
+/* A collection of statistics. */
+struct ptxed_stats {
+	/* The number of instructions. */
+	uint64_t insn;
+};
 
 
-static int help(const char **);
-
-static int version(const char **argv)
+static void version(const char *name)
 {
 	struct pt_version v = pt_library_version();
 
-	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", opt_prog,
+	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", name,
 	       PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
 	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
-	exit(0);
 }
 
-static int flags_noret(const char **argv)
-{
-	opt_pflags &= ~pf_ptev_compression;
-
-	return 0;
-}
-
-static int flags_no_inst(const char **argv)
-{
-	opt_pflags |= pf_no_inst;
-
-	return 0;
-}
-
-static int opt_load_pt(const char **argv)
-{
-	struct pt_config config;
-	uint8_t *pt;
-	size_t size;
-	int errcode;
-
-	if (opt_decoder) {
-		fprintf(stderr, "%s: duplicate pt sources.\n", opt_prog);
-		return -1;
-	}
-
-	pt = map_file(argv[0], &size);
-	if (!pt)
-		return -1;
-
-	memset(&config, 0, sizeof(config));
-
-	/* Assume that we're decoding on the system on which we recorded. */
-	errcode = pt_configure(&config);
-	if (errcode < 0) {
-		fprintf(stderr, "%s: failed to configure pt decoder.\n",
-			opt_prog);
-		return -1;
-	}
-
-	config.begin = pt;
-	config.end = pt + size;
-
-	opt_decoder = pt_alloc_decoder(&config);
-	if (!opt_decoder) {
-		fprintf(stderr, "%s: failed to allcoate pt decoder.\n",
-			opt_prog);
-		return -1;
-	}
-
-	/* We will leak the mapped memory. */
-
-	return 0;
-}
-
-#if defined(FEATURE_ELF)
-
-static int opt_load_elf(const char **argv)
-{
-	uint64_t base;
-	char *sep, *rest;
-
-	base = 0;
-	sep = strstr(argv[0], ":");
-	if (sep) {
-		errno = 0;
-		base = strtoull(sep+1, &rest, 0);
-		if (errno || *rest) {
-			fprintf(stderr, "%s: bad base argument: %s.\n",
-				opt_prog, sep+1);
-			return -1;
-		}
-
-		*sep = 0;
-	}
-
-	return load_elf(argv[0], &opt_loadmap, base);
-}
-
-#endif /* defined(FEATURE_ELF) */
-
-static int opt_load_raw(const char **argv)
-{
-	uint64_t base;
-	char *rest;
-
-	errno = 0;
-	base = strtoull(argv[1], &rest, 0);
-	if (errno || *rest) {
-		fprintf(stderr, "%s: bad base argument: %s.\n",
-			opt_prog, argv[1]);
-		return -1;
-	}
-
-	return load_raw(argv[0], &opt_loadmap, base);
-}
-
-struct option opts[] = {
-	{
-		/* .name = */ "--help",
-		/* .abbrv = */ "-h",
-		/* .process = */ help,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--version",
-		/* .abbrv = */ NULL,
-		/* .process = */ version,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--no-zret",
-		/* .abbrv = */ NULL,
-		/* .process = */ flags_noret,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--no-inst",
-		/* .abbrv = */ NULL,
-		/* .process = */ flags_no_inst,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--pt",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_load_pt,
-		/* .argc = */ 1,
-		/* .args = */ "<file>",
-		/* .argv = */ NULL
-	},
-#if defined(FEATURE_ELF)
-	{
-		/* .name = */ "--elf",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_load_elf,
-		/* .argc = */ 1,
-		/* .args = */ "<file>[:<base>]",
-		/* .argv = */ NULL
-	},
-#endif /* defined(FEATURE_ELF) */
-	{
-		/* .name = */ "--raw",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_load_raw,
-		/* .argc = */ 2,
-		/* .args = */ "<file> <base>",
-		/* .argv = */ NULL
-	}
-};
-
-#define num_opts (sizeof(opts) / sizeof(struct option))
-
-static int help(const char **argv)
+static void help(const char *name)
 {
 	printf("usage: %s [<options>]\n\n"
 	       "options:\n"
 	       "  --help|-h                this text.\n"
 	       "  --version                display version information and exit.\n"
-	       "  --no-zret                assume no return compression.\n"
 	       "  --no-inst                do not print instructions (only addresses).\n"
-	       "  --pt <file>              load the processor trace data from <file>.\n"
+	       "  --quiet|-q               do not print anything (except errors).\n"
+	       "  --stat                   print statistics (even when quiet).\n"
+	       "  --pt <file>[:<offset>]   load the processor trace data from <file> at <offset>.\n"
 #if defined(FEATURE_ELF)
 	       "  --elf <<file>[:<base>]   load an ELF from <file> at address <base>.\n"
 	       "                           use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
-	       "  --raw <file> <base>      load a raw binary from <file> at address <base>.\n"
+	       "  --raw <file>:<base>      load a raw binary from <file> at address <base>.\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -268,92 +99,425 @@ static int help(const char **argv)
 	       "You must specify at least one binary file (--raw).\n"
 #endif /* defined(FEATURE_ELF) */
 	       "You must specify exactly one processor trace file (--pt).\n",
-	       opt_prog);
-
-	exit(0);
+	       name);
 }
 
-static int opt_arg_error(struct option *opt)
+static int extract_base(char *arg, uint64_t *base, const char *prog)
 {
-	fprintf(stderr, "%s: %s: insufficient arguments, expected: %d.\n",
-		opt_prog, opt->name, opt->argc);
-	return -1;
+	char *sep, *rest;
+
+	sep = strstr(arg, ":");
+	if (sep) {
+		errno = 0;
+		*base = strtoull(sep+1, &rest, 0);
+		if (errno || *rest) {
+			fprintf(stderr, "%s: bad argument: %s.\n", prog, arg);
+			return -1;
+		}
+
+		*sep = 0;
+		return 1;
+	}
+
+	return 0;
 }
 
-static int unknown_option(const char *name)
+static int load_pt(struct pt_config *config, char *arg, const char *prog)
 {
-	fprintf(stderr, "%s: %s: unknown option. Use --help or -h for help.\n",
-		opt_prog, name);
-	return -1;
+	uint64_t base_arg;
+	uint8_t *pt;
+	size_t read;
+	FILE *file;
+	long size, base;
+	int errcode;
+
+	if (!config || !arg || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog);
+		return 1;
+	}
+
+	base_arg = 0ull;
+	errcode = extract_base(arg, &base_arg, prog);
+	if (errcode < 0)
+		return 1;
+
+	base = (long) base_arg;
+	if ((uint64_t) base != base_arg) {
+		fprintf(stderr, "%s: offset too big: 0x%" PRIx64 ".\n",
+			prog, base_arg);
+		return 1;
+	}
+
+	errno = 0;
+	file = fopen(arg, "rb");
+	if (!file) {
+		fprintf(stderr, "%s: failed to open %s: %d.\n",
+			prog, arg, errno);
+		return 1;
+	}
+
+	errcode = fseek(file, 0, SEEK_END);
+	if (errcode) {
+		fprintf(stderr, "%s: failed to determine size of %s: %d.\n",
+			prog, arg, errno);
+		goto err_file;
+	}
+
+	size = ftell(file);
+	if (size < 0) {
+		fprintf(stderr, "%s: failed to determine size of %s: %d.\n",
+			prog, arg, errno);
+		goto err_file;
+	}
+
+	pt = malloc(size);
+	if (!pt) {
+		fprintf(stderr, "%s: failed to allocated memory %s.\n",
+			prog, arg);
+		goto err_file;
+	}
+
+	if (size <= base) {
+		fprintf(stderr, "%s: offset 0x%lx outside of %s.\n",
+			prog, base, arg);
+		goto err_pt;
+	}
+	size -= base;
+
+	errcode = fseek(file, base, SEEK_SET);
+	if (errcode) {
+		fprintf(stderr, "%s: failed to load %s: %d.\n",
+			prog, arg, errno);
+		goto err_pt;
+	}
+
+	read = fread(pt, size, 1, file);
+	if (read != 1) {
+		fprintf(stderr, "%s: failed to load %s: %d.\n",
+			prog, arg, errno);
+		goto err_pt;
+	}
+
+	fclose(file);
+
+	config->begin = pt;
+	config->end = pt + size;
+
+	return 0;
+
+err_pt:
+	free(pt);
+
+err_file:
+	fclose(file);
+	return 1;
 }
 
-static int process_options(int argc, const char **argv)
+static int load_raw(struct pt_insn_decoder *decoder, char *arg,
+		    const char *prog)
 {
-	size_t a, o;
+	uint64_t base;
+	int errcode, has_base;
 
-	a = 1;
-	while (argv[a]) {
-		const char *name = argv[a++];
+	has_base = extract_base(arg, &base, prog);
+	if (has_base <= 0)
+		return 1;
 
-		for (o = 0; o < num_opts; ++o) {
-			struct option *opt = &opts[o];
+	errcode = pt_insn_add_file(decoder, arg, 0, UINT64_MAX, base);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
+			prog, arg, base, pt_errstr(pt_errcode(errcode)));
+		return 1;
+	}
 
-			if ((opt->name && (strcmp(name, opt->name) == 0)) ||
-			    (opt->abbrv && (strcmp(name, opt->abbrv) == 0))) {
-				int s, errcode;
+	return 0;
+}
 
-				opt->argv = &argv[a];
+static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
+{
+	switch (mode) {
+	case ptem_unknown:
+		return XED_MACHINE_MODE_INVALID;
 
-				for (s = 0; s < opt->argc; ++s)
-					if (!argv[a++])
-						return opt_arg_error(opt);
+	case ptem_16bit:
+		return XED_MACHINE_MODE_LEGACY_16;
 
-				errcode = opt->process(opt->argv);
-				if (errcode < 0)
-					return errcode;
+	case ptem_32bit:
+		return XED_MACHINE_MODE_LEGACY_32;
 
+	case ptem_64bit:
+		return XED_MACHINE_MODE_LONG_64;
+	}
+
+	return XED_MACHINE_MODE_INVALID;
+}
+
+static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
+		       const struct ptxed_options *options,
+		       struct ptxed_stats *stats)
+{
+	if (!insn || !options) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	if (insn->enabled)
+		printf("[enabled]\n");
+
+	if (insn->speculative)
+		printf("? ");
+
+	printf("0x%016" PRIx64, insn->ip);
+
+	if (!options->dont_print_insn) {
+		xed_machine_mode_enum_t mode;
+		xed_decoded_inst_t inst;
+		xed_error_enum_t errcode;
+
+		mode = translate_mode(insn->mode);
+
+		xed_state_set_machine_mode(xed, mode);
+		xed_decoded_inst_zero_set_mode(&inst, xed);
+
+		errcode = xed_decode(&inst, insn->raw, insn->size);
+		switch (errcode) {
+		case XED_ERROR_NONE: {
+			char buffer[256];
+			xed_bool_t ok;
+
+			ok = xed_decoded_inst_dump_intel_format(&inst, buffer,
+								sizeof(buffer),
+								insn->ip);
+			if (!ok) {
+				printf("[xed print error]");
 				break;
 			}
 
+			printf("  %s", buffer);
 		}
+			break;
 
-		if (o == num_opts)
-			return unknown_option(name);
+		default:
+			printf("[xed decode error: %u]", errcode);
+			break;
+		}
 	}
 
-	if (!opt_decoder) {
-		fprintf(stderr,
-			"%s: no processor trace file specified.\n", opt_prog);
-		return -1;
-	}
+	printf("\n");
 
-	if (!opt_loadmap) {
-		fprintf(stderr,
-			"%s: no image file specified specified.\n", opt_prog);
-		return -1;
-	}
+	if (insn->interrupted)
+		printf("[interrupt]\n");
 
-	return 0;
+	if (insn->aborted)
+		printf("[aborted]\n");
+
+	if (insn->committed)
+		printf("[committed]\n");
+
+	if (insn->disabled)
+		printf("[disabled]\n");
 }
 
-extern int main(int argc, const char **argv)
+static void decode(struct pt_insn_decoder *decoder,
+		   const struct ptxed_options *options,
+		   struct ptxed_stats *stats)
 {
-	int errcode;
+	xed_state_t xed;
 
-	/* help exits with exit status 0, no need to return. */
-	if (!argc)
-		help(NULL);
+	if (!options) {
+		printf("[internal error]\n");
+		return;
+	}
 
-	opt_prog = argv[0];
-	opt_pflags = pf_ptev_compression;
+	xed_state_zero(&xed);
 
-	errcode = process_options(argc, argv);
-	if (errcode < 0)
-		return errcode;
+	for (;;) {
+		struct pt_insn insn;
+		int errcode;
 
-	disas(opt_decoder, opt_loadmap);
+		/* Initialize the IP - we use it for error reporting. */
+		insn.ip = 0ull;
 
-	unload(opt_loadmap);
+		errcode = pt_insn_sync_forward(decoder);
+		if (errcode < 0) {
+			printf("[0x%" PRIx64 ", 0x%" PRIx64 ": sync error: "
+			       "%s]\n", pt_insn_get_offset(decoder),
+			       insn.ip, pt_errstr(pt_errcode(errcode)));
+			break;
+		}
 
+		for (;;) {
+			errcode = pt_insn_next(decoder, &insn);
+			if (errcode < 0)
+				break;
+
+			if (!options->quiet)
+				print_insn(&insn, &xed, options, stats);
+
+			if (stats)
+				stats->insn += 1;
+		}
+
+		/* We shouldn't break out of the loop without an error. */
+		if (!errcode)
+			errcode = -pte_internal;
+
+		/* We're done when we reach the end of the trace stream. */
+		if (errcode == -pte_eos)
+			break;
+
+		printf("[0x%" PRIx64 ", 0x%" PRIx64 ": resync on error: %s]\n",
+		       pt_insn_get_offset(decoder), insn.ip,
+		       pt_errstr(pt_errcode(errcode)));
+	}
+}
+
+static void print_stats(struct ptxed_stats *stats)
+{
+	if (!stats) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	printf("insn: %" PRIu64 ".\n", stats->insn);
+}
+
+extern int main(int argc, char **argv)
+{
+	struct pt_insn_decoder *decoder;
+	struct ptxed_options options;
+	struct ptxed_stats stats;
+	struct pt_config config;
+	const char *prog;
+	int errcode, i;
+
+	if (!argc) {
+		help("");
+		return 1;
+	}
+
+	prog = argv[0];
+	decoder = NULL;
+
+	memset(&options, 0, sizeof(options));
+	memset(&stats, 0, sizeof(stats));
+	memset(&config, 0, sizeof(config));
+
+	errcode = pt_configure(&config);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: configuration failed: %s\n", prog,
+			pt_errstr(pt_errcode(errcode)));
+		return 1;
+	}
+
+	for (i = 1; i < argc;) {
+		char *arg;
+
+		arg = argv[i++];
+
+		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			help(prog);
+			goto out;
+		}
+		if (strcmp(arg, "--version") == 0) {
+			version(prog);
+			goto out;
+		}
+		if (strcmp(arg, "--pt") == 0) {
+			arg = argv[i++];
+
+			if (decoder) {
+				fprintf(stderr,
+					"%s: duplicate pt sources: %s.\n",
+					prog, arg);
+				goto err;
+			}
+
+			errcode = load_pt(&config, arg, prog);
+			if (errcode < 0)
+				goto err;
+
+			decoder = pt_insn_alloc(&config);
+			if (!decoder) {
+				fprintf(stderr,
+					"%s: failed to create decoder.\n",
+					prog);
+				goto err;
+			}
+
+			continue;
+		}
+		if (strcmp(arg, "--raw") == 0) {
+			if (!decoder) {
+				fprintf(stderr, "%s: please specify the pt "
+					"source file first.\n", prog);
+				goto err;
+			}
+
+			arg = argv[i++];
+
+			errcode = load_raw(decoder, arg, prog);
+			if (errcode < 0)
+				goto err;
+
+			continue;
+		}
+#if defined(FEATURE_ELF)
+		if (strcmp(arg, "--elf") == 0) {
+			uint64_t base;
+
+			if (!decoder) {
+				fprintf(stderr, "%s: please specify the pt "
+					"source file first.\n", prog);
+				goto err;
+			}
+
+			arg = argv[i++];
+			base = 0ull;
+			errcode = extract_base(arg, &base, prog);
+			if (errcode < 0)
+				goto err;
+
+			errcode = load_elf(decoder, arg, base, prog);
+			if (errcode < 0)
+				goto err;
+
+			continue;
+		}
+#endif /* defined(FEATURE_ELF) */
+		if (strcmp(arg, "--no-inst") == 0) {
+			options.dont_print_insn = 1;
+			continue;
+		}
+		if (strcmp(arg, "--quiet") == 0 || strcmp(arg, "-q") == 0) {
+			options.quiet = 1;
+			continue;
+		}
+		if (strcmp(arg, "--stat") == 0) {
+			options.print_stats = 1;
+			continue;
+		}
+
+		fprintf(stderr, "%s: unknown option: %s.\n", prog, arg);
+		goto err;
+	}
+
+	if (!decoder) {
+		fprintf(stderr, "%s: no pt file.\n", prog);
+		goto err;
+	}
+
+	xed_tables_init();
+	decode(decoder, &options, &stats);
+
+	if (options.print_stats)
+		print_stats(&stats);
+
+out:
+	pt_insn_free(decoder);
 	return 0;
+
+err:
+	pt_insn_free(decoder);
+	return 1;
 }

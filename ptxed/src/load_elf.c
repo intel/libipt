@@ -1,0 +1,160 @@
+/*
+ * Copyright (c) 2013, Intel Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "load_elf.h"
+
+#include "pt_insn.h"
+#include "pt_error.h"
+
+#include <stdio.h>
+#include <elf.h>
+
+
+static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
+		      uint64_t base, const char *name, const char *prog)
+{
+	Elf64_Ehdr ehdr;
+	Elf64_Half pidx;
+	int64_t offset;
+	int count, errcode, sections;
+
+	errcode = fseek(file, 0, SEEK_SET);
+	if (errcode)
+		return -pte_bad_config;
+
+	count = fread(&ehdr, sizeof(ehdr), 1, file);
+	if (count != 1)
+		return -pte_bad_config;
+
+	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
+	if (errcode)
+		return -pte_bad_config;
+
+	/* Determine the load offset. */
+	if (!base)
+		offset = 0;
+	else {
+		uint64_t minaddr;
+
+		minaddr = UINT64_MAX;
+
+		for (pidx = 0; pidx < ehdr.e_phnum; ++pidx) {
+			Elf64_Phdr phdr;
+
+			count = fread(&phdr, sizeof(phdr), 1, file);
+			if (count != 1)
+				return -pte_bad_config;
+
+			if (phdr.p_type != PT_LOAD)
+				continue;
+
+			if (phdr.p_vaddr < minaddr)
+				minaddr = phdr.p_vaddr;
+		}
+
+		offset = base - minaddr;
+	}
+
+	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
+	if (errcode)
+		return -pte_bad_config;
+
+	for (sections = 0, pidx = 0; pidx < ehdr.e_phnum; ++pidx) {
+		Elf64_Phdr phdr;
+
+		count = fread(&phdr, sizeof(phdr), 1, file);
+		if (count != 1)
+			return -pte_bad_config;
+
+		if (phdr.p_type != PT_LOAD)
+			continue;
+
+		errcode = pt_insn_add_file(decoder, name, phdr.p_offset,
+					   phdr.p_filesz,
+					   phdr.p_vaddr + offset);
+		if (errcode < 0) {
+			fprintf(stderr, "%s: warning: %s: failed to create "
+				"section for phdr %u: %s.\n", prog, name, pidx,
+				pt_errstr(pt_errcode(errcode)));
+			continue;
+		}
+
+		sections += 1;
+	}
+
+	if (!sections)
+		fprintf(stderr,
+			"%s: warning: %s: did not find any load sections.\n",
+			prog,  name);
+
+	return 0;
+}
+
+int load_elf(struct pt_insn_decoder *decoder, const char *name, uint64_t base,
+	     const char *prog)
+{
+	uint8_t e_ident[EI_NIDENT];
+	FILE *file;
+	int errcode, count, idx;
+
+	if (!decoder || !name)
+		return -pte_invalid;
+
+	file = fopen(name, "rb");
+	if (!file)
+		return -pte_bad_config;
+
+	count = fread(e_ident, sizeof(e_ident), 1, file);
+	if (count != 1) {
+		errcode = -pte_bad_config;
+		goto out;
+	}
+
+	for (idx = 0; idx < SELFMAG; ++idx) {
+		if (e_ident[idx] != ELFMAG[idx]) {
+			errcode = -pte_bad_config;
+			goto out;
+		}
+	}
+
+	switch (e_ident[EI_CLASS]) {
+	default:
+		fprintf(stderr, "%s: unsupported ELF class: %d\n",
+			prog, e_ident[EI_CLASS]);
+		errcode =  -pte_bad_config;
+		break;
+
+	case ELFCLASS64:
+		errcode = load_elf64(decoder, file, base, name, prog);
+		break;
+	}
+
+out:
+	fclose(file);
+	return errcode;
+}

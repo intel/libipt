@@ -24,9 +24,8 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 
-; Test that MODE.TSX in PSB+ is checked against the ptxed state.
-;
-; Variant 1: adjacent PSB+ are inconsistent
+; Test that TIP.PGD is applied to the next direct branch (call in this case)
+; whose target matches the TIP.PGD payload.
 ;
 
 org 0x100000
@@ -35,37 +34,19 @@ bits 64
 ; @pt p1: psb()
 ; @pt p2: fup(3: %l1)
 ; @pt p3: mode.exec(64bit)
-; @pt p4: mode.tsx(begin)
-; @pt p5: psbend()
-;
-; We currently have no means to distinguish the two PSB+ in ptxed.
-; We thus believe that this is a single PSB+.
-; Since we do not expect such a scenario to occur in practice, we
-; simply accept it and add a non-psb event to separate the two PSB+.
-;
-; @pt p6: fup(3: %l1)
-; @pt p7: tip(3: %l1)
-l1:     nop
+; @pt p4: psbend()
+l1:     call l3
+l2:     hlt
+l3:     call l5
+l4:     hlt
 
-; @pt p8: psb()
-; @pt p9: fup(3: %l2)
-; @pt p10: mode.exec(64bit)
-; @pt p11: mode.tsx(abort)
-; @pt p12: psbend()
-
-; The error occured at the MODE.TSX above, but is only detected
-; when processing PSB events.
-;
-; @pt p13: fup(3: %l2)
-; @pt p14: tip.pgd(0: 0)
-l2:     nop
+; @pt p5: tip.pgd(3: %l5)
+l5:     nop
 
 
 ; @pt .exp(ptxed)
-;[interrupt]
-;? %0l1 # nop
-;[%p14, %l2: warning: speculation mode mismatch]
-;[aborted]
+;%0l1 # call l3
+;%0l3 # call l5
 ;[disabled]
 
 
@@ -73,14 +54,5 @@ l2:     nop
 ;%0p1  psb
 ;%0p2  fup        3: %0l1, ip=%0l1
 ;%0p3  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
-;%0p4  mode.tsx   intx=1, abort=0
-;%0p5  psbend
-;%0p6  fup        3: %0l1, ip=%0l1
-;%0p7  tip        3: %0l1, ip=%0l1
-;%0p8  psb
-;%0p9  fup        3: %0l2, ip=%0l2
-;%0p10  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
-;%0p11  mode.tsx   intx=0, abort=1
-;%0p12  psbend
-;%0p13  fup        3: %0l2, ip=%0l2
-;%0p14  tip.pgd    0: 0x????????????????, ip=<suppressed>
+;%0p4  psbend
+;%0p5  tip.pgd    3: %0l5, ip=%0l5

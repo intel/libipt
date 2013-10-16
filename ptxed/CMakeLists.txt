@@ -36,13 +36,16 @@ link_directories(
   ${XED_LIBDIR}
 )
 
-add_executable(ptxed
-  src/decode.c
-  src/disas.c
-  src/event.c
-  src/load.c
+set(PTXED_FILES
   src/ptxed.c
-  src/memory.c
+)
+
+if (FEATURE_ELF)
+  set(PTXED_FILES ${PTXED_FILES} src/load_elf.c)
+endif (FEATURE_ELF)
+
+add_executable(ptxed
+  ${PTXED_FILES}
 )
 target_link_libraries(ptxed libipt)
 

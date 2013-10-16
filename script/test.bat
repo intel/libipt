@@ -68,7 +68,7 @@ if %ERRORLEVEL% neq 0 (
 	goto :error
 )
 ptdump --lastip --fixed-offset-width %~dpn1.pt > %~dpn1-ptdump.out
-ptxed --pt %~dpn1.pt --raw %~dpn1.bin %org% --no-inst > %~dpn1-ptxed.out
+ptxed --pt %~dpn1.pt --raw %~dpn1.bin:%org% --no-inst > %~dpn1-ptxed.out
 
 :: **** compare outcomes to expected outputs
 :: **** only keep .diff files and print the filename

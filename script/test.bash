@@ -55,7 +55,7 @@ asm2addr() {
 	local line
 	line=`grep -i ^org $1`
 	[[ $? != 0 ]] && return $?
-	echo $line | sed s/org//
+	echo $line | sed "s/org *//"
 }
 
 usage() {
@@ -118,7 +118,7 @@ for ptt in $*; do
 				echo "$ptt: org directive not found in test file" >&2
 				continue
 			fi
-			run ptxed --pt $pt --raw $bin $addr --no-inst > $out
+			run ptxed --pt $pt --raw $bin:$addr --no-inst > $out
 			;;
 		ptdump)
 			run ptdump --lastip --fixed-offset-width $pt > $out
