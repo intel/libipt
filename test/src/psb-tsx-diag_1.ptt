@@ -32,49 +32,53 @@
 org 0x100000
 bits 64
 
-; @pt p0: psb()
-; @pt p1: fup(3: %l1)
-; @pt p2: mode.tsx(begin)
-; @pt p3: psbend()
+; @pt p1: psb()
+; @pt p2: fup(3: %l1)
+; @pt p3: mode.exec(64bit)
+; @pt p4: mode.tsx(begin)
+; @pt p5: psbend()
 ;
 ; We currently have no means to distinguish the two PSB+ in ptxed.
 ; We thus believe that this is a single PSB+.
 ; Since we do not expect such a scenario to occur in practice, we
 ; simply accept it and add a non-psb event to separate the two PSB+.
 ;
-; @pt p4: fup(3: %l1)
-; @pt p5: tip(3: %l1)
+; @pt p6: fup(3: %l1)
+; @pt p7: tip(3: %l1)
 l1:     nop
 
-; @pt p6: psb()
-; @pt p7: fup(3: %l2)
-; @pt p8: mode.tsx(abort)
-; @pt p9: psbend()
+; @pt p8: psb()
+; @pt p9: fup(3: %l2)
+; @pt p10: mode.exec(64bit)
+; @pt p11: mode.tsx(abort)
+; @pt p12: psbend()
 
 ; The error occured at the MODE.TSX above, but is only detected
 ; when processing PSB events.
 ;
-; @pt perr: tip.pgd(3: %l2)
+; @pt p13: tip.pgd(3: %l2)
 l2:     nop
 
 
 ; @pt .exp(ptxed)
 ;[interrupt]
 ;? %0l1 # nop
-;[%perr, %l2: warning: speculation mode mismatch]
+;[%p13, %l2: warning: speculation mode mismatch]
 ;[aborted]
 ;[disabled]
 
 
 ; @pt .exp(ptdump)
-;%0p0  psb
-;%0p1  fup        3: %0l1, ip=%0l1
-;%0p2  mode.tsx   intx=1, abort=0
-;%0p3  psbend
-;%0p4  fup        3: %0l1, ip=%0l1
-;%0p5  tip        3: %0l1, ip=%0l1
-;%0p6  psb
-;%0p7  fup        3: %0l2, ip=%0l2
-;%0p8  mode.tsx   intx=0, abort=1
-;%0p9  psbend
-;%0perr  tip.pgd    3: %0l2, ip=%0l2
+;%0p1  psb
+;%0p2  fup        3: %0l1, ip=%0l1
+;%0p3  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
+;%0p4  mode.tsx   intx=1, abort=0
+;%0p5  psbend
+;%0p6  fup        3: %0l1, ip=%0l1
+;%0p7  tip        3: %0l1, ip=%0l1
+;%0p8  psb
+;%0p9  fup        3: %0l2, ip=%0l2
+;%0p10  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
+;%0p11  mode.tsx   intx=0, abort=1
+;%0p12  psbend
+;%0p13  tip.pgd    3: %0l2, ip=%0l2

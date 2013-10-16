@@ -53,13 +53,6 @@ static void ctor(void)
 void disas_init(struct disas_state *state,
 		struct pt_decoder *decoder, struct load_map *elfmap)
 {
-	/* HACK: mode
-	 *
-	 * Set the mode via command-line option until the spec is more clear
-	 * about the default mode.
-	 */
-	extern enum pt_exec_mode opt_exec_mode;
-
 	/* HACK: flags
 	 *
 	 * Sneak in some default disassembly flags that can be set via the
@@ -79,8 +72,6 @@ void disas_init(struct disas_state *state,
 	state->decoder = decoder;
 	state->elfmap = elfmap;
 	state->flags = opt_pflags;
-
-	(void) disas_set_exec_mode(state, opt_exec_mode);
 }
 
 int disas_set_exec_mode(struct disas_state *state, enum pt_exec_mode mode)

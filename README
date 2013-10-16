@@ -119,11 +119,12 @@ not interesting for us at this point.
 Let's dump the PT packets:
 
   $ ptdump loop.pt
-  00  psb
-  10  fup        3: 0x0000000000100000
-  17  psbend
-  19  tnt8       !!.
-  1a  tip.pgd    3: 0x0000000000100013
+  0000000000000000  psb
+  0000000000000010  fup        3: 0x0000000000100000, ip=0x0000000000100000
+  0000000000000017  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
+  0000000000000019  psbend
+  000000000000001b  tnt8       !!.
+  000000000000001c  tip.pgd    3: 0x0000000000100013, ip=0x0000000000100013
 
 The ptdump tool takes a PT file as input and dumps the packets in a more or less
 human-readable form.  The number on the very left is the offset into the PT

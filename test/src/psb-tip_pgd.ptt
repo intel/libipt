@@ -32,10 +32,11 @@ bits 64
 
 ; @pt p1: psb()
 ; @pt p2: fup(3: %l1)
-; @pt p3: psbend()
+; @pt p3: mode.exec(64bit)
+; @pt p4: psbend()
 l1:     nop
 
-; @pt p4: tip.pgd(3: %l2)
+; @pt p5: tip.pgd(3: %l2)
 l2:     nop
 
 
@@ -47,5 +48,6 @@ l2:     nop
 ; @pt .exp(ptdump)
 ;%0p1  psb
 ;%0p2  fup        3: %0l1, ip=%0l1
-;%0p3  psbend
-;%0p4  tip.pgd    3: %0l2, ip=%0l2
+;%0p3  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
+;%0p4  psbend
+;%0p5  tip.pgd    3: %0l2, ip=%0l2

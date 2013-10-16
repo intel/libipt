@@ -74,9 +74,6 @@ static struct pt_decoder *opt_decoder;
 /* The disassembler's initial proceed flags. */
 int opt_pflags;
 
-/* The default execution mode. */
-enum pt_exec_mode opt_exec_mode = ptem_64bit;
-
 
 static int help(const char **);
 
@@ -187,27 +184,6 @@ static int opt_load_raw(const char **argv)
 	return load_raw(argv[0], &opt_loadmap, base);
 }
 
-static int opt_64(const char **argv)
-{
-	opt_exec_mode = ptem_64bit;
-
-	return 0;
-}
-
-static int opt_32(const char **argv)
-{
-	opt_exec_mode = ptem_32bit;
-
-	return 0;
-}
-
-static int opt_16(const char **argv)
-{
-	opt_exec_mode = ptem_16bit;
-
-	return 0;
-}
-
 struct option opts[] = {
 	{
 		/* .name = */ "--help",
@@ -266,30 +242,6 @@ struct option opts[] = {
 		/* .argc = */ 2,
 		/* .args = */ "<file> <base>",
 		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--64",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_64,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--32",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_32,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
-	},
-	{
-		/* .name = */ "--16",
-		/* .abbrv = */ NULL,
-		/* .process = */ opt_16,
-		/* .argc = */ 0,
-		/* .args = */ NULL,
-		/* .argv = */ NULL
 	}
 };
 
@@ -309,9 +261,6 @@ static int help(const char **argv)
 	       "                           use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
 	       "  --raw <file> <base>      load a raw binary from <file> at address <base>.\n"
-	       "  --64                     set the default execution mode to 64bit (default).\n"
-	       "  --32                     set the default execution mode to 32bit.\n"
-	       "  --16                     set the default execution mode to 16bit.\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
