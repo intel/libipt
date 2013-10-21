@@ -45,7 +45,8 @@ l2: nop
 ; @pt p5:tip(3: %l3)
 l3: nop
 
-; @pt p6:tip.pgd(3: %l4)
+; @pt p6:fup(3: %l4)
+; @pt p7:tip.pgd(0: 0)
 l4: nop
 
 
@@ -64,4 +65,5 @@ l4: nop
 ;%0p3  tip.pge    3: %0l0, ip=%0l0
 ;%0p4  fup        3: %0l2, ip=%0l2
 ;%0p5  tip        3: %0l3, ip=%0l3
-;%0p6  tip.pgd    3: %0l4, ip=%0l4
+;%0p6  fup        3: %0l4, ip=%0l4
+;%0p7  tip.pgd    0: 0x????????????????, ip=<suppressed>

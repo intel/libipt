@@ -56,14 +56,15 @@ l1:     nop
 ; The error occured at the MODE.TSX above, but is only detected
 ; when processing PSB events.
 ;
-; @pt p13: tip.pgd(3: %l2)
+; @pt p13: fup(3: %l2)
+; @pt p14: tip.pgd(0: 0)
 l2:     nop
 
 
 ; @pt .exp(ptxed)
 ;[interrupt]
 ;? %0l1 # nop
-;[%p13, %l2: warning: speculation mode mismatch]
+;[%p14, %l2: warning: speculation mode mismatch]
 ;[aborted]
 ;[disabled]
 
@@ -81,4 +82,5 @@ l2:     nop
 ;%0p10  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
 ;%0p11  mode.tsx   intx=0, abort=1
 ;%0p12  psbend
-;%0p13  tip.pgd    3: %0l2, ip=%0l2
+;%0p13  fup        3: %0l2, ip=%0l2
+;%0p14  tip.pgd    0: 0x????????????????, ip=<suppressed>

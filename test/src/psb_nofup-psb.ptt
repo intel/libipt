@@ -40,7 +40,8 @@ bits 64
 ; @pt p6: psbend()
 l2:     nop
 
-; @pt p7: tip.pgd(3: %l3)
+; @pt p7: fup(3: %l3)
+; @pt p8: tip.pgd(0: 0)
 l3:     nop
 
 
@@ -56,4 +57,5 @@ l3:     nop
 ;%0p4  fup        3: %0l2, ip=%0l2
 ;%0p5  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
 ;%0p6  psbend
-;%0p7  tip.pgd    3: %0l3, ip=%0l3
+;%0p7  fup        3: %0l3, ip=%0l3
+;%0p8  tip.pgd    0: 0x????????????????, ip=<suppressed>
