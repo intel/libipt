@@ -3591,8 +3591,9 @@ START_TEST(check_decode_ovf_psbend_paging)
 	ck_ptr(decoder->pos, config->begin);
 	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
-	ck_int_eq(decoder->event->type, ptev_paging);
-	ck_uint64_eq(decoder->event->variant.paging.cr3, cr3);
+	ck_int_eq(decoder->event->type, ptev_async_paging);
+	ck_uint64_eq(decoder->event->variant.async_paging.cr3, cr3);
+	ck_uint64_eq(decoder->event->variant.async_paging.ip, dfix->last_ip.ip);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
@@ -3905,8 +3906,9 @@ START_TEST(check_decode_psbend_paging)
 	ck_ptr(decoder->pos, config->begin);
 	ck_uint64_eq(decoder->flags, flags);
 	ck_ptr(decoder->event, event);
-	ck_int_eq(decoder->event->type, ptev_paging);
-	ck_uint64_eq(decoder->event->variant.paging.cr3, cr3);
+	ck_int_eq(decoder->event->type, ptev_async_paging);
+	ck_uint64_eq(decoder->event->variant.async_paging.cr3, cr3);
+	ck_uint64_eq(decoder->event->variant.async_paging.ip, dfix->last_ip.ip);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);

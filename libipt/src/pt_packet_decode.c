@@ -961,7 +961,18 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 	default:
 		return -pte_internal;
 
-	case ptev_paging:
+	case ptev_paging: {
+		uint64_t cr3;
+
+		cr3 = ev->variant.paging.cr3;
+
+		/* Turn paging events into async paging events since the
+		 * IP is not obvious from the code.
+		 */
+		ev->type = ptev_async_paging;
+		ev->variant.async_paging.cr3 = cr3;
+		fill_in_event_ip(ev, &ev->variant.async_paging.ip, decoder);
+	}
 		break;
 
 	case ptev_exec_mode:
