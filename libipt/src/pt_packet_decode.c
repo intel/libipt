@@ -957,30 +957,48 @@ static int packet_ovf(struct pt_packet *packet,
 	return ptps_ovf;
 }
 
+static int prepare_psb_event(struct pt_event *ev)
+{
+	if (!ev)
+		return -pte_internal;
+
+	/* Turn paging events into async paging events since the IP is not
+	 * obvious from the code.
+	 */
+	if (ev->type == ptev_paging) {
+		uint64_t cr3;
+
+		cr3 = ev->variant.paging.cr3;
+
+		ev->type = ptev_async_paging;
+		ev->variant.async_paging.cr3 = cr3;
+	}
+
+	/* Mark the event as status update. */
+	ev->status_update = 1;
+
+	return 0;
+}
+
 static int process_pending_psb_events(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
+	int errcode;
 
 	ev = pt_dequeue_event(decoder, evb_psbend);
 	if (!ev)
 		return 0;
 
+	errcode = prepare_psb_event(ev);
+	if (errcode < 0)
+		return errcode;
+
 	switch (ev->type) {
 	default:
 		return -pte_internal;
 
-	case ptev_paging: {
-		uint64_t cr3;
-
-		cr3 = ev->variant.paging.cr3;
-
-		/* Turn paging events into async paging events since the
-		 * IP is not obvious from the code.
-		 */
-		ev->type = ptev_async_paging;
-		ev->variant.async_paging.cr3 = cr3;
+	case ptev_async_paging:
 		fill_in_event_ip(ev, &ev->variant.async_paging.ip, decoder);
-	}
 		break;
 
 	case ptev_exec_mode:
@@ -991,9 +1009,6 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 		fill_in_event_ip(ev, &ev->variant.tsx.ip, decoder);
 		break;
 	}
-
-	/* Mark the event as status update. */
-	ev->status_update = 1;
 
 	/* Publish the event. */
 	decoder->event = ev;
