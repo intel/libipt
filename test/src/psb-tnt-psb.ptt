@@ -41,9 +41,10 @@ l2:     hlt
 ; @pt p6: fup(3: %l3)
 ; @pt p7: psbend()
 l3:     nop
-
-; @pt p8: tip.pgd(1: %l4)
-l4:     hlt
+l4:     nop
+; @pt p8: fup(1: %l4)
+; @pt p9: tip.pgd(0: %l5)
+l5:     hlt
 
 
 ; @pt .exp(ptdump)
@@ -54,7 +55,8 @@ l4:     hlt
 ;%0p5  psb
 ;%0p6  fup        3: %0l3, ip=%0l3
 ;%0p7  psbend
-;%0p8  tip.pgd    1: %?l4.2, ip=%0l4
+;%0p8  fup        1: %?l4.2, ip=%0l4
+;%0p9  tip.pgd    0: %?l5.0, ip=<suppressed>
 
 
 ; @pt .exp(ptxed)
