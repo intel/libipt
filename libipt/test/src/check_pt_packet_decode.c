@@ -1744,7 +1744,7 @@ START_TEST(check_header_fup_sext_48)
 	errcode = pt_decode_fup.header(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
-	ck_uint64_eq(decoder->flags, 0);
+	ck_uint64_eq(decoder->flags, pdf_status_have_ip);
 	ck_last_ip();
 
 	check_header_non_fup_state(decoder);

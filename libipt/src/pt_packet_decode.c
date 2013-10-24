@@ -741,11 +741,19 @@ static int consume_fup(struct pt_decoder *decoder, int size)
 
 static int header_fup(struct pt_decoder *decoder)
 {
-	int size;
+	struct pt_packet_ip packet;
+	int errcode, size;
 
-	size = decode_ip(decoder);
+	size = extract_ip(&packet, decoder);
 	if (size < 0)
 		return size;
+
+	errcode = pt_last_ip_update_ip(&decoder->ip, &packet, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	if (packet.ipc != pt_ipc_suppressed)
+		decoder->flags |= pdf_status_have_ip;
 
 	return consume_fup(decoder, size);
 }
@@ -1493,6 +1501,8 @@ int pt_read_ahead(struct pt_decoder *decoder)
 
 int pt_read_header(struct pt_decoder *decoder)
 {
+	decoder->flags &= ~pdf_status_have_ip;
+
 	for (;;) {
 		const struct pt_decoder_function *dfun;
 		int errcode;
