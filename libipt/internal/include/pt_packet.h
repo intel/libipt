@@ -43,6 +43,7 @@ struct pt_packet_tma;
 struct pt_packet_mtc;
 struct pt_packet_cyc;
 struct pt_packet_vmcs;
+struct pt_packet_mnt;
 
 
 /* Read the payload of an Intel PT packet.
@@ -88,5 +89,7 @@ extern int pt_pkt_read_cyc(struct pt_packet_cyc *packet, const uint8_t *pos,
 			   const struct pt_config *config);
 extern int pt_pkt_read_vmcs(struct pt_packet_vmcs *packet, const uint8_t *pos,
 			    const struct pt_config *config);
+extern int pt_pkt_read_mnt(struct pt_packet_mnt *packet, const uint8_t *pos,
+			   const struct pt_config *config);
 
 #endif /* __PT_PACKET_H__ */

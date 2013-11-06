@@ -1822,3 +1822,10 @@ int pt_qry_decode_vmcs(struct pt_query_decoder *decoder)
 	decoder->pos += size;
 	return 0;
 }
+
+int pt_qry_decode_mnt(struct pt_query_decoder *decoder)
+{
+	decoder->pos += ptps_mnt;
+
+	return 0;
+}

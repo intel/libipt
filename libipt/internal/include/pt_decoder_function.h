@@ -117,5 +117,6 @@ extern const struct pt_decoder_function pt_decode_mtc;
 extern const struct pt_decoder_function pt_decode_cyc;
 extern const struct pt_decoder_function pt_decode_stop;
 extern const struct pt_decoder_function pt_decode_vmcs;
+extern const struct pt_decoder_function pt_decode_mnt;
 
 #endif /* __PT_DECODER_FUNCTION_H__ */

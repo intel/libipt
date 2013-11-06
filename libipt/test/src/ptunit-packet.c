@@ -209,6 +209,30 @@ static struct ptunit_result unknown_ext(struct packet_fixture *pfix, int exp)
 	return ptu_passed();
 }
 
+static struct ptunit_result unknown_ext2(struct packet_fixture *pfix, int exp)
+{
+	int size;
+
+	pfix->buffer[0] = pt_opc_ext;
+	pfix->buffer[1] = pt_ext_ext2;
+	pfix->buffer[2] = pt_ext2_bad;
+	pfix->unknown = exp;
+
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
+	ptu_int_eq(size, exp);
+
+	if (exp >= 0) {
+		ptu_int_eq(pfix->packet[1].type, ppt_unknown);
+		ptu_uint_eq(pfix->packet[1].size, (uint8_t) size);
+		ptu_ptr_eq(pfix->packet[1].payload.unknown.packet,
+			   pfix->buffer);
+		ptu_ptr_eq(pfix->packet[1].payload.unknown.priv, pfix);
+	}
+
+	return ptu_passed();
+}
+
 static struct ptunit_result tnt_8(struct packet_fixture *pfix)
 {
 	pfix->packet[0].type = ppt_tnt_8;
@@ -359,6 +383,16 @@ static struct ptunit_result vmcs(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result mnt(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_mnt;
+	pfix->packet[0].payload.mnt.payload = 0x1234567890abcdefull;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -457,6 +491,8 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, unknown, pfix, -pte_nomem);
 	ptu_run_fp(suite, unknown_ext, pfix, 4);
 	ptu_run_fp(suite, unknown_ext, pfix, -pte_nomem);
+	ptu_run_fp(suite, unknown_ext2, pfix, 4);
+	ptu_run_fp(suite, unknown_ext2, pfix, -pte_nomem);
 
 	ptu_run_f(suite, tnt_8, pfix);
 	ptu_run_f(suite, tnt_64, pfix);
@@ -499,6 +535,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, mtc, pfix);
 	ptu_run_f(suite, cyc, pfix);
 	ptu_run_f(suite, vmcs, pfix);
+	ptu_run_f(suite, mnt, pfix);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -516,6 +553,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_exec);
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_tsx);
 	ptu_run_fp(suite, cutoff, pfix, ppt_vmcs);
+	ptu_run_fp(suite, cutoff, pfix, ppt_mnt);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
@@ -680,6 +718,12 @@ int pt_qry_decode_vmcs(struct pt_query_decoder *d)
 	return -pte_internal;
 }
 int pt_qry_header_vmcs(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_mnt(struct pt_query_decoder *d)
 {
 	(void) d;
 

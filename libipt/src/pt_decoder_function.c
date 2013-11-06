@@ -173,12 +173,19 @@ const struct pt_decoder_function pt_decode_vmcs = {
 	/* .flags =  */ pdff_event
 };
 
+const struct pt_decoder_function pt_decode_mnt = {
+	/* .packet = */ pt_pkt_decode_mnt,
+	/* .decode = */ pt_qry_decode_mnt,
+	/* .header = */ pt_qry_decode_mnt,
+	/* .flags =  */ 0
+};
+
 
 int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		const struct pt_config *config)
 {
 	const uint8_t *begin, *end;
-	uint8_t opc, ext;
+	uint8_t opc, ext, ext2;
 
 	if (!dfun || !config)
 		return -pte_internal;
@@ -293,6 +300,21 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		case pt_ext_vmcs:
 			*dfun = &pt_decode_vmcs;
 			return 0;
+
+		case pt_ext_ext2:
+			if (pos == end)
+				return -pte_eos;
+
+			ext2 = *pos++;
+			switch (ext2) {
+			default:
+				*dfun = &pt_decode_unknown;
+				return 0;
+
+			case pt_ext2_mnt:
+				*dfun = &pt_decode_mnt;
+				return 0;
+			}
 		}
 	}
 }

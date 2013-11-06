@@ -609,3 +609,22 @@ int pt_pkt_decode_vmcs(struct pt_packet_decoder *decoder,
 
 	return size;
 }
+
+int pt_pkt_decode_mnt(struct pt_packet_decoder *decoder,
+		      struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_mnt(&packet->payload.mnt, decoder->pos,
+			       &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_mnt;
+	packet->size = (uint8_t) size;
+
+	return size;
+}

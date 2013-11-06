@@ -539,6 +539,20 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		encoder->pos = pos;
 		return (int) (pos - begin);
 
+	case ppt_mnt:
+		errcode = pt_reserve(encoder, ptps_mnt);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_ext2;
+		*pos++ = pt_ext2_mnt;
+		pos = pt_encode_int(pos, packet->payload.mnt.payload,
+				    pt_pl_mnt_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;
@@ -762,6 +776,16 @@ int pt_encode_vmcs(struct pt_encoder *encoder, uint64_t payload)
 
 	packet.type = ppt_vmcs;
 	packet.payload.vmcs.base = payload;
+
+	return pt_enc_next(encoder, &packet);
+}
+
+int pt_encode_mnt(struct pt_encoder *encoder, uint64_t payload)
+{
+	struct pt_packet packet;
+
+	packet.type = ppt_mnt;
+	packet.payload.mnt.payload = payload;
 
 	return pt_enc_next(encoder, &packet);
 }

@@ -436,3 +436,17 @@ int pt_pkt_read_vmcs(struct pt_packet_vmcs *packet, const uint8_t *pos,
 
 	return ptps_vmcs;
 }
+
+int pt_pkt_read_mnt(struct pt_packet_mnt *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_mnt)
+		return -pte_eos;
+
+	packet->payload = pt_pkt_read_value(pos + pt_opcs_mnt, pt_pl_mnt_size);
+
+	return ptps_mnt;
+}

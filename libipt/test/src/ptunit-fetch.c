@@ -129,6 +129,22 @@ static struct ptunit_result fetch_unknown_ext(struct fetch_fixture *ffix)
 	return ptu_passed();
 }
 
+static struct ptunit_result fetch_unknown_ext2(struct fetch_fixture *ffix)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	ffix->config.begin[0] = pt_opc_ext;
+	ffix->config.begin[1] = pt_ext_ext2;
+	ffix->config.begin[2] = pt_ext2_bad;
+
+	errcode = pt_df_fetch(&dfun, ffix->config.begin, &ffix->config);
+	ptu_int_eq(errcode, 0);
+	ptu_ptr_eq(dfun, &pt_decode_unknown);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result fetch_packet(struct fetch_fixture *ffix,
 					 const struct pt_packet *packet,
 					 const struct pt_decoder_function *df)
@@ -214,6 +230,7 @@ int main(int argc, char **argv)
 
 	ptu_run_f(suite, fetch_unknown, ffix);
 	ptu_run_f(suite, fetch_unknown_ext, ffix);
+	ptu_run_f(suite, fetch_unknown_ext2, ffix);
 
 	ptu_run_fp(suite, fetch_type, ffix, ppt_pad, &pt_decode_pad);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_psb, &pt_decode_psb);
@@ -232,6 +249,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, fetch_type, ffix, ppt_cyc, &pt_decode_cyc);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_stop, &pt_decode_stop);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_vmcs, &pt_decode_vmcs);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_mnt, &pt_decode_mnt);
 
 	ptu_run_f(suite, fetch_tnt_8, ffix);
 	ptu_run_f(suite, fetch_mode_exec, ffix);
@@ -557,6 +575,20 @@ int pt_qry_decode_vmcs(struct pt_query_decoder *d)
 	return -pte_internal;
 }
 int pt_qry_header_vmcs(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_mnt(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_mnt(struct pt_query_decoder *d)
 {
 	(void) d;
 

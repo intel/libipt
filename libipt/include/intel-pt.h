@@ -132,8 +132,16 @@ enum pt_ext_code {
 	pt_ext_tma		= 0x73,
 	pt_ext_stop		= 0x83,
 	pt_ext_vmcs		= 0xc8,
+	pt_ext_ext2		= 0xc3,
 
 	pt_ext_bad		= 0x04
+};
+
+/** A one byte extension 2 code for ext2 extension opcodes. */
+enum pt_ext2_code {
+	pt_ext2_mnt		= 0x88,
+
+	pt_ext2_bad		= 0x00
 };
 
 /** A one byte opcode mask. */
@@ -181,7 +189,8 @@ enum pt_opcode_size {
 	pt_opcs_cbr		= 2,
 	pt_opcs_tma		= 2,
 	pt_opcs_stop		= 2,
-	pt_opcs_vmcs		= 2
+	pt_opcs_vmcs		= 2,
+	pt_opcs_mnt		= 3
 };
 
 /** The psb magic payload.
@@ -282,7 +291,10 @@ enum pt_payload {
 	pt_pl_vmcs_size		= 5,
 
 	/* The shift counts for post-processing the VMCS payload. */
-	pt_pl_vmcs_shl		= 12
+	pt_pl_vmcs_shl		= 12,
+
+	/* The size of a MNT packet's payload in bytes. */
+	pt_pl_mnt_size		= 8
 };
 
 /** Mode packet masks. */
@@ -358,7 +370,8 @@ enum pt_packet_size {
 	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size,
 	ptps_tma		= pt_opcs_tma + pt_pl_tma_size,
 	ptps_stop		= pt_opcs_stop,
-	ptps_vmcs		= pt_opcs_vmcs + pt_pl_vmcs_size
+	ptps_vmcs		= pt_opcs_vmcs + pt_pl_vmcs_size,
+	ptps_mnt		= pt_opcs_mnt + pt_pl_mnt_size
 };
 
 
@@ -589,6 +602,14 @@ extern pt_export int pt_cpu_errata(struct pt_errata *errata,
 
 
 
+/* We define a few abbreviations outside of the below enum as we don't
+ * want to handle those in switches.
+ */
+enum {
+	ppt_ext			= pt_opc_ext << 8,
+	ppt_ext2		= ppt_ext << 8 | pt_ext_ext2 << 8
+};
+
 /** Intel PT packet types. */
 enum pt_packet_type {
 	/* 1-byte header packets. */
@@ -604,15 +625,18 @@ enum pt_packet_type {
 	ppt_cyc			= pt_opc_cyc,
 
 	/* 2-byte header packets. */
-	ppt_psb			= pt_opc_ext << 8 | pt_ext_psb,
-	ppt_tnt_64		= pt_opc_ext << 8 | pt_ext_tnt_64,
-	ppt_pip			= pt_opc_ext << 8 | pt_ext_pip,
-	ppt_stop		= pt_opc_ext << 8 | pt_ext_stop,
-	ppt_ovf			= pt_opc_ext << 8 | pt_ext_ovf,
-	ppt_psbend		= pt_opc_ext << 8 | pt_ext_psbend,
-	ppt_cbr			= pt_opc_ext << 8 | pt_ext_cbr,
-	ppt_tma			= pt_opc_ext << 8 | pt_ext_tma,
-	ppt_vmcs		= pt_opc_ext << 8 | pt_ext_vmcs,
+	ppt_psb			= ppt_ext | pt_ext_psb,
+	ppt_tnt_64		= ppt_ext | pt_ext_tnt_64,
+	ppt_pip			= ppt_ext | pt_ext_pip,
+	ppt_stop		= ppt_ext | pt_ext_stop,
+	ppt_ovf			= ppt_ext | pt_ext_ovf,
+	ppt_psbend		= ppt_ext | pt_ext_psbend,
+	ppt_cbr			= ppt_ext | pt_ext_cbr,
+	ppt_tma			= ppt_ext | pt_ext_tma,
+	ppt_vmcs		= ppt_ext | pt_ext_vmcs,
+
+	/* 3-byte header packets. */
+	ppt_mnt			= ppt_ext2 | pt_ext2_mnt,
 
 	/* A packet decodable by the optional decoder callback. */
 	ppt_unknown		= 0x7ffffffe,
@@ -759,6 +783,12 @@ struct pt_packet_vmcs {
 	uint64_t base;
 };
 
+/** A MNT packet. */
+struct pt_packet_mnt {
+	/** The raw payload. */
+	uint64_t payload;
+};
+
 /** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
 	/** Pointer to the raw packet bytes. */
@@ -809,6 +839,9 @@ struct pt_packet {
 
 		/** Packet: vmcs. */
 		struct pt_packet_vmcs vmcs;
+
+		/** Packet: mnt. */
+		struct pt_packet_mnt mnt;
 
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;

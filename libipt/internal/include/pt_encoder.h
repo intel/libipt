@@ -119,4 +119,7 @@ extern int pt_encode_stop(struct pt_encoder *);
 /* Encode a VMCS packet. */
 extern int pt_encode_vmcs(struct pt_encoder *, uint64_t);
 
+/* Encode a Maintenance (mnt) packet. */
+extern int pt_encode_mnt(struct pt_encoder *, uint64_t);
+
 #endif /* __PT_ENCODER_H__ */
