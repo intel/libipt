@@ -48,6 +48,31 @@ char *duplicate_str(const char *s)
 	return strcpy(dup, s);
 }
 
+int str_to_uint64(const char *str, uint64_t *val)
+{
+	char *endptr;
+	uint64_t x;
+
+	if (!str || !val)
+		return -err_internal;
+
+	errno = 0;
+	x = strtoull(str, &endptr, 0);
+
+	if (errno == EINVAL)
+		return -err_parse_int;
+
+	if (errno == ERANGE)
+		return -err_parse_int_too_big;
+
+	if (str == endptr || *endptr != '\0')
+		return -err_parse_int;
+
+	*val = x;
+
+	return 0;
+}
+
 int do_bug_on(int cond, const char *condstr, const char *file, int line)
 {
 	if (cond)

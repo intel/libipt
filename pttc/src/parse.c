@@ -887,10 +887,11 @@ int parse_ip(struct parser *p, uint64_t *ip, uint8_t *ipc, char *payload)
 			return errcode;
 	} else {
 		/* can be parsed as address?  */
-		*ip = strtoll(payload, &endptr, 0);
+		int errcode;
 
-		if ((payload == endptr) || (*endptr != '\0'))
-			return -err_parse_int;
+		errcode = str_to_uint64(payload, ip);
+		if (errcode < 0)
+			return errcode;
 	}
 
 	/* no more tokens left.  */
@@ -903,7 +904,7 @@ int parse_ip(struct parser *p, uint64_t *ip, uint8_t *ipc, char *payload)
 
 int parse_uint64(uint64_t *x, char *payload)
 {
-	char *endptr;
+	int errcode;
 
 	if (bug_on(!x))
 		return -err_internal;
@@ -912,9 +913,9 @@ int parse_uint64(uint64_t *x, char *payload)
 	if (!payload)
 		return -err_parse_no_args;
 
-	*x = strtoll(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
+	errcode = str_to_uint64(payload, x);
+	if (errcode < 0)
+		return errcode;
 
 	return 0;
 }

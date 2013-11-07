@@ -37,6 +37,21 @@
 #include <inttypes.h>
 
 
+/* Sign-extend a uint64_t value. */
+static uint64_t sext(uint64_t val, uint8_t sign)
+{
+	int64_t sval;
+	uint8_t shc;
+
+	sval = (int64_t) val;
+	shc = 64 - sign;
+
+	sval <<= shc;
+	sval >>= shc;
+
+	return (uint64_t) sval;
+}
+
 static int strprint(char *str, uint64_t size, const char *format, ...)
 {
 	int ret;
@@ -147,9 +162,10 @@ int pt_print_strprint_ip_packet(char *str, uint64_t size,
 		return strprint(str, size,
 				"%d: 0x????????%08" PRIx64, ipc, ip);
 	case pt_ipc_sext_48:
-		if (((ip & 0xffff800000000000ull) != 0xffff800000000000ull) &&
-		    ((ip & 0xffff800000000000ull) != 0x0000000000000000ull))
+		if (ip & ~0xffffffffffffull)
 			return -pte_bad_packet;
+
+		ip = sext(ip, 48);
 
 		return strprint(str, size,
 				"%d: 0x%016" PRIx64, ipc, ip);
