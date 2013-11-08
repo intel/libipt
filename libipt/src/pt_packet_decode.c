@@ -69,7 +69,7 @@ static int packet_unknown(struct pt_packet *packet,
 	packet->type = ppt_unknown;
 	packet->size = 0;
 	packet->payload.unknown.packet = decoder->pos;
-	packet->payload.unknown.private = NULL;
+	packet->payload.unknown.priv = NULL;
 
 	size = extract_unknown(packet, decoder);
 	if (size < 0)

@@ -274,7 +274,7 @@ struct pt_packet_unknown has the following fields:
 
   - packet              A pointer to the raw packet bytes (in the PT stream).
 
-  - private             An optional pointer to a user-defined structure.
+  - priv                An optional pointer to a user-defined structure.
 
 
 Queries

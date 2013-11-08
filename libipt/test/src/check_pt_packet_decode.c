@@ -467,7 +467,7 @@ START_TEST(check_packet_unknown_skip_4)
 	ck_int_eq(packet.type, ppt_unknown);
 	ck_uint_eq(packet.size, 0);
 	ck_ptr(packet.payload.unknown.packet, encoder->pos);
-	ck_null(packet.payload.unknown.private);
+	ck_null(packet.payload.unknown.priv);
 
 	check_blank_state(decoder);
 }
@@ -491,7 +491,7 @@ START_TEST(check_packet_unknown_nomem_fail)
 	ck_int_eq(packet.type, ppt_unknown);
 	ck_uint_eq(packet.size, 0);
 	ck_ptr(packet.payload.unknown.packet, encoder->pos);
-	ck_null(packet.payload.unknown.private);
+	ck_null(packet.payload.unknown.priv);
 
 	check_blank_state(decoder);
 }

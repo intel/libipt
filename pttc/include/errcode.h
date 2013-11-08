@@ -81,7 +81,7 @@ enum errcode {
 	 * This must always be the last element in the enum.
 	 * It must not be used as error code.
 	 */
-	err_max,
+	err_max
 };
 
 /* Map error codes to descriptions.

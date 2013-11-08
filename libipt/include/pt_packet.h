@@ -61,7 +61,7 @@ enum pt_packet_type {
 	ppt_unknown		= 0x7ffffffe,
 
 	/* An invalid packet. */
-	ppt_invalid		= 0x7fffffff,
+	ppt_invalid		= 0x7fffffff
 };
 
 /* A TNT-8 or TNT-64 packet. */
@@ -144,7 +144,7 @@ struct pt_packet_unknown {
 	const uint8_t *packet;
 
 	/* Optional pointer to a user-defined structure. */
-	void *private;
+	void *priv;
 };
 
 /* An Intel(R) Processor Trace packet. */

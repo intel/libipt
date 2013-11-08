@@ -51,7 +51,7 @@ enum pt_decoder_flag {
 	pdf_consume_packet	= 1 << 1,
 
 	/* There had been a FUP in the last PSB+. */
-	pdf_status_have_ip	= 1 << 2,
+	pdf_status_have_ip	= 1 << 2
 };
 
 /* Intel(R) Processor Trace event bindings.

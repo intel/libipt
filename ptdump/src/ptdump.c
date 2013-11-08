@@ -61,7 +61,7 @@ enum pt_dump_flag {
 	ptd_show_last_ip = 1 << 2,
 
 	/* Print current offset column always with fixed width. */
-	ptd_fixed_offset_width = 1 << 3,
+	ptd_fixed_offset_width = 1 << 3
 };
 
 

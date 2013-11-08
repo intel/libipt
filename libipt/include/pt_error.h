@@ -71,7 +71,7 @@ enum pt_error_code {
 	pte_noip,
 
 	/* The IP has been suppressed. */
-	pte_ip_suppressed,
+	pte_ip_suppressed
 };
 
 

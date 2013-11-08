@@ -44,7 +44,7 @@ enum pt_opcode {
 	pt_opc_tsc		= 0x19,
 
 	/* A free opcode to trigger a decode fault. */
-	pt_opc_bad		= 0x59,
+	pt_opc_bad		= 0x59
 };
 
 /* A one byte extension code for ext opcodes. */
@@ -56,7 +56,7 @@ enum pt_ext_code {
 	pt_ext_psbend		= 0x23,
 	pt_ext_cbr		= 0x03,
 
-	pt_ext_bad		= 0x04,
+	pt_ext_bad		= 0x04
 };
 
 /* A one byte opcode mask. */
@@ -73,7 +73,7 @@ enum pt_opcode_mask {
 	pt_opm_ipc_shr		= 5,
 
 	/* The bit mask for the compression bits after shifting. */
-	pt_opm_ipc_shr_mask	= 0x7,
+	pt_opm_ipc_shr_mask	= 0x7
 };
 
 /* The size of the various opcodes in bytes. */
@@ -91,7 +91,7 @@ enum pt_opcode_size {
 	pt_opcs_ovf		= 2,
 	pt_opcs_pip		= 2,
 	pt_opcs_tnt_64		= 2,
-	pt_opcs_cbr		= 2,
+	pt_opcs_cbr		= 2
 };
 
 /* The psb magic payload.
@@ -111,7 +111,7 @@ enum pt_psb_pattern {
 	pt_psb_repeat_count	= 7,
 
 	/* The size of the repeated pattern in bytes. */
-	pt_psb_repeat_size	= 2,
+	pt_psb_repeat_size	= 2
 };
 
 /* The IP compression. */
@@ -129,7 +129,7 @@ enum pt_ip_compression {
 	pt_ipc_update_32	= 0x02,
 
 	/* Payload: 48 bits.  Sign extend to full address. */
-	pt_ipc_sext_48		= 0x03,
+	pt_ipc_sext_48		= 0x03
 };
 
 /* An execution mode. */
@@ -177,20 +177,20 @@ enum pt_payload {
 	pt_pl_ip_upd32_size	= 4,
 
 	/* The size of an IP packet's payload with sext-48 compression. */
-	pt_pl_ip_sext48_size	= 6,
+	pt_pl_ip_sext48_size	= 6
 };
 
 /* Mode packet masks. */
 enum pt_mode_mask {
 	pt_mom_leaf		= 0xe0,
 	pt_mom_leaf_shr		= 5,
-	pt_mom_bits		= 0x1f,
+	pt_mom_bits		= 0x1f
 };
 
 /* Mode packet leaves. */
 enum pt_mode_leaf {
 	pt_mol_exec		= 0x00,
-	pt_mol_tsx		= 0x20,
+	pt_mol_tsx		= 0x20
 };
 
 /* Mode packet bits. */
@@ -201,7 +201,7 @@ enum pt_mode_bit {
 
 	/* mode.tsx */
 	pt_mob_tsx_intx		= 0x01,
-	pt_mob_tsx_abrt		= 0x02,
+	pt_mob_tsx_abrt		= 0x02
 };
 
 /* The size of the various packets in bytes. */
@@ -231,7 +231,7 @@ enum pt_packet_size {
 	ptps_fup_supp		= pt_opcs_fup,
 	ptps_fup_upd16		= pt_opcs_fup + pt_pl_ip_upd16_size,
 	ptps_fup_upd32		= pt_opcs_fup + pt_pl_ip_upd32_size,
-	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size,
+	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size
 };
 
 #endif /* __PT_OPCODE_H__ */

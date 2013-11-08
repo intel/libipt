@@ -46,7 +46,7 @@ enum pt_print_size {
 	pps_packet_type	= 10,
 	pps_payload	= 48,
 	pps_exec_mode	= 15,
-	pps_ip_payload	= 22,
+	pps_ip_payload	= 22
 };
 
 

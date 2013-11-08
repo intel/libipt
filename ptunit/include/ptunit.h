@@ -61,7 +61,7 @@ enum ptunit_result_type {
 	ptur_failed_pointer,
 
 	/* The test failed a string comparison. */
-	ptur_failed_str,
+	ptur_failed_str
 };
 
 /* A unit test result.
