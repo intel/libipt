@@ -149,10 +149,6 @@ if (CMAKE_HOST_UNIX)
   set(CHECK "" CACHE BOOL ON)
 
   add_definitions(
-    # set the language
-    #
-    -std=c99
-
     # windows-like dll export model
     #
     -fvisibility=hidden
@@ -174,6 +170,12 @@ if (CMAKE_HOST_UNIX)
     # track dependencies
     #
     -MMD
+  )
+
+  set(CMAKE_C_FLAGS
+    # set the language
+    #
+    -std=c99
   )
 
   set(CMAKE_C_CFLAGS_DEBUG
