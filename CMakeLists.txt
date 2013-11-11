@@ -178,6 +178,12 @@ if (CMAKE_HOST_UNIX)
     -std=c99
   )
 
+  set(CMAKE_CXX_FLAGS
+    # set the language
+    #
+    -std=c++0x
+  )
+
   set(CMAKE_C_CFLAGS_DEBUG
     # debug information generation
     #
