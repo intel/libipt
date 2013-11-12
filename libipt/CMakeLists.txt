@@ -101,6 +101,7 @@ add_executable(ptunit-query
   test/src/ptunit-query.c
   src/pt_encoder.c
   src/pt_last_ip.c
+  src/pt_packet_decoder.c
   src/pt_sync.c
   src/pt_tnt_cache.c
   src/pt_time.c

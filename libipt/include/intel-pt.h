@@ -404,8 +404,15 @@ struct pt_cpu {
 
 /** A collection of Intel PT errata. */
 struct pt_errata {
-	/* A dummy field to avoid having an empty struct. */
-	uint32_t dummy;
+	/** BDM70: Intel(R) Processor Trace PSB+ Packets May Contain
+	 *         Unexpected Packets.
+	 *
+	 * Some Intel Processor Trace packets should be issued only between
+	 * TIP.PGE and TIP.PGD packets.  Due to this erratum, when a TIP.PGE
+	 * packet is generated it may be preceded by a PSB+ that incorrectly
+	 * includes FUP and MODE.Exec packets.
+	 */
+	uint32_t bdm70:1;
 };
 
 /** An unknown packet. */

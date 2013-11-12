@@ -30,6 +30,7 @@
 #include "pt_sync.h"
 #include "pt_decoder_function.h"
 #include "pt_packet.h"
+#include "pt_packet_decoder.h"
 
 #include "intel-pt.h"
 
@@ -979,6 +980,67 @@ static int pt_qry_consume_fup(struct pt_query_decoder *decoder, int size)
 	return 0;
 }
 
+static int scan_for_erratum_bdm70(struct pt_packet_decoder *decoder)
+{
+	for (;;) {
+		struct pt_packet packet;
+		int errcode;
+
+		errcode = pt_pkt_next(decoder, &packet);
+		if (errcode < 0) {
+			/* Running out of packets is not an error. */
+			if (errcode == -pte_eos)
+				errcode = 0;
+
+			return errcode;
+		}
+
+		switch (packet.type) {
+		default:
+			/* All other packets cancel our search.
+			 *
+			 * We do not enumerate those packets since we also
+			 * want to include new packets.
+			 */
+			return 0;
+
+		case ppt_tip_pge:
+			/* We found it - the erratum applies. */
+			return 1;
+
+		case ppt_pad:
+		case ppt_tsc:
+		case ppt_cbr:
+		case ppt_psbend:
+		case ppt_pip:
+		case ppt_mode:
+			/* Intentionally skip a few packets. */
+			continue;
+		}
+	}
+}
+
+static int check_erratum_bdm70(const uint8_t *pos,
+			       const struct pt_config *config)
+{
+	struct pt_packet_decoder decoder;
+	int errcode;
+
+	if (!pos || !config)
+		return -pte_internal;
+
+	errcode = pt_pkt_decoder_init(&decoder, config);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_sync_set(&decoder, (uint64_t) (pos - config->begin));
+	if (errcode >= 0)
+		errcode = scan_for_erratum_bdm70(&decoder);
+
+	pt_pkt_decoder_fini(&decoder);
+	return errcode;
+}
+
 int pt_qry_header_fup(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_ip packet;
@@ -987,6 +1049,16 @@ int pt_qry_header_fup(struct pt_query_decoder *decoder)
 	size = pt_pkt_read_ip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
+
+	if (decoder->config.errata.bdm70 && !decoder->enabled) {
+		errcode = check_erratum_bdm70(decoder->pos + size,
+					      &decoder->config);
+		if (errcode < 0)
+			return errcode;
+
+		if (errcode)
+			return pt_qry_consume_fup(decoder, size);
+	}
 
 	errcode = pt_last_ip_update_ip(&decoder->ip, &packet, &decoder->config);
 	if (errcode < 0)

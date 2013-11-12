@@ -120,5 +120,19 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 
 	memset(errata, 0, sizeof(*errata));
 
+	/* We don't know about others. */
+	if (cpu->vendor != pcv_intel)
+		return 0;
+
+	switch (cpu->family) {
+	case 0x6:
+		switch (cpu->model) {
+		case 0x3d:
+			errata->bdm70 = 1;
+			break;
+		}
+		break;
+	}
+
 	return 0;
 }
