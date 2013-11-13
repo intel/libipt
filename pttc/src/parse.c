@@ -427,7 +427,7 @@ static void p_close_files(struct parser *p)
 
 static int p_open_files(struct parser *p)
 {
-	p->ptfile = fopen(p->ptfilename, "w");
+	p->ptfile = fopen(p->ptfilename, "wb");
 	if (!p->ptfile) {
 		fprintf(stderr, "open %s failed\n", p->ptfilename);
 		goto error;
