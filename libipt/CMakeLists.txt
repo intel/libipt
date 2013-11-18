@@ -103,6 +103,11 @@ add_executable(ptunit-query
   src/pt_config.c
 )
 
+add_executable(ptunit-cpp
+  test/src/ptunit-cpp.cpp
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
+target_link_libraries(ptunit-cpp ptunit libipt)
