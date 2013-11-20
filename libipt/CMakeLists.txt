@@ -54,11 +54,11 @@ else (FEATURE_MMAP)
 endif (FEATURE_MMAP)
 
 if (CMAKE_HOST_UNIX)
-  add_definitions(
-    # build position independent
-    #
-    -fPIC
-  )
+  # build position independent
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
   set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/init.c)
 endif (CMAKE_HOST_UNIX)
 

@@ -78,30 +78,6 @@ if (CMAKE_HOST_WIN32)
   )
 
   add_definitions(
-    # avoid annoying warnings about unsecure standard functions
-    #
-    /D_CRT_SECURE_NO_WARNINGS
-
-    # enable parallel build
-    #
-    /MP
-
-    # compiler warnings
-    #
-    /W4
-
-    # allow functions to ignore parameters
-    #
-    /wd4100
-
-    # prevent complaints on do {} while(0) constructs
-    #
-    /wd4127
-
-    # warnings are errors
-    #
-    /WX
-
     # cl spells inline __inline in C
     #
     /Dinline=__inline
@@ -113,23 +89,51 @@ if (CMAKE_HOST_WIN32)
     # cl spells strtoull _strtoui64
     #
     /Dstrtoull=_strtoui64
+
+    # avoid annoying warnings about unsecure standard functions
+    #
+    /D_CRT_SECURE_NO_WARNINGS
   )
 
-  set(CMAKE_C_CFLAGS_DEBUG
-    # debug information generation
-    #
-    /Zi
+  # enable parallel build
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
-    # make sure to turn off optimization
-    #
-    /Od
-  )
+  # compiler warnings
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
 
-  set(CMAKE_C_CFLAGS_RELEASE
-    # optimization level
-    #
-    /O3
-  )
+  # allow functions to ignore parameters
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4100")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100")
+
+  # prevent complaints on do {} while(0) constructs
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
+
+  # warnings are errors
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+
+  # debug build: debug information generation
+  #
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zi")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
+
+  # debug build: make sure to turn off optimization
+  #
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Od")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od")
+
+  # release build: optimization level
+  #
+  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O3")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O3")
 
 endif (CMAKE_HOST_WIN32)
 
@@ -138,67 +142,64 @@ if (CMAKE_HOST_UNIX)
   set(GCOV "" CACHE BOOL OFF)
 
   if (GCOV)
-    add_definitions(
-      -fprofile-arcs
-      -ftest-coverage
-    )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftest-coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftest-coverage")
 
     link_libraries(gcov)
   endif (GCOV)
 
   set(CHECK "" CACHE BOOL ON)
 
-  add_definitions(
-    # windows-like dll export model
-    #
-    -fvisibility=hidden
+  # set the language
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
-    # compiler warnings
-    #
-    -Wall
-    -Wextra
-    -pedantic
+  # windows-like dll export model
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 
-    # allow functions to ignore parameters
-    #
-    -Wno-unused-parameter
+  # compiler warnings
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic")
 
-    # warnings are errors
-    #
-    -Werror
+  # allow functions to ignore parameters
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
 
-    # track dependencies
-    #
-    -MMD
-  )
+  # warnings are errors
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 
-  set(CMAKE_C_FLAGS
-    # set the language
-    #
-    -std=c99
-  )
+  # track dependencies
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MMD")
 
-  set(CMAKE_CXX_FLAGS
-    # set the language
-    #
-    -std=c++0x
-  )
+  # debug build: debug information generation
+  #
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g3")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3")
 
-  set(CMAKE_C_CFLAGS_DEBUG
-    # debug information generation
-    #
-    -g3
+  # debug build: make sure to turn off optimization
+  #
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 
-    # make sure to turn off optimization
-    #
-    -O0
-    )
-
-  set(CMAKE_C_CFLAGS_RELEASE
-    # optimization level
-    #
-    -O6
-    )
+  # release build: optimization level
+  #
+  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O6")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O6")
 
 endif (CMAKE_HOST_UNIX)
 

@@ -64,11 +64,10 @@ if (CMAKE_HOST_WIN32)
     libxed
   )
 
-  add_definitions(
-    # suppress warnings from XED header files
-    #
-    #   w4127: conditional expression is constant
-    #
-    /wd4127
-)
+  # suppress warnings from XED header files
+  #
+  #   w4127: conditional expression is constant
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
 endif (CMAKE_HOST_WIN32)
