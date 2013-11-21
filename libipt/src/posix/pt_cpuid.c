@@ -26,76 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_config.h"
 #include "pt_cpuid.h"
-#include "pt_error.h"
 
-#include <string.h>
+#include <cpuid.h>
 
-const char *cpu_vendors[] = {
-	"",
-	"GenuineIntel"
-};
-
-enum {
-	pt_cpuid_vendor_size = 12
-};
-
-static enum pt_cpu_vendor cpu_vendor(void)
+extern void pt_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
+		     uint32_t *ecx, uint32_t *edx)
 {
-	uint32_t eax, ebx, ecx, edx;
-	size_t i;
-	char s[pt_cpuid_vendor_size];
-
-	pt_cpuid(0u, &eax, &ebx, &ecx, &edx);
-	((uint32_t *)s)[0] = ebx;
-	((uint32_t *)s)[1] = edx;
-	((uint32_t *)s)[2] = ecx;
-
-	for (i = 0; i < sizeof(cpu_vendors)/sizeof(*cpu_vendors); i++)
-		if (strncmp(s, cpu_vendors[i], pt_cpuid_vendor_size) == 0)
-			return (enum pt_cpu_vendor) i;
-
-	return pcv_unknown;
-}
-
-static uint32_t cpu_info(void)
-{
-	uint32_t eax, ebx, ecx, edx;
-
-	pt_cpuid(1u, &eax, &ebx, &ecx, &edx);
-	return eax;
-}
-
-
-static void set_cpuid(struct pt_cpu *cpu)
-{
-	uint32_t info;
-	uint16_t family;
-
-	cpu->vendor = cpu_vendor();
-
-	info = cpu_info();
-
-	cpu->family = family = (info>>8) & 0xf;
-	if (family == 0xf)
-		cpu->family += (info>>20) & 0xf;
-
-	cpu->model = (info>>4) & 0xf;
-	if (family == 0x6 || family == 0xf)
-		cpu->model += (info>>12) & 0xf0;
-
-	cpu->stepping = (info>>0) & 0xf;
-}
-
-int pt_configure(struct pt_config *config)
-{
-	if (!config)
-		return -pte_invalid;
-
-	config->size = sizeof(*config);
-
-	set_cpuid(&config->cpu);
-
-	return 0;
+	__get_cpuid(leaf, eax, ebx, ecx, edx);
 }

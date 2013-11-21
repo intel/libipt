@@ -139,6 +139,18 @@ endif (CMAKE_HOST_WIN32)
 
 if (CMAKE_HOST_UNIX)
 
+  if (CMAKE_C_COMPILER_ID MATCHES "Clang")
+    add_definitions(
+      # make asm directive work in c99 mode.
+      #
+      # from the clang user manual:
+      # "The parser recognizes "asm" and "typeof" as keywords in gnu* modes;
+      # the variants "__asm__" and "__typeof__" are recognized in all
+      # modes."
+      -Dasm=__asm__
+    )
+  endif (CMAKE_C_COMPILER_ID MATCHES "Clang")
+
   set(GCOV "" CACHE BOOL OFF)
 
   if (GCOV)

@@ -28,8 +28,11 @@ include_directories(
   internal/include
 )
 
-set(LIBIPT_FILES
+set(LIBIPT_CONFIG_FILES
   src/pt_config.c
+)
+
+set(LIBIPT_FILES
   src/pt_encode.c
   src/pt_error.c
   src/pt_packet_decode.c
@@ -60,6 +63,7 @@ if (CMAKE_HOST_UNIX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
   set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/init.c)
+  set(LIBIPT_CONFIG_FILES ${LIBIPT_CONFIG_FILES} src/posix/pt_cpuid.c)
 endif (CMAKE_HOST_UNIX)
 
 if (CMAKE_HOST_WIN32)
@@ -69,7 +73,10 @@ if (CMAKE_HOST_WIN32)
     /Dpt_export=__declspec\(dllexport\)
   )
   set(LIBIPT_FILES ${LIBIPT_FILES} src/windows/init.c)
+  set(LIBIPT_CONFIG_FILES ${LIBIPT_CONFIG_FILES} src/windows/pt_cpuid.c)
 endif (CMAKE_HOST_WIN32)
+
+set(LIBIPT_FILES ${LIBIPT_FILES} ${LIBIPT_CONFIG_FILES})
 
 add_library(libipt SHARED
   ${LIBIPT_FILES}
@@ -113,7 +120,7 @@ add_executable(ptunit-query
   src/pt_packet_decode.c
   src/pt_sync.c
   src/pt_tnt_cache.c
-  src/pt_config.c
+  ${LIBIPT_CONFIG_FILES}
 )
 
 add_executable(ptunit-cpp
