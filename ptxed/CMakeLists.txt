@@ -26,6 +26,7 @@
 
 include_directories(
   include
+  ../libipt/internal/include
 )
 
 include_directories(SYSTEM
@@ -38,6 +39,7 @@ link_directories(
 
 set(PTXED_FILES
   src/ptxed.c
+  ../libipt/src/pt_cpu.c
 )
 
 if (FEATURE_ELF)

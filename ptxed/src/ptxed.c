@@ -31,6 +31,7 @@
 #endif /* defined(FEATURE_ELF) */
 
 #include "pt_config.h"
+#include "pt_cpu.h"
 #include "pt_version.h"
 #include "pt_error.h"
 #include "pt_insn.h"
@@ -92,6 +93,7 @@ static void help(const char *name)
 	       "                           use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
 	       "  --raw <file>:<base>      load a raw binary from <file> at address <base>.\n"
+	       "  --cpu f/m[/s]            set cpu to the given family/model[/stepping].\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -495,6 +497,27 @@ extern int main(int argc, char **argv)
 		}
 		if (strcmp(arg, "--stat") == 0) {
 			options.print_stats = 1;
+			continue;
+		}
+		if (strcmp(arg, "--cpu") == 0) {
+			/* override cpu information before the decoder
+			 * is initialized.
+			 */
+			if (decoder) {
+				fprintf(stderr,
+					"%s: please specify cpu before the pt source file.\n",
+					prog);
+				goto err;
+			}
+			arg = argv[i++];
+
+			errcode = pt_cpu_parse(&config.cpu, arg);
+			if (errcode < 0) {
+				fprintf(stderr,
+					"%s: cpu must be specified as f/m[/s]\n",
+					prog);
+				goto err;
+			}
 			continue;
 		}
 
