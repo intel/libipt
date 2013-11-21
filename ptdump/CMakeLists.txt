@@ -33,6 +33,7 @@ add_executable(ptdump
   src/ptdump.c
   src/pt_print.c
   ../libipt/src/pt_last_ip.c
+  ../libipt/src/pt_cpu.c
 )
 
 target_link_libraries(ptdump libipt)

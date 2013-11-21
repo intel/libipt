@@ -32,6 +32,7 @@
 #include "pt_decode.h"
 #include "pt_last_ip.h"
 #include "pt_config.h"
+#include "pt_cpu.h"
 #include "pt_error.h"
 #include "pt_version.h"
 
@@ -64,6 +65,10 @@ enum pt_dump_flag {
 	ptd_fixed_offset_width = 1 << 3
 };
 
+struct ptdump_options {
+	uint32_t flags;
+	struct pt_cpu cpu;
+};
 
 static int usage(const char *name)
 {
@@ -90,7 +95,8 @@ static int help(const char *name)
 		"  --raw                  show raw packet bytes.\n"
 		"  --lastip               show last IP updates on packets with IP payloads.\n"
 		"  --fixed-offset-width   assume fixed width of 16 characters for the\n"
-		"                         offset column.\n",
+		"                         offset column.\n"
+		"  --cpu f/m[/s]          set cpu to the given family/model[/stepping].\n",
 		name);
 
 	return 0;
@@ -265,7 +271,8 @@ static inline void diag_err_pos(const char *msg, enum pt_error_code err,
 		pos, msg, pt_errstr(err));
 }
 
-static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
+static int dump(uint8_t *begin, uint8_t *end,
+		const struct ptdump_options *options, FILE *f)
 {
 	int errcode;
 	struct pt_packet packet;
@@ -281,7 +288,8 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 	unsigned col_payload_width_used = 0;
 
 	const unsigned col_offset_width_fixed = 16;
-	const unsigned col_offset_width = (flags & ptd_fixed_offset_width) ?
+	const unsigned col_offset_width =
+		(options->flags & ptd_fixed_offset_width) ?
 		col_offset_width_fixed :
 		calc_col_offset_width(end - begin);
 	const unsigned col_packettype_width = 9;
@@ -295,6 +303,12 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 	pt_configure(&config);
 	config.begin = begin;
 	config.end = end;
+
+	/* override auto-detected cpu information if it was really set
+	 * as a command-line option.
+	 */
+	if (options->cpu.vendor != pcv_unknown)
+		config.cpu = options->cpu;
 
 	decoder = NULL;
 	decoder = pt_alloc_decoder(&config);
@@ -338,7 +352,7 @@ sync:
 		}
 
 		/* Print stream offset. */
-		if (flags & ptd_show_offset) {
+		if (options->flags & ptd_show_offset) {
 			ret = fprintf(f, "%0*" PRIx64, col_offset_width,
 				      pt_get_decoder_pos(decoder));
 			if (ret <= 0) {
@@ -379,7 +393,7 @@ sync:
 
 		/* Print last IP if requested
 		 * and if packet type is an IP packet. */
-		if (flags & ptd_show_last_ip) {
+		if (options->flags & ptd_show_last_ip) {
 			uint64_t ip;
 
 			switch (packet.type) {
@@ -435,7 +449,7 @@ sync:
 skip_last_ip_printing:
 
 		/* Print raw packet bytes. */
-		if (flags & ptd_show_raw_bytes) {
+		if (options->flags & ptd_show_raw_bytes) {
 			uint8_t idx;
 
 			if (col_payload_width_used == 0) {
@@ -475,13 +489,16 @@ out:
 
 int main(int argc, const char **argv)
 {
-	uint32_t flags, size;
+	struct ptdump_options options;
+	uint32_t size;
 	uint8_t *pt;
 	int errcode, idx;
 	const char *ptfile;
 
 	ptfile = NULL;
-	flags = ptd_show_offset;
+	memset(&options, 0, sizeof(options));
+	options.flags = ptd_show_offset;
+
 
 	for (idx = 1; idx < argc; ++idx) {
 		if (strncmp(argv[idx], "-", 1) != 0) {
@@ -498,13 +515,22 @@ int main(int argc, const char **argv)
 		if (strcmp(argv[idx], "--version") == 0)
 			return version(argv[0]);
 		else if (strcmp(argv[idx], "--no-offset") == 0)
-			flags &= ~ptd_show_offset;
+			options.flags &= ~ptd_show_offset;
 		else if (strcmp(argv[idx], "--raw") == 0)
-			flags |= ptd_show_raw_bytes;
+			options.flags |= ptd_show_raw_bytes;
 		else if (strcmp(argv[idx], "--lastip") == 0)
-			flags |= ptd_show_last_ip;
+			options.flags |= ptd_show_last_ip;
 		else if (strcmp(argv[idx], "--fixed-offset-width") == 0)
-			flags |= ptd_fixed_offset_width;
+			options.flags |= ptd_fixed_offset_width;
+		else if (strcmp(argv[idx], "--cpu") == 0) {
+			errcode = pt_cpu_parse(&options.cpu, argv[++idx]);
+			if (errcode < 0) {
+				fprintf(stderr,
+					"%s: cpu must be specified as f/m[/s]\n",
+					argv[0]);
+				return 1;
+			}
+		}
 		else
 			return usage(argv[0]);
 	}
@@ -519,7 +545,7 @@ int main(int argc, const char **argv)
 		return -1;
 	}
 
-	errcode = dump(pt, pt + size, flags, stdout);
+	errcode = dump(pt, pt + size, &options, stdout);
 
 	return -errcode;
 }
