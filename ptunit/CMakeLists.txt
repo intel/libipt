@@ -24,8 +24,20 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-add_library(ptunit STATIC
+set(PTUNIT_FILES
   src/ptunit.c
+)
+
+if (CMAKE_HOST_UNIX)
+  set(PTUNIT_FILES ${PTUNIT_FILES} src/posix/ptunit_mktempname.c)
+endif (CMAKE_HOST_UNIX)
+
+if (CMAKE_HOST_WIN32)
+  set(PTUNIT_FILES ${PTUNIT_FILES} src/windows/ptunit_mktempname.c)
+endif (CMAKE_HOST_WIN32)
+
+add_library(ptunit STATIC
+  ${PTUNIT_FILES}
 )
 
 add_executable(ptunit-selftest

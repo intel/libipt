@@ -31,14 +31,15 @@
 #include "pt_error.h"
 
 #include "ptunit.h"
+#include "ptunit_mktempname.h"
 
-#include <stdio.h>
+#include <stdlib.h>
 
 
 /* A test fixture providing a temporary file and an initially NULL section. */
 struct section_fixture {
 	/* A temporary file name. */
-	char name[L_tmpnam];
+	char *name;
 
 	/* That file opened for writing. */
 	FILE *file;
@@ -262,15 +263,14 @@ static struct ptunit_result read_nomem(struct section_fixture *sfix)
 
 static struct ptunit_result sfix_init(struct section_fixture *sfix)
 {
-	char *tmpname;
-
 	sfix->section = NULL;
 	sfix->file = NULL;
+	sfix->name = NULL;
 
-	tmpname = tmpnam(sfix->name);
-	ptu_ptr_eq(tmpname, sfix->name);
+	sfix->name = mktempname();
+	ptu_ptr(sfix->name);
 
-	sfix->file = fopen(tmpname, "wb");
+	sfix->file = fopen(sfix->name, "wb");
 	ptu_ptr(sfix->file);
 
 	return ptu_passed();
@@ -283,8 +283,15 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 		sfix->section = NULL;
 	}
 
-	fclose(sfix->file);
-	sfix->file = NULL;
+	if (sfix->file) {
+		fclose(sfix->file);
+		sfix->file = NULL;
+	}
+
+	if (sfix->name) {
+		free(sfix->name);
+		sfix->name = NULL;
+	}
 
 	return ptu_passed();
 }
