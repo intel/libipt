@@ -28,39 +28,89 @@
 
 #include "pttc.h"
 
+#include "pt_cpu.h"
 #include "pt_version.h"
 
 #include <stdio.h>
 #include <string.h>
 
 /* Prints this tools version number and libipt version number on stdout.  */
-static void version(const char **argv)
+static void version(const char *prog)
 {
 	struct pt_version v;
 
 	v = pt_library_version();
-	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", argv[0], PT_VERSION_MAJOR,
+	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", prog, PT_VERSION_MAJOR,
 	       PT_VERSION_MINOR, PT_VERSION_BUILD, PT_VERSION_EXT, v.major,
 	       v.minor, v.build, v.ext);
 }
 
 /* Prints usage information to stdout.  */
-static void usage(const char **argv)
+static void help(const char *prog)
 {
-	printf("usage: %s --version | <pttfile>\n", argv[0]);
+	printf("usage: %s [<options>] <pttfile>\n\n"
+	       "options:\n"
+	       "  --help|-h           this text.\n"
+	       "  --version           display version information and exit.\n"
+	       "  --cpu <f/m[/s]>     set cpu to the given family/model[/stepping] (default: 0/0).\n"
+	       "  <pttfile>           the annotated yasm input file.\n",
+	       prog);
 }
 
 int main(int argc, const char **argv)
 {
-	if (argc == 2 && strcmp(argv[1], "--version") == 0) {
-		version(argv);
-		return 0;
+	struct pttc_options options;
+	const char *prog;
+	int errcode, i;
+
+	prog = argv[0];
+	memset(&options, 0, sizeof(options));
+
+	for (i = 1; i < argc;) {
+		const char *arg;
+
+		arg = argv[i++];
+
+		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			help(prog);
+			return 0;
+		}
+		if (strcmp(arg, "--version") == 0) {
+			version(prog);
+			return 0;
+		}
+		if (strcmp(arg, "--cpu") == 0) {
+			arg = argv[i++];
+			errcode = pt_cpu_parse(&options.cpu, arg);
+			if (errcode < 0) {
+				fprintf(stderr,
+					"%s: cpu must be specified as f/m[/s].\n",
+					prog);
+				return 1;
+			}
+			continue;
+		}
+
+		if (arg[0] == '-') {
+			fprintf(stderr, "%s: unrecognized option '%s'.\n",
+				prog, arg);
+			return 1;
+		}
+
+		if (options.pttfile) {
+			fprintf(stderr,
+				"%s: only one pttfile can be specified.\n",
+				prog);
+			return 1;
+		}
+		options.pttfile = arg;
 	}
 
-	if (argc != 2) {
-		usage(argv);
+	if (!options.pttfile) {
+		fprintf(stderr, "%s: no pttfile specified.\n", prog);
+		fprintf(stderr, "Try '%s -h' for more information.\n", prog);
 		return 1;
 	}
 
-	return pttc_main(argv[1]);
+	return pttc_main(&options);
 }

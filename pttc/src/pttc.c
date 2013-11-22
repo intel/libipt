@@ -30,10 +30,9 @@
 #include "pttc.h"
 #include "parse.h"
 
-#include "pt_config.h"
 #include "pt_error.h"
 
-int pttc_main(const char *pttfile)
+int pttc_main(const struct pttc_options *options)
 {
 	int errcode;
 	enum { buflen = 1024 };
@@ -44,13 +43,17 @@ int pttc_main(const char *pttfile)
 	conf.end = buf+buflen;
 
 	errcode = pt_configure(&conf);
+
+	/* override auto-detected cpu information. */
+	conf.cpu = options->cpu;
+
 	if (errcode < 0) {
 		fprintf(stderr, "fatal: pt_configure failed %d: %s\n", errcode,
 			pt_errstr(pt_errcode(errcode)));
 		return errcode;
 	}
 
-	errcode = parse(pttfile, &conf);
+	errcode = parse(options->pttfile, &conf);
 	if (errcode < 0 && errcode != -err_run)
 		fprintf(stderr, "fatal: %s\n", errstr[-errcode]);
 

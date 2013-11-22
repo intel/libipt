@@ -26,6 +26,7 @@
 
 include_directories(
   include
+  ../libipt/internal/include
 )
 
 set(PTTC_FILES
@@ -35,6 +36,7 @@ set(PTTC_FILES
   src/pttc.c
   src/util.c
   src/yasm.c
+  ../libipt/src/pt_cpu.c
 )
 
 if (CMAKE_HOST_UNIX)

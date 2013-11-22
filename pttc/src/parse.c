@@ -116,17 +116,39 @@ error:
 static char *expfilename(struct parser *p, const char *extra)
 {
 	char *filename;
+	/* reserve enough space to hold the string
+	 *   "-cpu_fffff_mmm_sss" + 1 for the trailing null character.
+	 */
+	char cpu_suffix[19];
 	size_t n;
 
 	if (!extra)
 		extra = "";
+	*cpu_suffix = '\0';
 
-	/* the extra string is appended to fileroot with a -.  */
-	n = strlen(extra);
-	if (n > 0)
-		n += 1;
-	n += strlen(p->y->fileroot);
+	/* determine length of resulting filename, which looks like:
+	 *   <fileroot>[-<extra>][-cpu_<f>_<m>_<s>].exp
+	 */
+	n = strlen(p->y->fileroot);
+
+	if (*extra != '\0')
+		/* the extra string is prepended with a -.  */
+		n += 1 + strlen(extra);
+
+	if (p->conf->cpu.vendor != pcv_unknown) {
+		struct pt_cpu cpu;
+
+		cpu = p->conf->cpu;
+		if (cpu.stepping)
+			n += sprintf(cpu_suffix, "-cpu_%u_%u_%u",
+				     cpu.family, cpu.model, cpu.stepping);
+		else
+			n += sprintf(cpu_suffix, "-cpu_%u_%u", cpu.family,
+				     cpu.model);
+	}
+
 	n += strlen(exp_suffix);
+
 	/* trailing null character.  */
 	n += 1;
 
@@ -139,7 +161,9 @@ static char *expfilename(struct parser *p, const char *extra)
 		strcat(filename, "-");
 		strcat(filename, extra);
 	}
+	strcat(filename, cpu_suffix);
 	strcat(filename, exp_suffix);
+
 	return filename;
 }
 

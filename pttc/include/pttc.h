@@ -26,13 +26,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PTTESTCOMP_H__
-#define __PTTESTCOMP_H__
+#ifndef __PTTC_H__
+#define __PTTC_H__
+
+#include "pt_config.h"
+
+/* Options that are passed to pttc main.  */
+struct pttc_options {
+	/* The cpu that should be used for encoding.  */
+	struct pt_cpu cpu;
+
+	/* The input .ptt file.  */
+	const char *pttfile;
+};
 
 /* Starts the parsing process with @asmfile.
  *
  * Returns 0 on success; a negative enum errcode otherwise.
  */
-extern int pttc_main(const char *asmfile);
+extern int pttc_main(const struct pttc_options *options);
 
-#endif /* __PTTESTCOMP_H__ */
+#endif /* __PTTC_H__ */
