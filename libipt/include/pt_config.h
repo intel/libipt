@@ -45,7 +45,7 @@ enum pt_cpu_vendor {
 };
 
 /* A cpu identifier. */
-struct pt_cpuid {
+struct pt_cpu {
 	/* The cpu vendor. */
 	enum pt_cpu_vendor vendor;
 
@@ -85,7 +85,7 @@ struct pt_config {
 		      const struct pt_decoder *decoder);
 
 	/* The cpu on which PT has been recorded. */
-	struct pt_cpuid cpu;
+	struct pt_cpu cpu;
 };
 
 
