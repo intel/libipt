@@ -147,6 +147,11 @@ add_executable(ptunit-ild
   src/pt_ild.c
 )
 
+add_executable(ptunit-cpu
+  test/src/ptunit-cpu.c
+  src/pt_cpu.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
@@ -155,6 +160,7 @@ target_link_libraries(ptunit-retstack ptunit)
 target_link_libraries(ptunit-section_file ptunit)
 target_link_libraries(ptunit-image ptunit)
 target_link_libraries(ptunit-ild ptunit)
+target_link_libraries(ptunit-cpu ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap
