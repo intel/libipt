@@ -304,9 +304,8 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 		goto out;
 	}
 
-	pt_last_ip_init(&last_ip);
 
-
+sync:
 	/* Sync to the stream. */
 	errcode = pt_sync_forward(decoder);
 	if (errcode < 0) {
@@ -314,6 +313,9 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 			     pt_errcode(errcode), pt_get_decoder_pos(decoder));
 		goto out;
 	}
+
+	pt_last_ip_init(&last_ip);
+
 
 	for (;;) {
 		/* Decode packet. */
@@ -325,14 +327,14 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 			diag_err_pos("packet decoding failed",
 				     pt_errcode(ret), pos);
 			errcode = ret;
-			goto out;
+			goto sync;
 		}
 		if (packet.size == 0) {
 			diag_pos("packet decoding failed, "
 				 "packet size is reported to be 0",
 				 pos);
 			errcode = -pte_bad_packet;
-			goto out;
+			goto sync;
 		}
 
 		/* Print stream offset. */
@@ -342,7 +344,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 			if (ret <= 0) {
 				diag_pos("cannot print offset", pos);
 				errcode = -pte_internal;
-				goto out;
+				goto sync;
 			}
 			col_offset_width_used = ret;
 
@@ -356,7 +358,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 		if (ret <= 0) {
 			diag_pos("cannot print packet type", pos);
 			errcode = -pte_internal;
-			goto out;
+			goto sync;
 		}
 		col_packettype_width_used = ret;
 
@@ -365,7 +367,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 		if (ret < 0) {
 			diag_pos("cannot print packet payload", pos);
 			errcode = -pte_internal;
-			goto out;
+			goto sync;
 		}
 		if (ret > 0) {
 			fillup_column(f,
@@ -393,13 +395,13 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 					diag_err_pos("failed to update last-IP",
 						     pte_invalid, pos);
 					errcode = -pte_internal;
-					goto out;
+					goto sync;
 				}
 				if (ret == -pte_bad_packet) {
 					diag_err_pos("failed to update last-IP",
 						     pte_bad_packet, pos);
 					errcode = -pte_bad_packet;
-					goto out;
+					goto sync;
 				}
 				if (ret == -pte_noip)
 					goto skip_last_ip_printing;
@@ -415,7 +417,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 				diag_err_pos("cannot query last-IP",
 					     pte_invalid, pos);
 				errcode = -pte_internal;
-				goto out;
+				goto sync;
 			}
 			if (ret == -pte_noip)
 				goto skip_last_ip_printing;
@@ -425,7 +427,8 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 				ret = fprintf(f, ", ip=0x%016" PRIx64, ip);
 			if (ret < 0) {
 				diag_pos("cannot print last-IP", pos);
-				return -pte_internal;
+				errcode = -pte_internal;
+				goto sync;
 			}
 			col_payload_width_used += ret;
 		}
