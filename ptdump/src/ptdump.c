@@ -243,6 +243,28 @@ static inline void fillup_column(FILE *f, unsigned actual_width,
 	fprintf(f, "%*c", col_width - actual_width, ' ');
 }
 
+static inline void diag(const char *msg)
+{
+	fprintf(stderr, "[error: %s]\n", msg);
+}
+
+static inline void diag_pos(const char *msg, uint64_t pos)
+{
+	fprintf(stderr, "[%" PRIx64 ": error: %s]\n", pos, msg);
+}
+
+static inline void diag_err(const char *msg, enum pt_error_code err)
+{
+	fprintf(stderr, "[error: %s (%s)]\n", msg, pt_errstr(err));
+}
+
+static inline void diag_err_pos(const char *msg, enum pt_error_code err,
+				uint64_t pos)
+{
+	fprintf(stderr, "[%" PRIx64 ": error: %s (%s)]\n",
+		pos, msg, pt_errstr(err));
+}
+
 static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 {
 	int errcode;
@@ -252,6 +274,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 	struct pt_last_ip last_ip;
 	char str[pps_payload];
 	int ret;
+	uint64_t pos;
 
 	unsigned col_offset_width_used = 0;
 	unsigned col_packettype_width_used = 0;
@@ -276,7 +299,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 	decoder = NULL;
 	decoder = pt_alloc_decoder(&config);
 	if (!decoder) {
-		fprintf(stderr, "*** ERROR: allocate decoder.\n");
+		diag("cannot allocate decoder");
 		errcode = -pte_nomem;
 		goto out;
 	}
@@ -287,30 +310,27 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 	/* Sync to the stream. */
 	errcode = pt_sync_forward(decoder);
 	if (errcode < 0) {
-		fprintf(stderr,
-			"*** ERROR: syncing to the trace stream failed "
-			"(libipt error: %s).\n",
-			pt_errstr(pt_errcode(errcode)));
+		diag_err_pos("sync error",
+			     pt_errcode(errcode), pt_get_decoder_pos(decoder));
 		goto out;
 	}
 
 	for (;;) {
 		/* Decode packet. */
+		pos = pt_get_decoder_pos(decoder);
 		ret = pt_decode(&packet, decoder);
 		if (pt_errcode(ret) == pte_eos)
 			goto out;
 		else if (pt_errcode(ret) != pte_ok) {
-			fprintf(stderr,
-				"*** ERROR: packet decoding failed "
-				"(libipt error: %s).\n",
-				pt_errstr(pt_errcode(ret)));
+			diag_err_pos("packet decoding failed",
+				     pt_errcode(ret), pos);
 			errcode = ret;
 			goto out;
 		}
 		if (packet.size == 0) {
-			fprintf(stderr,
-				"*** ERROR: packet decoding failed, "
-				"packet size is reported to be 0.\n");
+			diag_pos("packet decoding failed, "
+				 "packet size is reported to be 0",
+				 pos);
 			errcode = -pte_bad_packet;
 			goto out;
 		}
@@ -320,9 +340,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 			ret = fprintf(f, "%0*" PRIx64, col_offset_width,
 				      pt_get_decoder_pos(decoder));
 			if (ret <= 0) {
-				fprintf(stderr,
-					"*** ERROR: having problems with "
-					"printing the offset.\n");
+				diag_pos("cannot print offset", pos);
 				errcode = -pte_internal;
 				goto out;
 			}
@@ -336,9 +354,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 		/* Print packet type. */
 		ret = fprintf(f, "%s", pt_print_packet_type_str(&packet));
 		if (ret <= 0) {
-			fprintf(stderr,
-				"\n*** ERROR: having problems with printing "
-				"the packet type.\n");
+			diag_pos("cannot print packet type", pos);
 			errcode = -pte_internal;
 			goto out;
 		}
@@ -347,9 +363,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 		/* Print the packet payload. */
 		ret = pt_print_fill_payload_str(str, sizeof(str), &packet);
 		if (ret < 0) {
-			fprintf(stderr,
-				"\n*** ERROR: having problems with printing "
-				"the payload.\n");
+			diag_pos("cannot print packet payload", pos);
 			errcode = -pte_internal;
 			goto out;
 		}
@@ -376,16 +390,14 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 							   &config);
 
 				if (ret == -pte_invalid) {
-					fprintf(stderr,
-						"\n*** ERROR: "
-						"internal error.\n");
+					diag_err_pos("failed to update last-IP",
+						     pte_invalid, pos);
 					errcode = -pte_internal;
 					goto out;
 				}
 				if (ret == -pte_bad_packet) {
-					fprintf(stderr,
-						"\n*** ERROR: "
-						"malformed packet.\n");
+					diag_err_pos("failed to update last-IP",
+						     pte_bad_packet, pos);
 					errcode = -pte_bad_packet;
 					goto out;
 				}
@@ -400,8 +412,8 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 
 			ret = pt_last_ip_query(&ip, &last_ip);
 			if (ret == -pte_invalid) {
-				fprintf(stderr,
-					"\n*** ERROR: internal error.\n");
+				diag_err_pos("cannot query last-IP",
+					     pte_invalid, pos);
 				errcode = -pte_internal;
 				goto out;
 			}
@@ -412,9 +424,7 @@ static int dump(uint8_t *begin, uint8_t *end, uint32_t flags, FILE *f)
 			if (ret == 0)
 				ret = fprintf(f, ", ip=0x%016" PRIx64, ip);
 			if (ret < 0) {
-				fprintf(stderr,
-					"\n*** ERROR: having problems "
-					"with printing the last IP.\n");
+				diag_pos("cannot print last-IP", pos);
 				return -pte_internal;
 			}
 			col_payload_width_used += ret;
@@ -502,7 +512,7 @@ int main(int argc, const char **argv)
 	/* We will leak the pt buffer. */
 	pt = map_pt(ptfile, &size);
 	if (!pt) {
-		fprintf(stderr, "Failed to read PT stream.\n");
+		diag("failed to read PT stream");
 		return -1;
 	}
 
