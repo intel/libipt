@@ -62,7 +62,10 @@ enum pt_dump_flag {
 	ptd_show_last_ip = 1 << 2,
 
 	/* Print current offset column always with fixed width. */
-	ptd_fixed_offset_width = 1 << 3
+	ptd_fixed_offset_width = 1 << 3,
+
+	/* Use the cpu specified in the options. */
+	ptd_use_cpu = 1 << 4
 };
 
 struct ptdump_options {
@@ -89,14 +92,17 @@ static int help(const char *name)
 	fprintf(stderr,
 		"usage: %s [<options>] <ptfile>\n\n"
 		"options:\n"
-		"  --help|-h              this text.\n"
-		"  --version              display version information and exit.\n"
-		"  --no-offset            don't show the offset as the first column.\n"
-		"  --raw                  show raw packet bytes.\n"
-		"  --lastip               show last IP updates on packets with IP payloads.\n"
-		"  --fixed-offset-width   assume fixed width of 16 characters for the\n"
-		"                         offset column.\n"
-		"  --cpu f/m[/s]          set cpu to the given family/model[/stepping].\n",
+		"  --help|-h                this text.\n"
+		"  --version                display version information and exit.\n"
+		"  --no-offset              don't show the offset as the first column.\n"
+		"  --raw                    show raw packet bytes.\n"
+		"  --lastip                 show last IP updates on packets with IP payloads.\n"
+		"  --fixed-offset-width     assume fixed width of 16 characters for the\n"
+		"                           offset column.\n"
+		"  --cpu none|auto|f/m[/s]  set cpu to the given value and decode according to:\n"
+		"                             none     spec (default)\n"
+		"                             auto     current cpu\n"
+		"                             f/m[/s]  family/model[/stepping]\n",
 		name);
 
 	return 0;
@@ -304,10 +310,8 @@ static int dump(uint8_t *begin, uint8_t *end,
 	config.begin = begin;
 	config.end = end;
 
-	/* override auto-detected cpu information if it was really set
-	 * as a command-line option.
-	 */
-	if (options->cpu.vendor != pcv_unknown)
+	/* check if we need to override the auto-detected value. */
+	if (options->flags & ptd_use_cpu)
 		config.cpu = options->cpu;
 
 	decoder = NULL;
@@ -497,7 +501,13 @@ int main(int argc, const char **argv)
 
 	ptfile = NULL;
 	memset(&options, 0, sizeof(options));
-	options.flags = ptd_show_offset;
+	options.flags |= ptd_show_offset;
+
+	/* default is to override the auto-detected value during
+	 * pt_configure with default spec behavior. options.cpu is
+	 * zeroed above.
+	 */
+	options.flags |= ptd_use_cpu;
 
 
 	for (idx = 1; idx < argc; ++idx) {
@@ -523,7 +533,25 @@ int main(int argc, const char **argv)
 		else if (strcmp(argv[idx], "--fixed-offset-width") == 0)
 			options.flags |= ptd_fixed_offset_width;
 		else if (strcmp(argv[idx], "--cpu") == 0) {
-			errcode = pt_cpu_parse(&options.cpu, argv[++idx]);
+			const char *arg = argv[++idx];
+
+			/* keep the auto-detected values from pt_configure. */
+			if (strcmp(arg, "auto") == 0) {
+				options.flags &= ~ptd_use_cpu;
+				continue;
+			}
+
+			/* use the value in options.cpu, instead of
+			 * auto-detected.
+			 */
+			options.flags |= ptd_use_cpu;
+
+			if (strcmp(arg, "none") == 0) {
+				memset(&options.cpu, 0, sizeof(options.cpu));
+				continue;
+			}
+
+			errcode = pt_cpu_parse(&options.cpu, arg);
 			if (errcode < 0) {
 				fprintf(stderr,
 					"%s: cpu must be specified as f/m[/s]\n",

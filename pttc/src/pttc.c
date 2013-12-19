@@ -44,8 +44,9 @@ int pttc_main(const struct pttc_options *options)
 
 	errcode = pt_configure(&conf);
 
-	/* override auto-detected cpu information. */
-	conf.cpu = options->cpu;
+	/* check if we need to override auto-detected vaule.  */
+	if (options->use_cpu)
+		conf.cpu = options->cpu;
 
 	if (errcode < 0) {
 		fprintf(stderr, "fatal: pt_configure failed %d: %s\n", errcode,

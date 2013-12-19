@@ -50,10 +50,13 @@ static void help(const char *prog)
 {
 	printf("usage: %s [<options>] <pttfile>\n\n"
 	       "options:\n"
-	       "  --help|-h           this text.\n"
-	       "  --version           display version information and exit.\n"
-	       "  --cpu <f/m[/s]>     set cpu to the given family/model[/stepping] (default: 0/0).\n"
-	       "  <pttfile>           the annotated yasm input file.\n",
+	       "  --help|-h                this text.\n"
+	       "  --version                display version information and exit.\n"
+	       "  --cpu none|auto|f/m[/s]  set cpu to the given value and encode according to:\n"
+	       "                             none     spec (default)\n"
+	       "                             auto     current cpu\n"
+	       "                             f/m[/s]  family/model[/stepping]\n"
+	       "  <pttfile>                the annotated yasm input file.\n",
 	       prog);
 }
 
@@ -65,6 +68,12 @@ int main(int argc, const char **argv)
 
 	prog = argv[0];
 	memset(&options, 0, sizeof(options));
+
+	/* default is to override the auto-detected value during
+	 * pt_configure with default spec behavior. options.cpu is
+	 * zeroed above.
+	 */
+	options.use_cpu = 1;
 
 	for (i = 1; i < argc;) {
 		const char *arg;
@@ -81,6 +90,23 @@ int main(int argc, const char **argv)
 		}
 		if (strcmp(arg, "--cpu") == 0) {
 			arg = argv[i++];
+
+			/* keep the auto-detected values from pt_configure.  */
+			if (strcmp(arg, "auto") == 0) {
+				options.use_cpu = 0;
+				continue;
+			}
+
+			/* use the value in options.cpu, instead of
+			 * auto-detected.
+			 */
+			options.use_cpu = 1;
+
+			if (strcmp(arg, "none") == 0) {
+				memset(&options.cpu, 0, sizeof(options.cpu));
+				continue;
+			}
+
 			errcode = pt_cpu_parse(&options.cpu, arg);
 			if (errcode < 0) {
 				fprintf(stderr,

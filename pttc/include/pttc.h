@@ -36,6 +36,9 @@ struct pttc_options {
 	/* The cpu that should be used for encoding.  */
 	struct pt_cpu cpu;
 
+	/* Use the value specified in cpu.  */
+	int use_cpu;
+
 	/* The input .ptt file.  */
 	const char *pttfile;
 };

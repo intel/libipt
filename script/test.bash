@@ -60,10 +60,12 @@ usage() {
 	cat <<EOF
 usage: $0 [<options>] <pttfile>...
 
--h                          this text
--v                          print commands as they are executed
--c <f/s[/m]>[,<f/s[/m]>]    use the given list of cpu's for the tests.
-<pttfile>                   annotated yasm file ending in .ptt
+options:
+  -h            this text
+  -v            print commands as they are executed
+  -c cpu[,cpu]  comma-separated list of cpu's for the tests (see pttc -h, for valid values)
+
+  <pttfile>     annotated yasm file ending in .ptt
 EOF
 }
 
@@ -79,13 +81,6 @@ while getopts "hvc:" option; do
 		;;
 	c)
 		cpus=`echo $OPTARG | sed "s/,/ /g"`
-		for i in $cpus; do
-			echo $i | grep -q '^[0-9]\+/[0-9]\+\(/[0-9]\+\)\?$'
-			if [[ $? != 0 ]]; then
-				echo "invalid cpu '$i'" >&2
-				exit 1
-			fi
-		done
 		;;
 	\?)
 		exit 1
@@ -170,11 +165,12 @@ run-ptt-test() {
 }
 
 ptt-cpus() {
-	sed -n 's/^\s*;\s*cpu\s*\(.*\)\s*/\1/p' "$1"
+	sed -n 's/^\s*;\s*cpu\s\+\(.*\)\s*/\1/p' "$1"
 }
 
 run-ptt-tests() {
 	local cpus=$cpus
+
 	# if no cpus are given on the command-line,
 	# use the cpu directives from the pttfile.
 	if [[ -z $cpus ]]; then

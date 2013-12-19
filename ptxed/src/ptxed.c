@@ -93,7 +93,10 @@ static void help(const char *name)
 	       "                           use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
 	       "  --raw <file>:<base>      load a raw binary from <file> at address <base>.\n"
-	       "  --cpu f/m[/s]            set cpu to the given family/model[/stepping].\n"
+	       "  --cpu none|auto|f/m[/s]  set cpu to the given value and decode according to:\n"
+	       "                             none     spec (default)\n"
+	       "                             auto     current cpu\n"
+	       "                             f/m[/s]  family/model[/stepping]\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -390,8 +393,9 @@ extern int main(int argc, char **argv)
 	struct ptxed_options options;
 	struct ptxed_stats stats;
 	struct pt_config config;
+	struct pt_cpu cpu;
 	const char *prog;
-	int errcode, i;
+	int errcode, i, use_cpu;
 
 	if (!argc) {
 		help("");
@@ -404,6 +408,12 @@ extern int main(int argc, char **argv)
 	memset(&options, 0, sizeof(options));
 	memset(&stats, 0, sizeof(stats));
 	memset(&config, 0, sizeof(config));
+
+	/* default is to override the auto-detected value during
+	 * pt_configure with default spec behavior.
+	 */
+	use_cpu = 1;
+	memset(&cpu, 0, sizeof(cpu));
 
 	errcode = pt_configure(&config);
 	if (errcode < 0) {
@@ -434,6 +444,12 @@ extern int main(int argc, char **argv)
 					prog, arg);
 				goto err;
 			}
+
+			/* check if we need to override auto-detected
+			 * value.
+			 */
+			if (use_cpu)
+				config.cpu = cpu;
 
 			errcode = load_pt(&config, arg, prog);
 			if (errcode < 0)
@@ -511,7 +527,22 @@ extern int main(int argc, char **argv)
 			}
 			arg = argv[i++];
 
-			errcode = pt_cpu_parse(&config.cpu, arg);
+			/* keep the auto-detected values during load. */
+			if (strcmp(arg, "auto") == 0) {
+				use_cpu = 0;
+				continue;
+			}
+
+			/* use the value in cpu during load. */
+			use_cpu = 1;
+
+			/* behave as the spec. */
+			if (strcmp(arg, "none") == 0) {
+				memset(&cpu, 0, sizeof(cpu));
+				continue;
+			}
+
+			errcode = pt_cpu_parse(&cpu, arg);
 			if (errcode < 0) {
 				fprintf(stderr,
 					"%s: cpu must be specified as f/m[/s]\n",
