@@ -1,7 +1,7 @@
 Decoding Intel(R) Processor Trace (PT) using libipt
 ====================================================
 
-Copyright (C) 2013 Intel Corporation.  All rights reserved.
+Copyright (C) 2013-2014 Intel Corporation.  All rights reserved.
 
 
 Introduction
