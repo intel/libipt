@@ -145,33 +145,30 @@ const uint8_t *pt_get_decoder_end(const struct pt_decoder *decoder)
 	return pt_end(decoder);
 }
 
-int pt_status_flags(struct pt_decoder *decoder)
+int pt_will_event(struct pt_decoder *decoder)
 {
 	const struct pt_decoder_function *dfun;
-	int flags = 0;
 
 	if (!decoder)
-		return -pte_internal;
+		return -pte_invalid;
 
 	dfun = decoder->next;
-	if (dfun) {
-		if (dfun->flags & pdff_event)
-			flags |= pts_event_pending;
+	if (!dfun)
+		return 0;
 
-		if (dfun->flags & pdff_psbend)
-			if (pt_event_pending(decoder, evb_psbend))
-				flags |= pts_event_pending;
+	if (dfun->flags & pdff_event)
+		return 1;
 
-		if (dfun->flags & pdff_tip)
-			if (pt_event_pending(decoder, evb_tip))
-				flags |= pts_event_pending;
+	if (dfun->flags & pdff_psbend)
+		return pt_event_pending(decoder, evb_psbend);
 
-		if (dfun->flags & pdff_fup)
-			if (pt_event_pending(decoder, evb_fup))
-				flags |= pts_event_pending;
-	}
+	if (dfun->flags & pdff_tip)
+		return pt_event_pending(decoder, evb_tip);
 
-	return flags;
+	if (dfun->flags & pdff_fup)
+		return pt_event_pending(decoder, evb_fup);
+
+	return 0;
 }
 
 void pt_reset(struct pt_decoder *decoder)

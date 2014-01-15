@@ -36,6 +36,19 @@
 #include <string.h>
 
 
+static int pt_status_flags(struct pt_decoder *decoder)
+{
+	int flags = 0;
+
+	if (!decoder)
+		return -pte_internal;
+
+	if (pt_will_event(decoder))
+		flags |= pts_event_pending;
+
+	return flags;
+}
+
 int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 {
 	const uint8_t *pos;
@@ -115,7 +128,6 @@ int pt_query_uncond_branch(struct pt_decoder *decoder, uint64_t *addr)
 	flags = 0;
 	for (;;) {
 		const struct pt_decoder_function *dfun;
-		int status;
 
 		dfun = decoder->next;
 		if (!dfun) {
@@ -132,13 +144,8 @@ int pt_query_uncond_branch(struct pt_decoder *decoder, uint64_t *addr)
 		if (!dfun->decode)
 			return -pte_internal;
 
-		/* Check for pending events. */
-		status = pt_status_flags(decoder);
-		if (status < 0)
-			return status;
-
 		/* There's an event ahead of us. */
-		if (status & pts_event_pending)
+		if (pt_will_event(decoder))
 			return -pte_bad_query;
 
 		/* Clear the decoder's current event so we know when we
@@ -201,7 +208,7 @@ static int pt_cache_tnt(struct pt_decoder *decoder)
 {
 	for (;;) {
 		const struct pt_decoder_function *dfun;
-		int errcode, status;
+		int errcode;
 
 		dfun = decoder->next;
 		if (!dfun) {
@@ -218,13 +225,8 @@ static int pt_cache_tnt(struct pt_decoder *decoder)
 		if (!dfun->decode)
 			return -pte_internal;
 
-		/* Check for pending events. */
-		status = pt_status_flags(decoder);
-		if (status < 0)
-			return status;
-
 		/* There's an event ahead of us. */
-		if (status & pts_event_pending)
+		if (pt_will_event(decoder))
 			return -pte_bad_query;
 
 		/* Diagnose a TIP that has not been part of an event. */
@@ -304,7 +306,6 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 	flags = 0;
 	for (;;) {
 		const struct pt_decoder_function *dfun;
-		int status;
 
 		dfun = decoder->next;
 		if (!dfun) {
@@ -321,17 +322,12 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 		if (!dfun->decode)
 			return -pte_internal;
 
-		/* Check for pending events. */
-		status = pt_status_flags(decoder);
-		if (status < 0)
-			return status;
-
 		/* Clear the decoder's current event so we know when decoding
 		 * produces a new event.
 		 */
 		decoder->event = NULL;
 
-		if (status & pts_event_pending) {
+		if (pt_will_event(decoder)) {
 			/* Decode the event packet. */
 			errcode = dfun->decode(decoder);
 			if (errcode)

@@ -171,12 +171,13 @@ static inline int pt_check_sync(const struct pt_decoder *decoder)
  */
 extern int pt_decoder_init(struct pt_decoder *, const struct pt_config *);
 
-/* Return the pt_status_flag bit-vector for the current decoder state.
+/* Check if decoding the next decoder function will result in an event.
  *
- * Returns a bit-vector of status flags on success.
- * Returns -pte_invalid if no decoder is given.
+ * Returns 1 if it will result in an event.
+ * Returns 0 if it will not result in an event.
+ * Returns -pte_invalid if @decoder is NULL.
  */
-extern int pt_status_flags(struct pt_decoder *);
+extern int pt_will_event(struct pt_decoder *decoder);
 
 /* Reset the decoder state.
  *

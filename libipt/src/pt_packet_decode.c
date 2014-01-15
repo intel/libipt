@@ -1505,7 +1505,7 @@ int pt_read_ahead(struct pt_decoder *decoder)
 			return 0;
 
 		/* - an event related packet. */
-		if (pt_status_flags(decoder) & pts_event_pending)
+		if (pt_will_event(decoder))
 			return 0;
 
 		/* Decode status update packets. */
