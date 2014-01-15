@@ -35,105 +35,6 @@
 #include <check.h>
 
 
-START_TEST(check_use_disable_discard_tail)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_event event;
-	uint64_t ip = pt_dfix_sext_ip;
-	int errcode, taken;
-
-	check_encode_tnt_8(encoder, 0, 4);
-	check_encode_tip_pgd(encoder, 0, pt_ipc_suppressed);
-	check_encode_tip_pge(encoder, ip, pt_ipc_sext_48);
-	check_encode_tnt_8(encoder, 0xf, 4);
-
-	pt_sync_decoder(decoder);
-
-	/* The user queries the disable event. */
-	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, pts_event_pending);
-	ck_int_eq(event.type, ptev_disabled);
-	ck_uint_ne(event.ip_suppressed, 0);
-
-	/* He gives up trying to find the exact disable location and instead
-	 * queries the next event.
-	 */
-	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, 0);
-	ck_int_eq(event.type, ptev_enabled);
-	ck_uint_eq(event.ip_suppressed, 0);
-	ck_uint64_eq(event.variant.enabled.ip, ip);
-
-	/* The user jumps to the enable ip and starts decoding...until he
-	 * arrives at a conditional branch.
-	 *
-	 * The query must use the TNT succeeding the TIP.PGE.
-	 */
-	errcode = pt_query_cond_branch(decoder, &taken);
-	ck_int_eq(errcode, 0);
-	ck_int_eq(taken, 1);
-}
-END_TEST
-
-START_TEST(check_use_disable_search_tail)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_event event;
-	uint64_t ip = pt_dfix_max_ip;
-	int errcode, taken;
-
-	check_encode_tnt_8(encoder, 0, 1);
-	check_encode_tip_pgd(encoder, 0, pt_ipc_suppressed);
-	check_encode_tip_pge(encoder, ip, pt_ipc_sext_48);
-	check_encode_tnt_8(encoder, 0xf, 4);
-
-	pt_sync_decoder(decoder);
-
-	/* The user queries the disable event. */
-	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, pts_event_pending);
-	ck_uint_ne(event.ip_suppressed, 0);
-	ck_int_eq(event.type, ptev_disabled);
-
-	/* He searches for the exact disable location...and arrives at a
-	 * conditional branch.
-	 *
-	 * The query must use the TNT preceding the TIP.PGD.
-	 */
-	errcode = pt_query_cond_branch(decoder, &taken);
-	ck_int_eq(errcode, pts_event_pending);
-	ck_int_eq(taken, 0);
-
-	/* He searches further...and arrives at another conditional branch.
-	 *
-	 * The query must fail since no further TNT bits are cached.
-	 */
-	errcode = pt_query_cond_branch(decoder, &taken);
-	ck_int_eq(errcode, -pte_bad_query);
-
-	/* He gives up and queries the next event.
-	 */
-	errcode = pt_query_event(decoder, &event);
-	ck_int_eq(errcode, 0);
-	ck_int_eq(event.type, ptev_enabled);
-	ck_uint_eq(event.ip_suppressed, 0);
-	ck_uint64_eq(event.variant.enabled.ip, ip);
-
-	/* The user jumps to the enable ip and starts decoding...until he
-	 * arrives at a conditional branch.
-	 *
-	 * The query must use the TNT succeeding the TIP.PGE.
-	 */
-	errcode = pt_query_cond_branch(decoder, &taken);
-	ck_int_eq(errcode, 0);
-	ck_int_eq(taken, 1);
-}
-END_TEST
-
 /* An asynchronous interrupt:
  *
  *   - switches execution mode
@@ -277,22 +178,11 @@ START_TEST(check_use_context_switch_cpl)
 }
 END_TEST
 
-static void add_enable_tests(TCase *tcase)
-{
-	tcase_add_test(tcase, check_use_disable_discard_tail);
-	tcase_add_test(tcase, check_use_disable_search_tail);
-}
-
 static void add_context_switch_tests(TCase *tcase)
 {
 	tcase_add_test(tcase, check_use_context_switch);
 	tcase_add_test(tcase, check_use_context_switch_cpl);
 }
-
-static struct tcase_desc tcase_enable = {
-	/* .name = */ "enable",
-	/* .add_tests = */ add_enable_tests
-};
 
 static struct tcase_desc tcase_context_switch = {
 	/* .name = */ "context switch",
@@ -305,7 +195,6 @@ Suite *suite_pt_use(void)
 
 	suite = suite_create("pt use cases");
 
-	pt_add_tcase(suite, &tcase_enable, &dfix_standard);
 	pt_add_tcase(suite, &tcase_context_switch, &dfix_standard);
 
 	return suite;

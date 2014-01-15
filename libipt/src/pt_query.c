@@ -43,7 +43,21 @@ static int pt_status_flags(const struct pt_decoder *decoder)
 	if (!decoder)
 		return -pte_internal;
 
-	if (pt_will_event(decoder))
+	/* Some packets force out TNT and any deferred TIPs in order to
+	 * establish the correct context for the subsequent packet.
+	 *
+	 * Users are expected to first navigate to the correct code region
+	 * by using up the cached TNT bits before interpreting any subsequent
+	 * packets.
+	 *
+	 * We do need to read ahead in order to signal upcoming events.  We may
+	 * have already decoded those packets while our user has not navigated
+	 * to the correct code region, yet.
+	 *
+	 * In order to have our user use up the cached TNT bits first, we do
+	 * not indicate the next event until the TNT cache is empty.
+	 */
+	if (pt_tnt_cache_is_empty(&decoder->tnt) && pt_will_event(decoder))
 		flags |= pts_event_pending;
 
 	return flags;

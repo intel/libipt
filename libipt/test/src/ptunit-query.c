@@ -1804,6 +1804,56 @@ ptu_dfix_header_cond(struct ptu_decoder_fixture *dfix)
 }
 
 /* Synchronize the decoder at the beginnig of a buffer containing packets that
+ * should be skipped for event queries.
+ */
+static struct ptunit_result
+ptu_dfix_header_event(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+
+	pt_encode_pad(encoder);
+	pt_encode_cbr(encoder, 1);
+	pt_encode_pad(encoder);
+	pt_encode_tsc(encoder, 0);
+
+	/* Synchronize the decoder at the beginning of the buffer. */
+	decoder->pos = decoder->config.begin;
+
+	return ptu_passed();
+}
+
+/* Synchronize the decoder at the beginnig of a buffer containing packets that
+ * should be skipped for event queries including a PSB.
+ */
+static struct ptunit_result
+ptu_dfix_header_event_psb(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+
+	/* The psb must be empty since the tests won't skip status events.
+	 * On the other hand, we do need to provide an address since tests
+	 * may want to update last-ip, which requires a last-ip, of course.
+	 */
+	pt_encode_pad(encoder);
+	pt_encode_tsc(encoder, 0);
+	pt_encode_psb(encoder);
+	pt_encode_cbr(encoder, 1);
+	pt_encode_pad(encoder);
+	pt_encode_tsc(encoder, 0);
+	pt_encode_fup(encoder, pt_dfix_sext_ip, pt_ipc_sext_48);
+	pt_encode_psbend(encoder);
+	pt_encode_cbr(encoder, 1);
+	pt_encode_pad(encoder);
+
+	/* Synchronize the decoder at the beginning of the buffer. */
+	decoder->pos = decoder->config.begin;
+
+	return ptu_passed();
+}
+
+/* Synchronize the decoder at the beginnig of a buffer containing packets that
  * should be skipped for time queries.
  */
 static struct ptunit_result
@@ -1854,9 +1904,11 @@ static void init_fixtures(void)
 	dfix_cond = dfix_raw;
 	dfix_cond.header = ptu_dfix_header_cond;
 
-	dfix_event = dfix_uncond;
+	dfix_event = dfix_raw;
+	dfix_event.header = ptu_dfix_header_event;
 
-	dfix_event_psb = dfix_uncond_psb;
+	dfix_event_psb = dfix_raw;
+	dfix_event_psb.header = ptu_dfix_header_event_psb;
 
 	dfix_time = dfix_raw;
 	dfix_time.header = ptu_dfix_header_time;

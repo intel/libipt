@@ -2714,35 +2714,6 @@ START_TEST(check_decode_tip_pge_event_suppressed)
 }
 END_TEST
 
-START_TEST(check_decode_tip_pge_tnt)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_packet_ip packet;
-	int errcode;
-
-	packet.ipc = pt_ipc_update_16;
-	packet.ip = 0xccddull;
-	pt_last_ip_update_ip(&dfix->last_ip, &packet, &dfix->config);
-
-	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
-
-	decoder->tnt.tnt = 0x6b;
-	decoder->tnt.index = 0x100;
-
-	errcode = pt_decode_tip_pge.decode(decoder);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, encoder->pos);
-	ck_nonnull(decoder->event);
-	ck_int_eq(decoder->event->type, ptev_enabled);
-	ck_uint64_eq(decoder->event->variant.enabled.ip, dfix->last_ip.ip);
-	ck_last_ip();
-
-	check_non_ip_state(decoder);
-}
-END_TEST
-
 START_TEST(check_decode_tip_pge_overflow)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
@@ -4220,7 +4191,6 @@ static void add_decode_tests(TCase *tcase)
 	tcase_add_test(tcase, check_decode_tip_pge_cutoff_fail);
 	tcase_add_test(tcase, check_decode_tip_pge_event);
 	tcase_add_test(tcase, check_decode_tip_pge_event_suppressed);
-	tcase_add_test(tcase, check_decode_tip_pge_tnt);
 	tcase_add_test(tcase, check_decode_tip_pge_overflow);
 	tcase_add_test(tcase, check_decode_tip_pge_overflow_suppressed);
 	tcase_add_test(tcase, check_decode_tip_pge_exec_mode);
@@ -4291,7 +4261,6 @@ static void add_disabled_tests(TCase *tcase)
 	tcase_add_test(tcase, check_decode_tip_pge_cutoff_fail);
 	tcase_add_test(tcase, check_decode_tip_pge_event);
 	tcase_add_test(tcase, check_decode_tip_pge_event_suppressed);
-	tcase_add_test(tcase, check_decode_tip_pge_tnt);
 	tcase_add_test(tcase, check_decode_tip_pge_overflow);
 	tcase_add_test(tcase, check_decode_tip_pge_overflow_suppressed);
 	tcase_add_test(tcase, check_decode_tip_pge_exec_mode);
