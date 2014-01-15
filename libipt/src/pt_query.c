@@ -36,7 +36,7 @@
 #include <string.h>
 
 
-static int pt_status_flags(struct pt_decoder *decoder)
+static int pt_status_flags(const struct pt_decoder *decoder)
 {
 	int flags = 0;
 

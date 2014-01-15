@@ -145,7 +145,7 @@ const uint8_t *pt_get_decoder_end(const struct pt_decoder *decoder)
 	return pt_end(decoder);
 }
 
-int pt_will_event(struct pt_decoder *decoder)
+int pt_will_event(const struct pt_decoder *decoder)
 {
 	const struct pt_decoder_function *dfun;
 
@@ -296,7 +296,7 @@ void pt_discard_events(struct pt_decoder *decoder,
 	decoder->ev_end[evb] = 0;
 }
 
-int pt_event_pending(struct pt_decoder *decoder,
+int pt_event_pending(const struct pt_decoder *decoder,
 		     enum pt_event_binding evb)
 {
 	uint8_t begin, end;

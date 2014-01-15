@@ -177,7 +177,7 @@ extern int pt_decoder_init(struct pt_decoder *, const struct pt_config *);
  * Returns 0 if it will not result in an event.
  * Returns -pte_invalid if @decoder is NULL.
  */
-extern int pt_will_event(struct pt_decoder *decoder);
+extern int pt_will_event(const struct pt_decoder *decoder);
 
 /* Reset the decoder state.
  *
@@ -227,7 +227,7 @@ extern void pt_discard_events(struct pt_decoder *,
  * Returns 0 if the event queue for binging @evb is empty.
  * Returns a negative error code otherwise.
  */
-extern int pt_event_pending(struct pt_decoder *,
+extern int pt_event_pending(const struct pt_decoder *,
 			    enum pt_event_binding evb);
 
 /* Search for an event of a specific type.
