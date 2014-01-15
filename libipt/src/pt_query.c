@@ -199,8 +199,6 @@ int pt_query_uncond_branch(struct pt_decoder *decoder, uint64_t *addr)
 
 static int pt_cache_tnt(struct pt_decoder *decoder)
 {
-	int flags = 0;
-
 	for (;;) {
 		const struct pt_decoder_function *dfun;
 		int errcode, status;
@@ -260,12 +258,12 @@ static int pt_cache_tnt(struct pt_decoder *decoder)
 	/* Read ahead until the next query-relevant packet. */
 	(void) pt_read_ahead(decoder);
 
-	return flags;
+	return 0;
 }
 
 int pt_query_cond_branch(struct pt_decoder *decoder, int *taken)
 {
-	int errcode, flags, query;
+	int errcode, query;
 
 	if (!decoder || !taken)
 		return -pte_invalid;
@@ -277,13 +275,10 @@ int pt_query_cond_branch(struct pt_decoder *decoder, int *taken)
 	/* We cache the latest tnt packet in the decoder. Let's re-fill the
 	 * cache in case it is empty.
 	 */
-	flags = 0;
 	if (pt_tnt_cache_is_empty(&decoder->tnt)) {
 		errcode = pt_cache_tnt(decoder);
 		if (errcode < 0)
 			return errcode;
-
-		flags |= errcode;
 	}
 
 	query = pt_tnt_cache_query(&decoder->tnt);
@@ -292,9 +287,7 @@ int pt_query_cond_branch(struct pt_decoder *decoder, int *taken)
 
 	*taken = query;
 
-	flags |= pt_status_flags(decoder);
-
-	return flags;
+	return pt_status_flags(decoder);
 }
 
 int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
