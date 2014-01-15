@@ -165,7 +165,7 @@ run-ptt-test() {
 }
 
 ptt-cpus() {
-	sed -n 's/^\s*;\s*cpu\s\+\(.*\)\s*/\1/p' "$1"
+	sed -n 's/[ \t]*;[ \t]*cpu[ \t][ \t]*\(.*\)[ \t]*/\1/p' "$1"
 }
 
 run-ptt-tests() {
