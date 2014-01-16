@@ -163,6 +163,32 @@ int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
 	return pt_image_remove_by_name(&decoder->image, filename);
 }
 
+static int event_pending(struct pt_insn_decoder *decoder)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_invalid;
+
+	if (decoder->process_event)
+		return 1;
+
+	status = decoder->status;
+	if (status < 0)
+		return status;
+
+	if (!(status & pts_event_pending))
+		return 0;
+
+	status = pt_query_event(&decoder->query, &decoder->event);
+	if (status < 0)
+		return status;
+
+	decoder->process_event = 1;
+	decoder->status = status;
+	return 1;
+}
+
 static int process_enabled_event(struct pt_insn_decoder *decoder,
 				 struct pt_insn *insn)
 {
@@ -411,8 +437,15 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 	if (!decoder || !insn)
 		return -pte_internal;
 
-	while (decoder->process_event) {
-		int processed;
+	for (;;) {
+		int pending, processed;
+
+		pending = event_pending(decoder);
+		if (pending < 0)
+			return pending;
+
+		if (!pending)
+			break;
 
 		processed = process_one_event_before(decoder, insn);
 		if (processed < 0)
@@ -421,17 +454,7 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 		if (!processed)
 			break;
 
-		if (decoder->status & pts_event_pending) {
-			int status;
-
-			status = pt_query_event(&decoder->query,
-						&decoder->event);
-			if (status < 0)
-				return status;
-
-			decoder->status = status;
-		} else
-			decoder->process_event = 0;
+		decoder->process_event = 0;
 	}
 
 	return 0;
@@ -528,8 +551,15 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 	if (!decoder || !insn)
 		return -pte_internal;
 
-	while (decoder->process_event) {
-		int processed;
+	for (;;) {
+		int pending, processed, errcode;
+
+		pending = event_pending(decoder);
+		if (pending < 0)
+			return pending;
+
+		if (!pending)
+			break;
 
 		processed = process_one_event_after(decoder, insn);
 		if (processed < 0)
@@ -538,20 +568,11 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		if (!processed)
 			break;
 
-		if (decoder->status & pts_event_pending) {
-			int status, errcode;
+		decoder->process_event = 0;
 
-			status = pt_query_event(&decoder->query,
-						&decoder->event);
-			if (status < 0)
-				return status;
-
-			decoder->status = status;
-			errcode = process_events_before(decoder, insn);
-			if (errcode < 0)
-				return errcode;
-		} else
-			decoder->process_event = 0;
+		errcode = process_events_before(decoder, insn);
+		if (errcode < 0)
+			return errcode;
 	}
 
 	return 0;
@@ -631,8 +652,15 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 	if (!decoder || !insn)
 		return -pte_internal;
 
-	while (decoder->process_event) {
-		int processed;
+	for (;;) {
+		int pending, processed;
+
+		pending = event_pending(decoder);
+		if (pending < 0)
+			return pending;
+
+		if (!pending)
+			break;
 
 		processed = process_one_event_peek(decoder, insn);
 		if (processed < 0)
@@ -641,17 +669,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		if (!processed)
 			break;
 
-		if (decoder->status & pts_event_pending) {
-			int status;
-
-			status = pt_query_event(&decoder->query,
-						&decoder->event);
-			if (status < 0)
-				return status;
-
-			decoder->status = status;
-		} else
-			decoder->process_event = 0;
+		decoder->process_event = 0;
 	}
 
 	return 0;
@@ -836,25 +854,14 @@ static int proceed(struct pt_insn_decoder *decoder)
 
 int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 {
-	int status, errcode;
+	int errcode;
 
 	if (!insn || !decoder)
 		return -pte_invalid;
 
 	/* Report any errors we encountered. */
-	status = decoder->status;
-	if (status < 0)
-		return status;
-
-	/* Check if we need to query for new events. */
-	if ((status & pts_event_pending) && !decoder->process_event) {
-		status = pt_query_event(&decoder->query, &decoder->event);
-		decoder->status = status;
-		if (status < 0)
-			return status;
-
-		decoder->process_event = 1;
-	}
+	if (decoder->status < 0)
+		return decoder->status;
 
 	/* Clear some @insn fields that won't be set on all paths. */
 	insn->aborted = 0;
