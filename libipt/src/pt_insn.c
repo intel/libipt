@@ -406,7 +406,7 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 }
 
 static int process_events_before(struct pt_insn_decoder *decoder,
-				 struct pt_insn *insn, int status)
+				 struct pt_insn *insn)
 {
 	if (!decoder || !insn)
 		return -pte_internal;
@@ -421,16 +421,20 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 		if (!processed)
 			break;
 
-		if (status & pts_event_pending) {
+		if (decoder->status & pts_event_pending) {
+			int status;
+
 			status = pt_query_event(&decoder->query,
 						&decoder->event);
 			if (status < 0)
 				return status;
+
+			decoder->status = status;
 		} else
 			decoder->process_event = 0;
 	}
 
-	return status;
+	return 0;
 }
 
 static int pt_insn_changes_cpl(const pti_ild_t *ild)
@@ -519,7 +523,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 }
 
 static int process_events_after(struct pt_insn_decoder *decoder,
-				struct pt_insn *insn, int status)
+				struct pt_insn *insn)
 {
 	if (!decoder || !insn)
 		return -pte_internal;
@@ -534,20 +538,23 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		if (!processed)
 			break;
 
-		if (status & pts_event_pending) {
+		if (decoder->status & pts_event_pending) {
+			int status, errcode;
+
 			status = pt_query_event(&decoder->query,
 						&decoder->event);
 			if (status < 0)
 				return status;
 
-			status = process_events_before(decoder, insn, status);
-			if (status < 0)
-				return status;
+			decoder->status = status;
+			errcode = process_events_before(decoder, insn);
+			if (errcode < 0)
+				return errcode;
 		} else
 			decoder->process_event = 0;
 	}
 
-	return status;
+	return 0;
 }
 
 static int process_one_event_peek(struct pt_insn_decoder *decoder,
@@ -619,7 +626,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 }
 
 static int process_events_peek(struct pt_insn_decoder *decoder,
-			       struct pt_insn *insn, int status)
+			       struct pt_insn *insn)
 {
 	if (!decoder || !insn)
 		return -pte_internal;
@@ -634,16 +641,20 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		if (!processed)
 			break;
 
-		if (status & pts_event_pending) {
+		if (decoder->status & pts_event_pending) {
+			int status;
+
 			status = pt_query_event(&decoder->query,
 						&decoder->event);
 			if (status < 0)
 				return status;
+
+			decoder->status = status;
 		} else
 			decoder->process_event = 0;
 	}
 
-	return status;
+	return 0;
 }
 
 static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
@@ -738,7 +749,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	return relevant;
 }
 
-static int proceed(struct pt_insn_decoder *decoder, int status)
+static int proceed(struct pt_insn_decoder *decoder)
 {
 	const pti_ild_t *ild;
 
@@ -752,19 +763,20 @@ static int proceed(struct pt_insn_decoder *decoder, int status)
 
 	if (!ild->u.s.branch) {
 		decoder->ip += ild->length;
-		return status;
+		return 0;
 	}
 
 	if (ild->u.s.cond) {
-		int taken;
+		int status, taken;
 
 		status = pt_query_cond_branch(&decoder->query, &taken);
 		if (status < 0)
 			return status;
 
+		decoder->status = status;
 		if (!taken) {
 			decoder->ip += ild->length;
-			return status;
+			return 0;
 		}
 
 		/* Fall through to process the taken branch. */
@@ -774,12 +786,14 @@ static int proceed(struct pt_insn_decoder *decoder, int status)
 
 		/* Fall through to process the call. */
 	} else if (ild->u.s.ret) {
-		int taken, errcode;
+		int taken, status;
 
 		/* Check for a compressed return. */
-		errcode = pt_query_cond_branch(&decoder->query, &taken);
-		if (errcode >= 0) {
-			status = errcode;
+		status = pt_query_cond_branch(&decoder->query, &taken);
+		if (status >= 0) {
+			int errcode;
+
+			decoder->status = status;
 
 			/* A compressed return is indicated by a taken
 			 * conditional branch.
@@ -792,7 +806,7 @@ static int proceed(struct pt_insn_decoder *decoder, int status)
 			if (errcode < 0)
 				return errcode;
 
-			return status;
+			return 0;
 		}
 
 		/* Fall through to process the uncompressed return. */
@@ -802,17 +816,22 @@ static int proceed(struct pt_insn_decoder *decoder, int status)
 	if (ild->u.s.branch_direct)
 		decoder->ip = ild->direct_target;
 	else {
+		int status;
+
 		status = pt_query_uncond_branch(&decoder->query,
 						&decoder->ip);
+
 		if (status < 0)
 			return status;
 
 		/* We do need an IP to proceed. */
 		if (status & pts_ip_suppressed)
 			return -pte_noip;
+
+		decoder->status = status;
 	}
 
-	return status;
+	return 0;
 }
 
 int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
@@ -830,8 +849,9 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 	/* Check if we need to query for new events. */
 	if ((status & pts_event_pending) && !decoder->process_event) {
 		status = pt_query_event(&decoder->query, &decoder->event);
+		decoder->status = status;
 		if (status < 0)
-			goto out;
+			return status;
 
 		decoder->process_event = 1;
 	}
@@ -860,9 +880,9 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 	 */
 	decoder->event_may_change_ip = 1;
 
-	status = process_events_before(decoder, insn, status);
-	if (status < 0)
-		goto out;
+	errcode = process_events_before(decoder, insn);
+	if (errcode < 0)
+		goto err;
 
 	/* If tracing is disabled at this point, we should be at the end
 	 * of the trace - otherwise there should have been a re-enable
@@ -872,18 +892,16 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 		struct pt_event event;
 
 		/* Any query should give us an end of stream, error. */
-		status = pt_query_event(&decoder->query, &event);
-		if (status != -pte_eos)
-			status = -pte_internal;
+		errcode = pt_query_event(&decoder->query, &event);
+		if (errcode != -pte_eos)
+			errcode = -pte_internal;
 
-		goto out;
+		goto err;
 	}
 
 	errcode = decode_insn(insn, decoder);
-	if (errcode < 0) {
-		decoder->status = status;
-		return errcode;
-	}
+	if (errcode < 0)
+		goto err;
 
 	/* After decoding the instruction, we must not change the IP in this
 	 * iteration - postpone processing of events that would to the next
@@ -891,30 +909,31 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 	 */
 	decoder->event_may_change_ip = 0;
 
-	status = process_events_after(decoder, insn, status);
-	if (status < 0)
-		goto out;
+	errcode = process_events_after(decoder, insn);
+	if (errcode < 0)
+		goto err;
 
 	/* If event processing disabled tracing, we're done for this
 	 * iteration - we will process the re-enable event on the next.
 	 */
 	if (!decoder->enabled)
-		goto out;
+		return 0;
 
 	/* Determine the next IP. */
-	status = proceed(decoder, status);
-	if (status < 0)
-		goto out;
+	errcode = proceed(decoder);
+	if (errcode < 0)
+		goto err;
 
 	/* Peek event processing is based on the next instruction's IP
 	 * and is therefore independent of the relevance of @insn.
 	 */
-	status = process_events_peek(decoder, insn, status);
-
-out:
-	decoder->status = status;
-	if (status < 0)
-		return status;
+	errcode = process_events_peek(decoder, insn);
+	if (errcode < 0)
+		goto err;
 
 	return 0;
+
+err:
+	decoder->status = errcode;
+	return errcode;
 }
