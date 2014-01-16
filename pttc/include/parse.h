@@ -32,6 +32,7 @@
 #include "yasm.h"
 
 #include "pt_config.h"
+#include "pt_opcode.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -101,12 +102,12 @@ extern int parse_tnt(uint64_t *tnt, size_t *size, char *payload);
  * Returns -err_internal if @p or @ip or @ipc is the NULL pointer.
  * Returns -err_parse_int if ip or ipc in the @payload could not be
  * parsed as integer.
- * Returns -err_parse_ipc_missing if the ipc argument is missing.
+ * Returns -err_parse_ipc if the ipc argument is missing or malformed.
  * Returns -err_parse_trailing_tokens if the @payload contains more than
  * 2 arguments.
  */
-extern int parse_ip(struct parser *p, uint64_t *ip, uint8_t *ipc,
-		    char *payload);
+extern int parse_ip(struct parser *p, uint64_t *ip,
+		    enum pt_ip_compression *ipc, char *payload);
 
 /* Parses a uint64_t value from @payload and stores it in the memory
  * location where @x points to.

@@ -49,6 +49,13 @@
 #  define PRIx32 "x"
 #endif
 
+#ifndef PRIu16
+#  define PRIu16 "u"
+#endif
+
+#ifndef PRIu8
+#  define PRIu8 "u"
+#endif
 #ifndef PRIx8
 #  define PRIx8 "x"
 #endif

@@ -112,8 +112,8 @@ static int version(const char *name)
 {
 	struct pt_version v = pt_library_version();
 
-	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", name,
-	       PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
+	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
+	       name, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
 	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
 	return 0;
 }
@@ -491,7 +491,7 @@ out:
 	return errcode;
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char *argv[])
 {
 	struct ptdump_options options;
 	uint32_t size;

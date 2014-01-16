@@ -73,8 +73,8 @@ static void version(const char *name)
 {
 	struct pt_version v = pt_library_version();
 
-	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", name,
-	       PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
+	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
+	       name, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
 	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
 }
 
@@ -387,7 +387,7 @@ static void print_stats(struct ptxed_stats *stats)
 	printf("insn: %" PRIu64 ".\n", stats->insn);
 }
 
-extern int main(int argc, char **argv)
+extern int main(int argc, char *argv[])
 {
 	struct pt_insn_decoder *decoder;
 	struct ptxed_options options;

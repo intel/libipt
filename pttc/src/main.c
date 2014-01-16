@@ -31,6 +31,7 @@
 #include "pt_cpu.h"
 #include "pt_version.h"
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -40,9 +41,9 @@ static void version(const char *prog)
 	struct pt_version v;
 
 	v = pt_library_version();
-	printf("%s-%u.%u.%u%s / libipt-%u.%u.%u%s\n", prog, PT_VERSION_MAJOR,
-	       PT_VERSION_MINOR, PT_VERSION_BUILD, PT_VERSION_EXT, v.major,
-	       v.minor, v.build, v.ext);
+	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
+	       prog, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
+	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
 }
 
 /* Prints usage information to stdout.  */
@@ -60,7 +61,7 @@ static void help(const char *prog)
 	       prog);
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char *argv[])
 {
 	struct pttc_options options;
 	const char *prog;

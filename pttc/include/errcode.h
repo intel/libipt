@@ -53,6 +53,7 @@ enum errcode {
 	err_parse,
 	err_parse_int,
 	err_parse_int_too_big,
+	err_parse_ipc,
 	err_parse_ip_missing,
 	err_parse_no_args,
 	err_parse_trailing_tokens,

@@ -189,7 +189,7 @@ void pt_reset(struct pt_decoder *decoder)
 	pt_tnt_cache_init(&decoder->tnt);
 
 	for (evb = 0; evb < evb_max; ++evb)
-		pt_discard_events(decoder, evb);
+		pt_discard_events(decoder, (enum pt_event_binding) evb);
 }
 
 static inline uint8_t pt_queue_inc(uint8_t idx)

@@ -140,10 +140,12 @@ static char *expfilename(struct parser *p, const char *extra)
 
 		cpu = p->conf->cpu;
 		if (cpu.stepping)
-			n += sprintf(cpu_suffix, "-cpu_%u_%u_%u",
+			n += sprintf(cpu_suffix,
+				     "-cpu_%" PRIu16 "_%" PRIu8 "_%" PRIu8 "",
 				     cpu.family, cpu.model, cpu.stepping);
 		else
-			n += sprintf(cpu_suffix, "-cpu_%u_%u", cpu.family,
+			n += sprintf(cpu_suffix,
+				     "-cpu_%" PRIu16 "_%" PRIu8 "", cpu.family,
 				     cpu.model);
 	}
 
@@ -602,7 +604,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		bytes_written = pt_encode_tnt_64(e, tnt, (int)size);
 	} else if (strcmp(directive, "tip") == 0) {
 		uint64_t ip;
-		uint8_t ipc;
+		enum pt_ip_compression ipc;
 
 		errcode = parse_ip(p, &ip, &ipc, payload);
 		if (errcode < 0) {
@@ -612,7 +614,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		bytes_written = pt_encode_tip(e, ip, ipc);
 	} else if (strcmp(directive, "tip.pge") == 0) {
 		uint64_t ip;
-		uint8_t ipc;
+		enum pt_ip_compression ipc;
 
 		errcode = parse_ip(p, &ip, &ipc, payload);
 		if (errcode < 0) {
@@ -623,7 +625,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		bytes_written = pt_encode_tip_pge(e, ip, ipc);
 	} else if (strcmp(directive, "tip.pgd") == 0) {
 		uint64_t ip;
-		uint8_t ipc;
+		enum pt_ip_compression ipc;
 
 		errcode = parse_ip(p, &ip, &ipc, payload);
 		if (errcode < 0) {
@@ -634,7 +636,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		bytes_written = pt_encode_tip_pgd(e, ip, ipc);
 	} else if (strcmp(directive, "fup") == 0) {
 		uint64_t ip;
-		uint8_t ipc;
+		enum pt_ip_compression ipc;
 
 		errcode = parse_ip(p, &ip, &ipc, payload);
 		if (errcode < 0) {
@@ -874,8 +876,22 @@ int parse_tnt(uint64_t *tnt, size_t *size, char *payload)
 	return 0;
 }
 
-int parse_ip(struct parser *p, uint64_t *ip, uint8_t *ipc, char *payload)
+static int check_ipc(enum pt_ip_compression ipc)
 {
+	switch (ipc) {
+	case pt_ipc_suppressed:
+	case pt_ipc_update_16:
+	case pt_ipc_update_32:
+	case pt_ipc_sext_48:
+		return 0;
+	}
+	return -err_parse_ipc;
+}
+
+int parse_ip(struct parser *p, uint64_t *ip, enum pt_ip_compression *ipc,
+	     char *payload)
+{
+	int errcode;
 	char *endptr;
 
 	if (bug_on(!ip))
@@ -884,16 +900,21 @@ int parse_ip(struct parser *p, uint64_t *ip, uint8_t *ipc, char *payload)
 	if (bug_on(!ipc))
 		return -err_internal;
 
-	*ipc = 0;
+	*ipc = pt_ipc_suppressed;
 	*ip = 0;
 
 	payload = strtok(payload, " :");
 	if (!payload || *payload == '\0')
 		return -err_parse_no_args;
 
-	*ipc = (uint8_t) strtol(payload, &endptr, 0);
+	*ipc = (enum pt_ip_compression) strtol(payload, &endptr, 0);
 	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
+		return -err_parse_ipc;
+
+	/* is ipc valid?  */
+	errcode = check_ipc(*ipc);
+	if (errcode < 0)
+		return errcode;
 
 	payload = strtok(NULL, " :");
 	if (!payload)

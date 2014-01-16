@@ -51,6 +51,7 @@ const char *errstr[] = {
 	"parse error",
 	"integer cannot be parsed",
 	"integer too big",
+	"ipc missing or has invalid value",
 	"ip missing",
 	"no arguments",
 	"trailing tokens",

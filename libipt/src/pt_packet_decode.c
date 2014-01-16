@@ -1021,7 +1021,8 @@ static int decode_ovf(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	uint64_t flags;
-	int status, evb;
+	int status;
+	enum pt_event_binding evb;
 
 	status = process_pending_psb_events(decoder);
 	if (status < 0)
@@ -1099,7 +1100,7 @@ static int extract_mode(struct pt_packet_mode *packet,
 	leaf = payload & pt_mom_leaf;
 	mode = payload & pt_mom_bits;
 
-	packet->leaf = leaf;
+	packet->leaf = (enum pt_mode_leaf) leaf;
 	switch (leaf) {
 	default:
 		return -pte_bad_packet;

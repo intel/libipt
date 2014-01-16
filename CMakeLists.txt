@@ -110,10 +110,14 @@ if (CMAKE_HOST_WIN32)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4100")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100")
 
-  # prevent complaints on do {} while(0) constructs
+  # prevent complaints on:
+  # - do {} while(0) constructs
+  # - unreferenced function parameters
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd869")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd869")
 
   # warnings are errors
   #

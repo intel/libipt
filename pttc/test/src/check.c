@@ -163,30 +163,36 @@ START_TEST(check_parse_ip)
 	struct test tests[] = {
 		/* no prefix.  */
 		{1, "1: 0", 0, 1},
-		{1, "3: 1", 1, 3},
-		{1, "6: 281474976710655", 281474976710655, 6},
+		{1, "2: 1", 1, 2},
+		{1, "3: 281474976710655", 281474976710655, 3},
 
 		/* hex prefix.  */
-		{1, "4: 0x0", 0, 4},
-		{1, "1: 0x1", 1, 1},
-		{1, "1: 0x01", 1, 1},
-		{1, "6: 0xffffffffffff", 0xffffffffffff, 6},
+		{1, "1: 0x0", 0, 1},
+		{1, "2: 0x1", 1, 2},
+		{1, "3: 0x01", 1, 3},
+		{1, "3: 0xffffffffffff", 0xffffffffffff, 3},
 
 		/* octal prefix.  */
 		{1, "1: 00", 0, 1},
 		{1, "1: 01", 1, 1},
 		{1, "1: 010", 010, 1},
-		{1, "6: 07777777777777777", 07777777777777777, 6},
+		{1, "3: 07777777777777777", 07777777777777777, 3},
 
 		/* too big, but no error generated  */
-		{1, "6: 0x1000000000000", 0x1000000000000, 6},
+		{1, "3: 0x1000000000000", 0x1000000000000, 3},
+		{1, "2: 0x1000000000000", 0x1000000000000, 2},
 		{1, "1: 0x100", 0x100, 1},
+		{1, "0: 0x100", 0x100, 0},
 
 		/* invalid characters.  */
 		{0, "13e", 0, 0},
 		{0, "abc", 0, 0},
 		{0, "abc: 0", 0, 0},
 		{0, "13e: 0", 0, 0},
+
+		/* invalid size.  */
+		{0, "-1: 0", 0, 0},
+		{0, "4: 0", 0, 0},
 
 		/* missing size.  */
 		{0, ":0", 0, 0},
@@ -196,8 +202,8 @@ START_TEST(check_parse_ip)
 
 	for (size_t i = 0; i < sizeof(tests)/sizeof(struct test); i++) {
 		enum errcode errcode;
-		uint64_t ip = 31337;
-		uint8_t size = -1;
+		uint64_t ip;
+		enum pt_ip_compression size;
 		char *payload;
 
 		payload = duplicate_str(tests[i].payload);

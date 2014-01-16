@@ -41,8 +41,8 @@ pti_abort ()
   /* this would be be a programming error. */
   assert (0);
 
-  /* make sure to abort also for release builds. */
-  abort();
+  /* make sure to exit also for release builds. */
+  exit(1);
 }
 
 /* SET UP 3 TABLES */
