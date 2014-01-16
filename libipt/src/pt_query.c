@@ -317,6 +317,12 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 	if (errcode < 0)
 		return errcode;
 
+	/* We do not allow querying for events while there are still TNT
+	 * bits to consume.
+	 */
+	if (!pt_tnt_cache_is_empty(&decoder->tnt))
+		return -pte_bad_query;
+
 	flags = 0;
 	for (;;) {
 		const struct pt_decoder_function *dfun;
@@ -336,40 +342,26 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 		if (!dfun->decode)
 			return -pte_internal;
 
+		/* We must not see a TIP or TNT packet unless it belongs
+		 * to an event.
+		 *
+		 * If we see one, it means that our user got out of sync.
+		 * Let's report no data and hope that our user is able
+		 * to re-sync.
+		 */
+		if ((dfun->flags & (pdff_tip | pdff_tnt)) &&
+		    !pt_will_event(decoder))
+			return -pte_bad_query;
+
 		/* Clear the decoder's current event so we know when decoding
 		 * produces a new event.
 		 */
 		decoder->event = NULL;
 
-		if (pt_will_event(decoder)) {
-			/* Decode the event packet. */
-			errcode = dfun->decode(decoder);
-			if (errcode)
-				return errcode;
-		} else if (dfun->flags & pdff_tip) {
-			/* We must not see a TIP packet.
-			 *
-			 * If we see one, it means that our user got out of
-			 * sync. Let's report no data and hope that our user is
-			 * able to re-sync.
-			 */
-			return -pte_bad_query;
-		} else if ((dfun->flags & pdff_tnt) &&
-			   !pt_tnt_cache_is_empty(&decoder->tnt)) {
-			/* We may see a single TNT packet if the current tnt is
-			 * empty.
-			 *
-			 * If we see a TNT while the current tnt is not empty,
-			 * it means that our user got out of sync. Let's report
-			 * no data and hope that our user is able to re-sync.
-			 */
-			return -pte_bad_query;
-		} else {
-			/* Apply any other decoder function. */
-			errcode = dfun->decode(decoder);
-			if (errcode)
-				return errcode;
-		}
+		/* Apply any other decoder function. */
+		errcode = dfun->decode(decoder);
+		if (errcode)
+			return errcode;
 
 		/* Check if there has been an event.
 		 *
