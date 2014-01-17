@@ -69,7 +69,10 @@ enum pt_dump_flag {
 	ptd_use_cpu = 1 << 4,
 
 	/* Quiet mode: Don't print anything but errors. */
-	ptd_quiet = 1 << 5
+	ptd_quiet = 1 << 5,
+
+	/* Don't show PAD packets. */
+	ptd_no_pad = 1 << 6
 };
 
 struct ptdump_options {
@@ -99,6 +102,7 @@ static int help(const char *name)
 		"  --help|-h                this text.\n"
 		"  --version                display version information and exit.\n"
 		"  --quiet                  don't print anything but errors.\n"
+		"  --no-pad                 don't show PAD packets.\n"
 		"  --no-offset              don't show the offset as the first column.\n"
 		"  --raw                    show raw packet bytes.\n"
 		"  --lastip                 show last IP updates on packets with IP payloads.\n"
@@ -378,6 +382,10 @@ sync:
 			goto sync;
 		}
 
+		/* Skip PAD packets if requested */
+		if (packet.type == ppt_pad && (options->flags & ptd_no_pad))
+			goto next;
+
 		/* Print stream offset. */
 		if (options->flags & ptd_show_offset) {
 			ret = print(options, "%0*" PRIx64, col_offset_width,
@@ -505,6 +513,7 @@ skip_last_ip_printing:
 		/* End of information printing for this packet. */
 		print(options, "\n");
 
+next:
 		/* Go to next packet. */
 		pt_advance(decoder, packet.size);
 	}
@@ -549,6 +558,8 @@ int main(int argc, char *argv[])
 			return version(argv[0]);
 		else if (strcmp(argv[idx], "--quiet") == 0)
 			options.flags |= ptd_quiet;
+		else if (strcmp(argv[idx], "--no-pad") == 0)
+			options.flags |= ptd_no_pad;
 		else if (strcmp(argv[idx], "--no-offset") == 0)
 			options.flags &= ~ptd_show_offset;
 		else if (strcmp(argv[idx], "--raw") == 0)
