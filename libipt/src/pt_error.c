@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_error.h"
+#include "intel-pt.h"
+
 
 const char *pt_errstr(enum pt_error_code errcode)
 {

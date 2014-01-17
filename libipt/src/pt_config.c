@@ -26,11 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_config.h"
 #include "pt_cpuid.h"
-#include "pt_error.h"
+
+#include "intel-pt.h"
 
 #include <string.h>
+
 
 const char *cpu_vendors[] = {
 	"",

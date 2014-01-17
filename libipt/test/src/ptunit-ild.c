@@ -26,9 +26,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pti-ild.h"
-
 #include "ptunit.h"
+
+#include "pti-ild.h"
 
 #include <string.h>
 

@@ -28,9 +28,6 @@
 
 #include "pt_print.h"
 
-#include "pt_error.h"
-#include "pt_packet.h"
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>

@@ -28,13 +28,10 @@
 
 #include "pt_print.h"
 
-#include "pt_packet.h"
-#include "pt_decode.h"
-#include "pt_last_ip.h"
-#include "pt_config.h"
 #include "pt_cpu.h"
-#include "pt_error.h"
-#include "pt_version.h"
+#include "pt_last_ip.h"
+
+#include "intel-pt.h"
 
 #include <stdlib.h>
 #include <stdarg.h>

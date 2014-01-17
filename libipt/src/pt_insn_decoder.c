@@ -28,8 +28,7 @@
 
 #include "pt_insn_decoder.h"
 
-#include "pt_config.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 
 void pt_insn_reset(struct pt_insn_decoder *decoder)

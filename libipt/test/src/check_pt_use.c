@@ -29,8 +29,7 @@
 #include "pt_decoder_fixture.h"
 #include "suites.h"
 
-#include "pt_decode.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 #include <check.h>
 

@@ -26,12 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_section.h"
-
-#include "pt_error.h"
-
 #include "ptunit.h"
 #include "ptunit_mktempname.h"
+
+#include "pt_section.h"
+
+#include "intel-pt.h"
 
 #include <stdlib.h>
 

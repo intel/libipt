@@ -29,7 +29,7 @@
 #ifndef __PTTC_H__
 #define __PTTC_H__
 
-#include "pt_config.h"
+#include "intel-pt.h"
 
 /* Options that are passed to pttc main.  */
 struct pttc_options {

@@ -28,8 +28,7 @@
 
 #include "pt_last_ip.h"
 
-#include "pt_packet.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 
 void pt_last_ip_init(struct pt_last_ip *last_ip)

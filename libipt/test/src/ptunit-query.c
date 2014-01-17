@@ -26,17 +26,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_query.h"
-#include "pt_packet.h"
-#include "pt_config.h"
-#include "pt_encode.h"
-#include "pt_decode.h"
-#include "pt_error.h"
-#include "pt_last_ip.h"
-#include "pt_state.h"
-#include "pt_packet_decode.h"
-
 #include "ptunit.h"
+
+#include "pt_last_ip.h"
+#include "pt_packet_decode.h"
+#include "pt_state.h"
+
+#include "intel-pt.h"
 
 
 /* A query testing fixture. */

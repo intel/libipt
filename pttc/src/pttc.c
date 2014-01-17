@@ -30,8 +30,6 @@
 #include "pttc.h"
 #include "parse.h"
 
-#include "pt_error.h"
-
 int pttc_main(const struct pttc_options *options)
 {
 	int errcode;

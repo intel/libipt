@@ -29,7 +29,6 @@
 #include "pttc.h"
 
 #include "pt_cpu.h"
-#include "pt_version.h"
 
 #include <inttypes.h>
 #include <stdio.h>

@@ -26,12 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_config.h"
-#include "pt_cpu.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 #include <limits.h>
 #include <stdlib.h>
+
 
 int pt_cpu_parse(struct pt_cpu *cpu, const char *s)
 {

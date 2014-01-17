@@ -26,9 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_encode.h"
-#include "pt_error.h"
-#include "pt_config.h"
+#include "intel-pt.h"
 
 
 int pt_init_encoder(struct pt_encoder *encoder,

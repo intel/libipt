@@ -28,7 +28,7 @@
 
 #include "pt_section.h"
 
-#include "pt_error.h"
+#include "intel-pt.h"
 
 #include <stdlib.h>
 #include <string.h>

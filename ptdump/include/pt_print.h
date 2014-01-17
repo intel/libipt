@@ -29,7 +29,7 @@
 #ifndef __PT_PRINT_H__
 #define __PT_PRINT_H__
 
-#include "pt_opcode.h"
+#include "intel-pt.h"
 
 #include <stdint.h>
 

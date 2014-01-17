@@ -29,8 +29,7 @@
 #include "pt_packet_decode.h"
 #include "pt_state.h"
 
-#include "pt_error.h"
-#include "pt_packet.h"
+#include "intel-pt.h"
 
 
 int pt_decode(struct pt_packet *packet, struct pt_decoder *decoder)

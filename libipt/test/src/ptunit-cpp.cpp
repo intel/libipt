@@ -27,18 +27,9 @@
  */
 
 extern "C" {
-#include "pt_compiler.h"
-#include "pt_config.h"
-#include "pt_decode.h"
-#include "pt_encode.h"
-#include "pt_error.h"
-#include "pt_opcode.h"
-#include "pt_packet.h"
-#include "pt_query.h"
-#include "pt_version.h"
-#include "pt_insn.h"
-
 #include "ptunit.h"
+
+#include "intel-pt.h"
 }
 
 static struct ptunit_result init_decoder(void)

@@ -29,13 +29,13 @@
 #ifndef __PT_DECODER_FIXTURE_H__
 #define __PT_DECODER_FIXTURE_H__
 
-
-#include "pt_state.h"
-#include "pt_encode.h"
-#include "pt_packet_decode.h"
-#include "pt_config.h"
-
 #include "pt_check.h"
+
+#include "pt_packet_decode.h"
+#include "pt_last_ip.h"
+#include "pt_tnt_cache.h"
+
+#include "intel-pt.h"
 
 
 /* An Intel(R) Processor Trace decoder unit test fixture. */

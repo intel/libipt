@@ -28,8 +28,7 @@
 
 #include "load_elf.h"
 
-#include "pt_insn.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 #include <stdio.h>
 #include <elf.h>

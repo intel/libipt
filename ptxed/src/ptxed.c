@@ -30,11 +30,9 @@
 # include "load_elf.h"
 #endif /* defined(FEATURE_ELF) */
 
-#include "pt_config.h"
 #include "pt_cpu.h"
-#include "pt_version.h"
-#include "pt_error.h"
-#include "pt_insn.h"
+
+#include "intel-pt.h"
 
 #include <stdlib.h>
 #include <stdio.h>

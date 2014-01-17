@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_version.h"
+#include "intel-pt.h"
+
 
 struct pt_version pt_library_version()
 {

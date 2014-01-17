@@ -30,9 +30,6 @@
 #include "parse.h"
 #include "util.h"
 
-#include "pt_encode.h"
-#include "pt_error.h"
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>

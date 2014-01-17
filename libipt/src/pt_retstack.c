@@ -27,7 +27,8 @@
  */
 
 #include "pt_retstack.h"
-#include "pt_error.h"
+
+#include "intel-pt.h"
 
 
 void pt_retstack_init(struct pt_retstack *retstack)

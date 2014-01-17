@@ -29,10 +29,7 @@
 #include "pt_state.h"
 #include "pt_packet_decode.h"
 
-#include "pt_decode.h"
-#include "pt_packet.h"
-#include "pt_opcode.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 
 /*

@@ -29,13 +29,10 @@
 #ifndef __PT_STATE_H__
 #define __PT_STATE_H__
 
-#include "pt_opcode.h"
-#include "pt_query.h"
-#include "pt_error.h"
-#include "pt_config.h"
-
 #include "pt_last_ip.h"
 #include "pt_tnt_cache.h"
+
+#include "intel-pt.h"
 
 #include <stdint.h>
 

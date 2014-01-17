@@ -31,8 +31,7 @@
 
 #include "yasm.h"
 
-#include "pt_config.h"
-#include "pt_opcode.h"
+#include "intel-pt.h"
 
 #include <inttypes.h>
 #include <stdio.h>

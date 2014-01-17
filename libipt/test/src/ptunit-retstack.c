@@ -26,11 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "ptunit.h"
+
 #include "pt_retstack.h"
 
-#include "pt_error.h"
-
-#include "ptunit.h"
+#include "intel-pt.h"
 
 
 static struct ptunit_result init(void)

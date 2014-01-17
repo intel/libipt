@@ -26,12 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "ptunit.h"
+
 #include "pt_last_ip.h"
 
-#include "pt_error.h"
-#include "pt_packet.h"
-
-#include "ptunit.h"
+#include "intel-pt.h"
 
 #include <string.h>
 

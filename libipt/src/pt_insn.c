@@ -26,14 +26,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_insn.h"
-#include "pt_config.h"
-#include "pt_error.h"
-#include "pt_decode.h"
-#include "pt_query.h"
-
 #include "pt_insn_decoder.h"
 #include "pt_section.h"
+
+#include "intel-pt.h"
 
 #include <string.h>
 

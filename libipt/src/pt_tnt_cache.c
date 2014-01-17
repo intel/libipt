@@ -28,8 +28,7 @@
 
 #include "pt_tnt_cache.h"
 
-#include "pt_packet.h"
-#include "pt_error.h"
+#include "intel-pt.h"
 
 
 void pt_tnt_cache_init(struct pt_tnt_cache *cache)

@@ -26,11 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_config.h"
-#include "pt_cpu.h"
-#include "pt_error.h"
-
 #include "ptunit.h"
+
+#include "pt_cpu.h"
+
+#include "intel-pt.h"
 
 #include <stdlib.h>
 
