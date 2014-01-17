@@ -37,6 +37,7 @@
 #include "pt_version.h"
 
 #include <stdlib.h>
+#include <stdarg.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
@@ -65,7 +66,10 @@ enum pt_dump_flag {
 	ptd_fixed_offset_width = 1 << 3,
 
 	/* Use the cpu specified in the options. */
-	ptd_use_cpu = 1 << 4
+	ptd_use_cpu = 1 << 4,
+
+	/* Quiet mode: Don't print anything but errors. */
+	ptd_quiet = 1 << 5
 };
 
 struct ptdump_options {
@@ -94,6 +98,7 @@ static int help(const char *name)
 		"options:\n"
 		"  --help|-h                this text.\n"
 		"  --version                display version information and exit.\n"
+		"  --quiet                  don't print anything but errors.\n"
 		"  --no-offset              don't show the offset as the first column.\n"
 		"  --raw                    show raw packet bytes.\n"
 		"  --lastip                 show last IP updates on packets with IP payloads.\n"
@@ -233,6 +238,24 @@ static void *map_pt(const char *file, uint32_t *size)
 
 #endif /* defined(FEATURE_MMAP) */
 
+static int print(const struct ptdump_options *options, const char *format, ...)
+{
+	int ret;
+	va_list ap;
+
+	if (options->flags & ptd_quiet)
+		return 0;
+
+	va_start(ap, format);
+	ret = vprintf(format, ap);
+	va_end(ap);
+
+	if (ret <= 0)
+		return -pte_internal;
+
+	return ret;
+}
+
 static inline unsigned calc_col_offset_width(uint64_t highest_val)
 {
 	int idx = 63;
@@ -242,17 +265,17 @@ static inline unsigned calc_col_offset_width(uint64_t highest_val)
 	return 1 + (idx / 4);
 }
 
-static inline void print_col_separator(FILE *f)
+static inline void print_col_separator(const struct ptdump_options *options)
 {
-	fprintf(f, "  ");
+	print(options, "  ");
 }
 
-static inline void fillup_column(FILE *f, unsigned actual_width,
-				 unsigned col_width)
+static inline void fillup_column(const struct ptdump_options *options,
+				 unsigned actual_width, unsigned col_width)
 {
 	if (actual_width >= col_width)
 		return;
-	fprintf(f, "%*c", col_width - actual_width, ' ');
+	print(options, "%*c", col_width - actual_width, ' ');
 }
 
 static inline void diag(const char *msg)
@@ -278,7 +301,7 @@ static inline void diag_err_pos(const char *msg, enum pt_error_code err,
 }
 
 static int dump(uint8_t *begin, uint8_t *end,
-		const struct ptdump_options *options, FILE *f)
+		const struct ptdump_options *options)
 {
 	int errcode;
 	struct pt_packet packet;
@@ -357,23 +380,23 @@ sync:
 
 		/* Print stream offset. */
 		if (options->flags & ptd_show_offset) {
-			ret = fprintf(f, "%0*" PRIx64, col_offset_width,
-				      pt_get_decoder_pos(decoder));
-			if (ret <= 0) {
+			ret = print(options, "%0*" PRIx64, col_offset_width,
+				    pt_get_decoder_pos(decoder));
+			if (ret < 0) {
 				diag_pos("cannot print offset", pos);
 				errcode = -pte_internal;
 				goto sync;
 			}
 			col_offset_width_used = ret;
 
-			fillup_column(f,
+			fillup_column(options,
 				col_offset_width_used, col_offset_width);
-			print_col_separator(f);
+			print_col_separator(options);
 		}
 
 		/* Print packet type. */
-		ret = fprintf(f, "%s", pt_print_packet_type_str(&packet));
-		if (ret <= 0) {
+		ret = print(options, "%s", pt_print_packet_type_str(&packet));
+		if (ret < 0) {
 			diag_pos("cannot print packet type", pos);
 			errcode = -pte_internal;
 			goto sync;
@@ -388,12 +411,12 @@ sync:
 			goto sync;
 		}
 		if (ret > 0) {
-			fillup_column(f,
+			fillup_column(options,
 				col_packettype_width_used,
 				col_packettype_width);
-			print_col_separator(f);
+			print_col_separator(options);
 		}
-		col_payload_width_used = fprintf(f, "%s", str);
+		col_payload_width_used = print(options, "%s", str);
 
 		/* Print last IP if requested
 		 * and if packet type is an IP packet. */
@@ -440,9 +463,9 @@ sync:
 			if (ret == -pte_noip)
 				goto skip_last_ip_printing;
 			if (ret == -pte_ip_suppressed)
-				ret = fprintf(f, ", ip=<suppressed>");
-			if (ret == 0)
-				ret = fprintf(f, ", ip=0x%016" PRIx64, ip);
+				ret = print(options, ", ip=<suppressed>");
+			else if (ret == 0)
+				ret = print(options, ", ip=0x%016" PRIx64, ip);
 			if (ret < 0) {
 				diag_pos("cannot print last-IP", pos);
 				errcode = -pte_internal;
@@ -457,30 +480,30 @@ skip_last_ip_printing:
 			uint8_t idx;
 
 			if (col_payload_width_used == 0) {
-				fillup_column(f,
+				fillup_column(options,
 					col_packettype_width_used,
 					col_packettype_width);
-				print_col_separator(f);
+				print_col_separator(options);
 			}
 
-			fillup_column(f,
+			fillup_column(options,
 				col_payload_width_used, col_payload_width);
-			print_col_separator(f);
+			print_col_separator(options);
 
-			fprintf(f, "[");
+			print(options, "[");
 			for (idx = 0; idx < packet.size; ++idx) {
 				uint8_t u;
 
 				u = *(pt_get_decoder_raw(decoder) + idx);
-				fprintf(f, "%02x", (unsigned)u);
+				print(options, "%02x", (unsigned)u);
 				if (idx != (packet.size - 1))
-					fprintf(f, " ");
+					print(options, " ");
 			}
-			fprintf(f, "]");
+			print(options, "]");
 		}
 
 		/* End of information printing for this packet. */
-		fprintf(f, "\n");
+		print(options, "\n");
 
 		/* Go to next packet. */
 		pt_advance(decoder, packet.size);
@@ -524,6 +547,8 @@ int main(int argc, char *argv[])
 			return help(argv[0]);
 		if (strcmp(argv[idx], "--version") == 0)
 			return version(argv[0]);
+		else if (strcmp(argv[idx], "--quiet") == 0)
+			options.flags |= ptd_quiet;
 		else if (strcmp(argv[idx], "--no-offset") == 0)
 			options.flags &= ~ptd_show_offset;
 		else if (strcmp(argv[idx], "--raw") == 0)
@@ -573,7 +598,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	errcode = dump(pt, pt + size, &options, stdout);
+	errcode = dump(pt, pt + size, &options);
 
 	return -errcode;
 }
