@@ -1157,7 +1157,7 @@ static int decode_mode_tsx(struct pt_decoder *decoder,
 
 		/* We don't have an IP in this case. */
 		event->variant.tsx.ip = 0;
-		event->ip_suppressed = 0;
+		event->ip_suppressed = 1;
 
 		/* Publish the event. */
 		decoder->event = event;
