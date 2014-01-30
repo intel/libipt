@@ -31,26 +31,38 @@
 
 #include "intel-pt.h"
 
-#include <stdlib.h>
 #include <inttypes.h>
+#include <limits.h>
 
 
 static int extract_unknown(struct pt_packet *packet,
 			   const struct pt_decoder *decoder)
 {
-	int (*decode)(struct pt_packet *, const struct pt_decoder *);
+	int (*decode)(struct pt_packet_unknown *, const struct pt_config *,
+		      const uint8_t *, void *);
 	int size, errcode;
 
-	decode = decoder->config.decode;
+	decode = decoder->config.decode.callback;
 	if (!decode)
 		return -pte_bad_opc;
+
+	/* Fill in some default values. */
+	packet->payload.unknown.packet = decoder->pos;
+	packet->payload.unknown.priv = NULL;
 
 	/* We accept a size of zero to allow the callback to modify the
 	 * trace buffer and resume normal decoding.
 	 */
-	size = (*decode)(packet, decoder);
+	size = (*decode)(&packet->payload.unknown, &decoder->config,
+			 decoder->pos, decoder->config.decode.context);
 	if (size < 0)
 		return size;
+
+	if (size > UCHAR_MAX)
+		return -pte_invalid;
+
+	packet->type = ppt_unknown;
+	packet->size = (uint8_t) size;
 
 	errcode = pt_check_bounds(decoder, size);
 	if (errcode < 0)
@@ -63,12 +75,6 @@ static int packet_unknown(struct pt_packet *packet,
 			  const struct pt_decoder *decoder)
 {
 	int size;
-
-	/* Fill in some default values. */
-	packet->type = ppt_unknown;
-	packet->size = 0;
-	packet->payload.unknown.packet = decoder->pos;
-	packet->payload.unknown.priv = NULL;
 
 	size = extract_unknown(packet, decoder);
 	if (size < 0)

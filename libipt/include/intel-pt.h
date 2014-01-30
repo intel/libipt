@@ -387,6 +387,9 @@ struct pt_cpu {
 	uint8_t stepping;
 };
 
+/* An unknown packet. */
+struct pt_packet_unknown;
+
 /* An Intel(R) Processor Trace configuration that is used for allocating
  * any of the decoders below.
  */
@@ -398,18 +401,25 @@ struct pt_config {
 	uint8_t *begin;
 	uint8_t *end;
 
-	/* An optional callback function for handling unknown packets.
+	/* An optional callback for handling unknown packets.
 	 *
-	 * The callback is called for any unknown opcode.
-	 *
-	 * It shall decode the packet at @decoder's current position into
-	 * @packet.
-
-	 * It shall return the number of bytes read upon success.
-	 * It shall return a negative pt_error_code otherwise.
+	 * If @callback is not NULL, it is called for any unknown opcode.
 	 */
-	int (*decode)(struct pt_packet *packet,
-		      const struct pt_decoder *decoder);
+	struct {
+		/* The callback function.
+		 *
+		 * It shall decode the packet at @pos into @unknown.
+		 * It shall return the number of bytes read upon success.
+		 * It shall return a negative pt_error_code otherwise.
+		 * The below context is passed as @context.
+		 */
+		int (*callback)(struct pt_packet_unknown *unknown,
+				const struct pt_config *config,
+				const uint8_t *pos, void *context);
+
+		/* The user-defined context for this configuration. */
+		void *context;
+	} decode;
 
 	/* The cpu on which PT has been recorded. */
 	struct pt_cpu cpu;

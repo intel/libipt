@@ -406,26 +406,34 @@ static void check_blank_state(struct pt_decoder *decoder)
 	ck_tnt_cache();
 }
 
-static int decode_unknown_skip_4(struct pt_packet *packet,
-				 const struct pt_decoder *arg)
+static int decode_unknown_skip_4(struct pt_packet_unknown *unknown,
+				 const struct pt_config *config,
+				 const uint8_t *pos, void *context)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 
-	ck_nonnull(packet);
-	ck_ptr(arg, decoder);
+	ck_nonnull(unknown);
+	ck_ptr(config, &decoder->config);
+	ck_ptr(pos, decoder->pos);
+	ck_ptr(unknown->packet, decoder->pos);
+	ck_ptr(unknown->priv, NULL);
+	ck_ptr(context, dfix);
 
 	return 4;
 }
 
-static int decode_unknown_nomem(struct pt_packet *packet,
-				const struct pt_decoder *arg)
+static int decode_unknown_nomem(struct pt_packet_unknown *unknown,
+				const struct pt_config *config,
+				const uint8_t *pos, void *context)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 
-	ck_nonnull(packet);
-	ck_ptr(arg, decoder);
+	ck_nonnull(unknown);
+	ck_ptr(config, &decoder->config);
+	ck_ptr(pos, decoder->pos);
+	ck_ptr(context, NULL);
 
 	return -pte_nomem;
 }
@@ -455,14 +463,15 @@ START_TEST(check_packet_unknown_skip_4)
 	struct pt_packet packet;
 	int errcode;
 
-	config->decode = decode_unknown_skip_4;
+	config->decode.callback = decode_unknown_skip_4;
+	config->decode.context = dfix;
 
 	errcode = pt_decode_unknown.packet(&packet, decoder);
 	ck_int_eq(errcode, 4);
 	ck_ptr(decoder->pos, config->begin);
 
 	ck_int_eq(packet.type, ppt_unknown);
-	ck_uint_eq(packet.size, 0);
+	ck_uint_eq(packet.size, 4);
 	ck_ptr(packet.payload.unknown.packet, encoder->pos);
 	ck_null(packet.payload.unknown.priv);
 
@@ -479,14 +488,12 @@ START_TEST(check_packet_unknown_nomem_fail)
 	struct pt_packet packet;
 	int errcode;
 
-	config->decode = decode_unknown_nomem;
+	config->decode.callback = decode_unknown_nomem;
 
 	errcode = pt_decode_unknown.packet(&packet, decoder);
 	ck_int_eq(errcode, -pte_nomem);
 	ck_ptr(decoder->pos, encoder->pos);
 
-	ck_int_eq(packet.type, ppt_unknown);
-	ck_uint_eq(packet.size, 0);
 	ck_ptr(packet.payload.unknown.packet, encoder->pos);
 	ck_null(packet.payload.unknown.priv);
 
@@ -1530,7 +1537,8 @@ START_TEST(check_header_unknown_skip_4)
 	uint64_t flags = decoder->flags;
 	int errcode;
 
-	config->decode = decode_unknown_skip_4;
+	config->decode.callback = decode_unknown_skip_4;
+	config->decode.context = dfix;
 
 	errcode = pt_decode_unknown.header(decoder);
 	ck_int_eq(errcode, 0);
@@ -1550,7 +1558,7 @@ START_TEST(check_header_unknown_nomem_fail)
 	uint64_t flags = decoder->flags;
 	int errcode;
 
-	config->decode = decode_unknown_nomem;
+	config->decode.callback = decode_unknown_nomem;
 
 	errcode = pt_decode_unknown.header(decoder);
 	ck_int_eq(errcode, -pte_nomem);
@@ -2036,7 +2044,8 @@ START_TEST(check_decode_unknown_skip_4)
 	uint64_t flags = decoder->flags;
 	int errcode;
 
-	config->decode = decode_unknown_skip_4;
+	config->decode.callback = decode_unknown_skip_4;
+	config->decode.context = dfix;
 
 	errcode = pt_decode_unknown.decode(decoder);
 	ck_int_eq(errcode, 0);
@@ -2056,7 +2065,7 @@ START_TEST(check_decode_unknown_nomem_fail)
 	uint64_t flags = decoder->flags;
 	int errcode;
 
-	config->decode = decode_unknown_nomem;
+	config->decode.callback = decode_unknown_nomem;
 
 	errcode = pt_decode_unknown.decode(decoder);
 	ck_int_eq(errcode, -pte_nomem);
