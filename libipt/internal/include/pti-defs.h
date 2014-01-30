@@ -1,4 +1,3 @@
-/* -*- c-file-style: "gnu" -*- */
 /*
  * Copyright (c) 2013-2014, Intel Corporation
  *
@@ -25,10 +24,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * Authors:
- *   Mark Charney <mark.charney@intel.com>
  */
+
 #if !defined(_PTI_DEFS_H_)
 #define _PTI_DEFS_H_
 

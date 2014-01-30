@@ -1,4 +1,3 @@
-/* -*- c-file-style: "gnu" -*- */
 /*
  * Copyright (c) 2013-2014, Intel Corporation
  *
@@ -25,10 +24,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * Authors:
- *   Mark Charney <mark.charney@intel.com>
  */
+
 static pti_uint8_t imm_bytes_map_0x0[256] = {
 /*opcode 0x0*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0x1*/ PTI_0_IMM_WIDTH_CONST_l2,
