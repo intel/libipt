@@ -195,6 +195,15 @@ static struct ptunit_result rdtsc(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result pcmpistri(void)
+{
+	pti_uint8_t insn[] = { 0x66, 0x0f, 0x3a, 0x63, 0x04, 0x16, 0x1a };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
 int main(int argc, const char **argv)
 {
 	struct ptunit_suite suite;
@@ -211,6 +220,7 @@ int main(int argc, const char **argv)
 	ptu_run(suite, mov_al_32);
 	ptu_run(suite, mov_al_16);
 	ptu_run(suite, rdtsc);
+	ptu_run(suite, pcmpistri);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

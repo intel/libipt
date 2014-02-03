@@ -576,11 +576,11 @@ modrm_dec (pti_ild_t * ild)
     has_modrm_map_0x0,
     has_modrm_map_0x0F
   };
-  pti_uint_t has_modrm = 0;
+  pti_uint_t has_modrm = PTI_MODRM_FALSE;
 
   pti_map_enum_t map = pti_get_map (ild);
   if (map >= PTI_MAP_2)
-    has_modrm = 1;
+    has_modrm = PTI_MODRM_TRUE;
   else
     has_modrm = has_modrm_2d[map][ild->nominal_opcode];
   if (has_modrm == PTI_MODRM_FALSE)

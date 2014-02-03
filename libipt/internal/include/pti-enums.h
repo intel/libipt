@@ -31,8 +31,8 @@
 
 
 #define PTI_MODRM_FALSE       0
-#define PTI_MODRM_IGNORE_MOD  1
-#define PTI_MODRM_TRUE        2
+#define PTI_MODRM_TRUE        1
+#define PTI_MODRM_IGNORE_MOD  2
 #define PTI_MODRM_UNDEF       3
 
 #endif
