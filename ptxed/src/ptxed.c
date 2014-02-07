@@ -85,22 +85,23 @@ static void help(const char *name)
 {
 	printf("usage: %s [<options>]\n\n"
 	       "options:\n"
-	       "  --help|-h                this text.\n"
-	       "  --version                display version information and exit.\n"
-	       "  --no-inst                do not print instructions (only addresses).\n"
-	       "  --quiet|-q               do not print anything (except errors).\n"
-	       "  --stat                   print statistics (even when quiet).\n"
-	       "  --verbose|-v             print various information (even when quiet).\n"
-	       "  --pt <file>[:<offset>]   load the processor trace data from <file> at <offset>.\n"
+	       "  --help|-h                     this text.\n"
+	       "  --version                     display version information and exit.\n"
+	       "  --no-inst                     do not print instructions (only addresses).\n"
+	       "  --quiet|-q                    do not print anything (except errors).\n"
+	       "  --stat                        print statistics (even when quiet).\n"
+	       "  --verbose|-v                  print various information (even when quiet).\n"
+	       "  --pt <file>[:<from>[-<to>]]   load the processor trace data from <file>.\n"
+	       "                                an optional offset or range can be given.\n"
 #if defined(FEATURE_ELF)
-	       "  --elf <<file>[:<base>]   load an ELF from <file> at address <base>.\n"
-	       "                           use the default load address if <base> is omitted.\n"
+	       "  --elf <<file>[:<base>]        load an ELF from <file> at address <base>.\n"
+	       "                                use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
-	       "  --raw <file>:<base>      load a raw binary from <file> at address <base>.\n"
-	       "  --cpu none|auto|f/m[/s]  set cpu to the given value and decode according to:\n"
-	       "                             none     spec (default)\n"
-	       "                             auto     current cpu\n"
-	       "                             f/m[/s]  family/model[/stepping]\n"
+	       "  --raw <file>:<base>           load a raw binary from <file> at address <base>.\n"
+	       "  --cpu none|auto|f/m[/s]       set cpu to the given value and decode according to:\n"
+	       "                                  none     spec (default)\n"
+	       "                                  auto     current cpu\n"
+	       "                                  f/m[/s]  family/model[/stepping]\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -131,30 +132,51 @@ static int extract_base(char *arg, uint64_t *base, const char *prog)
 	return 0;
 }
 
+static int parse_range(char *arg, uint64_t *begin, uint64_t *end,
+		       const char *prog)
+{
+	char *rest;
+
+	if (!arg)
+		return 0;
+
+	errno = 0;
+	*begin = strtoull(arg, &rest, 0);
+	if (errno)
+		return -1;
+
+	if (!*rest)
+		return 0;
+
+	if (*rest != '-')
+		return -1;
+
+	*end = strtoull(rest+1, &rest, 0);
+	if (errno || *rest)
+		return -1;
+
+	return 0;
+}
+
 static int load_pt(struct pt_config *config, char *arg, const char *prog)
 {
-	uint64_t base_arg;
+	uint64_t begin_arg, end_arg;
 	uint8_t *pt;
 	size_t read;
 	FILE *file;
-	long size, base;
+	long size, begin, end;
 	int errcode;
+	char *range;
 
 	if (!config || !arg || !prog) {
 		fprintf(stderr, "%s: internal error.\n", prog);
 		return 1;
 	}
 
-	base_arg = 0ull;
-	errcode = extract_base(arg, &base_arg, prog);
-	if (errcode < 0)
-		return 1;
-
-	base = (long) base_arg;
-	if ((uint64_t) base != base_arg) {
-		fprintf(stderr, "%s: offset too big: 0x%" PRIx64 ".\n",
-			prog, base_arg);
-		return 1;
+	range = strstr(arg, ":");
+	if (range) {
+		range += 1;
+		range[-1] = 0;
 	}
 
 	errno = 0;
@@ -179,6 +201,40 @@ static int load_pt(struct pt_config *config, char *arg, const char *prog)
 		goto err_file;
 	}
 
+	begin_arg = 0ull;
+	end_arg = (uint64_t) size;
+	errcode = parse_range(range, &begin_arg, &end_arg, prog);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad range: %s.\n", prog, range);
+		goto err_file;
+	}
+
+	begin = (long) begin_arg;
+	end = (long) end_arg;
+	if ((uint64_t) begin != begin_arg || (uint64_t) end != end_arg) {
+		fprintf(stderr, "%s: invalid offset/range argument.\n", prog);
+		goto err_file;
+	}
+
+	if (size <= begin) {
+		fprintf(stderr, "%s: offset 0x%lx outside of %s.\n",
+			prog, begin, arg);
+		goto err_file;
+	}
+
+	if (size < end) {
+		fprintf(stderr, "%s: range 0x%lx outside of %s.\n",
+			prog, end, arg);
+		goto err_file;
+	}
+
+	if (end <= begin) {
+		fprintf(stderr, "%s: bad range.\n", prog);
+		goto err_file;
+	}
+
+	size = end - begin;
+
 	pt = malloc(size);
 	if (!pt) {
 		fprintf(stderr, "%s: failed to allocated memory %s.\n",
@@ -186,14 +242,7 @@ static int load_pt(struct pt_config *config, char *arg, const char *prog)
 		goto err_file;
 	}
 
-	if (size <= base) {
-		fprintf(stderr, "%s: offset 0x%lx outside of %s.\n",
-			prog, base, arg);
-		goto err_pt;
-	}
-	size -= base;
-
-	errcode = fseek(file, base, SEEK_SET);
+	errcode = fseek(file, begin, SEEK_SET);
 	if (errcode) {
 		fprintf(stderr, "%s: failed to load %s: %d.\n",
 			prog, arg, errno);
