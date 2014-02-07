@@ -733,6 +733,13 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	if (!insn || !decoder)
 		return -pte_internal;
 
+	/* Fill in as much as we can as early as we can so we have the
+	 * information available in case of errors.
+	 */
+	insn->speculative = decoder->speculative;
+	insn->mode = decoder->mode;
+	insn->ip = decoder->ip;
+
 	/* Read the memory at the current IP. */
 	size = pt_image_read(&decoder->image, insn->raw, sizeof(insn->raw),
 			     decoder->ip);
@@ -752,11 +759,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	if (!status)
 		return -pte_bad_insn;
 
-	/* Classify the instruction and fill in the missing insn bits. */
-	insn->mode = decoder->mode;
-	insn->ip = decoder->ip;
 	insn->size = (uint8_t) ild->length;
-	insn->speculative = decoder->speculative;
 
 	relevant = pti_instruction_decode(ild);
 	if (relevant)
