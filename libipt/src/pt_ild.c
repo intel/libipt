@@ -438,8 +438,7 @@ vex_c4_dec (pti_ild_t * ild)
       ild->c4byte1 = get_byte (ild, length);
       ild->c4byte2 = get_byte (ild, length + 1);
 
-      /* even though derived from c4byte2, we set it */
-      pti_set_map (ild, (pti_map_enum_t) (ild->c4byte2 & 0x1F));
+      pti_set_map (ild, (pti_map_enum_t) (ild->c4byte1 & 0x1F));
       if (pti_get_map (ild) == PTI_MAP_3)
         ild->imm1_bytes = 1;
 

@@ -213,6 +213,15 @@ static struct ptunit_result vmovdqa(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result vpandn(void)
+{
+	pti_uint8_t insn[] = { 0xc4, 0x41, 0x29, 0xdf, 0xd1 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
 int main(int argc, const char **argv)
 {
 	struct ptunit_suite suite;
@@ -231,6 +240,7 @@ int main(int argc, const char **argv)
 	ptu_run(suite, rdtsc);
 	ptu_run(suite, pcmpistri);
 	ptu_run(suite, vmovdqa);
+	ptu_run(suite, vpandn);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
