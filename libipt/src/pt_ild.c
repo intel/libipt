@@ -388,8 +388,7 @@ vex_c5_dec (pti_ild_t * ild)
   if ((length + 2) <= max_bytes)
     {
       ild->c5byte1 = get_byte (ild, length);
-      /* even though derived from c5byte1, we set it */
-      pti_set_map (ild, PTI_MAP_0);
+      pti_set_map (ild, PTI_MAP_1);
       length++;                 /* eat the vex payload byte */
       ild->length = length;
       vex_opcode_dec (ild);
