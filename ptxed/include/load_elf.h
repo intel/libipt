@@ -42,6 +42,7 @@ struct pt_insn_decoder;
  * in the ELF program header with the lowest address section loaded at @base.
  *
  * The name of the program in @prog is used for error reporting.
+ * If @verbose is non-zero, prints information about loaded sections.
  *
  * Does not load dependent files.
  * Does not support dynamic relocations.
@@ -54,6 +55,6 @@ struct pt_insn_decoder;
  * Returns -pte_nomem if not enough memory can be allocated.
  */
 extern int load_elf(struct pt_insn_decoder *decoder, const char *file,
-		    uint64_t base, const char *prog);
+		    uint64_t base, const char *prog, int verbose);
 
 #endif /* __LOAD_ELF_H__ */

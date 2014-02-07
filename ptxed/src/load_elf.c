@@ -33,10 +33,12 @@
 
 #include <stdio.h>
 #include <elf.h>
+#include <inttypes.h>
 
 
 static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
-		      uint64_t base, const char *name, const char *prog)
+		      uint64_t base, const char *name, const char *prog,
+		      int verbose)
 {
 	Elf64_Ehdr ehdr;
 	Elf64_Half pidx;
@@ -105,6 +107,14 @@ static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
 		}
 
 		sections += 1;
+
+		if (verbose) {
+			printf("%s: phdr %u [%s]", prog, pidx, name);
+			printf(" offset=0x%" PRIx64, phdr.p_offset);
+			printf(" size=0x%" PRIx64, phdr.p_filesz);
+			printf(" vaddr=0x%" PRIx64, phdr.p_vaddr);
+			printf(".\n");
+		}
 	}
 
 	if (!sections)
@@ -116,7 +126,7 @@ static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
 }
 
 int load_elf(struct pt_insn_decoder *decoder, const char *name, uint64_t base,
-	     const char *prog)
+	     const char *prog, int verbose)
 {
 	uint8_t e_ident[EI_NIDENT];
 	FILE *file;
@@ -150,7 +160,7 @@ int load_elf(struct pt_insn_decoder *decoder, const char *name, uint64_t base,
 		break;
 
 	case ELFCLASS64:
-		errcode = load_elf64(decoder, file, base, name, prog);
+		errcode = load_elf64(decoder, file, base, name, prog, verbose);
 		break;
 	}
 

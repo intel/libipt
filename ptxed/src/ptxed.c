@@ -60,6 +60,9 @@ struct ptxed_options {
 
 	/* Print statistics (overrides quiet). */
 	uint32_t print_stats:1;
+
+	/* Print information about section loads and unloads. */
+	uint32_t track_image:1;
 };
 
 /* A collection of statistics. */
@@ -87,6 +90,7 @@ static void help(const char *name)
 	       "  --no-inst                do not print instructions (only addresses).\n"
 	       "  --quiet|-q               do not print anything (except errors).\n"
 	       "  --stat                   print statistics (even when quiet).\n"
+	       "  --verbose|-v             print various information (even when quiet).\n"
 	       "  --pt <file>[:<offset>]   load the processor trace data from <file> at <offset>.\n"
 #if defined(FEATURE_ELF)
 	       "  --elf <<file>[:<base>]   load an ELF from <file> at address <base>.\n"
@@ -496,7 +500,8 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			errcode = load_elf(decoder, arg, base, prog);
+			errcode = load_elf(decoder, arg, base, prog,
+					   options.track_image);
 			if (errcode < 0)
 				goto err;
 
@@ -549,6 +554,10 @@ extern int main(int argc, char *argv[])
 					prog);
 				goto err;
 			}
+			continue;
+		}
+		if (strcmp(arg, "--verbose") == 0 || strcmp(arg, "-v") == 0) {
+			options.track_image = 1;
 			continue;
 		}
 
