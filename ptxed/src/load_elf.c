@@ -96,6 +96,9 @@ static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
 		if (phdr.p_type != PT_LOAD)
 			continue;
 
+		if (!phdr.p_filesz)
+			continue;
+
 		errcode = pt_insn_add_file(decoder, name, phdr.p_offset,
 					   phdr.p_filesz,
 					   phdr.p_vaddr + offset);
