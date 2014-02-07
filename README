@@ -47,7 +47,7 @@ Other packages you need for some of the above optional components.
                 This is needed for libipt and pttc unit tests.
 
   xed           The Intel x86 instruction encoder and decoder.
-                http://www.pintool.org - version 2.12
+                http://www.pintool.org - version 2.13-62732
 
                 This is needed to build and run the trace disassembler example.
 
