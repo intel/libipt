@@ -41,19 +41,30 @@ enum {
 	pt_cpuid_vendor_size = 12
 };
 
+union cpu_vendor {
+	/* The raw data returned from cpuid. */
+	struct {
+		uint32_t ebx;
+		uint32_t edx;
+		uint32_t ecx;
+	} cpuid;
+
+	/* The resulting vendor string. */
+	char vendor_string[pt_cpuid_vendor_size];
+};
+
 static enum pt_cpu_vendor cpu_vendor(void)
 {
-	uint32_t eax, ebx, ecx, edx;
+	union cpu_vendor vendor;
+	uint32_t eax;
 	size_t i;
-	char s[pt_cpuid_vendor_size];
 
-	pt_cpuid(0u, &eax, &ebx, &ecx, &edx);
-	((uint32_t *)s)[0] = ebx;
-	((uint32_t *)s)[1] = edx;
-	((uint32_t *)s)[2] = ecx;
+	pt_cpuid(0u, &eax, &vendor.cpuid.ebx, &vendor.cpuid.ecx,
+		 &vendor.cpuid.edx);
 
 	for (i = 0; i < sizeof(cpu_vendors)/sizeof(*cpu_vendors); i++)
-		if (strncmp(s, cpu_vendors[i], pt_cpuid_vendor_size) == 0)
+		if (strncmp(vendor.vendor_string,
+			    cpu_vendors[i], pt_cpuid_vendor_size) == 0)
 			return (enum pt_cpu_vendor) i;
 
 	return pcv_unknown;
