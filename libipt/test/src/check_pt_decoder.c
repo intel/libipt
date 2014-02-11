@@ -29,7 +29,7 @@
 #include "pt_decoder_fixture.h"
 #include "suites.h"
 
-#include "pt_state.h"
+#include "pt_decoder.h"
 
 #include <check.h>
 
@@ -119,10 +119,19 @@ END_TEST
 
 START_TEST(check_null_pos)
 {
+	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
+	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t offset;
+	int errcode;
 
-	offset = pt_get_decoder_pos(NULL);
-	ck_uint_eq(offset, 0);
+	errcode = pt_get_decoder_pos(NULL, NULL);
+	ck_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_get_decoder_pos(NULL, &offset);
+	ck_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_get_decoder_pos(decoder, NULL);
+	ck_int_eq(errcode, -pte_invalid);
 }
 END_TEST
 
@@ -131,18 +140,28 @@ START_TEST(check_initial_pos)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t offset;
+	int errcode;
 
-	offset = pt_get_decoder_pos(decoder);
-	ck_uint_eq(offset, 0);
+	errcode = pt_get_decoder_pos(decoder, &offset);
+	ck_int_eq(errcode, -pte_nosync);
 }
 END_TEST
 
 START_TEST(check_null_sync)
 {
+	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
+	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t offset;
+	int errcode;
 
-	offset = pt_get_decoder_sync(NULL);
-	ck_uint_eq(offset, 0);
+	errcode = pt_get_decoder_sync(NULL, NULL);
+	ck_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_get_decoder_sync(NULL, &offset);
+	ck_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_get_decoder_sync(decoder, NULL);
+	ck_int_eq(errcode, -pte_invalid);
 }
 END_TEST
 
@@ -151,9 +170,10 @@ START_TEST(check_initial_sync)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t offset;
+	int errcode;
 
-	offset = pt_get_decoder_sync(decoder);
-	ck_uint_eq(offset, 0);
+	errcode = pt_get_decoder_sync(decoder, &offset);
+	ck_int_eq(errcode, -pte_nosync);
 }
 END_TEST
 
@@ -609,15 +629,15 @@ static struct tcase_desc tcase_advance = {
 	/* .add_tests = */ add_advance_tests
 };
 
-Suite *suite_pt_state(void)
+Suite *suite_pt_decoder(void)
 {
 	Suite *suite;
 	TCase *alloc;
 
-	alloc = tcase_create("state alloc");
+	alloc = tcase_create("decoder alloc");
 	add_alloc_tests(alloc);
 
-	suite = suite_create("pt state");
+	suite = suite_create("pt decoder");
 	suite_add_tcase(suite, alloc);
 
 	pt_add_tcase(suite, &tcase_initial, &dfix_nosync);

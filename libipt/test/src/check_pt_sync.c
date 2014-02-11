@@ -29,7 +29,7 @@
 #include "pt_decoder_fixture.h"
 #include "suites.h"
 
-#include "pt_state.h"
+#include "pt_decoder.h"
 
 #include <check.h>
 

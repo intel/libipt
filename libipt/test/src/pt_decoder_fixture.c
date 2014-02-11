@@ -28,7 +28,7 @@
 
 #include "pt_decoder_fixture.h"
 
-#include "pt_state.h"
+#include "pt_decoder.h"
 
 #include <check.h>
 

@@ -34,7 +34,7 @@
 #include <string.h>
 
 
-struct pt_insn_decoder *pt_insn_alloc(const struct pt_config *config)
+struct pt_insn_decoder *pt_insn_alloc_decoder(const struct pt_config *config)
 {
 	struct pt_insn_decoder *decoder;
 	int errcode;
@@ -43,7 +43,7 @@ struct pt_insn_decoder *pt_insn_alloc(const struct pt_config *config)
 	if (!decoder)
 		return NULL;
 
-	errcode = pt_insn_init(decoder, config);
+	errcode = pt_insn_decoder_init(decoder, config);
 	if (errcode < 0) {
 		free(decoder);
 		return NULL;
@@ -52,12 +52,12 @@ struct pt_insn_decoder *pt_insn_alloc(const struct pt_config *config)
 	return decoder;
 }
 
-void pt_insn_free(struct pt_insn_decoder *decoder)
+void pt_insn_free_decoder(struct pt_insn_decoder *decoder)
 {
 	if (!decoder)
 		return;
 
-	pt_image_fini(&decoder->image);
+	pt_insn_decoder_fini(decoder);
 	free(decoder);
 }
 
@@ -70,11 +70,7 @@ int pt_insn_sync_forward(struct pt_insn_decoder *decoder)
 
 	pt_insn_reset(decoder);
 
-	errcode = pt_sync_forward(&decoder->query);
-	if (errcode < 0)
-		goto out;
-
-	errcode = pt_query_start(&decoder->query, &decoder->ip);
+	errcode = pt_qry_sync_forward(&decoder->query, &decoder->ip);
 	if (errcode < 0)
 		goto out;
 
@@ -98,15 +94,8 @@ int pt_insn_sync_backward(struct pt_insn_decoder *decoder)
 
 	pt_insn_reset(decoder);
 
-	errcode = pt_sync_backward(&decoder->query);
-	if (errcode < 0)
-		goto out;
+	errcode = pt_qry_sync_backward(&decoder->query, &decoder->ip);
 
-	errcode = pt_query_start(&decoder->query, &decoder->ip);
-	if (errcode < 0)
-		goto out;
-
-out:
 	decoder->status = errcode;
 	if (errcode < 0)
 		return errcode;
@@ -114,20 +103,20 @@ out:
 	return 0;
 }
 
-uint64_t pt_insn_get_offset(struct pt_insn_decoder *decoder)
+int pt_insn_get_offset(struct pt_insn_decoder *decoder, uint64_t *offset)
 {
 	if (!decoder)
-		return 0ull;
+		return -pte_invalid;
 
-	return pt_get_decoder_pos(&decoder->query);
+	return pt_qry_get_offset(&decoder->query, offset);
 }
 
-uint64_t pt_insn_get_time(struct pt_insn_decoder *decoder)
+int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *offset)
 {
 	if (!decoder)
-		return 0ull;
+		return -pte_invalid;
 
-	return pt_query_time(&decoder->query);
+	return pt_qry_time(&decoder->query, offset);
 }
 
 int pt_insn_add_file(struct pt_insn_decoder *decoder, const char *filename,
@@ -176,7 +165,7 @@ static int event_pending(struct pt_insn_decoder *decoder)
 	if (!(status & pts_event_pending))
 		return 0;
 
-	status = pt_query_event(&decoder->query, &decoder->event);
+	status = pt_qry_event(&decoder->query, &decoder->event);
 	if (status < 0)
 		return status;
 
@@ -786,7 +775,7 @@ static int proceed(struct pt_insn_decoder *decoder)
 	if (ild->u.s.cond) {
 		int status, taken;
 
-		status = pt_query_cond_branch(&decoder->query, &taken);
+		status = pt_qry_cond_branch(&decoder->query, &taken);
 		if (status < 0)
 			return status;
 
@@ -806,7 +795,7 @@ static int proceed(struct pt_insn_decoder *decoder)
 		int taken, status;
 
 		/* Check for a compressed return. */
-		status = pt_query_cond_branch(&decoder->query, &taken);
+		status = pt_qry_cond_branch(&decoder->query, &taken);
 		if (status >= 0) {
 			int errcode;
 
@@ -835,7 +824,7 @@ static int proceed(struct pt_insn_decoder *decoder)
 	else {
 		int status;
 
-		status = pt_query_uncond_branch(&decoder->query,
+		status = pt_qry_indirect_branch(&decoder->query,
 						&decoder->ip);
 
 		if (status < 0)
@@ -898,7 +887,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 		struct pt_event event;
 
 		/* Any query should give us an end of stream, error. */
-		errcode = pt_query_event(&decoder->query, &event);
+		errcode = pt_qry_event(&decoder->query, &event);
 		if (errcode != -pte_eos)
 			errcode = -pte_internal;
 

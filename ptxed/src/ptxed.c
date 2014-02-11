@@ -374,6 +374,23 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		printf("[disabled]\n");
 }
 
+static void print_error(struct pt_insn_decoder *decoder,
+			const struct pt_insn *insn, int errcode)
+{
+	int err;
+	uint64_t pos;
+
+	err = pt_insn_get_offset(decoder, &pos);
+	if (err < 0) {
+		printf("could not determine offset: %s\n",
+		       pt_errstr(pt_errcode(err)));
+		printf("[0x?, 0x%" PRIx64 ": sync error: %s]\n", insn->ip,
+		       pt_errstr(pt_errcode(errcode)));
+	} else
+		printf("[0x%" PRIx64 ", 0x%" PRIx64 ": sync error: %s]\n", pos,
+		       insn->ip, pt_errstr(pt_errcode(errcode)));
+}
+
 static void decode(struct pt_insn_decoder *decoder,
 		   const struct ptxed_options *options,
 		   struct ptxed_stats *stats)
@@ -396,9 +413,7 @@ static void decode(struct pt_insn_decoder *decoder,
 
 		errcode = pt_insn_sync_forward(decoder);
 		if (errcode < 0) {
-			printf("[0x%" PRIx64 ", 0x%" PRIx64 ": sync error: "
-			       "%s]\n", pt_insn_get_offset(decoder),
-			       insn.ip, pt_errstr(pt_errcode(errcode)));
+			print_error(decoder, &insn, errcode);
 			break;
 		}
 
@@ -422,9 +437,7 @@ static void decode(struct pt_insn_decoder *decoder,
 		if (errcode == -pte_eos)
 			break;
 
-		printf("[0x%" PRIx64 ", 0x%" PRIx64 ": resync on error: %s]\n",
-		       pt_insn_get_offset(decoder), insn.ip,
-		       pt_errstr(pt_errcode(errcode)));
+		print_error(decoder, &insn, errcode);
 	}
 }
 
@@ -506,7 +519,7 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			decoder = pt_insn_alloc(&config);
+			decoder = pt_insn_alloc_decoder(&config);
 			if (!decoder) {
 				fprintf(stderr,
 					"%s: failed to create decoder.\n",
@@ -624,10 +637,10 @@ extern int main(int argc, char *argv[])
 		print_stats(&stats);
 
 out:
-	pt_insn_free(decoder);
+	pt_insn_free_decoder(decoder);
 	return 0;
 
 err:
-	pt_insn_free(decoder);
+	pt_insn_free_decoder(decoder);
 	return 1;
 }

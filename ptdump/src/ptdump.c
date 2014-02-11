@@ -307,7 +307,7 @@ static int dump(uint8_t *begin, uint8_t *end,
 	int errcode;
 	struct pt_packet packet;
 	struct pt_config config;
-	struct pt_decoder *decoder;
+	struct pt_packet_decoder *decoder;
 	struct pt_last_ip last_ip;
 	char str[pps_payload];
 	int ret;
@@ -339,7 +339,7 @@ static int dump(uint8_t *begin, uint8_t *end,
 		config.cpu = options->cpu;
 
 	decoder = NULL;
-	decoder = pt_alloc_decoder(&config);
+	decoder = pt_pkt_alloc_decoder(&config);
 	if (!decoder) {
 		diag("cannot allocate decoder");
 		errcode = -pte_nomem;
@@ -349,10 +349,19 @@ static int dump(uint8_t *begin, uint8_t *end,
 
 sync:
 	/* Sync to the stream. */
-	errcode = pt_sync_forward(decoder);
+	errcode = pt_pkt_sync_forward(decoder);
 	if (errcode < 0) {
-		diag_err_pos("sync error",
-			     pt_errcode(errcode), pt_get_decoder_pos(decoder));
+		uint64_t offset;
+		int errcode2;
+
+		errcode2 = pt_pkt_get_offset(decoder, &offset);
+		if (errcode2 < 0) {
+			diag_err("sync error", pt_errcode(errcode));
+			diag_err("could not determine offset",
+				 pt_errcode(errcode2));
+		} else
+			diag_err_pos("sync error", pt_errcode(errcode), offset);
+
 		goto out;
 	}
 
@@ -361,8 +370,14 @@ sync:
 
 	for (;;) {
 		/* Decode packet. */
-		pos = pt_get_decoder_pos(decoder);
-		ret = pt_decode(&packet, decoder);
+		errcode = pt_pkt_get_offset(decoder, &pos);
+		if (errcode < 0) {
+			diag_err("determining offset failed",
+				 pt_errcode(errcode));
+			goto out;
+		}
+
+		ret = pt_pkt_next(decoder, &packet);
 		if (pt_errcode(ret) == pte_eos)
 			goto out;
 		else if (pt_errcode(ret) != pte_ok) {
@@ -381,12 +396,12 @@ sync:
 
 		/* Skip PAD packets if requested */
 		if (packet.type == ppt_pad && (options->flags & ptd_no_pad))
-			goto next;
+			continue;
 
 		/* Print stream offset. */
 		if (options->flags & ptd_show_offset) {
 			ret = print(options, "%0*" PRIx64, col_offset_width,
-				    pt_get_decoder_pos(decoder));
+				    pos);
 			if (ret < 0) {
 				diag_pos("cannot print offset", pos);
 				errcode = -pte_internal;
@@ -499,7 +514,7 @@ skip_last_ip_printing:
 			for (idx = 0; idx < packet.size; ++idx) {
 				uint8_t u;
 
-				u = *(pt_get_decoder_raw(decoder) + idx);
+				u = *(pt_pkt_get_pos(decoder) + idx);
 				print(options, "%02x", (unsigned)u);
 				if (idx != (packet.size - 1))
 					print(options, " ");
@@ -509,14 +524,10 @@ skip_last_ip_printing:
 
 		/* End of information printing for this packet. */
 		print(options, "\n");
-
-next:
-		/* Go to next packet. */
-		pt_advance(decoder, packet.size);
 	}
 
 out:
-	pt_free_decoder(decoder);
+	pt_pkt_free_decoder(decoder);
 	return errcode;
 }
 

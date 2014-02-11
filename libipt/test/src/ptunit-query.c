@@ -30,7 +30,7 @@
 
 #include "pt_last_ip.h"
 #include "pt_packet_decode.h"
-#include "pt_state.h"
+#include "pt_decoder.h"
 
 #include "intel-pt.h"
 
@@ -1625,20 +1625,30 @@ sync_ovf_event_cutoff_fail(struct ptu_decoder_fixture *dfix)
 
 static struct ptunit_result tsc_null_fail(struct ptu_decoder_fixture *dfix)
 {
+	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t tsc;
+	int errcode;
 
-	tsc = pt_query_time(NULL);
-	ptu_uint_eq(tsc, 0);
+	errcode = pt_query_time(NULL, NULL);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_query_time(decoder, NULL);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_query_time(NULL, &tsc);
+	ptu_int_eq(errcode, -pte_invalid);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result tsc_initial_fail(struct ptu_decoder_fixture *dfix)
+static struct ptunit_result tsc_initial(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t tsc;
+	int errcode;
 
-	tsc = pt_query_time(decoder);
+	errcode = pt_query_time(decoder, &tsc);
+	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(tsc, 0);
 
 	return ptu_passed();
@@ -1649,6 +1659,7 @@ static struct ptunit_result tsc(struct ptu_decoder_fixture *dfix)
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t tsc, exp;
+	int errcode;
 
 	exp = 0x11223344556677ull;
 
@@ -1658,7 +1669,8 @@ static struct ptunit_result tsc(struct ptu_decoder_fixture *dfix)
 	ptu_sync_decoder(decoder);
 	pt_read_ahead(decoder);
 
-	tsc = pt_query_time(decoder);
+	errcode = pt_query_time(decoder, &tsc);
+	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(tsc, exp);
 
 	return ptu_passed();
@@ -2181,7 +2193,7 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, event_skip_tnt_64_fail, dfix_event_psb);
 
 	ptu_run_f(suite, tsc_null_fail, dfix_empty);
-	ptu_run_f(suite, tsc_initial_fail, dfix_empty);
+	ptu_run_f(suite, tsc_initial, dfix_empty);
 	ptu_run_f(suite, tsc, dfix_empty);
 
 	ptu_run_f(suite, tsc, dfix_time);

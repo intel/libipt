@@ -36,8 +36,10 @@ set(LIBIPT_FILES
   src/pt_encode.c
   src/pt_error.c
   src/pt_packet_decode.c
+  src/pt_packet_decoder.c
+  src/pt_query_decoder.c
   src/pt_query.c
-  src/pt_state.c
+  src/pt_decoder.c
   src/pt_sync.c
   src/pt_version.c
   src/pt_packet.c
@@ -90,7 +92,7 @@ if (CHECK)
 
     test/src/check.c
     test/src/check_pt_packet_decode.c
-    test/src/check_pt_state.c
+    test/src/check_pt_decoder.c
     test/src/check_pt_sync.c
     test/src/check_pt_use.c
     test/src/check_pt_packet.c
@@ -116,7 +118,7 @@ add_executable(ptunit-query
   src/pt_query.c
   src/pt_encode.c
   src/pt_last_ip.c
-  src/pt_state.c
+  src/pt_decoder.c
   src/pt_packet_decode.c
   src/pt_sync.c
   src/pt_tnt_cache.c

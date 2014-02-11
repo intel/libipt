@@ -29,7 +29,7 @@
 #ifndef __PT_INSN_DECODER_H__
 #define __PT_INSN_DECODER_H__
 
-#include "pt_state.h"
+#include "pt_query_decoder.h"
 #include "pt_image.h"
 #include "pt_retstack.h"
 #include "pti-ild.h"
@@ -39,7 +39,7 @@
 
 struct pt_insn_decoder {
 	/* The Intel(R) Processor Trace query decoder. */
-	struct pt_decoder query;
+	struct pt_query_decoder query;
 
 	/* The image of the traced process. */
 	struct pt_image image;
@@ -91,7 +91,10 @@ extern void pt_insn_reset(struct pt_insn_decoder *decoder);
  * Returns -pte_internal, if @decoder is NULL.
  * Returns -pte_invalid, if @config is NULL.
  */
-extern int pt_insn_init(struct pt_insn_decoder *decoder,
-			const struct pt_config *config);
+extern int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
+				const struct pt_config *config);
+
+/* Finalize an instruction flow decoder. */
+extern void pt_insn_decoder_fini(struct pt_insn_decoder *decoder);
 
 #endif /* __PT_INSN_DECODER_H__ */

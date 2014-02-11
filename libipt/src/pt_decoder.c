@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_state.h"
+#include "pt_decoder.h"
 #include "pt_packet_decode.h"
 
 #include "intel-pt.h"
@@ -77,45 +77,54 @@ struct pt_decoder *pt_alloc_decoder(const struct pt_config *config)
 	return decoder;
 }
 
+void pt_decoder_fini(struct pt_decoder *decoder)
+{
+	/* Nothing to do. */
+}
+
 void pt_free_decoder(struct pt_decoder *decoder)
 {
 	free(decoder);
 }
 
-uint64_t pt_get_decoder_pos(struct pt_decoder *decoder)
+int pt_get_decoder_pos(struct pt_decoder *decoder, uint64_t *offset)
 {
 	const uint8_t *raw, *begin;
 
-	if (!decoder)
-		return 0;
+	if (!decoder || !offset)
+		return -pte_invalid;
+
+	begin = pt_begin(decoder);
+	if (!begin)
+		return -pte_invalid;
 
 	raw = decoder->pos;
 	if (!raw)
-		return 0;
+		return -pte_nosync;
 
-	begin = pt_begin(decoder);
-	if (!begin)
-		return 0;
+	*offset = raw - begin;
 
-	return raw - begin;
+	return 0;
 }
 
-uint64_t pt_get_decoder_sync(struct pt_decoder *decoder)
+int pt_get_decoder_sync(struct pt_decoder *decoder, uint64_t *offset)
 {
 	const uint8_t *sync, *begin;
 
-	if (!decoder)
-		return 0;
-
-	sync = decoder->sync;
-	if (!sync)
-		return 0;
+	if (!decoder || !offset)
+		return -pte_invalid;
 
 	begin = pt_begin(decoder);
 	if (!begin)
-		return 0;
+		return -pte_invalid;
 
-	return sync - begin;
+	sync = decoder->sync;
+	if (!sync)
+		return -pte_nosync;
+
+	*offset = sync - begin;
+
+	return 0;
 }
 
 const uint8_t *pt_get_decoder_raw(const struct pt_decoder *decoder)

@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_state.h"
+#include "pt_decoder.h"
 #include "pt_packet_decode.h"
 
 #include "intel-pt.h"

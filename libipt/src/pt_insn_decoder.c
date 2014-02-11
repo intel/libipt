@@ -46,8 +46,8 @@ void pt_insn_reset(struct pt_insn_decoder *decoder)
 	pt_retstack_init(&decoder->retstack);
 }
 
-int pt_insn_init(struct pt_insn_decoder *decoder,
-		 const struct pt_config *config)
+int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
+			 const struct pt_config *config)
 {
 	int errcode;
 
@@ -57,7 +57,7 @@ int pt_insn_init(struct pt_insn_decoder *decoder,
 	if (!config)
 		return -pte_invalid;
 
-	errcode = pt_decoder_init(&decoder->query, config);
+	errcode = pt_qry_decoder_init(&decoder->query, config);
 	if (errcode < 0)
 		return errcode;
 
@@ -65,4 +65,13 @@ int pt_insn_init(struct pt_insn_decoder *decoder,
 	pt_insn_reset(decoder);
 
 	return 0;
+}
+
+void pt_insn_decoder_fini(struct pt_insn_decoder *decoder)
+{
+	if (!decoder)
+		return;
+
+	pt_image_fini(&decoder->image);
+	pt_qry_decoder_fini(&decoder->query);
 }

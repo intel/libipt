@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Intel Corporation
+ * Copyright (c) 2014, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,55 +26,27 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-extern "C" {
-#include "ptunit.h"
+#ifndef __PT_PACKET_DECODER_H__
+#define __PT_PACKET_DECODER_H__
 
-#include "intel-pt.h"
-}
+#include "pt_decoder.h"
 
-static struct ptunit_result init_packet_decoder(void)
-{
-	uint8_t buf[1];
-	struct pt_config config;
-	struct pt_packet_decoder *decoder;
 
-	pt_configure(&config);
-	config.begin = buf;
-	config.end = buf + sizeof(buf);
+/* A PT packet decoder. */
+struct pt_packet_decoder {
+	/* The internal decoder. */
+	struct pt_decoder decoder;
+};
 
-	decoder = pt_pkt_alloc_decoder(&config);
-	ptu_ptr(decoder);
-	pt_pkt_free_decoder(decoder);
 
-	return ptu_passed();
-}
+/* Initialize the packet decoder.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+extern int pt_pkt_decoder_init(struct pt_packet_decoder *,
+			       const struct pt_config *);
 
-static struct ptunit_result init_query_decoder(void)
-{
-	uint8_t buf[1];
-	struct pt_config config;
-	struct pt_query_decoder *query_decoder;
+/* Finalize the packet decoder. */
+extern void pt_pkt_decoder_fini(struct pt_packet_decoder *);
 
-	pt_configure(&config);
-	config.begin = buf;
-	config.end = buf + sizeof(buf);
-
-	query_decoder = pt_qry_alloc_decoder(&config);
-	ptu_ptr(query_decoder);
-	pt_qry_free_decoder(query_decoder);
-
-	return ptu_passed();
-}
-
-int main(int argc, const char **argv)
-{
-	struct ptunit_suite suite;
-
-	suite = ptunit_mk_suite(argc, argv);
-
-	ptu_run(suite, init_packet_decoder);
-	ptu_run(suite, init_query_decoder);
-
-	ptunit_report(&suite);
-	return suite.nr_fails;
-}
+#endif /* __PT_PACKET_DECODER_H__ */

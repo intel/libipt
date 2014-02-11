@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_state.h"
+#include "pt_decoder.h"
 #include "pt_packet_decode.h"
 
 #include "intel-pt.h"
@@ -386,10 +386,12 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 	return flags;
 }
 
-uint64_t pt_query_time(struct pt_decoder *decoder)
+int pt_query_time(struct pt_decoder *decoder, uint64_t *time)
 {
-	if (!decoder)
-		return 0;
+	if (!decoder || !time)
+		return -pte_invalid;
 
-	return decoder->tsc;
+	*time = decoder->tsc;
+
+	return 0;
 }
