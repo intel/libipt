@@ -72,4 +72,9 @@ if (CMAKE_HOST_WIN32)
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
+
+  #   w4244: conversion: possible loss of data
+  #
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4244")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244")
 endif (CMAKE_HOST_WIN32)
