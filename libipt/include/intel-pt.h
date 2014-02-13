@@ -72,17 +72,26 @@ struct pt_insn_decoder;
 
 
 
-/* PT library version. */
+/** PT library version. */
 struct pt_version {
+	/** Major version number. */
 	uint8_t major;
+
+	/** Minor version number. */
 	uint8_t minor;
+
+	/** Reserved bits. */
 	uint16_t reserved;
+
+	/** Build number. */
 	uint32_t build;
+
+	/** Version extension. */
 	const char *ext;
 };
 
 
-/* Return the library version. */
+/** Return the library version. */
 extern pt_export struct pt_version pt_library_version();
 
 
@@ -91,7 +100,7 @@ extern pt_export struct pt_version pt_library_version();
 
 
 
-/* A one byte opcode. */
+/** A one byte opcode. */
 enum pt_opcode {
 	pt_opc_pad		= 0x00,
 	pt_opc_ext		= 0x02,
@@ -108,7 +117,7 @@ enum pt_opcode {
 	pt_opc_bad		= 0x59
 };
 
-/* A one byte extension code for ext opcodes. */
+/** A one byte extension code for ext opcodes. */
 enum pt_ext_code {
 	pt_ext_psb		= 0x82,
 	pt_ext_tnt_64		= 0xa3,
@@ -120,7 +129,7 @@ enum pt_ext_code {
 	pt_ext_bad		= 0x04
 };
 
-/* A one byte opcode mask. */
+/** A one byte opcode mask. */
 enum pt_opcode_mask {
 	pt_opm_tip		= 0x1f,
 	pt_opm_tnt_8		= 0x01,
@@ -137,7 +146,7 @@ enum pt_opcode_mask {
 	pt_opm_ipc_shr_mask	= 0x7
 };
 
-/* The size of the various opcodes in bytes. */
+/** The size of the various opcodes in bytes. */
 enum pt_opcode_size {
 	pt_opcs_pad		= 1,
 	pt_opcs_tip		= 1,
@@ -155,7 +164,7 @@ enum pt_opcode_size {
 	pt_opcs_cbr		= 2
 };
 
-/* The psb magic payload.
+/** The psb magic payload.
  *
  * The payload is a repeating 2-byte pattern.
  */
@@ -175,7 +184,7 @@ enum pt_psb_pattern {
 	pt_psb_repeat_size	= 2
 };
 
-/* An execution mode. */
+/** An execution mode. */
 enum pt_exec_mode {
 	ptem_unknown,
 	ptem_16bit,
@@ -183,7 +192,7 @@ enum pt_exec_mode {
 	ptem_64bit
 };
 
-/* The payload details. */
+/** The payload details. */
 enum pt_payload {
 	/* The shift counts for post-processing the PIP payload. */
 	pt_pl_pip_shr		= 1,
@@ -223,20 +232,20 @@ enum pt_payload {
 	pt_pl_ip_sext48_size	= 6
 };
 
-/* Mode packet masks. */
+/** Mode packet masks. */
 enum pt_mode_mask {
 	pt_mom_leaf		= 0xe0,
 	pt_mom_leaf_shr		= 5,
 	pt_mom_bits		= 0x1f
 };
 
-/* Mode packet leaves. */
+/** Mode packet leaves. */
 enum pt_mode_leaf {
 	pt_mol_exec		= 0x00,
 	pt_mol_tsx		= 0x20
 };
 
-/* Mode packet bits. */
+/** Mode packet bits. */
 enum pt_mode_bit {
 	/* mode.exec */
 	pt_mob_exec_csl		= 0x01,
@@ -247,7 +256,7 @@ enum pt_mode_bit {
 	pt_mob_tsx_abrt		= 0x02
 };
 
-/* The IP compression. */
+/** The IP compression. */
 enum pt_ip_compression {
 	/* The bits encode the payload size and the encoding scheme.
 	 *
@@ -265,7 +274,7 @@ enum pt_ip_compression {
 	pt_ipc_sext_48		= 0x03
 };
 
-/* The size of the various packets in bytes. */
+/** The size of the various packets in bytes. */
 enum pt_packet_size {
 	ptps_pad		= pt_opcs_pad,
 	ptps_tnt_8		= pt_opcs_tnt_8,
@@ -301,7 +310,7 @@ enum pt_packet_size {
 
 
 
-/* PT error codes. */
+/** PT error codes. */
 enum pt_error_code {
 	/* No error. Everything is OK. */
 	pte_ok,
@@ -350,13 +359,13 @@ enum pt_error_code {
 };
 
 
-/* Decode a function return value into an pt_error_code. */
+/** Decode a function return value into an pt_error_code. */
 static inline enum pt_error_code pt_errcode(int status)
 {
 	return (status >= 0) ? pte_ok : (enum pt_error_code) -status;
 }
 
-/* Return a human readable error string. */
+/** Return a human readable error string. */
 extern pt_export const char *pt_errstr(enum pt_error_code);
 
 
@@ -365,70 +374,72 @@ extern pt_export const char *pt_errstr(enum pt_error_code);
 
 
 
-/* A cpu vendor. */
+/** A cpu vendor. */
 enum pt_cpu_vendor {
 	pcv_unknown,
 	pcv_intel
 };
 
-/* A cpu identifier. */
+/** A cpu identifier. */
 struct pt_cpu {
-	/* The cpu vendor. */
+	/** The cpu vendor. */
 	enum pt_cpu_vendor vendor;
 
-	/* The cpu family. */
+	/** The cpu family. */
 	uint16_t family;
 
-	/* The cpu model. */
+	/** The cpu model. */
 	uint8_t model;
 
-	/* The stepping. */
+	/** The stepping. */
 	uint8_t stepping;
 };
 
-/* An unknown packet. */
+/** An unknown packet. */
 struct pt_packet_unknown;
 
-/* A PT configuration that is used for allocating any of the decoders
+/** A PT configuration that is used for allocating any of the decoders
  * below.
  */
 struct pt_config {
-	/* The size of the config structure in bytes. */
+	/** The size of the config structure in bytes. */
 	size_t size;
 
-	/* The trace buffer begin and end addresses. */
+	/** The trace buffer begin address. */
 	uint8_t *begin;
+
+	/** The trace buffer end address. */
 	uint8_t *end;
 
-	/* An optional callback for handling unknown packets.
+	/** An optional callback for handling unknown packets.
 	 *
-	 * If @callback is not NULL, it is called for any unknown opcode.
+	 * If \@callback is not NULL, it is called for any unknown opcode.
 	 */
 	struct {
-		/* The callback function.
+		/** The callback function.
 		 *
-		 * It shall decode the packet at @pos into @unknown.
+		 * It shall decode the packet at \@pos into \@unknown.
 		 * It shall return the number of bytes read upon success.
 		 * It shall return a negative pt_error_code otherwise.
-		 * The below context is passed as @context.
+		 * The below context is passed as \@context.
 		 */
 		int (*callback)(struct pt_packet_unknown *unknown,
 				const struct pt_config *config,
 				const uint8_t *pos, void *context);
 
-		/* The user-defined context for this configuration. */
+		/** The user-defined context for this configuration. */
 		void *context;
 	} decode;
 
-	/* The cpu on which PT has been recorded. */
+	/** The cpu on which PT has been recorded. */
 	struct pt_cpu cpu;
 };
 
 
-/* Configure the PT library.
+/** Configure the PT library.
  *
  * Collects information on the current system necessary for PT decoding and
- * stores it into @config.
+ * stores it into \@config.
  *
  * This function should be executed on the system on which PT is collected.
  * The resulting PT configuration should then be used for allocating PT
@@ -436,7 +447,7 @@ struct pt_config {
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @config is NULL.
+ * Returns -pte_invalid if \@config is NULL.
  */
 extern pt_export int pt_configure(struct pt_config *config);
 
@@ -446,7 +457,7 @@ extern pt_export int pt_configure(struct pt_config *config);
 
 
 
-/* PT packet types. */
+/** PT packet types. */
 enum pt_packet_type {
 	/* 1-byte header packets. */
 	ppt_pad			= pt_opc_pad,
@@ -473,28 +484,30 @@ enum pt_packet_type {
 	ppt_invalid		= 0x7fffffff
 };
 
-/* A TNT-8 or TNT-64 packet. */
+/** A TNT-8 or TNT-64 packet. */
 struct pt_packet_tnt {
-	/* TNT payload bit size. */
+	/** TNT payload bit size. */
 	uint8_t bit_size;
 
-	/* TNT payload excluding stop bit. */
+	/** TNT payload excluding stop bit. */
 	uint64_t payload;
 };
 
-/* A packet with IP payload. */
+/** A packet with IP payload. */
 struct pt_packet_ip {
-	/* IP compression. */
+	/** IP compression. */
 	enum pt_ip_compression ipc;
 
-	/* Zero-extended payload ip. */
+	/** Zero-extended payload ip. */
 	uint64_t ip;
 };
 
-/* A mode.exec packet. */
+/** A mode.exec packet. */
 struct pt_packet_mode_exec {
-	/* The mode.exec payload bits. */
+	/** The mode.exec csl bit. */
 	uint32_t csl:1;
+
+	/** The mode.exec csd bit. */
 	uint32_t csd:1;
 };
 
@@ -507,192 +520,196 @@ pt_get_exec_mode(const struct pt_packet_mode_exec *packet)
 		return packet->csd ? ptem_32bit : ptem_16bit;
 }
 
-/* A mode.tsx packet. */
+/** A mode.tsx packet. */
 struct pt_packet_mode_tsx {
-	/* The mode.tsx payload bits. */
+	/** The mode.tsx intx bit. */
 	uint32_t intx:1;
+
+	/** The mode.tsx abrt bit. */
 	uint32_t abrt:1;
 };
 
-/* A mode packet. */
+/** A mode packet. */
 struct pt_packet_mode {
-	/* Mode leaf. */
+	/** Mode leaf. */
 	enum pt_mode_leaf leaf;
 
-	/* Mode bits. */
+	/** Mode bits. */
 	union {
-		/* Packet: mode.exec. */
+		/** Packet: mode.exec. */
 		struct pt_packet_mode_exec exec;
 
-		/* Packet: mode.tsx. */
+		/** Packet: mode.tsx. */
 		struct pt_packet_mode_tsx tsx;
 	} bits;
 };
 
-/* A PIP packet. */
+/** A PIP packet. */
 struct pt_packet_pip {
-	/* The CR3 value. */
+	/** The CR3 value. */
 	uint64_t cr3;
 };
 
-/* A TSC packet. */
+/** A TSC packet. */
 struct pt_packet_tsc {
-	/* The TSC value. */
+	/** The TSC value. */
 	uint64_t tsc;
 };
 
-/* A CBR packet. */
+/** A CBR packet. */
 struct pt_packet_cbr {
-	/* The core/bus cycle ratio. */
+	/** The core/bus cycle ratio. */
 	uint8_t ratio;
 };
 
-/* An unknown packet decodable by the optional decoder callback. */
+/** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
-	/* Pointer to the raw packet bytes. */
+	/** Pointer to the raw packet bytes. */
 	const uint8_t *packet;
 
-	/* Optional pointer to a user-defined structure. */
+	/** Optional pointer to a user-defined structure. */
 	void *priv;
 };
 
-/* A PT packet. */
+/** A PT packet. */
 struct pt_packet {
-	/* Type of the packet, used to indicate which sub-struct to use. */
+	/** Type of the packet, used to indicate which sub-struct to use. */
 	enum pt_packet_type type;
 
-	/* Size of the packet, including opcode and payload. */
+	/** Size of the packet, including opcode and payload. */
 	uint8_t size;
 
-	/* Packet specific data. */
+	/** Packet specific data. */
 	union {
-		/* Packets: pad, ovf, psb, psbend - no payload. */
+		/** Packets: pad, ovf, psb, psbend - no payload. */
 
-		/* Packet: tnt-8, tnt-64. */
+		/** Packet: tnt-8, tnt-64. */
 		struct pt_packet_tnt tnt;
 
-		/* Packet: tip, fup, tip.pge, tip.pgd. */
+		/** Packet: tip, fup, tip.pge, tip.pgd. */
 		struct pt_packet_ip ip;
 
-		/* Packet: mode. */
+		/** Packet: mode. */
 		struct pt_packet_mode mode;
 
-		/* Packet: pip. */
+		/** Packet: pip. */
 		struct pt_packet_pip pip;
 
-		/* Packet: tsc. */
+		/** Packet: tsc. */
 		struct pt_packet_tsc tsc;
 
-		/* Packet: cbr. */
+		/** Packet: cbr. */
 		struct pt_packet_cbr cbr;
 
-		/* Packet: unknown. */
+		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;
 	} payload;
 };
 
-/* A PT encoder. */
+/** A PT encoder. */
 struct pt_encoder {
-	/* The trace buffer. */
+	/** The trace buffer begin address. */
 	uint8_t *begin;
+
+	/** The trace buffer end address. */
 	uint8_t *end;
 
-	/* The current position in the trace buffer. */
+	/** The current position in the trace buffer. */
 	uint8_t *pos;
 };
 
 
-/* Initialize a PT encoder.
+/** Initialize a PT encoder.
  *
  * Returns zero on success, a negative error code otherwise.
  */
 extern pt_export int pt_init_encoder(struct pt_encoder *,
 				     const struct pt_config *);
 
-/*
+/**
  * The below encoding functions operate on an encoder.
  * They return the number of bytes written on success.
  * They return a negative error code otherwise.
  */
 
-/* Write a single byte into the encoder's trace buffer. */
+/** Write a single byte into the encoder's trace buffer. */
 extern pt_export int pt_encode_byte(struct pt_encoder *, uint8_t);
 
-/* Encode a Padding (pad) packet. */
+/** Encode a Padding (pad) packet. */
 extern pt_export int pt_encode_pad(struct pt_encoder *);
 
-/* Encode a Packet Stream Boundary (psb) packet. */
+/** Encode a Packet Stream Boundary (psb) packet. */
 extern pt_export int pt_encode_psb(struct pt_encoder *);
 
-/* Encode an End PSB (psbend) packet. */
+/** Encode an End PSB (psbend) packet. */
 extern pt_export int pt_encode_psbend(struct pt_encoder *);
 
-/* Encode a Target Instruction Pointer (tip) packet. */
+/** Encode a Target Instruction Pointer (tip) packet. */
 extern pt_export int pt_encode_tip(struct pt_encoder *,
 				   uint64_t ip, enum pt_ip_compression ipc);
 
-/* Encode a Taken Not Taken (tnt) packet - 8-bit version. */
+/** Encode a Taken Not Taken (tnt) packet - 8-bit version. */
 extern pt_export int pt_encode_tnt_8(struct pt_encoder *,
 				     uint8_t tnt, int size);
 
-/* Encode a Taken Not Taken (tnt) packet - 64-bit version. */
+/** Encode a Taken Not Taken (tnt) packet - 64-bit version. */
 extern pt_export int pt_encode_tnt_64(struct pt_encoder *,
 				      uint64_t tnt, int size);
 
-/* Encode a Packet Generation Enable (tip.pge) packet. */
+/** Encode a Packet Generation Enable (tip.pge) packet. */
 extern pt_export int pt_encode_tip_pge(struct pt_encoder *,
 				       uint64_t ip, enum pt_ip_compression ipc);
 
-/* Encode a Packet Generation Disable (tip.pgd) packet. */
+/** Encode a Packet Generation Disable (tip.pgd) packet. */
 extern pt_export int pt_encode_tip_pgd(struct pt_encoder *,
 				       uint64_t ip, enum pt_ip_compression ipc);
 
-/* Encode a Flow Update Packet (fup). */
+/** Encode a Flow Update Packet (fup). */
 extern pt_export int pt_encode_fup(struct pt_encoder *,
 				   uint64_t ip, enum pt_ip_compression ipc);
 
-/* Encode a Paging Information Packet (pip). */
+/** Encode a Paging Information Packet (pip). */
 extern pt_export int pt_encode_pip(struct pt_encoder *, uint64_t cr3);
 
-/* Encode a Overflow Packet (ovf). */
+/** Encode a Overflow Packet (ovf). */
 extern pt_export int pt_encode_ovf(struct pt_encoder *);
 
-/* Encode a Mode Exec Packet (mode.exec). */
+/** Encode a Mode Exec Packet (mode.exec). */
 extern pt_export int pt_encode_mode_exec(struct pt_encoder *,
 					 enum pt_exec_mode);
 
-/* Encode a Mode Tsx Packet (mode.tsx). */
+/** Encode a Mode Tsx Packet (mode.tsx). */
 extern pt_export int pt_encode_mode_tsx(struct pt_encoder *, uint8_t);
 
-/* Encode a Time Stamp Counter (tsc) packet. */
+/** Encode a Time Stamp Counter (tsc) packet. */
 extern pt_export int pt_encode_tsc(struct pt_encoder *, uint64_t);
 
-/* Encode a Core Bus Ratio (cbr) packet. */
+/** Encode a Core Bus Ratio (cbr) packet. */
 extern pt_export int pt_encode_cbr(struct pt_encoder *, uint8_t);
 
 
 
-/* Allocate a PT packet decoder.
+/** Allocate a PT packet decoder.
  *
- * The decoder will work on the buffer defined in @config. It shall contain raw
- * trace data and remain valid for the lifetime of the decoder.
+ * The decoder will work on the buffer defined in \@config, it shall contain
+ * raw trace data and remain valid for the lifetime of the decoder.
  *
  * The decoder needs to be synchronized before it can be used.
  */
 extern pt_export struct pt_packet_decoder *
 pt_pkt_alloc_decoder(struct pt_config *config);
 
-/* Free a PT packet decoder.
+/** Free a PT packet decoder.
  *
- * The @decoder must not be used after a successful return.
+ * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_pkt_free_decoder(struct pt_packet_decoder *decoder);
 
-/* Synchronize a PT packet decoder.
+/** Synchronize a PT packet decoder.
  *
  * Search for the next synchronization point in forward or backward direction.
  *
- * If @decoder has not been synchronized, yet, the search is started at the
+ * If \@decoder has not been synchronized, yet, the search is started at the
  * beginning of the trace buffer in case of forward synchronization and at the
  * end of the trace buffer in case of backward synchronization.
  *
@@ -701,73 +718,73 @@ extern pt_export void pt_pkt_free_decoder(struct pt_packet_decoder *decoder);
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_eos if no further synchronization point is found.
- * Returns -pte_invalid if @decoder is NULL.
+ * Returns -pte_invalid if \@decoder is NULL.
  */
 extern pt_export int pt_pkt_sync_forward(struct pt_packet_decoder *decoder);
 extern pt_export int pt_pkt_sync_backward(struct pt_packet_decoder *decoder);
 
-/* Hard set synchronization point of a PT decoder.
+/** Hard set synchronization point of a PT decoder.
  *
- * Synchronize @decoder to @offset within the trace buffer.
+ * Synchronize \@decoder to \@offset within the trace buffer.
  *
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_eos if the given offset is behind the end of the trace buffer.
- * Returns -pte_invalid if @decoder is NULL.
+ * Returns -pte_invalid if \@decoder is NULL.
  */
 extern pt_export int pt_pkt_sync_set(struct pt_packet_decoder *decoder,
 				     uint64_t offset);
 
-/* Get a pointer to the current position of the raw PT buffer.
+/** Get a pointer to the current position of the raw PT buffer.
  *
- * Returns @decoder's current position.
+ * Returns \@decoder's current position.
  *
- * Returns NULL if @decoder is NULL.
+ * Returns NULL if \@decoder is NULL.
  */
 extern pt_export const uint8_t *
 pt_pkt_get_pos(struct pt_packet_decoder *decoder);
 
-/* Get the current decoder position.
+/** Get the current decoder position.
  *
- * Fills the current @decoder position into @offset.
+ * Fills the current \@decoder position into \@offset.
  *
  * This is useful for reporting errors.
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @offset is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_pkt_get_offset(struct pt_packet_decoder *decoder,
 				       uint64_t *offset);
 
-/* Get the position of the last synchronization point.
+/** Get the position of the last synchronization point.
  *
- * Fills the last synchronization position into @offset.
+ * Fills the last synchronization position into \@offset.
  *
  * This is useful when splitting a trace stream for parallel decoding.
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @offset is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_pkt_get_sync_offset(struct pt_packet_decoder *decoder,
 					    uint64_t *offset);
 
-/* Decode the next packet and advance the decoder.
+/** Decode the next packet and advance the decoder.
  *
- * Decodes the packet at @decoder's current position into @packet and
- * adjusts the @decoder's position by the number of bytes the packet had
+ * Decodes the packet at \@decoder's current position into \@packet and
+ * adjusts the \@decoder's position by the number of bytes the packet had
  * consumed.
  *
  * Returns the number of bytes consumed on success, a negative error code
  * otherwise.
  *
  * Returns -pte_bad_opc if the packet is unknown.
- * Returns -pte_eos if @decoder reached the end of the PT buffer.
- * Returns -pte_invalid if @decoder or @packet is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_eos if \@decoder reached the end of the PT buffer.
+ * Returns -pte_invalid if \@decoder or \@packet is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_pkt_next(struct pt_packet_decoder *decoder,
 				 struct pt_packet *packet);
@@ -778,7 +795,7 @@ extern pt_export int pt_pkt_next(struct pt_packet_decoder *decoder,
 
 
 
-/* PT decoder status flags. */
+/** PT decoder status flags. */
 enum pt_status_flag {
 	/* There is an event pending. */
 	pts_event_pending	= 1 << 0,
@@ -787,7 +804,7 @@ enum pt_status_flag {
 	pts_ip_suppressed	= 1 << 1
 };
 
-/* PT event type. */
+/** PT event type. */
 enum pt_event_type {
 	/* Tracing has been enabled/disabled. */
 	ptev_enabled,
@@ -815,28 +832,28 @@ enum pt_event_type {
 	ptev_tsx
 };
 
-/* A PT event. */
+/** A PT event. */
 struct pt_event {
-	/* The type of the event. */
+	/** The type of the event. */
 	enum pt_event_type type;
 
-	/* A flag indicating that the event IP had been suppressed. */
+	/** A flag indicating that the event IP had been suppressed. */
 	uint32_t ip_suppressed:1;
 
-	/* A flag indicating that the event is for status update. */
+	/** A flag indicating that the event is for status update. */
 	uint32_t status_update:1;
 
-	/* Event specific data. */
+	/** Event specific data. */
 	union {
-		/* Event: enabled. */
+		/** Event: enabled. */
 		struct {
 			/* The address at which tracing resumes. */
 			uint64_t ip;
 		} enabled;
 
-		/* Event: disabled. */
+		/** Event: disabled. */
 		struct {
-			/* The destination of the first branch inside a
+			/** The destination of the first branch inside a
 			 * filtered area.
 			 *
 			 * This field is not valid, if pts_ip_suppressed is
@@ -849,14 +866,14 @@ struct pt_event {
 			 */
 		} disabled;
 
-		/* Event: async disabled. */
+		/** Event: async disabled. */
 		struct {
-			/* The source address of the asynchronous branch that
+			/** The source address of the asynchronous branch that
 			 * disabled tracing.
 			 */
 			uint64_t at;
 
-			/* The destination of the first branch inside a
+			/** The destination of the first branch inside a
 			 * filtered area.
 			 *
 			 * This field is not valid, if pts_ip_suppressed is
@@ -865,12 +882,12 @@ struct pt_event {
 			uint64_t ip;
 		} async_disabled;
 
-		/* Event: async branch. */
+		/** Event: async branch. */
 		struct {
-			/* The branch source address. */
+			/** The branch source address. */
 			uint64_t from;
 
-			/* The branch destination address.
+			/** The branch destination address.
 			 *
 			 * This field is not valid, if pts_ip_suppressed is
 			 * returned from the query function.
@@ -878,9 +895,9 @@ struct pt_event {
 			uint64_t to;
 		} async_branch;
 
-		/* Event: paging. */
+		/** Event: paging. */
 		struct {
-			/* The updated CR3 value.
+			/** The updated CR3 value.
 			 *
 			 * The lower 5 bit have been zeroed out.
 			 * The upper bits have been zeroed out depending on the
@@ -893,9 +910,9 @@ struct pt_event {
 			 */
 		} paging;
 
-		/* Event: async paging. */
+		/** Event: async paging. */
 		struct {
-			/* The updated CR3 value.
+			/** The updated CR3 value.
 			 *
 			 * The lower 5 bit have been zeroed out.
 			 * The upper bits have been zeroed out depending on the
@@ -903,70 +920,70 @@ struct pt_event {
 			 */
 			uint64_t cr3;
 
-			/* The address at which the event is effective. */
+			/** The address at which the event is effective. */
 			uint64_t ip;
 		} async_paging;
 
-		/* Event: overflow. */
+		/** Event: overflow. */
 		struct {
-			/* The address at which tracing resumes after overflow.
+			/** The address at which tracing resumes after overflow.
 			 */
 			uint64_t ip;
 		} overflow;
 
-		/* Event: exec mode. */
+		/** Event: exec mode. */
 		struct {
-			/* The execution mode. */
+			/** The execution mode. */
 			enum pt_exec_mode mode;
 
-			/* The address at which the event is effective. */
+			/** The address at which the event is effective. */
 			uint64_t ip;
 		} exec_mode;
 
-		/* Event: tsx. */
+		/** Event: tsx. */
 		struct {
-			/* The address at which the event is effective.
+			/** The address at which the event is effective.
 			 *
 			 * This field is not valid, if pts_ip_suppressed is
 			 * returned from the query function.
 			 */
 			uint64_t ip;
 
-			/* A flag indicating speculative execution mode. */
+			/** A flag indicating speculative execution mode. */
 			uint32_t speculative:1;
 
-			/* A flag indicating speculative execution aborts. */
+			/** A flag indicating speculative execution aborts. */
 			uint32_t aborted:1;
 		} tsx;
 	} variant;
 };
 
 
-/* Allocate a PT query decoder.
+/** Allocate a PT query decoder.
  *
- * The decoder will work on the buffer defined in @config. It shall contain raw
- * trace data and remain valid for the lifetime of the decoder.
+ * The decoder will work on the buffer defined in \@config, it shall contain
+ * raw trace data and remain valid for the lifetime of the decoder.
  *
  * The decoder needs to be synchronized before it can be used.
  */
 extern pt_export struct pt_query_decoder *
 pt_qry_alloc_decoder(struct pt_config *config);
 
-/* Free a PT query decoder.
+/** Free a PT query decoder.
  *
- * The @decoder must not be used after a successful return.
+ * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_qry_free_decoder(struct pt_query_decoder *decoder);
 
-/* Synchronize a PT query decoder.
+/** Synchronize a PT query decoder.
  *
  * Search for the next synchronization point in forward or backward direction.
  *
- * If @decoder has not been synchronized, yet, the search is started at the
+ * If \@decoder has not been synchronized, yet, the search is started at the
  * beginning of the trace buffer in case of forward synchronization and at the
  * end of the trace buffer in case of backward synchronization.
  *
- * If @ip is not NULL, set it to last ip.
+ * If \@ip is not NULL, set it to last ip.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
@@ -974,45 +991,45 @@ extern pt_export void pt_qry_free_decoder(struct pt_query_decoder *decoder);
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_eos if no further synchronization point is found.
- * Returns -pte_invalid if @decoder is NULL.
+ * Returns -pte_invalid if \@decoder is NULL.
  */
 extern pt_export int pt_qry_sync_forward(struct pt_query_decoder *decoder,
 					 uint64_t *ip);
 extern pt_export int pt_qry_sync_backward(struct pt_query_decoder *decoder,
 					 uint64_t *ip);
 
-/* Get the current decoder position.
+/** Get the current decoder position.
  *
- * Fills the current @decoder position into @offset.
+ * Fills the current \@decoder position into \@offset.
  *
  * This is useful for reporting errors.
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @offset is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_qry_get_offset(struct pt_query_decoder *decoder,
 				       uint64_t *offset);
 
-/* Get the position of the last synchronization point.
+/** Get the position of the last synchronization point.
  *
- * Fills the last synchronization position into @offset.
+ * Fills the last synchronization position into \@offset.
  *
  * This is useful for splitting a trace stream for parallel decoding.
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @offset is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_qry_get_sync_offset(struct pt_query_decoder *decoder,
 					    uint64_t *offset);
 
-/* Query whether the next unconditional branch has been taken.
+/** Query whether the next unconditional branch has been taken.
  *
- * On success, provides 1 (taken) or 0 (not taken) in @taken for the next
- * conditional branch and updates @decoder.
+ * On success, provides 1 (taken) or 0 (not taken) in \@taken for the next
+ * conditional branch and updates \@decoder.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
@@ -1021,16 +1038,16 @@ extern pt_export int pt_qry_get_sync_offset(struct pt_query_decoder *decoder,
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_bad_query if no conditional branch is found.
  * Returns -pte_eos if decoding reached the end of the PT buffer.
- * Returns -pte_invalid if @decoder or @taken is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@taken is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_qry_cond_branch(struct pt_query_decoder *decoder,
 					int *taken);
 
-/* Get the next indirect branch destination.
+/** Get the next indirect branch destination.
  *
  * On success, provides the linear destination address of the next indirect
- * branch in @ip and updates @decoder.
+ * branch in \@ip and updates \@decoder.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
@@ -1039,15 +1056,15 @@ extern pt_export int pt_qry_cond_branch(struct pt_query_decoder *decoder,
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_bad_query if no indirect branch is found.
  * Returns -pte_eos if decoding reached the end of the PT buffer.
- * Returns -pte_invalid if @decoder or @ip is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@ip is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_qry_indirect_branch(struct pt_query_decoder *decoder,
 					    uint64_t *ip);
 
-/* Query the next pending event.
+/** Query the next pending event.
  *
- * On success, provides the next event @event and updates @decoder.
+ * On success, provides the next event \@event and updates \@decoder.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
@@ -1056,17 +1073,17 @@ extern pt_export int pt_qry_indirect_branch(struct pt_query_decoder *decoder,
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_bad_query if no event is found.
  * Returns -pte_eos if decoding reached the end of the PT buffer.
- * Returns -pte_invalid if @decoder or @event is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@event is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_qry_event(struct pt_query_decoder *decoder,
 				  struct pt_event *event);
 
-/* Query the current time.
+/** Query the current time.
  *
- * On success, provides the time at @decoder's current position in @time. Since
- * @decoder is reading ahead until the next indirect branch or event, the value
- * matches the time for that branch or event.
+ * On success, provides the time at \@decoder's current position in \@time.
+ * Since \@decoder is reading ahead until the next indirect branch or event,
+ * the value matches the time for that branch or event.
  *
  * The time is similar to what an rdtsc instruction would return. Beware that
  * the time is not fully accurate. It should be good enough for a course
@@ -1074,7 +1091,7 @@ extern pt_export int pt_qry_event(struct pt_query_decoder *decoder,
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @time is NULL.
+ * Returns -pte_invalid if \@decoder or \@time is NULL.
  */
 extern pt_export int pt_qry_time(struct pt_query_decoder *decoder,
 				 uint64_t *time);
@@ -1085,7 +1102,7 @@ extern pt_export int pt_qry_time(struct pt_query_decoder *decoder,
 
 
 
-/* The instruction class.
+/** The instruction class.
  *
  * We provide only a very coarse classification suitable for reconstructing
  * the execution flow.
@@ -1110,75 +1127,75 @@ enum pt_insn_class {
 	ptic_cond_jump
 };
 
-/* The maximal size of an instruction. */
+/** The maximal size of an instruction. */
 enum {
 	pt_max_insn_size	= 15
 };
 
-/* A single traced instruction. */
+/** A single traced instruction. */
 struct pt_insn {
-	/* The virtual address in its process. */
+	/** The virtual address in its process. */
 	uint64_t ip;
 
-	/* A coarse classification. */
+	/** A coarse classification. */
 	enum pt_insn_class iclass;
 
-	/* The execution mode. */
+	/** The execution mode. */
 	enum pt_exec_mode mode;
 
-	/* The raw bytes. */
+	/** The raw bytes. */
 	uint8_t raw[pt_max_insn_size];
 
-	/* The size in bytes. */
+	/** The size in bytes. */
 	uint8_t size;
 
-	/* A collection of flags giving additional information:
+	/** A collection of flags giving additional information:
 	 *
 	 * - the instruction was executed speculatively.
 	 */
 	uint32_t speculative:1;
 
-	/* - speculative execution was aborted after this instruction. */
+	/** - speculative execution was aborted after this instruction. */
 	uint32_t aborted:1;
 
-	/* - speculative execution was committed after this instruction. */
+	/** - speculative execution was committed after this instruction. */
 	uint32_t committed:1;
 
-	/* - tracing was enabled at this instruction. */
+	/** - tracing was enabled at this instruction. */
 	uint32_t enabled:1;
 
-	/* - tracing was disabled after this instruction. */
+	/** - tracing was disabled after this instruction. */
 	uint32_t disabled:1;
 
-	/* - normal execution flow was interrupted after this instruction. */
+	/** - normal execution flow was interrupted after this instruction. */
 	uint32_t interrupted:1;
 
-	/* - tracing resumed at this instruction after an overflow. */
+	/** - tracing resumed at this instruction after an overflow. */
 	uint32_t resynced:1;
 };
 
 
-/* Allocate a PT instruction flow decoder.
+/** Allocate a PT instruction flow decoder.
  *
- * The decoder will work on the buffer defined in @config. It shall contain raw
- * trace data and remain valid for the lifetime of the decoder.
+ * The decoder will work on the buffer defined in \@config, it shall contain
+ * raw trace data and remain valid for the lifetime of the decoder.
  *
  * The decoder needs to be synchronized before it can be used.
  */
 extern pt_export struct pt_insn_decoder *
 pt_insn_alloc_decoder(const struct pt_config *config);
 
-/* Free a PT instruction flow decoder.
+/** Free a PT instruction flow decoder.
  *
- * The @decoder must not be used after a successful return.
+ * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_insn_free_decoder(struct pt_insn_decoder *decoder);
 
-/* Synchronize a PT instruction flow decoder.
+/** Synchronize a PT instruction flow decoder.
  *
  * Search for the next synchronization point in forward or backward direction.
  *
- * If @decoder has not been synchronized, yet, the search is started at the
+ * If \@decoder has not been synchronized, yet, the search is started at the
  * beginning of the trace buffer in case of forward synchronization and at the
  * end of the trace buffer in case of backward synchronization.
  *
@@ -1187,30 +1204,30 @@ extern pt_export void pt_insn_free_decoder(struct pt_insn_decoder *decoder);
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_eos if no further synchronization point is found.
- * Returns -pte_invalid if @decoder is NULL.
+ * Returns -pte_invalid if \@decoder is NULL.
  */
 extern pt_export int pt_insn_sync_forward(struct pt_insn_decoder *decoder);
 extern pt_export int pt_insn_sync_backward(struct pt_insn_decoder *decoder);
 
-/* Get the current decoder position.
+/** Get the current decoder position.
  *
- * Fills the current @decoder position into @offset.
+ * Fills the current \@decoder position into \@offset.
  *
  * This is useful for reporting errors.
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @offset is NULL.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_insn_get_offset(struct pt_insn_decoder *decoder,
 					uint64_t *offset);
 
-/* Return the current time.
+/** Return the current time.
  *
- * On success, provides the time at @decoder's current position in @time. Since
- * @decoder is reading ahead until the next indirect branch or event, the value
- * matches the time for that branch or event.
+ * On success, provides the time at \@decoder's current position in \@time.
+ * Since \@decoder is reading ahead until the next indirect branch or event,
+ * the value matches the time for that branch or event.
  *
  * The time is similar to what an rdtsc instruction would return. Beware that
  * the time is not fully accurate. It should be good enough for a course
@@ -1218,43 +1235,43 @@ extern pt_export int pt_insn_get_offset(struct pt_insn_decoder *decoder,
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @decoder or @time is NULL.
+ * Returns -pte_invalid if \@decoder or \@time is NULL.
  */
 extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
 				  uint64_t *time);
 
-/* Add a new file section to the traced process image.
+/** Add a new file section to the traced process image.
  *
- * Adds @size bytes starting at @offset in @filename. The section is loaded at
- * the virtual address @vaddr in the traced process.
+ * Adds \@size bytes starting at \@offset in \@filename. The section is
+ * loaded at the virtual address \@vaddr in the traced process.
  *
- * The section is silently truncated to match the size of @filename.
+ * The section is silently truncated to match the size of \@filename.
  *
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_bad_context if sections would overlap.
- * Returns -pte_invalid if @decoder or @filename is NULL.
- * Returns -pte_invalid if @offset is too big.
+ * Returns -pte_invalid if \@decoder or \@filename is NULL.
+ * Returns -pte_invalid if \@offset is too big.
  */
 extern pt_export int pt_insn_add_file(struct pt_insn_decoder *decoder,
 				      const char *filename, uint64_t offset,
 				      uint64_t size, uint64_t vaddr);
 
-/* Remove all sections loaded from a file from the traced process image.
+/** Remove all sections loaded from a file from the traced process image.
  *
- * Removes all sections loaded from @filename.
+ * Removes all sections loaded from \@filename.
  *
  * Returns the number of removed sections on success, a negative error code
  * otherwise.
  *
- * Returns -pte_invalid if @decoder or @filename is NULL.
+ * Returns -pte_invalid if \@decoder or \@filename is NULL.
  */
 extern pt_export int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
 						const char *filename);
 
-/* Determine the next instruction.
+/** Determine the next instruction.
  *
- * On success, provides the next instruction in execution order in @insn.
+ * On success, provides the next instruction in execution order in \@insn.
  *
  * Returns zero on success, a negative error code otherwise.
  *
@@ -1262,9 +1279,9 @@ extern pt_export int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
  * Returns -pte_bad_packet if the decoder encountered unknown packet payloads.
  * Returns -pte_bad_query if the instruction stream doesn't match the PT stream.
  * Returns -pte_eos if decoding reached the end of the PT buffer.
- * Returns -pte_invalid if @decoder or @insn is NULL.
+ * Returns -pte_invalid if \@decoder or \@insn is NULL.
  * Returns -pte_nomap if the memory at the instruction address can't be read.
- * Returns -pte_nosync if @decoder is out of sync.
+ * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_insn_next(struct pt_insn_decoder *decoder,
 				  struct pt_insn *insn);

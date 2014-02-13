@@ -219,6 +219,20 @@ if (CMAKE_HOST_UNIX)
 
 endif (CMAKE_HOST_UNIX)
 
+find_package(Doxygen)
+
+if (DOXYGEN_FOUND)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in
+    ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+
+  add_custom_target(doc
+    ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "creating documentation"
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in
+  )
+endif(DOXYGEN_FOUND)
+
 add_subdirectory(libipt)
 add_subdirectory(ptdump)
 add_subdirectory(ptxed)

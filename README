@@ -56,6 +56,12 @@ Other packages you need for some of the above optional components.
 
                 This is needed to run pttc.
 
+  doxygen       Generate documentation from source code
+                http://doxygen.org
+
+                This is needed to build documentation.
+
+
 Features
 --------
 
