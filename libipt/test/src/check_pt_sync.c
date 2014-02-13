@@ -200,7 +200,7 @@ START_TEST(check_sync_forward_cutoff)
 	check_encode_psbend(encoder);
 	check_encode_psb(encoder);
 
-	config->begin = encoder->begin + 1;
+	config->begin += 1;
 	config->end = encoder->pos - 1;
 
 	errcode = pt_sync_forward(decoder);
@@ -232,7 +232,7 @@ START_TEST(check_sync_backward_cutoff)
 	check_encode_psbend(encoder);
 	check_encode_psb(encoder);
 
-	config->begin = encoder->begin + 1;
+	config->begin += 1;
 	config->end = encoder->pos - 1;
 
 	errcode = pt_sync_backward(decoder);

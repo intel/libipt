@@ -34,6 +34,7 @@
 #include "pt_packet_decode.h"
 #include "pt_last_ip.h"
 #include "pt_tnt_cache.h"
+#include "pt_encoder.h"
 
 #include "intel-pt.h"
 

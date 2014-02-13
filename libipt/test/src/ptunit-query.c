@@ -31,8 +31,7 @@
 #include "pt_last_ip.h"
 #include "pt_packet_decode.h"
 #include "pt_decoder.h"
-
-#include "intel-pt.h"
+#include "pt_encoder.h"
 
 
 /* A query testing fixture. */
@@ -1690,7 +1689,7 @@ static struct ptunit_result ptu_dfix_init(struct ptu_decoder_fixture *dfix)
 	config->begin = dfix->buffer;
 	config->end = dfix->buffer + sizeof(dfix->buffer);
 
-	errcode = pt_init_encoder(&dfix->encoder, config);
+	errcode = pt_encoder_init(&dfix->encoder, config);
 	ptu_int_eq(errcode, 0);
 
 	decoder = pt_alloc_decoder(config);

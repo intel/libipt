@@ -53,7 +53,7 @@ static void init_fixture(void)
 
 	(void) memset(dfix->buffer, 0, sizeof(dfix->buffer));
 
-	errcode = pt_init_encoder(&pt_decoder_fixture.encoder, config);
+	errcode = pt_encoder_init(&pt_decoder_fixture.encoder, config);
 	ck_int_eq(errcode, 0);
 
 	pt_decoder_fixture.decoder = pt_alloc_decoder(config);

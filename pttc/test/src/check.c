@@ -106,7 +106,7 @@ START_TEST(check_parse_tnt)
 		int valid;
 		const char *payload;
 		uint64_t tnt;
-		size_t size;
+		uint8_t size;
 	};
 	struct test tests[] = {
 		/* Valid input.  */
@@ -130,7 +130,7 @@ START_TEST(check_parse_tnt)
 	for (size_t i = 0; i < sizeof(tests)/sizeof(struct test); i++) {
 		enum errcode errcode;
 		uint64_t tnt = 31337;
-		size_t size = -1;
+		uint8_t size = -1;
 		char *payload;
 
 		payload = duplicate_str(tests[i].payload);

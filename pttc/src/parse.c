@@ -481,6 +481,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 	int errcode;
 	char *directive, *payload, *pt_label_name, *tmp;
 	struct pt_directive *pd;
+	struct pt_packet packet;
 
 	if (bug_on(!p))
 		return -err_internal;
@@ -557,156 +558,143 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 			yasm_print_err(p->y, "psb: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_psb(e);
+		packet.type = ppt_psb;
 	} else if (strcmp(directive, "psbend") == 0) {
 		errcode = parse_empty(payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "psbend: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_psbend(e);
+		packet.type = ppt_psbend;
 	} else if (strcmp(directive, "pad") == 0) {
 		errcode = parse_empty(payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "pad: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_pad(e);
+		packet.type = ppt_pad;
 	} else if (strcmp(directive, "ovf") == 0) {
 		errcode = parse_empty(payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "ovf: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_ovf(e);
+		packet.type = ppt_ovf;
 	} else if (strcmp(directive, "tnt") == 0) {
-		uint64_t tnt;
-		size_t size;
-
-		errcode = parse_tnt(&tnt, &size, payload);
+		errcode = parse_tnt(&packet.payload.tnt.payload,
+				    &packet.payload.tnt.bit_size, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "tnt: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_tnt_8(e, (uint8_t)tnt, (int)size);
+		packet.type = ppt_tnt_8;
 	} else if (strcmp(directive, "tnt64") == 0) {
-		uint64_t tnt;
-		size_t size;
-
-		errcode = parse_tnt(&tnt, &size, payload);
+		errcode = parse_tnt(&packet.payload.tnt.payload,
+				    &packet.payload.tnt.bit_size, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "tnt64: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_tnt_64(e, tnt, (int)size);
+		packet.type = ppt_tnt_64;
 	} else if (strcmp(directive, "tip") == 0) {
-		uint64_t ip;
-		enum pt_ip_compression ipc;
-
-		errcode = parse_ip(p, &ip, &ipc, payload);
+		errcode = parse_ip(p, &packet.payload.ip.ip,
+				   &packet.payload.ip.ipc, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "tip: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_tip(e, ip, ipc);
+		packet.type = ppt_tip;
 	} else if (strcmp(directive, "tip.pge") == 0) {
-		uint64_t ip;
-		enum pt_ip_compression ipc;
-
-		errcode = parse_ip(p, &ip, &ipc, payload);
+		errcode = parse_ip(p, &packet.payload.ip.ip,
+				   &packet.payload.ip.ipc, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "tip.pge: parsing failed",
 				       errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_tip_pge(e, ip, ipc);
+		packet.type = ppt_tip_pge;
 	} else if (strcmp(directive, "tip.pgd") == 0) {
-		uint64_t ip;
-		enum pt_ip_compression ipc;
-
-		errcode = parse_ip(p, &ip, &ipc, payload);
+		errcode = parse_ip(p, &packet.payload.ip.ip,
+				   &packet.payload.ip.ipc, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "tip.pgd: parsing failed",
 				       errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_tip_pgd(e, ip, ipc);
+		packet.type = ppt_tip_pgd;
 	} else if (strcmp(directive, "fup") == 0) {
-		uint64_t ip;
-		enum pt_ip_compression ipc;
-
-		errcode = parse_ip(p, &ip, &ipc, payload);
+		errcode = parse_ip(p, &packet.payload.ip.ip,
+				   &packet.payload.ip.ipc, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "fup: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_fup(e, ip, ipc);
+		packet.type = ppt_fup;
 	} else if (strcmp(directive, "mode.exec") == 0) {
-		enum pt_exec_mode em;
-
-		if (strcmp(payload, "16bit") == 0)
-			em = ptem_16bit;
-		else if (strcmp(payload, "64bit") == 0)
-			em = ptem_64bit;
-		else if (strcmp(payload, "32bit") == 0)
-			em = ptem_32bit;
-		else {
+		if (strcmp(payload, "16bit") == 0) {
+			packet.payload.mode.bits.exec.csl = 0;
+			packet.payload.mode.bits.exec.csd = 0;
+		} else if (strcmp(payload, "64bit") == 0) {
+			packet.payload.mode.bits.exec.csl = 1;
+			packet.payload.mode.bits.exec.csd = 0;
+		} else if (strcmp(payload, "32bit") == 0) {
+			packet.payload.mode.bits.exec.csl = 0;
+			packet.payload.mode.bits.exec.csd = 1;
+		} else {
 			errcode = yasm_print_err(p->y,
 						 "mode.exec: argument must be one of \"16bit\", \"64bit\" or \"32bit\"",
 						 -err_parse);
 			goto error;
 		}
-		bytes_written = pt_encode_mode_exec(e, em);
+		packet.payload.mode.leaf = pt_mol_exec;
+		packet.type = ppt_mode;
 	} else if (strcmp(directive, "mode.tsx") == 0) {
-		uint8_t tm;
-
-		if (strcmp(payload, "begin") == 0)
-			tm = 1;
-		else if (strcmp(payload, "abort") == 0)
-			tm = 2;
-		else if (strcmp(payload, "commit") == 0)
-			tm = 0;
-		else {
+		if (strcmp(payload, "begin") == 0) {
+			packet.payload.mode.bits.tsx.intx = 1;
+			packet.payload.mode.bits.tsx.abrt = 0;
+		} else if (strcmp(payload, "abort") == 0) {
+			packet.payload.mode.bits.tsx.intx = 0;
+			packet.payload.mode.bits.tsx.abrt = 1;
+		} else if (strcmp(payload, "commit") == 0) {
+			packet.payload.mode.bits.tsx.intx = 0;
+			packet.payload.mode.bits.tsx.abrt = 0;
+		} else {
 			errcode = yasm_print_err(p->y,
 						 "mode.tsx: argument must be one of \"begin\", \"abort\" or \"commit\"",
 						 -err_parse);
 			goto error;
 		}
-		bytes_written = pt_encode_mode_tsx(e, tm);
+		packet.payload.mode.leaf = pt_mol_tsx;
+		packet.type = ppt_mode;
 	} else if (strcmp(directive, "pip") == 0) {
-		uint64_t cr3;
-
-		errcode = parse_uint64(&cr3, payload);
+		errcode = parse_uint64(&packet.payload.pip.cr3, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "pip: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_pip(e, cr3);
+		packet.type = ppt_pip;
 	} else if (strcmp(directive, "tsc") == 0) {
-		uint64_t tsc;
-
-		errcode = parse_uint64(&tsc, payload);
+		errcode = parse_uint64(&packet.payload.tsc.tsc, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "tsc: parsing failed", errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_tsc(e, tsc);
+		packet.type = ppt_tsc;
 	} else if (strcmp(directive, "cbr") == 0) {
-		uint8_t cbr;
-
-		errcode = parse_uint8(&cbr, payload);
+		errcode = parse_uint8(&packet.payload.cbr.ratio, payload);
 		if (errcode < 0) {
 			yasm_print_err(p->y, "cbr: parsing cbr failed",
 				       errcode);
 			goto error;
 		}
-		bytes_written = pt_encode_cbr(e, cbr);
+		packet.type = ppt_cbr;
 	} else {
 		errcode = yasm_print_err(p->y, "invalid syntax",
 					 -err_parse_unknown_directive);
 		goto error;
 	}
 
+	bytes_written = pt_encode(e, &packet);
 	if (bytes_written < 0) {
 		const char *errstr, *format;
 		char *msg;
@@ -766,21 +754,20 @@ int p_start(struct parser *p)
 
 	for (;;) {
 		int bytes_written;
-		struct pt_encoder e;
+		struct pt_encoder *e;
 
 		errcode = yasm_next_pt_directive(p->y, p->pd);
 		if (errcode < 0)
 			break;
 
-		errcode = pt_init_encoder(&e, p->conf);
-		if (errcode < 0) {
-			fprintf(stderr, "pt_init_encoder failed with %d: %s\n",
-				errcode, pt_errstr(pt_errcode(errcode)));
+		e = pt_alloc_encoder(p->conf);
+		if (!e) {
+			fprintf(stderr, "pt_alloc_encoder failed\n");
 			errcode = -err_pt_lib;
 			break;
 		}
 
-		bytes_written = p_process(p, &e);
+		bytes_written = p_process(p, e);
 		if (bytes_written == -stop_process) {
 			errcode = p_gen_expfile(p);
 			break;
@@ -837,7 +824,7 @@ int parse_empty(char *payload)
 	return -err_parse_trailing_tokens;
 }
 
-int parse_tnt(uint64_t *tnt, size_t *size, char *payload)
+int parse_tnt(uint64_t *tnt, uint8_t *size, char *payload)
 {
 	char c;
 
@@ -847,7 +834,8 @@ int parse_tnt(uint64_t *tnt, size_t *size, char *payload)
 	if (bug_on(!tnt))
 		return -err_internal;
 
-	*size = *tnt = 0;
+	*size = 0;
+	*tnt = 0ull;
 
 	if (!payload)
 		return 0;

@@ -91,7 +91,7 @@ extern int parse_empty(char *payload);
  * Returns -err_parse_unknown_char if there is an unrecognized character
  * in the payload.
  */
-extern int parse_tnt(uint64_t *tnt, size_t *size, char *payload);
+extern int parse_tnt(uint64_t *tnt, uint8_t *size, char *payload);
 
 /* Parses an address and a ipc from @payload and stores it in the
  * location of @ip and @ipc respectively.  The ipc is separated from the

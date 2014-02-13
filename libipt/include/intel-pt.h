@@ -606,86 +606,79 @@ struct pt_packet {
 	} payload;
 };
 
-/** A PT encoder. */
-struct pt_encoder {
-	/** The trace buffer begin address. */
-	uint8_t *begin;
-
-	/** The trace buffer end address. */
-	uint8_t *end;
-
-	/** The current position in the trace buffer. */
-	uint8_t *pos;
-};
 
 
-/** Initialize a PT encoder.
+/* Packet encoder. */
+
+
+
+/** Allocate a PT packet encoder.
+ *
+ * The encoder will work on the buffer defined in \@config, it shall contain
+ * raw trace data and remain valid for the lifetime of the encoder.
+ *
+ * The encoder starts at the beginning of the trace buffer.
+ */
+extern pt_export struct pt_encoder *
+pt_alloc_encoder(const struct pt_config *config);
+
+/** Free a PT packet encoder.
+ *
+ * The \@encoder must not be used after a successful return.
+ */
+extern pt_export void pt_free_encoder(struct pt_encoder *encoder);
+
+/** Hard set synchronization point of a PT packet encoder.
+ *
+ * Synchronize \@encoder to \@offset within the trace buffer.
  *
  * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_eos if the given offset is behind the end of the trace buffer.
+ * Returns -pte_invalid if \@encoder is NULL.
  */
-extern pt_export int pt_init_encoder(struct pt_encoder *,
-				     const struct pt_config *);
+extern pt_export int pt_enc_sync_set(struct pt_encoder *encoder,
+				     uint64_t offset);
 
-/**
- * The below encoding functions operate on an encoder.
- * They return the number of bytes written on success.
- * They return a negative error code otherwise.
+/** Get the current packet encoder position.
+ *
+ * Fills the current \@encoder position into \@offset.
+ *
+ * This is useful for reporting errors.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@encoder or \@offset is NULL.
+ * Returns -pte_nosync if \@encoder is out of sync.
  */
+extern pt_export int pt_enc_get_offset(struct pt_encoder *encoder,
+				       uint64_t *offset);
 
-/** Write a single byte into the encoder's trace buffer. */
-extern pt_export int pt_encode_byte(struct pt_encoder *, uint8_t);
+/** Encode a PT packet.
+ *
+ * Writes \@packet at \@encoder's current position in the PT buffer and
+ * advances the \@encoder beyond the written packet.
+ *
+ * The \@packet.size field is ignored.
+ *
+ * In case of errors, the \@encoder is not advanced and nothing is written
+ * into the PT buffer.
+ *
+ * Returns the number of bytes written on success, a negative error code
+ * otherwise.
+ *
+ * Returns -pte_bad_opc if \@packet.type is not known.
+ * Returns -pte_bad_packet if \@packet's payload is invalid.
+ * Returns -pte_eos if \@encoder reached the end of the PT buffer.
+ * Returns -pte_invalid if \@encoder or \@packet is NULL.
+ * Returns -pte_nosync if \@encoder is out of sync.
+ */
+extern pt_export int pt_encode(struct pt_encoder *encoder,
+			       const struct pt_packet *packet);
 
-/** Encode a Padding (pad) packet. */
-extern pt_export int pt_encode_pad(struct pt_encoder *);
 
-/** Encode a Packet Stream Boundary (psb) packet. */
-extern pt_export int pt_encode_psb(struct pt_encoder *);
 
-/** Encode an End PSB (psbend) packet. */
-extern pt_export int pt_encode_psbend(struct pt_encoder *);
-
-/** Encode a Target Instruction Pointer (tip) packet. */
-extern pt_export int pt_encode_tip(struct pt_encoder *,
-				   uint64_t ip, enum pt_ip_compression ipc);
-
-/** Encode a Taken Not Taken (tnt) packet - 8-bit version. */
-extern pt_export int pt_encode_tnt_8(struct pt_encoder *,
-				     uint8_t tnt, int size);
-
-/** Encode a Taken Not Taken (tnt) packet - 64-bit version. */
-extern pt_export int pt_encode_tnt_64(struct pt_encoder *,
-				      uint64_t tnt, int size);
-
-/** Encode a Packet Generation Enable (tip.pge) packet. */
-extern pt_export int pt_encode_tip_pge(struct pt_encoder *,
-				       uint64_t ip, enum pt_ip_compression ipc);
-
-/** Encode a Packet Generation Disable (tip.pgd) packet. */
-extern pt_export int pt_encode_tip_pgd(struct pt_encoder *,
-				       uint64_t ip, enum pt_ip_compression ipc);
-
-/** Encode a Flow Update Packet (fup). */
-extern pt_export int pt_encode_fup(struct pt_encoder *,
-				   uint64_t ip, enum pt_ip_compression ipc);
-
-/** Encode a Paging Information Packet (pip). */
-extern pt_export int pt_encode_pip(struct pt_encoder *, uint64_t cr3);
-
-/** Encode a Overflow Packet (ovf). */
-extern pt_export int pt_encode_ovf(struct pt_encoder *);
-
-/** Encode a Mode Exec Packet (mode.exec). */
-extern pt_export int pt_encode_mode_exec(struct pt_encoder *,
-					 enum pt_exec_mode);
-
-/** Encode a Mode Tsx Packet (mode.tsx). */
-extern pt_export int pt_encode_mode_tsx(struct pt_encoder *, uint8_t);
-
-/** Encode a Time Stamp Counter (tsc) packet. */
-extern pt_export int pt_encode_tsc(struct pt_encoder *, uint64_t);
-
-/** Encode a Core Bus Ratio (cbr) packet. */
-extern pt_export int pt_encode_cbr(struct pt_encoder *, uint8_t);
+/* Packet decoder. */
 
 
 

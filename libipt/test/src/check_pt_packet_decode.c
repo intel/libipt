@@ -2541,6 +2541,7 @@ START_TEST(check_decode_tip_pge_suppressed)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
 	int errcode;
 
@@ -2551,7 +2552,7 @@ START_TEST(check_decode_tip_pge_suppressed)
 
 	errcode = pt_decode_tip_pge.decode(decoder);
 	ck_int_eq(errcode, -pte_bad_packet);
-	ck_ptr(decoder->pos, encoder->begin);
+	ck_ptr(decoder->pos, config->begin);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
@@ -2757,6 +2758,7 @@ START_TEST(check_decode_tip_pge_overflow_suppressed)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
 	int errcode;
@@ -2774,7 +2776,7 @@ START_TEST(check_decode_tip_pge_overflow_suppressed)
 
 	errcode = pt_decode_tip_pge.decode(decoder);
 	ck_int_eq(errcode, -pte_bad_packet);
-	ck_ptr(decoder->pos, encoder->begin);
+	ck_ptr(decoder->pos, config->begin);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
@@ -3210,6 +3212,7 @@ START_TEST(check_decode_fup_overflow_suppressed)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
 	int errcode;
@@ -3224,7 +3227,7 @@ START_TEST(check_decode_fup_overflow_suppressed)
 
 	errcode = pt_decode_fup.decode(decoder);
 	ck_int_eq(errcode, -pte_bad_packet);
-	ck_ptr(decoder->pos, encoder->begin);
+	ck_ptr(decoder->pos, config->begin);
 	ck_last_ip();
 
 	check_non_ip_state(decoder);
