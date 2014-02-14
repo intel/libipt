@@ -89,23 +89,25 @@ static int no_file_error(const char *name)
 static int help(const char *name)
 {
 	fprintf(stderr,
-		"usage: %s [<options>] <ptfile>\n\n"
+		"usage: %s [<options>] <ptfile>[:<from>[-<to>]\n\n"
 		"options:\n"
-		"  --help|-h                this text.\n"
-		"  --version                display version information and exit.\n"
-		"  --no-sync                don't try to sync to the first PSB, assume a valid\n"
-		"                           sync point at the beginning of the trace.\n"
-		"  --quiet                  don't print anything but errors.\n"
-		"  --no-pad                 don't show PAD packets.\n"
-		"  --no-offset              don't show the offset as the first column.\n"
-		"  --raw                    show raw packet bytes.\n"
-		"  --lastip                 show last IP updates on packets with IP payloads.\n"
-		"  --fixed-offset-width     assume fixed width of 16 characters for the\n"
-		"                           offset column.\n"
-		"  --cpu none|auto|f/m[/s]  set cpu to the given value and decode according to:\n"
-		"                             none     spec (default)\n"
-		"                             auto     current cpu\n"
-		"                             f/m[/s]  family/model[/stepping]\n",
+		"  --help|-h                 this text.\n"
+		"  --version                 display version information and exit.\n"
+		"  --no-sync                 don't try to sync to the first PSB, assume a valid\n"
+		"                            sync point at the beginning of the trace.\n"
+		"  --quiet                   don't print anything but errors.\n"
+		"  --no-pad                  don't show PAD packets.\n"
+		"  --no-offset               don't show the offset as the first column.\n"
+		"  --raw                     show raw packet bytes.\n"
+		"  --lastip                  show last IP updates on packets with IP payloads.\n"
+		"  --fixed-offset-width      assume fixed width of 16 characters for the\n"
+		"                            offset column.\n"
+		"  --cpu none|auto|f/m[/s]   set cpu to the given value and decode according to:\n"
+		"                              none     spec (default)\n"
+		"                              auto     current cpu\n"
+		"                              f/m[/s]  family/model[/stepping]\n"
+		"  <ptfile>[:<from>[-<to>]]  load the processor trace data from <ptfile>;\n"
+		"                            an optional offset or range can be given.\n",
 		name);
 
 	return 0;
@@ -121,120 +123,143 @@ static int version(const char *name)
 	return 0;
 }
 
-#if defined(FEATURE_MMAP)
-
-static void *map_pt(const char *file, uint32_t *size)
+static int parse_range(char *arg, uint64_t *begin, uint64_t *end)
 {
-	struct stat stat;
-	int fd, errcode;
-	void *pt;
+	char *rest;
 
-	fd = open(file, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, "failed to open %s: %s\n", file,
-			strerror(errno));
-		return NULL;
-	}
-
-	errcode = fstat(fd, &stat);
-	if (errcode) {
-		fprintf(stderr, "failed to fstat %s: %s\n", file,
-			strerror(errno));
-		close(fd);
-		return NULL;
-	}
-
-	pt = mmap(NULL, stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
-	if (pt == MAP_FAILED) {
-		fprintf(stderr, "failed to mmap %s: %s\n", file,
-			strerror(errno));
-		close(fd);
-		return NULL;
-	}
-
-	if (size)
-		*size = stat.st_size;
-
-	close(fd);
-	return pt;
-}
-
-#else /* defined(FEATURE_MMAP) */
-
-static void *map_pt(const char *file, uint32_t *size)
-{
-	FILE *fd;
-	uint32_t fsize;
-	int errcode;
-	long pos;
-	void *pt;
-	size_t read;
+	if (!arg)
+		return 0;
 
 	errno = 0;
-	fd = fopen(file, "rb");
-	if (!fd) {
-		fprintf(stderr, "%s: cannot open: %s\n", file, strerror(errno));
-		return NULL;
-	}
+	*begin = strtoull(arg, &rest, 0);
+	if (errno)
+		return -1;
 
-	errcode = fseek(fd, 0, SEEK_END);
-	if (errcode) {
-		fprintf(stderr, "%s: failed to seek end: %s\n", file,
-			strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
+	if (!*rest)
+		return 0;
 
-	pos = ftell(fd);
-	if (pos < 0) {
-		fprintf(stderr, "%s: failed to determine file size: %s\n",
-			file, strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
-	if (pos == 0) {
-		fprintf(stderr, "%s: file empty\n", file);
-		fclose(fd);
-		return NULL;
-	}
-	fsize = (size_t) pos;
+	if (*rest != '-')
+		return -1;
 
-	errcode = fseek(fd, 0, SEEK_SET);
-	if (errcode) {
-		fprintf(stderr, "%s: failed to seek begin: %s\n", file,
-			strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
+	*end = strtoull(rest+1, &rest, 0);
+	if (errno || *rest)
+		return -1;
 
-	pt = malloc(fsize);
-	if (!pt) {
-		fprintf(stderr,
-			"%s: failed to allocate %" PRIu32 " bytes: %s\n",
-			file, fsize, strerror(errno));
-		fclose(fd);
-		return NULL;
-	}
-
-	read = fread(pt, 1, fsize, fd);
-
-	errcode = ferror(fd);
-	if (errcode) {
-		fprintf(stderr, "%s: failed to read file: %s\n", file,
-			strerror(errcode));
-		fclose(fd);
-		free(pt);
-		return NULL;
-	}
-
-	if (size)
-		*size = (uint32_t) read;
-
-	fclose(fd);
-	return pt;
+	return 0;
 }
 
-#endif /* defined(FEATURE_MMAP) */
+static int load_pt(struct pt_config *config, char *arg, const char *prog)
+{
+	uint64_t begin_arg, end_arg;
+	uint8_t *pt;
+	size_t read;
+	FILE *file;
+	long size, begin, end;
+	int errcode;
+	char *range;
+
+	if (!config || !arg || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog);
+		return 1;
+	}
+
+	range = strstr(arg, ":");
+	if (range) {
+		range += 1;
+		range[-1] = 0;
+	}
+
+	errno = 0;
+	file = fopen(arg, "rb");
+	if (!file) {
+		fprintf(stderr, "%s: failed to open %s: %d.\n",
+			prog, arg, errno);
+		return 1;
+	}
+
+	errcode = fseek(file, 0, SEEK_END);
+	if (errcode) {
+		fprintf(stderr, "%s: failed to determine size of %s: %d.\n",
+			prog, arg, errno);
+		goto err_file;
+	}
+
+	size = ftell(file);
+	if (size < 0) {
+		fprintf(stderr, "%s: failed to determine size of %s: %d.\n",
+			prog, arg, errno);
+		goto err_file;
+	}
+
+	begin_arg = 0ull;
+	end_arg = (uint64_t) size;
+	errcode = parse_range(range, &begin_arg, &end_arg);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad range: %s.\n", prog, range);
+		goto err_file;
+	}
+
+	begin = (long) begin_arg;
+	end = (long) end_arg;
+	if ((uint64_t) begin != begin_arg || (uint64_t) end != end_arg) {
+		fprintf(stderr, "%s: invalid offset/range argument.\n", prog);
+		goto err_file;
+	}
+
+	if (size <= begin) {
+		fprintf(stderr, "%s: offset 0x%lx outside of %s.\n",
+			prog, begin, arg);
+		goto err_file;
+	}
+
+	if (size < end) {
+		fprintf(stderr, "%s: range 0x%lx outside of %s.\n",
+			prog, end, arg);
+		goto err_file;
+	}
+
+	if (end <= begin) {
+		fprintf(stderr, "%s: bad range.\n", prog);
+		goto err_file;
+	}
+
+	size = end - begin;
+
+	pt = malloc(size);
+	if (!pt) {
+		fprintf(stderr, "%s: failed to allocated memory %s.\n",
+			prog, arg);
+		goto err_file;
+	}
+
+	errcode = fseek(file, begin, SEEK_SET);
+	if (errcode) {
+		fprintf(stderr, "%s: failed to load %s: %d.\n",
+			prog, arg, errno);
+		goto err_pt;
+	}
+
+	read = fread(pt, size, 1, file);
+	if (read != 1) {
+		fprintf(stderr, "%s: failed to load %s: %d.\n",
+			prog, arg, errno);
+		goto err_pt;
+	}
+
+	fclose(file);
+
+	config->begin = pt;
+	config->end = pt + size;
+
+	return 0;
+
+err_pt:
+	free(pt);
+
+err_file:
+	fclose(file);
+	return 1;
+}
 
 static int print(const struct ptdump_options *options, const char *format, ...)
 {
@@ -531,8 +556,6 @@ int main(int argc, char *argv[])
 {
 	struct ptdump_options options;
 	struct pt_config config;
-	uint32_t size;
-	uint8_t *pt;
 	int errcode, idx;
 	char *ptfile;
 
@@ -606,13 +629,9 @@ int main(int argc, char *argv[])
 		return no_file_error(argv[0]);
 
 	/* We will leak the pt buffer. */
-	pt = map_pt(ptfile, &size);
-	if (!pt) {
-		diag("failed to read PT stream");
-		return -1;
-	}
-	config.begin = pt;
-	config.end = pt + size;
+	errcode = load_pt(&config, ptfile, argv[0]);
+	if (errcode < 0)
+		return errcode;
 
 	errcode = dump(&config, &options);
 
