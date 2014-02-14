@@ -69,7 +69,10 @@ enum pt_dump_flag {
 	ptd_quiet = 1 << 5,
 
 	/* Don't show PAD packets. */
-	ptd_no_pad = 1 << 6
+	ptd_no_pad = 1 << 6,
+
+	/* Do not try to sync the decoder. */
+	ptd_no_sync = 1 << 7
 };
 
 struct ptdump_options {
@@ -98,6 +101,8 @@ static int help(const char *name)
 		"options:\n"
 		"  --help|-h                this text.\n"
 		"  --version                display version information and exit.\n"
+		"  --no-sync                don't try to sync to the first PSB, assume a valid\n"
+		"                           sync point at the beginning of the trace.\n"
 		"  --quiet                  don't print anything but errors.\n"
 		"  --no-pad                 don't show PAD packets.\n"
 		"  --no-offset              don't show the offset as the first column.\n"
@@ -346,10 +351,19 @@ static int dump(uint8_t *begin, uint8_t *end,
 		goto out;
 	}
 
+	errcode = pte_ok;
+
 
 sync:
-	/* Sync to the stream. */
-	errcode = pt_pkt_sync_forward(decoder);
+	/* Sync to the stream.  We can skip that for the only exception that we
+	 * try to initially sync and --no-sync was specified.  In such a case
+	 * we set the sync point to the beginning of the trace.
+	 */
+	if (errcode == pte_ok && (options->flags & ptd_no_sync))
+		errcode = pt_pkt_sync_set(decoder, 0);
+	else
+		errcode = pt_pkt_sync_forward(decoder);
+
 	if (errcode < 0) {
 		uint64_t offset;
 		int errcode2;
@@ -564,6 +578,8 @@ int main(int argc, char *argv[])
 			return help(argv[0]);
 		if (strcmp(argv[idx], "--version") == 0)
 			return version(argv[0]);
+		if (strcmp(argv[idx], "--no-sync") == 0)
+			options.flags |= ptd_no_sync;
 		else if (strcmp(argv[idx], "--quiet") == 0)
 			options.flags |= ptd_quiet;
 		else if (strcmp(argv[idx], "--no-pad") == 0)
