@@ -49,35 +49,27 @@
 #endif
 
 
-enum pt_dump_flag {
+struct ptdump_options {
 	/* Show the current offset in the trace stream. */
-	ptd_show_offset = 1 << 0,
+	uint32_t show_offset:1;
 
 	/* Show raw packet bytes. */
-	ptd_show_raw_bytes = 1 << 1,
+	uint32_t show_raw_bytes:1;
 
 	/* Show last IP for packets with IP payloads. */
-	ptd_show_last_ip = 1 << 2,
+	uint32_t show_last_ip:1;
 
 	/* Print current offset column always with fixed width. */
-	ptd_fixed_offset_width = 1 << 3,
-
-	/* Use the cpu specified in the options. */
-	ptd_use_cpu = 1 << 4,
+	uint32_t fixed_offset_width:1;
 
 	/* Quiet mode: Don't print anything but errors. */
-	ptd_quiet = 1 << 5,
+	uint32_t quiet:1;
 
 	/* Don't show PAD packets. */
-	ptd_no_pad = 1 << 6,
+	uint32_t no_pad:1;
 
 	/* Do not try to sync the decoder. */
-	ptd_no_sync = 1 << 7
-};
-
-struct ptdump_options {
-	uint32_t flags;
-	struct pt_cpu cpu;
+	uint32_t no_sync:1;
 };
 
 static int usage(const char *name)
@@ -249,7 +241,7 @@ static int print(const struct ptdump_options *options, const char *format, ...)
 	int ret;
 	va_list ap;
 
-	if (options->flags & ptd_quiet)
+	if (options->quiet)
 		return 0;
 
 	va_start(ap, format);
@@ -306,12 +298,11 @@ static inline void diag_err_pos(const char *msg, enum pt_error_code err,
 		pos, msg, pt_errstr(err));
 }
 
-static int dump(uint8_t *begin, uint8_t *end,
+static int dump(const struct pt_config *config,
 		const struct ptdump_options *options)
 {
 	int errcode;
 	struct pt_packet packet;
-	struct pt_config config;
 	struct pt_packet_decoder *decoder;
 	struct pt_last_ip last_ip;
 	char str[pps_payload];
@@ -324,9 +315,9 @@ static int dump(uint8_t *begin, uint8_t *end,
 
 	const unsigned col_offset_width_fixed = 16;
 	const unsigned col_offset_width =
-		(options->flags & ptd_fixed_offset_width) ?
+		(options->fixed_offset_width) ?
 		col_offset_width_fixed :
-		calc_col_offset_width(end - begin);
+		calc_col_offset_width(config->end - config->begin);
 	const unsigned col_packettype_width = 9;
 	const unsigned col_payload_width = 47;
 
@@ -334,17 +325,8 @@ static int dump(uint8_t *begin, uint8_t *end,
 
 	memset(&packet, 0, sizeof(packet));
 
-	memset(&config, 0, sizeof(config));
-	pt_configure(&config);
-	config.begin = begin;
-	config.end = end;
-
-	/* check if we need to override the auto-detected value. */
-	if (options->flags & ptd_use_cpu)
-		config.cpu = options->cpu;
-
 	decoder = NULL;
-	decoder = pt_pkt_alloc_decoder(&config);
+	decoder = pt_pkt_alloc_decoder(config);
 	if (!decoder) {
 		diag("cannot allocate decoder");
 		errcode = -pte_nomem;
@@ -359,7 +341,7 @@ sync:
 	 * try to initially sync and --no-sync was specified.  In such a case
 	 * we set the sync point to the beginning of the trace.
 	 */
-	if (errcode == pte_ok && (options->flags & ptd_no_sync))
+	if (errcode == pte_ok && options->no_sync)
 		errcode = pt_pkt_sync_set(decoder, 0);
 	else
 		errcode = pt_pkt_sync_forward(decoder);
@@ -409,11 +391,11 @@ sync:
 		}
 
 		/* Skip PAD packets if requested */
-		if (packet.type == ppt_pad && (options->flags & ptd_no_pad))
+		if (packet.type == ppt_pad && options->no_pad)
 			continue;
 
 		/* Print stream offset. */
-		if (options->flags & ptd_show_offset) {
+		if (options->show_offset) {
 			ret = print(options, "%0*" PRIx64, col_offset_width,
 				    pos);
 			if (ret < 0) {
@@ -454,7 +436,7 @@ sync:
 
 		/* Print last IP if requested
 		 * and if packet type is an IP packet. */
-		if (options->flags & ptd_show_last_ip) {
+		if (options->show_last_ip) {
 			uint64_t ip;
 
 			switch (packet.type) {
@@ -464,7 +446,7 @@ sync:
 			case ppt_fup:
 				ret = pt_last_ip_update_ip(&last_ip,
 							   &packet.payload.ip,
-							   &config);
+							   config);
 
 				if (ret == -pte_invalid) {
 					diag_err_pos("failed to update last-IP",
@@ -510,7 +492,7 @@ sync:
 skip_last_ip_printing:
 
 		/* Print raw packet bytes. */
-		if (options->flags & ptd_show_raw_bytes) {
+		if (options->show_raw_bytes) {
 			uint8_t idx;
 
 			if (col_payload_width_used == 0) {
@@ -548,20 +530,24 @@ out:
 int main(int argc, char *argv[])
 {
 	struct ptdump_options options;
+	struct pt_config config;
 	uint32_t size;
 	uint8_t *pt;
 	int errcode, idx;
-	const char *ptfile;
+	char *ptfile;
 
 	ptfile = NULL;
-	memset(&options, 0, sizeof(options));
-	options.flags |= ptd_show_offset;
 
-	/* default is to override the auto-detected value during
-	 * pt_configure with default spec behavior. options.cpu is
-	 * zeroed above.
-	 */
-	options.flags |= ptd_use_cpu;
+	memset(&options, 0, sizeof(options));
+	options.show_offset = 1;
+
+	memset(&config, 0, sizeof(config));
+	errcode = pt_configure(&config);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: configuration failed: %s\n", argv[0],
+			pt_errstr(pt_errcode(errcode)));
+		return 1;
+	}
 
 
 	for (idx = 1; idx < argc; ++idx) {
@@ -579,39 +565,32 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[idx], "--version") == 0)
 			return version(argv[0]);
 		if (strcmp(argv[idx], "--no-sync") == 0)
-			options.flags |= ptd_no_sync;
+			options.no_sync = 1;
 		else if (strcmp(argv[idx], "--quiet") == 0)
-			options.flags |= ptd_quiet;
+			options.quiet = 1;
 		else if (strcmp(argv[idx], "--no-pad") == 0)
-			options.flags |= ptd_no_pad;
+			options.no_pad = 1;
 		else if (strcmp(argv[idx], "--no-offset") == 0)
-			options.flags &= ~ptd_show_offset;
+			options.show_offset = 0;
 		else if (strcmp(argv[idx], "--raw") == 0)
-			options.flags |= ptd_show_raw_bytes;
+			options.show_raw_bytes = 1;
 		else if (strcmp(argv[idx], "--lastip") == 0)
-			options.flags |= ptd_show_last_ip;
+			options.show_last_ip = 1;
 		else if (strcmp(argv[idx], "--fixed-offset-width") == 0)
-			options.flags |= ptd_fixed_offset_width;
+			options.fixed_offset_width = 1;
 		else if (strcmp(argv[idx], "--cpu") == 0) {
 			const char *arg = argv[++idx];
 
 			/* keep the auto-detected values from pt_configure. */
-			if (strcmp(arg, "auto") == 0) {
-				options.flags &= ~ptd_use_cpu;
+			if (strcmp(arg, "auto") == 0)
 				continue;
-			}
-
-			/* use the value in options.cpu, instead of
-			 * auto-detected.
-			 */
-			options.flags |= ptd_use_cpu;
 
 			if (strcmp(arg, "none") == 0) {
-				memset(&options.cpu, 0, sizeof(options.cpu));
+				memset(&config.cpu, 0, sizeof(config.cpu));
 				continue;
 			}
 
-			errcode = pt_cpu_parse(&options.cpu, arg);
+			errcode = pt_cpu_parse(&config.cpu, arg);
 			if (errcode < 0) {
 				fprintf(stderr,
 					"%s: cpu must be specified as f/m[/s]\n",
@@ -632,8 +611,10 @@ int main(int argc, char *argv[])
 		diag("failed to read PT stream");
 		return -1;
 	}
+	config.begin = pt;
+	config.end = pt + size;
 
-	errcode = dump(pt, pt + size, &options);
+	errcode = dump(&config, &options);
 
 	return -errcode;
 }
