@@ -1,0 +1,154 @@
+Building the Intel(R) Processor Trace (PT) Decoder Library and Samples {#build}
+===============================================================================
+
+<!--- Copyright (c) 2013-2014 Intel Corporation.  All rights reserved. -->
+
+This chapter gives step-by-step instructions for building the library and the
+sample tools using cmake.  For detailed information on cmake, see
+http://www.cmake.org.
+
+
+## Configuration
+
+Besides the standard cmake options of build type and install directory, you will
+find project-specific options for enabling optional features, optional
+components, or optional build variants.
+
+
+### Optional Features
+
+Features are enabled by setting the respective FEATURE_<name> cmake variable.
+This causes the FEATURE_<name> pre-processor macro to be defined and may also
+cause additional source files to be compiled and additional libraries to be
+linked.
+
+Features are enabled globally and will be used by all components that support
+the feature.  The following features are supported:
+
+    FEATURE_MMAP        Support for mapping files into memory.
+
+                        This feature is not available on Windows.
+
+
+    FEATURE_ELF         Support for the ELF object format.
+
+                        This feature requires the elf.h header.
+
+
+### Optional Components
+
+Some components depend on libraries or header files that may not be available on
+all supported platforms.
+
+
+    CHECK               Support for the check unit test system.
+
+                        This component requires libcheck and is not available on
+                        Windows.
+
+
+### Build Variants
+
+Some build variants depend on libraries or header files that may not be
+available on all supported platforms.
+
+    GCOV                Support for code coverage using libgcov.
+
+                        This build variant requires libgcov and is not availble
+                        on Windows.
+
+
+### Version Settings
+
+The major and minor version numbers are set in the sources and must be changed
+there.  You can set the build number and an arbitrary extension string.
+build.
+
+    PT_VERSION_BUILD    The build number.
+
+                        Defaults to zero.
+
+
+    PT_VERSION_EXT      An arbitrary version extension string.
+
+                        Defaults to the empty string.
+
+
+### Dependencies
+
+In order to build ptxed, the location of the XED library and the XED header
+files must be specified.
+
+    XED_INCLUDE         Path to the directory containing the XED header files.
+
+    XED_LIBDIR          Path to the directory containing the XED library.
+
+
+
+## Building on Linux``*`` and OS X``*``
+
+We recommend out-of-tree builds.  Start by creating the destination directory
+and navigating into it:
+
+    $ mkdir -p /path/to/dest
+    $ cd /path/to/dest
+
+
+From here, call cmake with the top-level source directory as argument.  You may
+already pass some or all of the cmake variables as arguments to cmake.  Without
+arguments, cmake uses default values.
+
+    $ cmake /path/to/src
+
+
+If you have not passed values for XED_INCLUDE or XED_LIBDIR, you need to
+configure them now if you want to build ptxed.  You may also use this command to
+change the configuration at any time later on.
+
+    $ make edit_cache
+
+
+After configuring the cmake cache, you can build either specific targets or
+everything using one of:
+
+    $ make <target>
+    $ make
+
+
+Use the help make target to learn about available make targets:
+
+    $ make help
+
+
+
+## Building on Windows``*``
+
+We recommend using the cmake GUI.  After starting the cmake GUI, fill in the
+following fields:
+
+    Where is the source code:       Path to the top-level source directory.
+
+    Where to build the binaries:    Path to the destination directory.
+
+
+We recommend out-of-tree builds, so the build directory should not be the same
+as or below the source directory.  After this first configuration step, press
+the
+
+    Configure
+
+button and select the builder you want to use.
+
+Cmake will now populate the remainder of the window with configuration options.
+Please make sure to specify at least XED_INCLUDE and XED_LIBDIR if you want to
+build ptxed.  After completing the configuration, press the
+
+    Generate
+
+button.  If you selected a Visual Studio generator in the first step, cmake will
+now generate a Visual Studio solution.  You can repeat this step if you want to
+change the configuration later on.  Beware that you always need to press the
+Generate button after changing the configuration.
+
+In the case of a Visual Studio generator, you may now open the generated Visual
+Studio solution and build the library and samples.

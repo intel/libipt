@@ -30,6 +30,7 @@ Optional Contents and Samples
   script        A collection of scripts
 
   doc           A document describing how to get started
+                A document describing the build
                 A document describing pttc
 
 
@@ -63,40 +64,6 @@ Other packages you need for some of the above optional components.
                 http://doxygen.org
 
                 This is needed to build documentation.
-
-
-Features
---------
-
-Some of the tools support separately enabled features.  Features are
-enabled by defining the respective FEATURE_<name> pre-processor macro
-or by setting the respective FEATURE_<name> cmake variable.
-
-The following features are supported:
-
-  MMAP          Map files into memory.
-
-  ELF           Support for the ELF object format.
-
-
-Building on Linux and OS X
---------------------------
-
-Navigate to your desired destination directory and call ccmake with the
-source directory:
-
-  $ cd /path/to/dest
-  $ ccmake /path/to/pt/src
-
-After configuring the cmake cache, build normally:
-
-  $ make
-
-
-Building on Windows
--------------------
-
-Start the cmake GUI and follow the instructions.
 
 
 Maintainers
