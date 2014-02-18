@@ -13,7 +13,6 @@ Contents
   README        this file
 
   libipt        A packet encoder/decoder library
-                A document describing the usage of the decoder library
 
 
 Optional Contents and Samples
@@ -31,6 +30,7 @@ Optional Contents and Samples
 
   doc           A document describing how to get started
                 A document describing the build
+                A document describing the usage of the decoder library
                 A document describing pttc
 
 
