@@ -38,8 +38,7 @@ int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 	return pt_decoder_init(&decoder->decoder, config);
 }
 
-struct pt_query_decoder *
-pt_qry_alloc_decoder(struct pt_config *config)
+struct pt_query_decoder *pt_qry_alloc_decoder(const struct pt_config *config)
 {
 	struct pt_query_decoder *decoder;
 	int errcode;

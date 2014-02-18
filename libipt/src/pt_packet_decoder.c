@@ -38,7 +38,7 @@ int pt_pkt_decoder_init(struct pt_packet_decoder *decoder,
 	return pt_decoder_init(&decoder->decoder, config);
 }
 
-struct pt_packet_decoder *pt_pkt_alloc_decoder(struct pt_config *config)
+struct pt_packet_decoder *pt_pkt_alloc_decoder(const struct pt_config *config)
 {
 	struct pt_packet_decoder *decoder;
 	int errcode;

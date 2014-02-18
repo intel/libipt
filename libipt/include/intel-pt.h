@@ -697,7 +697,7 @@ extern pt_export int pt_encode_cbr(struct pt_encoder *, uint8_t);
  * The decoder needs to be synchronized before it can be used.
  */
 extern pt_export struct pt_packet_decoder *
-pt_pkt_alloc_decoder(struct pt_config *config);
+pt_pkt_alloc_decoder(const struct pt_config *config);
 
 /** Free a PT packet decoder.
  *
@@ -967,7 +967,7 @@ struct pt_event {
  * The decoder needs to be synchronized before it can be used.
  */
 extern pt_export struct pt_query_decoder *
-pt_qry_alloc_decoder(struct pt_config *config);
+pt_qry_alloc_decoder(const struct pt_config *config);
 
 /** Free a PT query decoder.
  *
