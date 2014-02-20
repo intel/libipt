@@ -175,16 +175,6 @@ void pt_add_tcase(Suite *suite,
 	suite_add_tcase(suite, tcase);
 }
 
-void *check_encode_byte(struct pt_encoder *encoder, uint8_t byte)
-{
-	int bytes;
-
-	bytes = pt_encode_byte(encoder, byte);
-	ck_int_gt(bytes, 0);
-
-	return encoder->pos;
-}
-
 void *check_encode_pad(struct pt_encoder *encoder)
 {
 	int bytes;

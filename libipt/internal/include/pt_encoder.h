@@ -51,14 +51,8 @@ extern int pt_encoder_init(struct pt_encoder *, const struct pt_config *);
 /* Finalize the packet encoder. */
 extern void pt_encoder_fini(struct pt_encoder *);
 
-/*
- * The below encoding functions operate on an encoder.
- * They return the number of bytes written on success.
- * They return a negative error code otherwise.
- */
 
-/* Write a single byte into the encoder's trace buffer. */
-extern int pt_encode_byte(struct pt_encoder *, uint8_t);
+/* The below functions are convenience wrappers around pt_encode(). */
 
 /* Encode a Padding (pad) packet. */
 extern int pt_encode_pad(struct pt_encoder *);

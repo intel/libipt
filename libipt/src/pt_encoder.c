@@ -440,326 +440,170 @@ int pt_encode(struct pt_encoder *encoder, const struct pt_packet *packet)
 	return -pte_bad_opc;
 }
 
-int pt_encode_byte(struct pt_encoder *encoder, uint8_t byte)
-{
-	if (!encoder)
-		return -pte_invalid;
-
-	if (!encoder->pos)
-		return -pte_nosync;
-
-	if (encoder->pos < encoder->config.begin)
-		return -pte_nosync;
-
-	if (encoder->config.end <= encoder->pos)
-		return -pte_nosync;
-
-	*encoder->pos++ = byte;
-
-	return 1;
-}
-
-static int pt_encode_ext_opc(struct pt_encoder *encoder, uint8_t opc)
-{
-	int bytes, total;
-
-	total = 0;
-	bytes = pt_encode_byte(encoder, pt_opc_ext);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	bytes = pt_encode_byte(encoder, opc);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
-}
-
 int pt_encode_pad(struct pt_encoder *encoder)
 {
-	return pt_encode_byte(encoder, pt_opc_pad);
+	struct pt_packet packet;
+
+	packet.type = ppt_pad;
+
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_psb(struct pt_encoder *encoder)
 {
-	uint8_t count;
-	int bytes, total;
+	struct pt_packet packet;
 
-	total = 0;
-	bytes = pt_encode_ext_opc(encoder, pt_ext_psb);
-	if (bytes < 0)
-		return bytes;
+	packet.type = ppt_psb;
 
-	total += bytes;
-	for (count = 0; count < pt_psb_repeat_count; ++count) {
-		bytes = pt_encode_byte(encoder, pt_psb_hi);
-		if (bytes < 0)
-			return bytes;
-
-		total += bytes;
-		bytes = pt_encode_byte(encoder, pt_psb_lo);
-		if (bytes < 0)
-			return bytes;
-
-		total += bytes;
-	}
-
-	return total;
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_psbend(struct pt_encoder *encoder)
 {
-	return pt_encode_ext_opc(encoder, pt_ext_psbend);
-}
+	struct pt_packet packet;
 
-static int pt_encode_value(struct pt_encoder *encoder, uint64_t val, int size)
-{
-	int bytes, total;
+	packet.type = ppt_psbend;
 
-	total = 0;
-	for (; size; --size, val >>= 8) {
-		bytes = pt_encode_byte(encoder, (uint8_t) val);
-		if (bytes < 0)
-			return bytes;
-
-		total += bytes;
-	}
-
-	return total;
-}
-
-static int pt_encode_ip_packet(struct pt_encoder *encoder, uint8_t opc,
-			       uint64_t ip, enum pt_ip_compression ipc)
-{
-	int bytes, total, size;
-
-	if (ipc & ~pt_opm_ipc_shr_mask)
-		return -pte_invalid;
-
-	opc |= ipc << pt_opm_ipc_shr;
-
-	size = 0;
-	total = 0;
-	bytes = pt_encode_byte(encoder, opc);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-
-	switch (ipc) {
-	case pt_ipc_suppressed:
-		size = 0;
-		break;
-
-	case pt_ipc_update_16:
-		size = 2;
-		break;
-
-	case pt_ipc_update_32:
-		size = 4;
-		break;
-
-	case pt_ipc_sext_48:
-		size = 6;
-		break;
-	}
-
-	bytes = pt_encode_value(encoder, ip, size);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_tip(struct pt_encoder *encoder, uint64_t ip,
 		  enum pt_ip_compression ipc)
 {
-	return pt_encode_ip_packet(encoder, pt_opc_tip, ip, ipc);
+	struct pt_packet packet;
+
+	packet.type = ppt_tip;
+	packet.payload.ip.ip = ip;
+	packet.payload.ip.ipc = ipc;
+
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_tnt_8(struct pt_encoder *encoder, uint8_t tnt, int size)
 {
-	uint8_t opc;
-	int stop;
+	struct pt_packet packet;
 
-	if (size >= 7)
-		return -pte_invalid;
+	packet.type = ppt_tnt_8;
+	packet.payload.tnt.bit_size = (uint8_t) size;
+	packet.payload.tnt.payload = tnt;
 
-	opc = tnt << pt_opm_tnt_8_shr;
-
-	stop = size + pt_opm_tnt_8_shr;
-	opc |= 1 << stop;
-
-	return pt_encode_byte(encoder, opc);
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_tnt_64(struct pt_encoder *encoder, uint64_t tnt, int size)
 {
-	uint64_t stop;
-	int bytes, total;
+	struct pt_packet packet;
 
-	if (size >= pt_pl_tnt_64_bits)
-		return -pte_invalid;
+	packet.type = ppt_tnt_64;
+	packet.payload.tnt.bit_size = (uint8_t) size;
+	packet.payload.tnt.payload = tnt;
 
-	/* The TNT stop bit. */
-	stop = 1ull << size;
-
-	/* Mask out any leftover high bits and set the stop bit. */
-	tnt &= stop - 1;
-	tnt |= stop;
-
-	total = 0;
-	bytes = pt_encode_ext_opc(encoder, pt_ext_tnt_64);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	bytes = pt_encode_value(encoder, tnt, pt_pl_tnt_64_size);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_tip_pge(struct pt_encoder *encoder, uint64_t ip,
 		      enum pt_ip_compression ipc)
 {
-	return pt_encode_ip_packet(encoder, pt_opc_tip_pge, ip, ipc);
+	struct pt_packet packet;
+
+	packet.type = ppt_tip_pge;
+	packet.payload.ip.ip = ip;
+	packet.payload.ip.ipc = ipc;
+
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_tip_pgd(struct pt_encoder *encoder, uint64_t ip,
 		      enum pt_ip_compression ipc)
 {
-	return pt_encode_ip_packet(encoder, pt_opc_tip_pgd, ip, ipc);
+	struct pt_packet packet;
+
+	packet.type = ppt_tip_pgd;
+	packet.payload.ip.ip = ip;
+	packet.payload.ip.ipc = ipc;
+
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_fup(struct pt_encoder *encoder, uint64_t ip,
 		  enum pt_ip_compression ipc)
 {
-	return pt_encode_ip_packet(encoder, pt_opc_fup, ip, ipc);
+	struct pt_packet packet;
+
+	packet.type = ppt_fup;
+	packet.payload.ip.ip = ip;
+	packet.payload.ip.ipc = ipc;
+
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_pip(struct pt_encoder *encoder, uint64_t cr3)
 {
-	int bytes, total;
+	struct pt_packet packet;
 
-	cr3 >>= pt_pl_pip_shl;
-	cr3 <<= pt_pl_pip_shr;
+	packet.type = ppt_pip;
+	packet.payload.pip.cr3 = cr3;
 
-	total = 0;
-	bytes = pt_encode_ext_opc(encoder, pt_ext_pip);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	bytes = pt_encode_value(encoder, cr3, pt_pl_pip_size);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_ovf(struct pt_encoder *encoder)
 {
-	return pt_encode_ext_opc(encoder, pt_ext_ovf);
+	struct pt_packet packet;
+
+	packet.type = ppt_ovf;
+
+	return pt_encode(encoder, &packet);
 }
 
-static int pt_encode_mode(struct pt_encoder *encoder, uint8_t payload)
+int pt_encode_mode_exec(struct pt_encoder *encoder, enum pt_exec_mode mode)
 {
-	int bytes, total;
+	struct pt_packet packet;
 
-	total = 0;
-	bytes = pt_encode_byte(encoder, pt_opc_mode);
-	if (bytes < 0)
-		return bytes;
+	packet.type = ppt_mode;
+	packet.payload.mode.leaf = pt_mol_exec;
+	packet.payload.mode.bits.exec = pt_set_exec_mode(mode);
 
-	total += bytes;
-	bytes = pt_encode_byte(encoder, payload);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
-}
-
-int pt_encode_mode_exec(struct pt_encoder *encoder, enum pt_exec_mode am)
-{
-	uint8_t mode;
-
-	mode = pt_mol_exec;
-
-	switch (am) {
-	default:
-		return -pte_invalid;
-
-	case ptem_16bit:
-		break;
-
-	case ptem_32bit:
-		mode |= pt_mob_exec_csd;
-		break;
-
-	case ptem_64bit:
-		mode |= pt_mob_exec_csl;
-		break;
-	}
-
-	return pt_encode_mode(encoder, mode);
+	return pt_encode(encoder, &packet);
 }
 
 
 int pt_encode_mode_tsx(struct pt_encoder *encoder, uint8_t bits)
 {
-	uint8_t mode;
+	struct pt_packet packet;
 
-	mode = pt_mol_tsx;
-	mode |= (bits & pt_mom_bits);
+	packet.type = ppt_mode;
+	packet.payload.mode.leaf = pt_mol_tsx;
 
-	return pt_encode_mode(encoder, mode);
+	if (bits & pt_mob_tsx_intx)
+		packet.payload.mode.bits.tsx.intx = 1;
+	else
+		packet.payload.mode.bits.tsx.intx = 0;
+
+	if (bits & pt_mob_tsx_abrt)
+		packet.payload.mode.bits.tsx.abrt = 1;
+	else
+		packet.payload.mode.bits.tsx.abrt = 0;
+
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_tsc(struct pt_encoder *encoder, uint64_t tsc)
 {
-	int bytes, total;
+	struct pt_packet packet;
 
-	total = 0;
-	bytes = pt_encode_byte(encoder, pt_opc_tsc);
-	if (bytes < 0)
-		return bytes;
+	packet.type = ppt_tsc;
+	packet.payload.tsc.tsc = tsc;
 
-	total += bytes;
-	bytes = pt_encode_value(encoder, tsc, pt_pl_tsc_size);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
+	return pt_encode(encoder, &packet);
 }
 
 int pt_encode_cbr(struct pt_encoder *encoder, uint8_t cbr)
 {
-	int bytes, total;
+	struct pt_packet packet;
 
-	total = 0;
-	bytes = pt_encode_ext_opc(encoder, pt_ext_cbr);
-	if (bytes < 0)
-		return bytes;
+	packet.type = ppt_cbr;
+	packet.payload.cbr.ratio = cbr;
 
-	total += bytes;
-	bytes = pt_encode_byte(encoder, cbr);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	bytes = pt_encode_byte(encoder, 0);
-	if (bytes < 0)
-		return bytes;
-
-	total += bytes;
-	return total;
+	return pt_encode(encoder, &packet);
 }

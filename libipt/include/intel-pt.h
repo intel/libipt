@@ -520,6 +520,36 @@ pt_get_exec_mode(const struct pt_packet_mode_exec *packet)
 		return packet->csd ? ptem_32bit : ptem_16bit;
 }
 
+static inline struct pt_packet_mode_exec
+pt_set_exec_mode(enum pt_exec_mode mode)
+{
+	struct pt_packet_mode_exec packet;
+
+	switch (mode) {
+	default:
+		packet.csl = 1;
+		packet.csd = 1;
+		break;
+
+	case ptem_64bit:
+		packet.csl = 1;
+		packet.csd = 0;
+		break;
+
+	case ptem_32bit:
+		packet.csl = 0;
+		packet.csd = 1;
+		break;
+
+	case ptem_16bit:
+		packet.csl = 0;
+		packet.csd = 0;
+		break;
+	}
+
+	return packet;
+}
+
 /** A mode.tsx packet. */
 struct pt_packet_mode_tsx {
 	/** The mode.tsx intx bit. */

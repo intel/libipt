@@ -108,7 +108,7 @@ START_TEST(check_fetch_unknown)
 	struct pt_encoder *encoder = &dfix->encoder;
 	int errcode;
 
-	check_encode_byte(encoder, pt_opc_bad);
+	*encoder->pos++ = pt_opc_bad;
 
 	errcode = pt_fetch_decoder(decoder);
 	ck_int_eq(errcode, 0);
@@ -125,8 +125,8 @@ START_TEST(check_fetch_ext_unknown)
 	struct pt_encoder *encoder = &dfix->encoder;
 	int errcode;
 
-	check_encode_byte(encoder, pt_opc_ext);
-	check_encode_byte(encoder, pt_ext_bad);
+	*encoder->pos++ = pt_opc_ext;
+	*encoder->pos++ = pt_ext_bad;
 
 	errcode = pt_fetch_decoder(decoder);
 	ck_int_eq(errcode, 0);

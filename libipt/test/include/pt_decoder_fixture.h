@@ -162,9 +162,6 @@ static inline void pt_sync_decoder(struct pt_decoder *decoder)
  * They return the position after the encoded packet.
  */
 
-/* Write a single byte into the encoder's trace buffer. */
-extern void *check_encode_byte(struct pt_encoder *, uint8_t);
-
 /* Encode a Padding (pad) packet. */
 extern void *check_encode_pad(struct pt_encoder *);
 
