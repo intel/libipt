@@ -42,7 +42,6 @@ set(LIBIPT_FILES
   src/pt_decoder.c
   src/pt_sync.c
   src/pt_version.c
-  src/pt_packet.c
   src/pt_last_ip.c
   src/pt_tnt_cache.c
   src/pt_ild.c
@@ -95,7 +94,6 @@ if (CHECK)
     test/src/check_pt_decoder.c
     test/src/check_pt_sync.c
     test/src/check_pt_use.c
-    test/src/check_pt_packet.c
     test/src/pt_decoder_fixture.c
   )
 

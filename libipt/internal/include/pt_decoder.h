@@ -168,31 +168,6 @@ extern const uint8_t *pt_get_decoder_end(const struct pt_decoder *);
 extern int pt_sync_forward(struct pt_decoder *);
 extern int pt_sync_backward(struct pt_decoder *);
 
-/* Advance the decoder.
- *
- * Adjust @decoder's position by @size bytes.
- *
- * Returns zero on success.
- *
- * Returns -pte_invalid if no decoder is given.
- * Returns -pte_eos if the adjusted position would be outside of the PT buffer.
- */
-extern int pt_advance(struct pt_decoder *decoder, int size);
-
-/* Decode the next packet.
- *
- * Decodes the packet at @decoder's current position into @packet.
- *
- * Returns the number of bytes consumed on success.
- *
- * Returns -pte_invalid if no decoder or no packet is given.
- * Returns -pte_nosync if the decoder is out of sync.
- * Returns -pte_eos if the decoder reached the end of the PT buffer.
- * Returns -pte_bad_opc if the packet is unknown to the decoder.
- */
-extern int pt_decode(struct pt_packet *packet,
-		     struct pt_decoder *decoder);
-
 /* Start querying.
  *
  * Read ahead until the first query-relevant packet and return the current

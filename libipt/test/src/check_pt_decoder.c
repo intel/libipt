@@ -466,97 +466,6 @@ START_TEST(check_event_consistency)
 }
 END_TEST
 
-START_TEST(check_advance_null_fail)
-{
-	int errcode;
-
-	errcode = pt_advance(NULL, 0);
-	ck_int_eq(errcode, -pte_invalid);
-}
-END_TEST
-
-START_TEST(check_advance_zero)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &decoder->config;
-	int errcode;
-
-	errcode = pt_advance(decoder, 0);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, config->begin);
-}
-END_TEST
-
-START_TEST(check_advance_forward)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &decoder->config;
-	int errcode, size = 5;
-
-	errcode = pt_advance(decoder, size);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, config->begin + size);
-}
-END_TEST
-
-START_TEST(check_advance_end)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &decoder->config;
-	int errcode, size = sizeof(dfix->buffer);
-
-	errcode = pt_advance(decoder, size);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, config->end);
-}
-END_TEST
-
-START_TEST(check_advance_backward)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &decoder->config;
-	int errcode, size = 5;
-
-	decoder->pos += size;
-
-	errcode = pt_advance(decoder, -size);
-	ck_int_eq(errcode, 0);
-	ck_ptr(decoder->pos, config->begin);
-}
-END_TEST
-
-START_TEST(check_advance_forward_eos)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &decoder->config;
-	int errcode, size = 5;
-
-	decoder->pos = config->end;
-
-	errcode = pt_advance(decoder, size);
-	ck_int_eq(errcode, -pte_eos);
-	ck_ptr(decoder->pos, config->end);
-}
-END_TEST
-
-START_TEST(check_advance_backward_eos)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &decoder->config;
-	int errcode, size = 5;
-
-	errcode = pt_advance(decoder, -size);
-	ck_int_eq(errcode, -pte_eos);
-	ck_ptr(decoder->pos, config->begin);
-}
-END_TEST
-
 static void add_alloc_tests(TCase *tcase)
 {
 	tcase_add_test(tcase, check_pt_alloc_null);
@@ -598,17 +507,6 @@ static void add_event_tests(TCase *tcase)
 	tcase_add_test(tcase, check_event_consistency);
 }
 
-static void add_advance_tests(TCase *tcase)
-{
-	tcase_add_test(tcase, check_advance_null_fail);
-	tcase_add_test(tcase, check_advance_zero);
-	tcase_add_test(tcase, check_advance_forward);
-	tcase_add_test(tcase, check_advance_end);
-	tcase_add_test(tcase, check_advance_backward);
-	tcase_add_test(tcase, check_advance_forward_eos);
-	tcase_add_test(tcase, check_advance_backward_eos);
-}
-
 static struct tcase_desc tcase_initial = {
 	/* .name = */ "initial",
 	/* .add_tests = */ add_initial_tests
@@ -622,11 +520,6 @@ static struct tcase_desc tcase_pos = {
 static struct tcase_desc tcase_event = {
 	/* .name = */ "event",
 	/* .add_tests = */ add_event_tests
-};
-
-static struct tcase_desc tcase_advance = {
-	/* .name = */ "advance",
-	/* .add_tests = */ add_advance_tests
 };
 
 Suite *suite_pt_decoder(void)
@@ -643,7 +536,6 @@ Suite *suite_pt_decoder(void)
 	pt_add_tcase(suite, &tcase_initial, &dfix_nosync);
 	pt_add_tcase(suite, &tcase_pos, &dfix_standard);
 	pt_add_tcase(suite, &tcase_event, &dfix_standard);
-	pt_add_tcase(suite, &tcase_advance, &dfix_standard);
 
 	return suite;
 }

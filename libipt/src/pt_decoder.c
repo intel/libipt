@@ -356,23 +356,3 @@ struct pt_event *pt_find_event(struct pt_decoder *decoder,
 
 	return NULL;
 }
-
-int pt_advance(struct pt_decoder *decoder, int size)
-{
-	const uint8_t *pos;
-
-	if (!decoder)
-		return -pte_invalid;
-
-	pos = decoder->pos + size;
-
-	if (pos < decoder->config.begin)
-		return -pte_eos;
-
-	if (decoder->config.end < pos)
-		return -pte_eos;
-
-	decoder->pos = pos;
-
-	return 0;
-}

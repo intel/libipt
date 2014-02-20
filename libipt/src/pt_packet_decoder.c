@@ -27,6 +27,7 @@
  */
 
 #include "pt_packet_decoder.h"
+#include "pt_packet_decode.h"
 
 
 int pt_pkt_decoder_init(struct pt_packet_decoder *decoder,
@@ -134,18 +135,28 @@ int pt_pkt_get_sync_offset(struct pt_packet_decoder *decoder, uint64_t *offset)
 
 int pt_pkt_next(struct pt_packet_decoder *decoder, struct pt_packet *packet)
 {
-	int size, errcode;
+	const struct pt_decoder_function *dfun;
+	int errcode, size;
 
-	if (!decoder)
+	if (!packet || !decoder)
 		return -pte_invalid;
 
-	size = pt_decode(packet, &decoder->decoder);
+	errcode = pt_fetch_decoder(&decoder->decoder);
+	if (errcode < 0)
+		return errcode;
+
+	dfun = decoder->decoder.next;
+	if (!dfun)
+		return -pte_internal;
+
+	if (!dfun->packet)
+		return -pte_internal;
+
+	size = dfun->packet(packet, &decoder->decoder);
 	if (size < 0)
 		return size;
 
-	errcode = pt_advance(&decoder->decoder, size);
-	if (errcode < 0)
-		return errcode;
+	decoder->decoder.pos += size;
 
 	return size;
 }
