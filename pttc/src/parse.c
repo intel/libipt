@@ -694,7 +694,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		goto error;
 	}
 
-	bytes_written = pt_encode(e, &packet);
+	bytes_written = pt_enc_next(e, &packet);
 	if (bytes_written < 0) {
 		const char *errstr, *format;
 		char *msg;

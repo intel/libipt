@@ -52,7 +52,7 @@ extern int pt_encoder_init(struct pt_encoder *, const struct pt_config *);
 extern void pt_encoder_fini(struct pt_encoder *);
 
 
-/* The below functions are convenience wrappers around pt_encode(). */
+/* The below functions are convenience wrappers around pt_enc_next(). */
 
 /* Encode a Padding (pad) packet. */
 extern int pt_encode_pad(struct pt_encoder *);

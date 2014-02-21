@@ -231,7 +231,7 @@ static int pt_encode_ip(struct pt_encoder *encoder, enum pt_opcode op,
 	return /* opc size = */ 1 + size;
 }
 
-int pt_encode(struct pt_encoder *encoder, const struct pt_packet *packet)
+int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 {
 	uint8_t *pos, *begin;
 	int errcode;
@@ -446,7 +446,7 @@ int pt_encode_pad(struct pt_encoder *encoder)
 
 	packet.type = ppt_pad;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_psb(struct pt_encoder *encoder)
@@ -455,7 +455,7 @@ int pt_encode_psb(struct pt_encoder *encoder)
 
 	packet.type = ppt_psb;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_psbend(struct pt_encoder *encoder)
@@ -464,7 +464,7 @@ int pt_encode_psbend(struct pt_encoder *encoder)
 
 	packet.type = ppt_psbend;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_tip(struct pt_encoder *encoder, uint64_t ip,
@@ -476,7 +476,7 @@ int pt_encode_tip(struct pt_encoder *encoder, uint64_t ip,
 	packet.payload.ip.ip = ip;
 	packet.payload.ip.ipc = ipc;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_tnt_8(struct pt_encoder *encoder, uint8_t tnt, int size)
@@ -487,7 +487,7 @@ int pt_encode_tnt_8(struct pt_encoder *encoder, uint8_t tnt, int size)
 	packet.payload.tnt.bit_size = (uint8_t) size;
 	packet.payload.tnt.payload = tnt;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_tnt_64(struct pt_encoder *encoder, uint64_t tnt, int size)
@@ -498,7 +498,7 @@ int pt_encode_tnt_64(struct pt_encoder *encoder, uint64_t tnt, int size)
 	packet.payload.tnt.bit_size = (uint8_t) size;
 	packet.payload.tnt.payload = tnt;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_tip_pge(struct pt_encoder *encoder, uint64_t ip,
@@ -510,7 +510,7 @@ int pt_encode_tip_pge(struct pt_encoder *encoder, uint64_t ip,
 	packet.payload.ip.ip = ip;
 	packet.payload.ip.ipc = ipc;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_tip_pgd(struct pt_encoder *encoder, uint64_t ip,
@@ -522,7 +522,7 @@ int pt_encode_tip_pgd(struct pt_encoder *encoder, uint64_t ip,
 	packet.payload.ip.ip = ip;
 	packet.payload.ip.ipc = ipc;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_fup(struct pt_encoder *encoder, uint64_t ip,
@@ -534,7 +534,7 @@ int pt_encode_fup(struct pt_encoder *encoder, uint64_t ip,
 	packet.payload.ip.ip = ip;
 	packet.payload.ip.ipc = ipc;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_pip(struct pt_encoder *encoder, uint64_t cr3)
@@ -544,7 +544,7 @@ int pt_encode_pip(struct pt_encoder *encoder, uint64_t cr3)
 	packet.type = ppt_pip;
 	packet.payload.pip.cr3 = cr3;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_ovf(struct pt_encoder *encoder)
@@ -553,7 +553,7 @@ int pt_encode_ovf(struct pt_encoder *encoder)
 
 	packet.type = ppt_ovf;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_mode_exec(struct pt_encoder *encoder, enum pt_exec_mode mode)
@@ -564,7 +564,7 @@ int pt_encode_mode_exec(struct pt_encoder *encoder, enum pt_exec_mode mode)
 	packet.payload.mode.leaf = pt_mol_exec;
 	packet.payload.mode.bits.exec = pt_set_exec_mode(mode);
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 
@@ -585,7 +585,7 @@ int pt_encode_mode_tsx(struct pt_encoder *encoder, uint8_t bits)
 	else
 		packet.payload.mode.bits.tsx.abrt = 0;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_tsc(struct pt_encoder *encoder, uint64_t tsc)
@@ -595,7 +595,7 @@ int pt_encode_tsc(struct pt_encoder *encoder, uint64_t tsc)
 	packet.type = ppt_tsc;
 	packet.payload.tsc.tsc = tsc;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }
 
 int pt_encode_cbr(struct pt_encoder *encoder, uint8_t cbr)
@@ -605,5 +605,5 @@ int pt_encode_cbr(struct pt_encoder *encoder, uint8_t cbr)
 	packet.type = ppt_cbr;
 	packet.payload.cbr.ratio = cbr;
 
-	return pt_encode(encoder, &packet);
+	return pt_enc_next(encoder, &packet);
 }

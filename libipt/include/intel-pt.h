@@ -703,8 +703,8 @@ extern pt_export int pt_enc_get_offset(struct pt_encoder *encoder,
  * Returns -pte_invalid if \@encoder or \@packet is NULL.
  * Returns -pte_nosync if \@encoder is out of sync.
  */
-extern pt_export int pt_encode(struct pt_encoder *encoder,
-			       const struct pt_packet *packet);
+extern pt_export int pt_enc_next(struct pt_encoder *encoder,
+				 const struct pt_packet *packet);
 
 
 
