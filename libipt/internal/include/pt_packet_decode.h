@@ -75,16 +75,6 @@ struct pt_decoder_function {
 };
 
 
-/* Skip over the payload of a psb packet.
- *
- * Assumes that the buffer is big enough to hold a complete psb payload.
- * The caller would need to check the buffer size before calling this function.
- *
- * Return the position of the next succeeding packet, on success.
- * Reutrn NULL if this is not a complete psb payload.
- */
-extern const uint8_t *pt_skip_psb_payload(const uint8_t *);
-
 /* Fetch the decoder function for the next packet.
  *
  * Fetch the opcode at the current position and install the respective decoder
