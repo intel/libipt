@@ -1640,17 +1640,12 @@ static struct ptunit_result tsc_initial(struct ptu_decoder_fixture *dfix)
 static struct ptunit_result tsc(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t tsc, exp;
 	int errcode;
 
 	exp = 0x11223344556677ull;
 
-	pt_encode_tsc(encoder, exp);
-	pt_encode_tip(encoder, 0, pt_ipc_suppressed);
-
-	ptu_sync_decoder(decoder);
-	pt_read_ahead(decoder);
+	decoder->tsc = exp;
 
 	errcode = pt_query_time(decoder, &tsc);
 	ptu_int_eq(errcode, 0);
