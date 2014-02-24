@@ -64,6 +64,7 @@ static int pt_status_flags(const struct pt_decoder *decoder)
 
 int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 {
+	const struct pt_decoder_function *dfun;
 	const uint8_t *pos;
 	int status, errcode;
 
@@ -78,14 +79,16 @@ int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 	if (status < 0)
 		return status;
 
+	dfun = decoder->next;
+
 	/* We do need to start at a PSB in order to initialize the state. */
-	if (decoder->next != &pt_decode_psb)
+	if (dfun != &pt_decode_psb)
 		return -pte_nosync;
 
-	/* Read the header to initialize the state. */
-	status = pt_read_header(decoder);
-	if (status < 0)
-		return status;
+	/* Decode the PSB+ header to initialize the state. */
+	errcode = dfun->decode(decoder);
+	if (errcode < 0)
+		return errcode;
 
 	/* Fill in the start address.
 	 * We do this before reading ahead since the latter may read an
