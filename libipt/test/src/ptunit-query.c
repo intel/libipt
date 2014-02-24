@@ -78,6 +78,25 @@ static inline void ptu_sync_decoder(struct pt_decoder *decoder)
 	(void) pt_fetch_decoder(decoder);
 }
 
+/* Cut off the last encoded packet. */
+static struct ptunit_result cutoff(struct pt_decoder *decoder,
+				   const struct pt_encoder *encoder)
+{
+	uint8_t *pos;
+
+	ptu_ptr(decoder);
+	ptu_ptr(encoder);
+
+	pos = encoder->pos;
+	ptu_ptr(pos);
+
+	pos -= 1;
+	ptu_ptr_le(decoder->config.begin, pos);
+
+	decoder->config.end = pos;
+	return ptu_passed();
+}
+
 static struct ptunit_result start_nosync_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
@@ -212,14 +231,12 @@ static struct ptunit_result uncond_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	uint64_t ip = pt_dfix_bad_ip, addr = ip;
 	int errcode;
 
 	pt_encode_tip(encoder, 0, pt_ipc_sext_48);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_uncond_branch(decoder, &addr);
@@ -585,14 +602,12 @@ event_enabled_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_tip_pge(encoder, 0, pt_ipc_sext_48);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -636,14 +651,12 @@ event_disabled_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_tip_pgd(encoder, 0, pt_ipc_update_32);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -713,7 +726,6 @@ event_async_disabled_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	uint64_t at = pt_dfix_sext_ip;
 	const uint8_t *pos;
@@ -723,8 +735,7 @@ event_async_disabled_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 	pos = encoder->pos;
 	pt_encode_tip_pgd(encoder, 0, pt_ipc_update_16);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -739,7 +750,6 @@ event_async_disabled_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	const uint8_t *pos;
 	int errcode;
@@ -747,8 +757,7 @@ event_async_disabled_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 	pos = encoder->pos;
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -821,7 +830,6 @@ event_async_branch_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	const uint8_t *pos;
 	int errcode;
@@ -830,8 +838,7 @@ event_async_branch_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 	pos = encoder->pos;
 	pt_encode_tip_pgd(encoder, 0, pt_ipc_update_16);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -846,7 +853,6 @@ event_async_branch_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	const uint8_t *pos;
 	int errcode;
@@ -854,8 +860,7 @@ event_async_branch_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 	pos = encoder->pos;
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -890,14 +895,12 @@ event_paging_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_pip(encoder, 0);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -972,15 +975,13 @@ event_async_paging_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
 	pt_encode_pip(encoder, 0);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1033,15 +1034,13 @@ event_overflow_fup_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_ovf(encoder);
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1101,7 +1100,6 @@ event_overflow_tip_pge_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
@@ -1109,8 +1107,8 @@ event_overflow_tip_pge_cutoff_fail(struct ptu_decoder_fixture *dfix)
 	pt_encode_tip_pge(encoder, 0, pt_ipc_update_32);
 
 	decoder->flags |= pdf_pt_disabled;
-	config->end = encoder->pos - 1;
 
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1124,14 +1122,12 @@ event_overflow_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_ovf(encoder);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1188,15 +1184,13 @@ event_exec_mode_tip_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_mode_exec(encoder, ptem_32bit);
 	pt_encode_tip(encoder, 0, pt_ipc_update_16);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1252,15 +1246,13 @@ event_exec_mode_tip_pge_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_mode_exec(encoder, ptem_16bit);
 	pt_encode_tip_pge(encoder, 0, pt_ipc_sext_48);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1274,14 +1266,12 @@ event_exec_mode_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_mode_exec(encoder, ptem_64bit);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1340,15 +1330,13 @@ event_tsx_fup_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_mode_tsx(encoder, 0);
 	pt_encode_fup(encoder, 0, pt_ipc_update_16);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1362,14 +1350,12 @@ event_tsx_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
 	pt_encode_mode_tsx(encoder, 0);
 
-	config->end = encoder->pos - 1;
-
+	ptu_check(cutoff, decoder, encoder);
 	ptu_sync_decoder(decoder);
 
 	errcode = pt_query_event(decoder, &event);
@@ -1502,14 +1488,13 @@ sync_event_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	uint64_t addr;
 	int errcode;
 
 	pt_encode_psb(encoder);
 	pt_encode_psbend(encoder);
 
-	config->end = encoder->pos - 1;
+	ptu_check(cutoff, decoder, encoder);
 
 	errcode = pt_sync_forward(decoder);
 	ptu_int_eq(errcode, 0);
@@ -1604,14 +1589,13 @@ sync_ovf_event_cutoff_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_config *config = &decoder->config;
 	uint64_t addr;
 	int errcode;
 
 	pt_encode_psb(encoder);
 	pt_encode_ovf(encoder);
 
-	config->end = encoder->pos - 1;
+	ptu_check(cutoff, decoder, encoder);
 
 	errcode = pt_sync_forward(decoder);
 	ptu_int_eq(errcode, 0);
