@@ -282,32 +282,6 @@ static inline int pt_check_bounds(const struct pt_decoder *decoder, int size)
 	return 0;
 }
 
-static inline int pt_check_sync(const struct pt_decoder *decoder)
-{
-	const uint8_t *pos, *begin, *end;
-
-	if (!decoder)
-		return -pte_invalid;
-
-	begin = pt_begin(decoder);
-	end = pt_end(decoder);
-	pos = decoder->pos;
-
-	if (end < begin)
-		return -pte_internal;
-
-	if (!pos)
-		return -pte_nosync;
-
-	if (pos < begin)
-		return -pte_eos;
-
-	if (end < pos)
-		return -pte_eos;
-
-	return 0;
-}
-
 /* Initialize the decoder.
  *
  * Returns zero on success, a negative error code otherwise.

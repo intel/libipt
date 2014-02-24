@@ -134,10 +134,6 @@ int pt_query_uncond_branch(struct pt_decoder *decoder, uint64_t *addr)
 	if (!decoder || !addr)
 		return -pte_invalid;
 
-	errcode = pt_check_sync(decoder);
-	if (errcode < 0)
-		return errcode;
-
 	flags = 0;
 	for (;;) {
 		const struct pt_decoder_function *dfun;
@@ -283,10 +279,6 @@ int pt_query_cond_branch(struct pt_decoder *decoder, int *taken)
 	if (!decoder || !taken)
 		return -pte_invalid;
 
-	errcode = pt_check_sync(decoder);
-	if (errcode < 0)
-		return errcode;
-
 	/* We cache the latest tnt packet in the decoder. Let's re-fill the
 	 * cache in case it is empty.
 	 */
@@ -311,10 +303,6 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 
 	if (!decoder || !event)
 		return -pte_invalid;
-
-	errcode = pt_check_sync(decoder);
-	if (errcode < 0)
-		return errcode;
 
 	/* We do not allow querying for events while there are still TNT
 	 * bits to consume.
