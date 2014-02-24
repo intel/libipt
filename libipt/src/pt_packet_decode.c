@@ -1513,37 +1513,3 @@ int pt_fetch_decoder(struct pt_decoder *decoder)
 		}
 	}
 }
-
-int pt_read_ahead(struct pt_decoder *decoder)
-{
-	for (;;) {
-		const struct pt_decoder_function *dfun;
-		int errcode;
-
-		errcode = pt_fetch_decoder(decoder);
-		if (errcode)
-			return errcode;
-
-		dfun = decoder->next;
-		if (!dfun)
-			return -pte_internal;
-
-		if (!dfun->decode)
-			return -pte_internal;
-
-		/* We're done once we reach
-		 *
-		 * - a branching related packet. */
-		if (dfun->flags & (pdff_tip | pdff_tnt))
-			return 0;
-
-		/* - an event related packet. */
-		if (pt_will_event(decoder))
-			return 0;
-
-		/* Decode status update packets. */
-		errcode = dfun->decode(decoder);
-		if (errcode)
-			return errcode;
-	}
-}

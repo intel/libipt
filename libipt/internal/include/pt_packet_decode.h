@@ -91,20 +91,6 @@ struct pt_decoder_function {
  */
 extern int pt_fetch_decoder(struct pt_decoder *);
 
-/* Read ahead until the next query-relevant packet.
- *
- * Repeatedly fetch the next decoder and decode packets that merely update the
- * internal state and do not immediately produce the result for a query.
- *
- * Examples are PAD, PSB, and FUP.
- *
- * Returns 0 on success.
- * Returns -pte_invalid if no decoder or a corrupted decoder is given.
- * Returns -pte_eos if the opcode is incomplete or missing.
- * Returns -pte_bad_opc if a bad or unknown opcode is encountered.
- */
-extern int pt_read_ahead(struct pt_decoder *);
-
 /* Decoder functions for the various packet types.
  *
  * Do not call those functions directly!
