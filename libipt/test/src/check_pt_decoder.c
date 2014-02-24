@@ -177,83 +177,6 @@ START_TEST(check_initial_sync)
 }
 END_TEST
 
-START_TEST(check_null_raw)
-{
-	const uint8_t *pos;
-
-	pos = pt_get_decoder_raw(NULL);
-	ck_null(pos);
-}
-END_TEST
-
-START_TEST(check_initial_raw)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	const uint8_t *pos;
-
-	pos = pt_get_decoder_raw(decoder);
-	ck_null(pos);
-}
-END_TEST
-
-START_TEST(check_raw)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &dfix->config;
-	const uint8_t *pos, *exp;
-
-	exp = &config->begin[42];
-	decoder->pos = exp;
-
-	pos = pt_get_decoder_raw(decoder);
-	ck_ptr(pos, exp);
-}
-END_TEST
-
-START_TEST(check_null_begin)
-{
-	const uint8_t *pos;
-
-	pos = pt_get_decoder_begin(NULL);
-	ck_null(pos);
-}
-END_TEST
-
-START_TEST(check_initial_begin)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &dfix->config;
-	const uint8_t *pos;
-
-	pos = pt_get_decoder_begin(decoder);
-	ck_ptr(pos, config->begin);
-}
-END_TEST
-
-START_TEST(check_null_end)
-{
-	const uint8_t *pos;
-
-	pos = pt_get_decoder_end(NULL);
-	ck_null(pos);
-}
-END_TEST
-
-START_TEST(check_initial_end)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_config *config = &dfix->config;
-	const uint8_t *pos;
-
-	pos = pt_get_decoder_end(decoder);
-	ck_ptr(pos, config->end);
-}
-END_TEST
-
 START_TEST(check_null_event)
 {
 	struct pt_event *ev;
@@ -481,19 +404,12 @@ static void add_initial_tests(TCase *tcase)
 	tcase_add_test(tcase, check_pt_initial);
 	tcase_add_test(tcase, check_initial_pos);
 	tcase_add_test(tcase, check_initial_sync);
-	tcase_add_test(tcase, check_initial_raw);
-	tcase_add_test(tcase, check_initial_begin);
-	tcase_add_test(tcase, check_initial_end);
 }
 
 static void add_pos_tests(TCase *tcase)
 {
 	tcase_add_test(tcase, check_null_pos);
 	tcase_add_test(tcase, check_null_sync);
-	tcase_add_test(tcase, check_null_raw);
-	tcase_add_test(tcase, check_raw);
-	tcase_add_test(tcase, check_null_begin);
-	tcase_add_test(tcase, check_null_end);
 }
 
 static void add_event_tests(TCase *tcase)

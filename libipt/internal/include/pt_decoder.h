@@ -141,15 +141,6 @@ extern int pt_get_decoder_pos(struct pt_decoder *decoder, uint64_t *offset);
  */
 extern int pt_get_decoder_sync(struct pt_decoder *decoder, uint64_t *offset);
 
-/* Get a pointer into the raw PT buffer at the decoder's current position. */
-extern const uint8_t *pt_get_decoder_raw(const struct pt_decoder *);
-
-/* Get a pointer to the beginning of the raw PT buffer. */
-extern const uint8_t *pt_get_decoder_begin(const struct pt_decoder *);
-
-/* Get a pointer to the end of the raw PT buffer. */
-extern const uint8_t *pt_get_decoder_end(const struct pt_decoder *);
-
 /* Synchronize the decoder.
  *
  * Search for the next synchronization point in forward or backward direction.

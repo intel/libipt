@@ -127,30 +127,6 @@ int pt_get_decoder_sync(struct pt_decoder *decoder, uint64_t *offset)
 	return 0;
 }
 
-const uint8_t *pt_get_decoder_raw(const struct pt_decoder *decoder)
-{
-	if (!decoder)
-		return NULL;
-
-	return decoder->pos;
-}
-
-const uint8_t *pt_get_decoder_begin(const struct pt_decoder *decoder)
-{
-	if (!decoder)
-		return NULL;
-
-	return pt_begin(decoder);
-}
-
-const uint8_t *pt_get_decoder_end(const struct pt_decoder *decoder)
-{
-	if (!decoder)
-		return NULL;
-
-	return pt_end(decoder);
-}
-
 int pt_will_event(const struct pt_decoder *decoder)
 {
 	const struct pt_decoder_function *dfun;
