@@ -174,6 +174,35 @@ static int header_psb(struct pt_decoder *decoder)
 	return 0;
 }
 
+static int read_psb_header(struct pt_decoder *decoder)
+{
+	decoder->flags &= ~pdf_status_have_ip;
+
+	for (;;) {
+		const struct pt_decoder_function *dfun;
+		int errcode;
+
+		errcode = pt_fetch_decoder(decoder);
+		if (errcode)
+			return errcode;
+
+		dfun = decoder->next;
+		if (!dfun)
+			return -pte_internal;
+
+		/* We're done once we reach an psbend packet. */
+		if (dfun->flags & pdff_psbend)
+			return 0;
+
+		if (!dfun->header)
+			return -pte_bad_context;
+
+		errcode = dfun->header(decoder);
+		if (errcode)
+			return errcode;
+	}
+}
+
 static int decode_psb(struct pt_decoder *decoder)
 {
 	int errcode;
@@ -182,8 +211,7 @@ static int decode_psb(struct pt_decoder *decoder)
 	if (errcode < 0)
 		return errcode;
 
-	/* Read the PSB header. */
-	errcode = pt_read_header(decoder);
+	errcode = read_psb_header(decoder);
 	if (errcode < 0)
 		return errcode;
 
@@ -1515,35 +1543,6 @@ int pt_read_ahead(struct pt_decoder *decoder)
 
 		/* Decode status update packets. */
 		errcode = dfun->decode(decoder);
-		if (errcode)
-			return errcode;
-	}
-}
-
-int pt_read_header(struct pt_decoder *decoder)
-{
-	decoder->flags &= ~pdf_status_have_ip;
-
-	for (;;) {
-		const struct pt_decoder_function *dfun;
-		int errcode;
-
-		errcode = pt_fetch_decoder(decoder);
-		if (errcode)
-			return errcode;
-
-		dfun = decoder->next;
-		if (!dfun)
-			return -pte_internal;
-
-		/* We're done once we reach an psbend packet. */
-		if (dfun->flags & pdff_psbend)
-			return 0;
-
-		if (!dfun->header)
-			return -pte_bad_context;
-
-		errcode = dfun->header(decoder);
 		if (errcode)
 			return errcode;
 	}

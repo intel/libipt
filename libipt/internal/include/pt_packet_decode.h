@@ -105,16 +105,6 @@ extern int pt_fetch_decoder(struct pt_decoder *);
  */
 extern int pt_read_ahead(struct pt_decoder *);
 
-/* Decode packets in the PSB header.
- *
- * Not all packets are allowed in the header.
- * Some packets have different semantics inside the header.
- *
- * Returns 0 on success.
- * Returns a negative error code otherwise.
- */
-extern int pt_read_header(struct pt_decoder *);
-
 /* Decoder functions for the various packet types.
  *
  * Do not call those functions directly!
