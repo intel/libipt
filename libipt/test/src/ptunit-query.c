@@ -1844,31 +1844,6 @@ ptu_dfix_header_event_psb(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
-/* Synchronize the decoder at the beginnig of a buffer containing packets that
- * should be skipped for time queries.
- */
-static struct ptunit_result
-ptu_dfix_header_time(struct ptu_decoder_fixture *dfix)
-{
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
-
-	/* The psb must be empty since the tests won't skip status events. */
-	pt_encode_pad(encoder);
-	pt_encode_psb(encoder);
-	pt_encode_cbr(encoder, 1);
-	pt_encode_pad(encoder);
-	pt_encode_fup(encoder, pt_dfix_sext_ip, pt_ipc_sext_48);
-	pt_encode_psbend(encoder);
-	pt_encode_cbr(encoder, 1);
-	pt_encode_pad(encoder);
-
-	/* Synchronize the decoder at the beginning of the buffer. */
-	decoder->pos = decoder->config.begin;
-
-	return ptu_passed();
-}
-
 static struct ptu_decoder_fixture dfix_raw;
 static struct ptu_decoder_fixture dfix_empty;
 static struct ptu_decoder_fixture dfix_uncond;
@@ -1876,7 +1851,6 @@ static struct ptu_decoder_fixture dfix_uncond_psb;
 static struct ptu_decoder_fixture dfix_cond;
 static struct ptu_decoder_fixture dfix_event;
 static struct ptu_decoder_fixture dfix_event_psb;
-static struct ptu_decoder_fixture dfix_time;
 
 static void init_fixtures(void)
 {
@@ -1900,9 +1874,6 @@ static void init_fixtures(void)
 
 	dfix_event_psb = dfix_raw;
 	dfix_event_psb.header = ptu_dfix_header_event_psb;
-
-	dfix_time = dfix_raw;
-	dfix_time.header = ptu_dfix_header_time;
 }
 
 int main(int argc, const char **argv)
@@ -2178,8 +2149,6 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, tsc_null_fail, dfix_empty);
 	ptu_run_f(suite, tsc_initial, dfix_empty);
 	ptu_run_f(suite, tsc, dfix_empty);
-
-	ptu_run_f(suite, tsc, dfix_time);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
