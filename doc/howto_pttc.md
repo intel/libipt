@@ -1,5 +1,5 @@
-PTTC {#pttc}
-============
+Testing the Intel(R) Processor Trace (PT) Decoder Library and Samples {#pttc}
+=============================================================================
 
 <!---
  ! Copyright (c) 2013-2014, Intel Corporation
@@ -29,6 +29,7 @@ PTTC {#pttc}
  ! POSSIBILITY OF SUCH DAMAGE.
  !-->
 
+This chapter documents how to use the pttc tool to generate and run tests.
 Pttc takes a yasm assembly file and creates a Processor Trace stream from
 special directives in its input.
 
