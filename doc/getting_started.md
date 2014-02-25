@@ -1,8 +1,16 @@
-Getting Started
-===============
+Getting Started {#start}
+========================
 
-We start by compiling an existing test, which consists of a small assembly
-program with interleaved PT directives:
+<!--- Copyright (c) 2013-2014 Intel Corporation.  All rights reserved. -->
+
+This chapter gives a brief introduction into the sample tools using one of the
+tests as example.  It assumes that you are already familiar with Intel(R)
+Processor Trace (PT) and that you already built the decoder library and the
+sample tools.  For detailed information about Intel PT, please refer to the
+respective chapter in the Software Developer's Manual.
+
+Start by compiling the loop test.  It consists of a small assembly program with
+interleaved PT directives:
 
 	$ pttc test/src/loop.ptt
 	loop-ptxed.exp
@@ -17,11 +25,11 @@ This produces the following output files:
 	loop-ptdump.exp   the expected ptdump output
 
 The latter two files are generated based on the `@pt .exp(<tool>)` directives
-found in the `.ptt` file.  They are used for automated testing but are otherwise
-not interesting for us at this point (see the pttc article).
+found in the `.ptt` file.  They are used for automated testing.  See
+script/test.bash for details on that.
 
 
-Let's dump the PT packets:
+Use `ptdump` to dump the PT packets:
 
 	$ ptdump loop.pt
 	0000000000000000  psb
@@ -31,14 +39,15 @@ Let's dump the PT packets:
 	000000000000001b  tnt8       !!.
 	000000000000001c  tip.pgd    3: 0x0000000000100013, ip=0x0000000000100013
 
-The ptdump tool takes a PT file as input and dumps the packets in a more or less
-human-readable form.  The number on the very left is the offset into the PT
-stream in hex.  This is followed by the PT packet opcode and the packet payload.
+The ptdump tool takes a PT file as input and dumps the packets in human-readable
+form.  The number on the very left is the offset into the PT stream in hex.
+This is followed by the PT packet opcode and the packet payload.
 
 
-Now let's reconstruct the control flow.  For this, we need the PT as well as the
-corresponding binary image.  We need to specify the load address given by the
-org directive in the .ptt file when we use a raw binary file.
+Use `ptxed` for reconstructing the execution flow.  For this, you need the PT
+file as well as the corresponding binary image.  You need to specify the load
+address given by the org directive in the .ptt file when using a raw binary
+file.
 
 	$ ptxed --pt loop.pt --raw loop.bin:0x100000
 	0x0000000000100000  mov rax, 0x0
