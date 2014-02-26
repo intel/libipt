@@ -124,21 +124,6 @@ if (CMAKE_HOST_WIN32)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
 
-  # debug build: debug information generation
-  #
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zi")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
-
-  # debug build: make sure to turn off optimization
-  #
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Od")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od")
-
-  # release build: optimization level
-  #
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O3")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O3")
-
 endif (CMAKE_HOST_WIN32)
 
 if (CMAKE_HOST_UNIX)
@@ -201,21 +186,6 @@ if (CMAKE_HOST_UNIX)
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MMD")
-
-  # debug build: debug information generation
-  #
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g3")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3")
-
-  # debug build: make sure to turn off optimization
-  #
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
-
-  # release build: optimization level
-  #
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O6")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O6")
 
 endif (CMAKE_HOST_UNIX)
 
