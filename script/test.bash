@@ -99,7 +99,6 @@ fi
 check_tools pttc yasm ptxed ptdump || exit 1
 
 # the exit status
-# indicates a "unknown tool" or non-empty diff fails.
 status=0
 
 run-ptt-test() {
@@ -121,11 +120,14 @@ run-ptt-test() {
 
 	# execute pttc
 	exps=`run pttc $cpu $ptt`
-	if [[ $? != 0 ]]; then
-		echo "warning: pttc failed with $ptt" >&2
+	ret=$?
+	if [[ $ret != 0 ]]; then
+		echo "$ptt: pttc failed with $ret" >&2
+		status=1
 		continue
 	elif [[ -z $exps ]]; then
-		echo "warning: pttc did not produce any exp file for $ptt" >&2
+		echo "$ptt: pttc did not produce any .exp file" >&2
+		status=1
 		continue
 	fi
 
@@ -143,6 +145,7 @@ run-ptt-test() {
 			addr=`asm2addr $ptt`
 			if [[ $? != 0 ]]; then
 				echo "$ptt: org directive not found in test file" >&2
+				status=1
 				continue
 			fi
 			run ptxed $cpu --pt $pt --raw $bin:$addr --no-inst > $out
