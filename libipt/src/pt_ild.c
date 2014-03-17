@@ -1205,7 +1205,7 @@ pti_instruction_decode (pti_ild_t * ild)
     case 0x35:                 /* map 1 PTI_INST_SYSEXIT, */
       if (map == PTI_MAP_1)
         {
-          ild->iclass = PTI_INST_SYSENTER;
+          ild->iclass = PTI_INST_SYSEXIT;
           return 1;
         }
       return 0;
