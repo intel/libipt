@@ -786,12 +786,12 @@ static int proceed(struct pt_insn_decoder *decoder)
 		}
 
 		/* Fall through to process the taken branch. */
-	} else if (ild->u.s.call) {
+	} else if (ild->u.s.call && !ild->u.s.branch_far) {
 		/* Log the call for return compression. */
 		pt_retstack_push(&decoder->retstack, decoder->ip + ild->length);
 
 		/* Fall through to process the call. */
-	} else if (ild->u.s.ret) {
+	} else if (ild->u.s.ret && !ild->u.s.branch_far) {
 		int taken, status;
 
 		/* Check for a compressed return. */
