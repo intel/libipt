@@ -285,6 +285,69 @@ static struct ptunit_result iret(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result call_9a_cd(void)
+{
+	pti_uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_16, PTI_INST_CALL_9A);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result call_9a_cp(void)
+{
+	pti_uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_32, PTI_INST_CALL_9A);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result call_ff_3(void)
+{
+	pti_uint8_t insn[] = { 0xff, 0x1c, 0x25, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_CALL_FFr3);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result jmp_ff_5(void)
+{
+	pti_uint8_t insn[] = { 0xff, 0x2c, 0x25, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_JMP_FFr5);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result jmp_ea_cd(void)
+{
+	pti_uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_16, PTI_INST_JMP_EA);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result jmp_ea_cp(void)
+{
+	pti_uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_32, PTI_INST_JMP_EA);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result ret_ca(void)
+{
+	pti_uint8_t insn[] = { 0xca, 0x00, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_RET_CA);
+
+	return ptu_passed();
+}
+
 int main(int argc, const char **argv)
 {
 	struct ptunit_suite suite;
@@ -311,6 +374,13 @@ int main(int argc, const char **argv)
 	ptu_run(suite, int3);
 	ptu_run(suite, intn);
 	ptu_run(suite, iret);
+	ptu_run(suite, call_9a_cd);
+	ptu_run(suite, call_9a_cp);
+	ptu_run(suite, call_ff_3);
+	ptu_run(suite, jmp_ff_5);
+	ptu_run(suite, jmp_ea_cd);
+	ptu_run(suite, jmp_ea_cp);
+	ptu_run(suite, ret_ca);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

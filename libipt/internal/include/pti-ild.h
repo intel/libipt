@@ -116,6 +116,9 @@ typedef struct
          branch_direct = 1. */
       pti_uint32_t branch_direct:1;     /* 1=direct, 0=indirect */
 
+      /* this includes other transfers like SYSENTER, SYSEXIT, and IRET. */
+      pti_uint32_t branch_far:1; /* 1=far, 0=near */
+
       pti_uint32_t ret:1;
       pti_uint32_t call:1;
       pti_uint32_t cond:1;

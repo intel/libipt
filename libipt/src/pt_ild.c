@@ -979,6 +979,7 @@ pti_instruction_decode (pti_ild_t * ild)
         {
           ild->iclass = PTI_INST_CALL_9A;
           ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
           ild->u.s.call = 1;
           return 1;
         }
@@ -999,6 +1000,7 @@ pti_instruction_decode (pti_ild_t * ild)
             {
               ild->iclass = PTI_INST_CALL_FFr3;
               ild->u.s.branch = 1;
+              ild->u.s.branch_far = 1;
               ild->u.s.call = 1;
               return 1;
             }
@@ -1012,6 +1014,7 @@ pti_instruction_decode (pti_ild_t * ild)
             {
               ild->iclass = PTI_INST_JMP_FFr5;
               ild->u.s.branch = 1;
+              ild->u.s.branch_far = 1;
               return 1;
             }
         }
@@ -1062,6 +1065,9 @@ pti_instruction_decode (pti_ild_t * ild)
       if (map == PTI_MAP_0)
         {
           ild->iclass = PTI_INST_IRET;
+          ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
+          ild->u.s.ret = 1;
           return 1;
         }
       return 0;
@@ -1082,6 +1088,7 @@ pti_instruction_decode (pti_ild_t * ild)
         {
           ild->iclass = PTI_INST_JMP_EA;
           ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
           return 1;
         }
       return 0;
@@ -1174,6 +1181,7 @@ pti_instruction_decode (pti_ild_t * ild)
         {
           ild->iclass = PTI_INST_RET_CB;
           ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
           ild->u.s.ret = 1;
           return 1;
         }
@@ -1183,6 +1191,7 @@ pti_instruction_decode (pti_ild_t * ild)
         {
           ild->iclass = PTI_INST_RET_CA;
           ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
           ild->u.s.ret = 1;
           return 1;
         }
@@ -1192,6 +1201,9 @@ pti_instruction_decode (pti_ild_t * ild)
       if (map == PTI_MAP_1)
         {
           ild->iclass = PTI_INST_SYSCALL;
+          ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
+          ild->u.s.call = 1;
           return 1;
         }
       return 0;
@@ -1199,6 +1211,9 @@ pti_instruction_decode (pti_ild_t * ild)
       if (map == PTI_MAP_1)
         {
           ild->iclass = PTI_INST_SYSENTER;
+          ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
+          ild->u.s.call = 1;
           return 1;
         }
       return 0;
@@ -1206,6 +1221,9 @@ pti_instruction_decode (pti_ild_t * ild)
       if (map == PTI_MAP_1)
         {
           ild->iclass = PTI_INST_SYSEXIT;
+          ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
+          ild->u.s.ret = 1;
           return 1;
         }
       return 0;
@@ -1213,6 +1231,9 @@ pti_instruction_decode (pti_ild_t * ild)
       if (map == PTI_MAP_1)
         {
           ild->iclass = PTI_INST_SYSRET;
+          ild->u.s.branch = 1;
+          ild->u.s.branch_far = 1;
+          ild->u.s.ret = 1;
           return 1;
         }
       return 0;
