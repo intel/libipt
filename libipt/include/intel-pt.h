@@ -1147,7 +1147,22 @@ enum pt_insn_class {
 	ptic_jump,
 
 	/* The instruction is a near conditional jump. */
-	ptic_cond_jump
+	ptic_cond_jump,
+
+	/* The instruction is a call-like far transfer.
+	 * E.g. SYSCALL, SYSENTER, or FAR CALL.
+	 */
+	ptic_far_call,
+
+	/* The instruction is a return-like far transfer.
+	 * E.g. SYSRET, SYSEXIT, IRET, or FAR RET.
+	 */
+	ptic_far_return,
+
+	/* The instruction is a jump-like far transfer.
+	 * E.g. FAR JMP.
+	 */
+	ptic_far_jump
 };
 
 /** The maximal size of an instruction. */

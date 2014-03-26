@@ -160,12 +160,12 @@ static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
 		return ptic_cond_jump;
 
 	if (ild->u.s.call)
-		return ptic_call;
+		return ild->u.s.branch_far ? ptic_far_call : ptic_call;
 
 	if (ild->u.s.ret)
-		return ptic_return;
+		return ild->u.s.branch_far ? ptic_far_return : ptic_return;
 
-	return ptic_jump;
+	return ild->u.s.branch_far ? ptic_far_jump : ptic_jump;
 }
 
 static int pt_insn_changes_cpl(const pti_ild_t *ild)
