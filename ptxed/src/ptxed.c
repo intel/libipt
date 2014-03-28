@@ -374,8 +374,8 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		printf("[disabled]\n");
 }
 
-static void print_error(struct pt_insn_decoder *decoder,
-			const struct pt_insn *insn, int errcode)
+static void diagnose(const char *errtype, struct pt_insn_decoder *decoder,
+		     const struct pt_insn *insn, int errcode)
 {
 	int err;
 	uint64_t pos;
@@ -384,11 +384,11 @@ static void print_error(struct pt_insn_decoder *decoder,
 	if (err < 0) {
 		printf("could not determine offset: %s\n",
 		       pt_errstr(pt_errcode(err)));
-		printf("[0x?, 0x%" PRIx64 ": sync error: %s]\n", insn->ip,
+		printf("[0x?, 0x%" PRIx64 ": %s: %s]\n", insn->ip, errtype,
 		       pt_errstr(pt_errcode(errcode)));
 	} else
-		printf("[0x%" PRIx64 ", 0x%" PRIx64 ": sync error: %s]\n", pos,
-		       insn->ip, pt_errstr(pt_errcode(errcode)));
+		printf("[0x%" PRIx64 ", 0x%" PRIx64 ": %s: %s]\n", pos,
+		       insn->ip, errtype, pt_errstr(pt_errcode(errcode)));
 }
 
 static void decode(struct pt_insn_decoder *decoder,
@@ -413,7 +413,7 @@ static void decode(struct pt_insn_decoder *decoder,
 
 		errcode = pt_insn_sync_forward(decoder);
 		if (errcode < 0) {
-			print_error(decoder, &insn, errcode);
+			diagnose("sync error", decoder, &insn, errcode);
 			break;
 		}
 
@@ -437,7 +437,7 @@ static void decode(struct pt_insn_decoder *decoder,
 		if (errcode == -pte_eos)
 			break;
 
-		print_error(decoder, &insn, errcode);
+		diagnose("error", decoder, &insn, errcode);
 	}
 }
 
