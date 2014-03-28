@@ -317,7 +317,7 @@ static int process_enabled_event(struct pt_insn_decoder *decoder,
 
 	/* This event can't be a status update. */
 	if (ev->status_update)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	/* We must have an IP in order to start decoding. */
 	if (ev->ip_suppressed)
@@ -325,7 +325,7 @@ static int process_enabled_event(struct pt_insn_decoder *decoder,
 
 	/* We must currently be disabled. */
 	if (decoder->enabled)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	/* Delay processing of the event if we can't change the IP. */
 	if (!decoder->event_may_change_ip)
@@ -355,11 +355,11 @@ static int process_disabled_event(struct pt_insn_decoder *decoder,
 
 	/* This event can't be a status update. */
 	if (ev->status_update)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	/* We must currently be enabled. */
 	if (!decoder->enabled)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	decoder->enabled = 0;
 	insn->disabled = 1;
@@ -379,11 +379,11 @@ static int process_async_branch_event(struct pt_insn_decoder *decoder,
 
 	/* This event can't be a status update. */
 	if (ev->status_update)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	/* Tracing must be enabled in order to make sense of the event. */
 	if (!decoder->enabled)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	/* Delay processing of the event if we can't change the IP. */
 	if (!decoder->event_may_change_ip)
@@ -416,7 +416,7 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 
 	/* This event can't be a status update. */
 	if (ev->status_update)
-		return -pte_bad_packet;
+		return -pte_bad_context;
 
 	/* Delay processing of the event if we can't change the IP. */
 	if (!decoder->event_may_change_ip)
