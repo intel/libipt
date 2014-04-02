@@ -148,6 +148,32 @@ struct image_fixture {
 	struct ptunit_result (*fini)(struct image_fixture *);
 };
 
+/* A test read memory callback. */
+static int image_readmem_callback(uint8_t *buffer, size_t size,
+				  uint64_t ip, void *context)
+{
+	const uint8_t *memory;
+	size_t idx;
+
+	if (!buffer)
+		return -pte_invalid;
+
+	/* We use a constant offset of 0x3000. */
+	if (ip < 0x3000ull)
+		return -pte_nomap;
+
+	ip -= 0x3000ull;
+
+	memory = (const uint8_t *) context;
+	if (!memory)
+		return -pte_internal;
+
+	for (idx = 0; idx < size; ++idx)
+		buffer[idx] = memory[ip + idx];
+
+	return (int) idx;
+}
+
 static struct ptunit_result init(void)
 {
 	struct pt_image image;
@@ -158,6 +184,8 @@ static struct ptunit_result init(void)
 	ptu_null(image.name);
 	ptu_null(image.sections);
 	ptu_null(image.cache);
+	ptu_null((void *) (uintptr_t) image.readmem.callback);
+	ptu_null(image.readmem.context);
 
 	return ptu_passed();
 }
@@ -170,6 +198,8 @@ static struct ptunit_result init_name(struct image_fixture *ifix)
 	ptu_str_eq(ifix->image.name, "image-name");
 	ptu_null(ifix->image.sections);
 	ptu_null(ifix->image.cache);
+	ptu_null((void *) (uintptr_t) ifix->image.readmem.callback);
+	ptu_null(ifix->image.readmem.context);
 
 	return ptu_passed();
 }
@@ -318,6 +348,10 @@ static struct ptunit_result read(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
+	status = pt_image_replace_callback(&ifix->image,
+					   image_readmem_callback, NULL);
+	ptu_int_eq(status, 0);
+
 	status = pt_image_read(&ifix->image, buffer, 2, 0x2003ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x03);
@@ -327,10 +361,33 @@ static struct ptunit_result read(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result read_callback(struct image_fixture *ifix)
+{
+	uint8_t memory[] = { 0xdd, 0x01, 0x02, 0xdd };
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_replace_callback(&ifix->image,
+					   image_readmem_callback, memory);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 2, 0x3001ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x01);
+	ptu_uint_eq(buffer[1], 0x02);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result read_nomem(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status;
+
+	status = pt_image_replace_callback(&ifix->image,
+					   image_readmem_callback, NULL);
+	ptu_int_eq(status, 0);
 
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1010ull);
 	ptu_int_eq(status, -pte_nomap);
@@ -567,6 +624,7 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, overlap, ifix);
 
 	ptu_run_f(suite, read, rfix);
+	ptu_run_f(suite, read_callback, rfix);
 	ptu_run_f(suite, read_nomem, rfix);
 	ptu_run_f(suite, read_truncated, rfix);
 

@@ -148,6 +148,15 @@ int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
 	return pt_image_remove_by_name(&decoder->image, filename);
 }
 
+int pt_insn_add_callback(struct pt_insn_decoder *decoder,
+			 read_memory_callback_t *callback, void *context)
+{
+	if (!decoder)
+		return -pte_invalid;
+
+	return pt_image_replace_callback(&decoder->image, callback, context);
+}
+
 static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
 {
 	if (!ild || ild->u.s.error)

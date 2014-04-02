@@ -29,8 +29,6 @@
 #include "pt_image.h"
 #include "pt_section.h"
 
-#include "intel-pt.h"
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -79,9 +77,9 @@ void pt_image_init(struct pt_image *image, const char *name)
 	if (!image)
 		return;
 
+	memset(image, 0, sizeof(*image));
+
 	image->name = dupstr(name);
-	image->sections = NULL;
-	image->cache = NULL;
 }
 
 void pt_image_fini(struct pt_image *image)
@@ -210,6 +208,18 @@ int pt_image_remove_by_name(struct pt_image *image, const char *name)
 	return removed;
 }
 
+int pt_image_replace_callback(struct pt_image *image,
+			      read_memory_callback_t *callback, void *context)
+{
+	if (!image)
+		return -pte_invalid;
+
+	image->readmem.callback = callback;
+	image->readmem.context = context;
+
+	return 0;
+}
+
 static int pt_image_read_from(struct pt_image *image,
 			      struct pt_section *section,
 			      uint8_t *buffer, uint16_t size, uint64_t addr)
@@ -230,6 +240,7 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 		  uint64_t addr)
 {
 	struct pt_section_list *list;
+	read_memory_callback_t *callback;
 	int status;
 
 	if (!buffer || !image)
@@ -247,6 +258,10 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 		if (status >= 0)
 			return status;
 	}
+
+	callback = image->readmem.callback;
+	if (callback)
+		return callback(buffer, size, addr, image->readmem.context);
 
 	return -pte_nomap;
 }

@@ -1307,6 +1307,31 @@ extern pt_export int pt_insn_add_file(struct pt_insn_decoder *decoder,
 extern pt_export int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
 						const char *filename);
 
+/** A read memory callback function.
+ *
+ * It shall read \@size bytes of memory starting at \@ip into \@buffer.
+ *
+ * It shall return the number of bytes read on success.
+ * It shall return a negative pt_error_code otherwise.
+ */
+typedef int (read_memory_callback_t)(uint8_t *buffer, size_t size,
+				     uint64_t ip, void *context);
+
+/** Add a new memory callback to the traced process image.
+ *
+ * Adds \@callback for reading memory.  The callback is used for addresses
+ * that are not found in file sections.  The \@context argument is passed
+ * to \@callback on each use.
+ *
+ * There can only be one callback at any time.  A subsequent call will replace
+ * the previous callback.  If \@callback is NULL, the callback is removed.
+ *
+ * Returns -pte_invalid if \@decoder is NULL.
+ */
+extern pt_export int pt_insn_add_callback(struct pt_insn_decoder *decoder,
+					  read_memory_callback_t *callback,
+					  void *context);
+
 /** Determine the next instruction.
  *
  * On success, provides the next instruction in execution order in \@insn.

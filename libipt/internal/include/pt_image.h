@@ -29,6 +29,8 @@
 #ifndef __PT_IMAGE_H__
 #define __PT_IMAGE_H__
 
+#include "intel-pt.h"
+
 #include <stdint.h>
 
 struct pt_section;
@@ -53,6 +55,15 @@ struct pt_image {
 
 	/* The last section that satisfied a read request. */
 	struct pt_section *cache;
+
+	/* An optional read memory callback. */
+	struct {
+		/* The callback function. */
+		read_memory_callback_t *callback;
+
+		/* The callback context. */
+		void *context;
+	} readmem;
 };
 
 /* Initialize an image with an optional @name. */
@@ -107,6 +118,18 @@ extern int pt_image_remove(struct pt_image *image, struct pt_section *section);
  * Returns -pte_invalid if @section or @name are NULL.
  */
 extern int pt_image_remove_by_name(struct pt_image *image, const char *name);
+
+/* Replace the read memory callback.
+ *
+ * Replaces the existing read memory callback in @image with @callback and
+ * the existing read memory context with @context.
+ *
+ * Returns zero on success.
+ * Returns -pte_invalid if @image is NULL.
+ */
+extern int pt_image_replace_callback(struct pt_image *image,
+				     read_memory_callback_t *callback,
+				     void *context);
 
 /* Read memory from an image.
  *

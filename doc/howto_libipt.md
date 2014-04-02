@@ -639,6 +639,15 @@ the `pt_insn_remove_by_filename()` function to remove previously added sections
 by their file name.  You can also add new sections by calling
 `pt_insn_add_file()` at any time.
 
+If you prefer to manage the image on your own, you can register a callback
+function for reading memory using `pt_insn_add_callback()`.  The `context`
+parameter you pass together with the callback function pointer will be passed
+to your callback function every time it is called.
+
+Callback and files may be combined.  The callback function is used whenever
+the memory cannot be found in the image specified by `pt_insn_add_file()`
+calls.
+
 
 #### Synchronizing
 
