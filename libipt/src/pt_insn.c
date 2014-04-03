@@ -847,17 +847,11 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 	if (!insn || !decoder)
 		return -pte_invalid;
 
+	memset(insn, 0, sizeof(*insn));
+
 	/* Report any errors we encountered. */
 	if (decoder->status < 0)
 		return decoder->status;
-
-	/* Clear some @insn fields that won't be set on all paths. */
-	insn->aborted = 0;
-	insn->committed = 0;
-	insn->enabled = 0;
-	insn->disabled = 0;
-	insn->interrupted = 0;
-	insn->resynced = 0;
 
 	/* We process events three times:
 	 * - once based on the current IP.
