@@ -148,6 +148,137 @@ int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
 	return pt_image_remove_by_name(&decoder->image, filename);
 }
 
+static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
+{
+	if (!ild || ild->u.s.error)
+		return ptic_error;
+
+	if (!ild->u.s.branch)
+		return ptic_other;
+
+	if (ild->u.s.cond)
+		return ptic_cond_jump;
+
+	if (ild->u.s.call)
+		return ptic_call;
+
+	if (ild->u.s.ret)
+		return ptic_return;
+
+	return ptic_jump;
+}
+
+static int pt_insn_changes_cpl(const pti_ild_t *ild)
+{
+	if (!ild)
+		return 0;
+
+	switch (ild->iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_INT:
+	case PTI_INST_INT3:
+	case PTI_INST_INT1:
+	case PTI_INST_INTO:
+	case PTI_INST_IRET:
+	case PTI_INST_SYSCALL:
+	case PTI_INST_SYSENTER:
+	case PTI_INST_SYSEXIT:
+	case PTI_INST_SYSRET:
+		return 1;
+	}
+}
+
+static int pt_insn_changes_cr3(const pti_ild_t *ild)
+{
+	if (!ild)
+		return 0;
+
+	switch (ild->iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_MOV_CR3:
+		return 1;
+	}
+}
+
+static pti_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
+{
+	switch (mode) {
+	case ptem_unknown:
+		return PTI_MODE_LAST;
+
+	case ptem_16bit:
+		return PTI_MODE_16;
+
+	case ptem_32bit:
+		return PTI_MODE_32;
+
+	case ptem_64bit:
+		return PTI_MODE_64;
+	}
+
+	return PTI_MODE_LAST;
+}
+
+/* Decode and analyze one instruction.
+ *
+ * Decodes the instructruction at @decoder->ip into @insn and updates
+ * @decoder->ip.
+ *
+ * Returns a negative error code on failure.
+ * Returns zero on success if the instruction is not relevant for our purposes.
+ * Returns a positive number on success if the instruction is relevant.
+ * Returns -pte_bad_insn if the instruction could not be decoded.
+ */
+static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
+{
+	pti_ild_t *ild;
+	pti_bool_t status, relevant;
+	int size;
+
+	if (!insn || !decoder)
+		return -pte_internal;
+
+	/* Fill in as much as we can as early as we can so we have the
+	 * information available in case of errors.
+	 */
+	insn->speculative = decoder->speculative;
+	insn->mode = decoder->mode;
+	insn->ip = decoder->ip;
+
+	/* Read the memory at the current IP. */
+	size = pt_image_read(&decoder->image, insn->raw, sizeof(insn->raw),
+			     decoder->ip);
+	if (size < 0)
+		return size;
+
+	/* Decode the instruction. */
+	ild = &decoder->ild;
+	memset(ild, 0, sizeof(*ild));
+
+	ild->itext = insn->raw;
+	ild->max_bytes = size;
+	ild->mode = translate_mode(decoder->mode);
+	ild->runtime_address = decoder->ip;
+
+	status = pti_instruction_length_decode(ild);
+	if (!status)
+		return -pte_bad_insn;
+
+	insn->size = (uint8_t) ild->length;
+
+	relevant = pti_instruction_decode(ild);
+	if (relevant)
+		insn->iclass = pt_insn_classify(ild);
+	else
+		insn->iclass = ptic_other;
+
+	return relevant;
+}
+
 static int event_pending(struct pt_insn_decoder *decoder)
 {
 	int status;
@@ -445,42 +576,6 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
-static int pt_insn_changes_cpl(const pti_ild_t *ild)
-{
-	if (!ild)
-		return 0;
-
-	switch (ild->iclass) {
-	default:
-		return 0;
-
-	case PTI_INST_INT:
-	case PTI_INST_INT3:
-	case PTI_INST_INT1:
-	case PTI_INST_INTO:
-	case PTI_INST_IRET:
-	case PTI_INST_SYSCALL:
-	case PTI_INST_SYSENTER:
-	case PTI_INST_SYSEXIT:
-	case PTI_INST_SYSRET:
-		return 1;
-	}
-}
-
-static int pt_insn_changes_cr3(const pti_ild_t *ild)
-{
-	if (!ild)
-		return 0;
-
-	switch (ild->iclass) {
-	default:
-		return 0;
-
-	case PTI_INST_MOV_CR3:
-		return 1;
-	}
-}
-
 static int process_one_event_after(struct pt_insn_decoder *decoder,
 				   struct pt_insn *insn)
 {
@@ -658,101 +753,6 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 	}
 
 	return 0;
-}
-
-static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
-{
-	if (!ild || ild->u.s.error)
-		return ptic_error;
-
-	if (!ild->u.s.branch)
-		return ptic_other;
-
-	if (ild->u.s.cond)
-		return ptic_cond_jump;
-
-	if (ild->u.s.call)
-		return ptic_call;
-
-	if (ild->u.s.ret)
-		return ptic_return;
-
-	return ptic_jump;
-}
-
-static pti_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
-{
-	switch (mode) {
-	case ptem_unknown:
-		return PTI_MODE_LAST;
-
-	case ptem_16bit:
-		return PTI_MODE_16;
-
-	case ptem_32bit:
-		return PTI_MODE_32;
-
-	case ptem_64bit:
-		return PTI_MODE_64;
-	}
-
-	return PTI_MODE_LAST;
-}
-
-/* Decode and analyze one instruction.
- *
- * Decodes the instructruction at @decoder->ip into @insn and updates
- * @decoder->ip.
- *
- * Returns a negative error code on failure.
- * Returns zero on success if the instruction is not relevant for our purposes.
- * Returns a positive number on success if the instruction is relevant.
- * Returns -pte_bad_insn if the instruction could not be decoded.
- */
-static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
-{
-	pti_ild_t *ild;
-	pti_bool_t status, relevant;
-	int size;
-
-	if (!insn || !decoder)
-		return -pte_internal;
-
-	/* Fill in as much as we can as early as we can so we have the
-	 * information available in case of errors.
-	 */
-	insn->speculative = decoder->speculative;
-	insn->mode = decoder->mode;
-	insn->ip = decoder->ip;
-
-	/* Read the memory at the current IP. */
-	size = pt_image_read(&decoder->image, insn->raw, sizeof(insn->raw),
-			     decoder->ip);
-	if (size < 0)
-		return size;
-
-	/* Decode the instruction. */
-	ild = &decoder->ild;
-	memset(ild, 0, sizeof(*ild));
-
-	ild->itext = insn->raw;
-	ild->max_bytes = size;
-	ild->mode = translate_mode(decoder->mode);
-	ild->runtime_address = decoder->ip;
-
-	status = pti_instruction_length_decode(ild);
-	if (!status)
-		return -pte_bad_insn;
-
-	insn->size = (uint8_t) ild->length;
-
-	relevant = pti_instruction_decode(ild);
-	if (relevant)
-		insn->iclass = pt_insn_classify(ild);
-	else
-		insn->iclass = ptic_other;
-
-	return relevant;
 }
 
 static int proceed(struct pt_insn_decoder *decoder)
