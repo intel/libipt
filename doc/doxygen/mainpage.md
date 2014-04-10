@@ -1,4 +1,4 @@
-Intel(R) Processor Trace Decoder Library {#mainpage}
+Intel(R) Processor Trace Decoder Library User Guide {#mainpage}
 ===============================================================
 
 
