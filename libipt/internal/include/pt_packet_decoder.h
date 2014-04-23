@@ -81,5 +81,6 @@ extern int pt_pkt_decode_tma(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_mtc(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_cyc(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_stop(struct pt_packet_decoder *, struct pt_packet *);
+extern int pt_pkt_decode_vmcs(struct pt_packet_decoder *, struct pt_packet *);
 
 #endif /* __PT_PACKET_DECODER_H__ */

@@ -131,6 +131,7 @@ enum pt_ext_code {
 	pt_ext_cbr		= 0x03,
 	pt_ext_tma		= 0x73,
 	pt_ext_stop		= 0x83,
+	pt_ext_vmcs		= 0xc8,
 
 	pt_ext_bad		= 0x04
 };
@@ -179,7 +180,8 @@ enum pt_opcode_size {
 	pt_opcs_tnt_64		= 2,
 	pt_opcs_cbr		= 2,
 	pt_opcs_tma		= 2,
-	pt_opcs_stop		= 2
+	pt_opcs_stop		= 2,
+	pt_opcs_vmcs		= 2
 };
 
 /** The psb magic payload.
@@ -274,7 +276,13 @@ enum pt_payload {
 	pt_pl_mtc_mask		= (1 << pt_pl_mtc_bit_size) - 1,
 
 	/* The maximal payload size in bytes of a CYC packet. */
-	pt_pl_cyc_max_size	= 15
+	pt_pl_cyc_max_size	= 15,
+
+	/* The size of a VMCS packet's payload in bytes. */
+	pt_pl_vmcs_size		= 5,
+
+	/* The shift counts for post-processing the VMCS payload. */
+	pt_pl_vmcs_shl		= 12
 };
 
 /** Mode packet masks. */
@@ -349,7 +357,8 @@ enum pt_packet_size {
 	ptps_fup_upd32		= pt_opcs_fup + pt_pl_ip_upd32_size,
 	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size,
 	ptps_tma		= pt_opcs_tma + pt_pl_tma_size,
-	ptps_stop		= pt_opcs_stop
+	ptps_stop		= pt_opcs_stop,
+	ptps_vmcs		= pt_opcs_vmcs + pt_pl_vmcs_size
 };
 
 
@@ -603,6 +612,7 @@ enum pt_packet_type {
 	ppt_psbend		= pt_opc_ext << 8 | pt_ext_psbend,
 	ppt_cbr			= pt_opc_ext << 8 | pt_ext_cbr,
 	ppt_tma			= pt_opc_ext << 8 | pt_ext_tma,
+	ppt_vmcs		= pt_opc_ext << 8 | pt_ext_vmcs,
 
 	/* A packet decodable by the optional decoder callback. */
 	ppt_unknown		= 0x7ffffffe,
@@ -743,6 +753,12 @@ struct pt_packet_cyc {
 	uint64_t value;
 };
 
+/** A VMCS packet. */
+struct pt_packet_vmcs {
+       /* The VMCS Base Address (i.e. the shifted payload). */
+	uint64_t base;
+};
+
 /** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
 	/** Pointer to the raw packet bytes. */
@@ -790,6 +806,9 @@ struct pt_packet {
 
 		/** Packet: cyc. */
 		struct pt_packet_cyc cyc;
+
+		/** Packet: vmcs. */
+		struct pt_packet_vmcs vmcs;
 
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;
@@ -1025,7 +1044,13 @@ enum pt_event_type {
 	ptev_tsx,
 
 	/* Trace Stop. */
-	ptev_stop
+	ptev_stop,
+
+	/* A synchronous vmcs event. */
+	ptev_vmcs,
+
+	/* An asynchronous vmcs event. */
+	ptev_async_vmcs
 };
 
 /** An event. */
@@ -1181,6 +1206,37 @@ struct pt_event {
 			/** A flag indicating speculative execution aborts. */
 			uint32_t aborted:1;
 		} tsx;
+
+		/** Event: vmcs. */
+		struct {
+			/** The VMCS base address.
+			 *
+			 * The address is zero-extended with the lower 12 bits
+			 * all zero.
+			 */
+			uint64_t base;
+
+			/* The new VMCS base address should be stored and
+			 * applied on subsequent VM entries.
+			 */
+		} vmcs;
+
+		/** Event: async vmcs. */
+		struct {
+			/** The VMCS base address.
+			 *
+			 * The address is zero-extended with the lower 12 bits
+			 * all zero.
+			 */
+			uint64_t base;
+
+			/** The address at which the event is effective. */
+			uint64_t ip;
+
+			/* An async paging event that binds to the same IP
+			 * will always succeed this async vmcs event.
+			 */
+		} async_vmcs;
 	} variant;
 };
 
@@ -1396,16 +1452,23 @@ struct pt_asid {
 
 	/** The CR3 value. */
 	uint64_t cr3;
+
+	/** The VMCS Base address. */
+	uint64_t vmcs;
 };
 
 /** An unknown CR3 value to be used for pt_asid objects. */
 static const uint64_t pt_asid_no_cr3 = 0xffffffffffffffffull;
+
+/** An unknown VMCS Base value to be used for pt_asid objects. */
+static const uint64_t pt_asid_no_vmcs = 0xffffffffffffffffull;
 
 /** Initialize an address space identifier. */
 static inline void pt_asid_init(struct pt_asid *asid)
 {
 	asid->size = sizeof(*asid);
 	asid->cr3 = pt_asid_no_cr3;
+	asid->vmcs = pt_asid_no_vmcs;
 }
 
 

@@ -113,10 +113,12 @@ extern int pt_qry_decode_tma(struct pt_query_decoder *);
 extern int pt_qry_decode_mtc(struct pt_query_decoder *);
 extern int pt_qry_decode_cyc(struct pt_query_decoder *);
 extern int pt_qry_decode_stop(struct pt_query_decoder *);
+extern int pt_qry_decode_vmcs(struct pt_query_decoder *);
 
 /* Decoder functions (header context). */
 extern int pt_qry_header_fup(struct pt_query_decoder *);
 extern int pt_qry_header_pip(struct pt_query_decoder *);
 extern int pt_qry_header_mode(struct pt_query_decoder *);
+extern int pt_qry_header_vmcs(struct pt_query_decoder *);
 
 #endif /* __PT_QUERY_DECODER_H__ */

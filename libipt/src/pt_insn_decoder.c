@@ -283,6 +283,38 @@ static int pt_insn_changes_cr3(const pti_ild_t *ild)
 	}
 }
 
+static int pt_insn_binds_to_pip(const pti_ild_t *ild)
+{
+	if (!ild)
+		return 0;
+
+	switch (ild->iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_MOV_CR3:
+	case PTI_INST_VMLAUNCH:
+	case PTI_INST_VMRESUME:
+		return 1;
+	}
+}
+
+static int pt_insn_binds_to_vmcs(const pti_ild_t *ild)
+{
+	if (!ild)
+		return 0;
+
+	switch (ild->iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_VMPTRLD:
+	case PTI_INST_VMLAUNCH:
+	case PTI_INST_VMRESUME:
+		return 1;
+	}
+}
+
 /* Try to determine the next IP for @ild without using Intel PT.
  *
  * If @ip is not NULL, provides the determined IP on success.
@@ -740,6 +772,20 @@ static int process_stop_event(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
+static int process_vmcs_event(struct pt_insn_decoder *decoder)
+{
+	struct pt_event *ev;
+
+	if (!decoder)
+		return -pte_internal;
+
+	ev = &decoder->event;
+
+	decoder->asid.vmcs = ev->variant.vmcs.base;
+
+	return 1;
+}
+
 static int process_one_event_before(struct pt_insn_decoder *decoder,
 				    struct pt_insn *insn)
 {
@@ -778,6 +824,14 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 
 		return 0;
 
+	case ptev_async_vmcs:
+		if (ev->ip_suppressed ||
+		    ev->variant.async_vmcs.ip == decoder->ip)
+			return process_vmcs_event(decoder);
+
+		return 0;
+
+	case ptev_vmcs:
 	case ptev_disabled:
 		return 0;
 
@@ -866,6 +920,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 	case ptev_enabled:
 	case ptev_overflow:
 	case ptev_async_paging:
+	case ptev_async_vmcs:
 	case ptev_async_disabled:
 	case ptev_async_branch:
 	case ptev_exec_mode:
@@ -895,12 +950,23 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_paging:
-		if (pt_insn_changes_cr3(&decoder->ild) &&
+		if (pt_insn_binds_to_pip(&decoder->ild) &&
 		    !decoder->paging_event_bound) {
 			/* Each instruction only binds to one paging event. */
 			decoder->paging_event_bound = 1;
 
 			return process_paging_event(decoder);
+		}
+
+		return 0;
+
+	case ptev_vmcs:
+		if (pt_insn_binds_to_vmcs(&decoder->ild) &&
+		    !decoder->vmcs_event_bound) {
+			/* Each instruction only binds to one vmcs event. */
+			decoder->vmcs_event_bound = 1;
+
+			return process_vmcs_event(decoder);
 		}
 
 		return 0;
@@ -922,6 +988,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		return pending;
 
 	decoder->paging_event_bound = 0;
+	decoder->vmcs_event_bound = 0;
 
 	for (;;) {
 		processed = process_one_event_after(decoder, insn);
@@ -998,6 +1065,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 	case ptev_overflow:
 	case ptev_disabled:
 	case ptev_paging:
+	case ptev_vmcs:
 		return 0;
 
 	case ptev_exec_mode:
@@ -1021,6 +1089,18 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		if (ev->ip_suppressed ||
 		    ev->variant.async_paging.ip == decoder->ip)
 			return process_paging_event(decoder);
+
+		return 0;
+
+	case ptev_async_vmcs:
+		/* We would normally process this event in the next iteration.
+		 *
+		 * We process it here, as well, in case we have a peek event
+		 * hiding behind.
+		 */
+		if (ev->ip_suppressed ||
+		    ev->variant.async_vmcs.ip == decoder->ip)
+			return process_vmcs_event(decoder);
 
 		return 0;
 

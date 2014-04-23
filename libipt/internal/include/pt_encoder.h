@@ -116,4 +116,7 @@ extern int pt_encode_cyc(struct pt_encoder *, uint32_t cyc);
 /* Encode a TraceStop Packet (stop). */
 extern int pt_encode_stop(struct pt_encoder *);
 
+/* Encode a VMCS packet. */
+extern int pt_encode_vmcs(struct pt_encoder *, uint64_t);
+
 #endif /* __PT_ENCODER_H__ */

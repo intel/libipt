@@ -92,6 +92,9 @@ struct pt_insn_decoder {
 
 	/* - a paging event has been bound to the current instruction. */
 	uint32_t paging_event_bound:1;
+
+	/* - a vmcs event has been bound to the current instruction. */
+	uint32_t vmcs_event_bound:1;
 };
 
 

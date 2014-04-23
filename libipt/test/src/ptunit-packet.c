@@ -349,6 +349,16 @@ static struct ptunit_result cyc(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result vmcs(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_vmcs;
+	pfix->packet[0].payload.vmcs.base = 0xabcdef000ull;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -488,6 +498,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, tma_bad, pfix);
 	ptu_run_f(suite, mtc, pfix);
 	ptu_run_f(suite, cyc, pfix);
+	ptu_run_f(suite, vmcs, pfix);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -504,6 +515,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, cutoff_cyc, pfix);
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_exec);
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_tsx);
+	ptu_run_fp(suite, cutoff, pfix, ppt_vmcs);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
@@ -656,6 +668,18 @@ int pt_qry_decode_cyc(struct pt_query_decoder *d)
 	return -pte_internal;
 }
 int pt_qry_decode_stop(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_vmcs(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_header_vmcs(struct pt_query_decoder *d)
 {
 	(void) d;
 

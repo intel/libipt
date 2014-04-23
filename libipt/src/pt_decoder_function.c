@@ -166,6 +166,13 @@ const struct pt_decoder_function pt_decode_stop = {
 	/* .flags =  */ pdff_event
 };
 
+const struct pt_decoder_function pt_decode_vmcs = {
+	/* .packet = */ pt_pkt_decode_vmcs,
+	/* .decode = */ pt_qry_decode_vmcs,
+	/* .header = */ pt_qry_header_vmcs,
+	/* .flags =  */ pdff_event
+};
+
 
 int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		const struct pt_config *config)
@@ -281,6 +288,10 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 
 		case pt_ext_stop:
 			*dfun = &pt_decode_stop;
+			return 0;
+
+		case pt_ext_vmcs:
+			*dfun = &pt_decode_vmcs;
 			return 0;
 		}
 	}

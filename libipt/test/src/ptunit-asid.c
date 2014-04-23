@@ -32,6 +32,8 @@
 
 #include "intel-pt.h"
 
+#include <stddef.h>
+
 
 static struct ptunit_result from_user_null(void)
 {
@@ -58,6 +60,7 @@ static struct ptunit_result from_user_default(void)
 	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(asid.size, sizeof(asid));
 	ptu_uint_eq(asid.cr3, pt_asid_no_cr3);
+	ptu_uint_eq(asid.vmcs, pt_asid_no_vmcs);
 
 	return ptu_passed();
 }
@@ -73,6 +76,7 @@ static struct ptunit_result from_user_small(void)
 	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(asid.size, sizeof(asid));
 	ptu_uint_eq(asid.cr3, pt_asid_no_cr3);
+	ptu_uint_eq(asid.vmcs, pt_asid_no_vmcs);
 
 	return ptu_passed();
 }
@@ -84,11 +88,13 @@ static struct ptunit_result from_user_big(void)
 
 	user.size = sizeof(user) + 4;
 	user.cr3 = 0x4200ull;
+	user.vmcs = 0x23000ull;
 
 	errcode = pt_asid_from_user(&asid, &user);
 	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(asid.size, sizeof(asid));
 	ptu_uint_eq(asid.cr3, 0x4200ull);
+	ptu_uint_eq(asid.vmcs, 0x23000ull);
 
 	return ptu_passed();
 }
@@ -100,11 +106,31 @@ static struct ptunit_result from_user(void)
 
 	user.size = sizeof(user);
 	user.cr3 = 0x4200ull;
+	user.vmcs = 0x23000ull;
 
 	errcode = pt_asid_from_user(&asid, &user);
 	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(asid.size, sizeof(asid));
 	ptu_uint_eq(asid.cr3, 0x4200ull);
+	ptu_uint_eq(asid.vmcs, 0x23000ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result from_user_cr3(void)
+{
+	struct pt_asid asid, user;
+	int errcode;
+
+	user.size = offsetof(struct pt_asid, vmcs);
+	user.cr3 = 0x4200ull;
+	user.vmcs = 0x23000ull;
+
+	errcode = pt_asid_from_user(&asid, &user);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(asid.size, sizeof(asid));
+	ptu_uint_eq(asid.cr3, 0x4200ull);
+	ptu_uint_eq(asid.vmcs, pt_asid_no_vmcs);
 
 	return ptu_passed();
 }
@@ -128,7 +154,7 @@ static struct ptunit_result match_null(void)
 	return ptu_passed();
 }
 
-static struct ptunit_result match_cr3_default(void)
+static struct ptunit_result match_default(void)
 {
 	struct pt_asid lhs, rhs;
 	int errcode;
@@ -140,6 +166,30 @@ static struct ptunit_result match_cr3_default(void)
 	ptu_int_eq(errcode, 1);
 
 	lhs.cr3 = 0x2300ull;
+	lhs.vmcs = 0x42000ull;
+
+	errcode = pt_asid_match(&lhs, &rhs);
+	ptu_int_eq(errcode, 1);
+
+	errcode = pt_asid_match(&rhs, &lhs);
+	ptu_int_eq(errcode, 1);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result match_default_mixed(void)
+{
+	struct pt_asid lhs, rhs;
+	int errcode;
+
+	pt_asid_init(&lhs);
+	pt_asid_init(&rhs);
+
+	errcode = pt_asid_match(&lhs, &rhs);
+	ptu_int_eq(errcode, 1);
+
+	lhs.cr3 = 0x2300ull;
+	rhs.vmcs = 0x42000ull;
 
 	errcode = pt_asid_match(&lhs, &rhs);
 	ptu_int_eq(errcode, 1);
@@ -167,6 +217,42 @@ static struct ptunit_result match_cr3(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result match_vmcs(void)
+{
+	struct pt_asid lhs, rhs;
+	int errcode;
+
+	pt_asid_init(&lhs);
+	pt_asid_init(&rhs);
+
+	lhs.vmcs = 0x23000ull;
+	rhs.vmcs = 0x23000ull;
+
+	errcode = pt_asid_match(&lhs, &rhs);
+	ptu_int_eq(errcode, 1);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result match(void)
+{
+	struct pt_asid lhs, rhs;
+	int errcode;
+
+	pt_asid_init(&lhs);
+	pt_asid_init(&rhs);
+
+	lhs.cr3 = 0x2300ull;
+	rhs.cr3 = 0x2300ull;
+	lhs.vmcs = 0x23000ull;
+	rhs.vmcs = 0x23000ull;
+
+	errcode = pt_asid_match(&lhs, &rhs);
+	ptu_int_eq(errcode, 1);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result match_cr3_false(void)
 {
 	struct pt_asid lhs, rhs;
@@ -177,6 +263,23 @@ static struct ptunit_result match_cr3_false(void)
 
 	lhs.cr3 = 0x4200ull;
 	rhs.cr3 = 0x2300ull;
+
+	errcode = pt_asid_match(&lhs, &rhs);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result match_vmcs_false(void)
+{
+	struct pt_asid lhs, rhs;
+	int errcode;
+
+	pt_asid_init(&lhs);
+	pt_asid_init(&rhs);
+
+	lhs.vmcs = 0x42000ull;
+	rhs.vmcs = 0x23000ull;
 
 	errcode = pt_asid_match(&lhs, &rhs);
 	ptu_int_eq(errcode, 0);
@@ -195,11 +298,16 @@ int main(int argc, char **argv)
 	ptu_run(suite, from_user_small);
 	ptu_run(suite, from_user_big);
 	ptu_run(suite, from_user);
+	ptu_run(suite, from_user_cr3);
 
 	ptu_run(suite, match_null);
-	ptu_run(suite, match_cr3_default);
+	ptu_run(suite, match_default);
+	ptu_run(suite, match_default_mixed);
 	ptu_run(suite, match_cr3);
+	ptu_run(suite, match_vmcs);
+	ptu_run(suite, match);
 	ptu_run(suite, match_cr3_false);
+	ptu_run(suite, match_vmcs_false);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

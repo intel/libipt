@@ -810,6 +810,11 @@ int pt_qry_decode_tip(struct pt_query_decoder *decoder)
 					    decoder);
 			break;
 
+		case ptev_async_vmcs:
+			pt_qry_add_event_ip(ev, &ev->variant.async_vmcs.ip,
+					    decoder);
+			break;
+
 		case ptev_exec_mode:
 			pt_qry_add_event_ip(ev, &ev->variant.exec_mode.ip,
 					    decoder);
@@ -1295,6 +1300,10 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 	case ptev_tsx:
 		pt_qry_add_event_ip(ev, &ev->variant.tsx.ip, decoder);
 		break;
+
+	case ptev_async_vmcs:
+		pt_qry_add_event_ip(ev, &ev->variant.async_vmcs.ip, decoder);
+		break;
 	}
 
 	pt_qry_add_event_time(ev, decoder);
@@ -1725,5 +1734,91 @@ int pt_qry_decode_stop(struct pt_query_decoder *decoder)
 
 	decoder->event = event;
 	decoder->pos += ptps_stop;
+	return 0;
+}
+
+int pt_qry_header_vmcs(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_vmcs packet;
+	struct pt_event *event;
+	int size;
+
+	size = pt_pkt_read_vmcs(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
+	if (!event)
+		return -pte_nomem;
+
+	event->type = ptev_async_vmcs;
+	event->variant.async_vmcs.base = packet.base;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_vmcs(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_vmcs packet;
+	struct pt_event *event;
+	int size;
+
+	size = pt_pkt_read_vmcs(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	/* VMCS events bind to the same IP as an in-flight async paging event.
+	 *
+	 * In that case, the VMCS event should be applied first.  We reorder
+	 * events here to simplify the life of higher layers.
+	 */
+	event = pt_evq_find(&decoder->evq, evb_tip, ptev_async_paging);
+	if (event) {
+		struct pt_event *paging;
+
+		paging = pt_evq_enqueue(&decoder->evq, evb_tip);
+		if (!paging)
+			return -pte_nomem;
+
+		*paging = *event;
+
+		event->type = ptev_async_vmcs;
+		event->variant.async_vmcs.base = packet.base;
+
+		decoder->pos += size;
+		return 0;
+	}
+
+	/* VMCS events bind to the same TIP packet as an in-flight async
+	 * branch event.
+	 */
+	event = pt_evq_find(&decoder->evq, evb_tip, ptev_async_branch);
+	if (event) {
+		event = pt_evq_enqueue(&decoder->evq, evb_tip);
+		if (!event)
+			return -pte_nomem;
+
+		event->type = ptev_async_vmcs;
+		event->variant.async_vmcs.base = packet.base;
+
+		decoder->pos += size;
+		return 0;
+	}
+
+	/* VMCS events that do not bind to an in-flight async event are
+	 * stand-alone.
+	 */
+	event = pt_evq_standalone(&decoder->evq);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_vmcs;
+	event->variant.vmcs.base = packet.base;
+
+	pt_qry_add_event_time(event, decoder);
+
+	decoder->event = event;
+	decoder->pos += size;
 	return 0;
 }

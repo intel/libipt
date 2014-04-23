@@ -61,7 +61,7 @@ int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user)
 
 int pt_asid_match(const struct pt_asid *lhs, const struct pt_asid *rhs)
 {
-	uint64_t lcr3, rcr3;
+	uint64_t lcr3, rcr3, lvmcs, rvmcs;
 
 	if (!lhs || !rhs)
 		return -pte_internal;
@@ -70,6 +70,13 @@ int pt_asid_match(const struct pt_asid *lhs, const struct pt_asid *rhs)
 	rcr3 = rhs->cr3;
 
 	if (lcr3 != rcr3 && lcr3 != pt_asid_no_cr3 && rcr3 != pt_asid_no_cr3)
+		return 0;
+
+	lvmcs = lhs->vmcs;
+	rvmcs = rhs->vmcs;
+
+	if (lvmcs != rvmcs && lvmcs != pt_asid_no_vmcs &&
+	    rvmcs != pt_asid_no_vmcs)
 		return 0;
 
 	return 1;

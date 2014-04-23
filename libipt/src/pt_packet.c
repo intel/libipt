@@ -418,3 +418,21 @@ int pt_pkt_read_cyc(struct pt_packet_cyc *packet, const uint8_t *pos,
 
 	return (int) (pos - begin);
 }
+
+int pt_pkt_read_vmcs(struct pt_packet_vmcs *packet, const uint8_t *pos,
+		     const struct pt_config *config)
+{
+	uint64_t payload;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_vmcs)
+		return -pte_eos;
+
+	payload = pt_pkt_read_value(pos + pt_opcs_vmcs, pt_pl_vmcs_size);
+
+	packet->base = payload << pt_pl_vmcs_shl;
+
+	return ptps_vmcs;
+}
