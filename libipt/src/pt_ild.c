@@ -1241,6 +1241,48 @@ pti_instruction_decode (pti_ild_t * ild)
         }
       return 0;
 
+    case 0x01:                 /* map 1 PTI_INST_VMLAUNCH/RESUME/CALL, */
+      if (map == PTI_MAP_1)
+        {
+          switch (ild->modrm_byte)
+            {
+            case 0xc1:
+              ild->iclass = PTI_INST_VMCALL;
+              ild->u.s.branch = 1;
+              ild->u.s.branch_far = 1;
+              ild->u.s.ret = 1;
+              return 1;
+
+            case 0xc2:
+              ild->iclass = PTI_INST_VMLAUNCH;
+              ild->u.s.branch = 1;
+              ild->u.s.branch_far = 1;
+              ild->u.s.call = 1;
+              return 1;
+
+            case 0xc3:
+              ild->iclass = PTI_INST_VMRESUME;
+              ild->u.s.branch = 1;
+              ild->u.s.branch_far = 1;
+              ild->u.s.call = 1;
+              return 1;
+
+            default:
+              return 0;
+            }
+        }
+      return 0;
+
+    case 0xc7:                 /* map 1 PTI_INST_VMPTRLD, */
+      if (map == PTI_MAP_1 &&
+          pti_get_modrm_mod (ild) != 3 &&
+          pti_get_modrm_reg (ild) == 6)
+        {
+          ild->iclass = PTI_INST_VMPTRLD;
+          return 1;
+        }
+      return 0;
+
     default:
       break;
     }

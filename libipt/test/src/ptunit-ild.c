@@ -348,6 +348,42 @@ static struct ptunit_result ret_ca(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result vmlaunch(void)
+{
+	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc2 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMLAUNCH);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result vmresume(void)
+{
+	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc3 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMRESUME);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result vmcall(void)
+{
+	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc1 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMCALL);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result vmptrld(void)
+{
+	pti_uint8_t insn[] = { 0x0f, 0xc7, 0x30 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMPTRLD);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -380,6 +416,10 @@ int main(int argc, char **argv)
 	ptu_run(suite, jmp_ea_cd);
 	ptu_run(suite, jmp_ea_cp);
 	ptu_run(suite, ret_ca);
+	ptu_run(suite, vmlaunch);
+	ptu_run(suite, vmresume);
+	ptu_run(suite, vmcall);
+	ptu_run(suite, vmptrld);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
