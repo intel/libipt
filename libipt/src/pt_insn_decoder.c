@@ -408,6 +408,68 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	return relevant;
 }
 
+/* Check whether @ip is ahead of us.
+ *
+ * Tries to reach @ip from @decoder->ip in @decoder->mode without Intel PT for
+ * at most @steps steps.
+ *
+ * Does not update @decoder except for its image LRU cache.
+ *
+ * Returns non-zero if @ip can be reached, zero otherwise.
+ */
+static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
+			  size_t steps)
+{
+	pti_machine_mode_enum_t mode;
+	uint64_t at;
+
+	if (!decoder)
+		return 0;
+
+	/* We do not expect execution mode changes. */
+	mode = translate_mode(decoder->mode);
+	if (PTI_MODE_LAST <= mode)
+		return -pte_bad_insn;
+
+	at = decoder->ip;
+	while (at != ip) {
+		pti_bool_t status;
+		pti_ild_t ild;
+		uint8_t raw[pt_max_insn_size];
+		int size, errcode;
+
+		if (!steps--)
+			return 0;
+
+		/* If we can't read the memory for the instruction, we can't
+		 * reach it.
+		 */
+		size = pt_image_read(decoder->image, raw, sizeof(raw),
+				     &decoder->asid, at);
+		if (size < 0)
+			return 0;
+
+		memset(&ild, 0, sizeof(ild));
+
+		ild.itext = raw;
+		ild.max_bytes = size;
+		ild.mode = mode;
+		ild.runtime_address = at;
+
+		status = pti_instruction_length_decode(&ild);
+		if (!status)
+			return 0;
+
+		(void) pti_instruction_decode(&ild);
+
+		errcode = pt_insn_next_ip(&at, &ild);
+		if (errcode < 0)
+			return 0;
+	}
+
+	return 1;
+}
+
 static int event_pending(struct pt_insn_decoder *decoder)
 {
 	int status;
@@ -871,6 +933,24 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		if (ev->ip_suppressed ||
 		    ev->variant.tsx.ip == decoder->ip)
 			return process_tsx_event(decoder, insn);
+
+		/* If we got the TSX event after a bogus branch, we might
+		 * be on the wrong track.
+		 *
+		 * Check if we can reach the TSX event IP from here.  If we
+		 * can't, assume that this is due to erratum BDM64.  We
+		 * pretend that we're already at the TSX event IP and process
+		 * the event.
+		 *
+		 * If we can reach the TSX event IP from here, we migth still
+		 * be wrong, but we won't be able to tell.
+		 */
+		if (decoder->query.config.errata.bdm64 &&
+		    ev->variant.tsx.aborted && decoder->ild.u.s.branch &&
+		    !pt_ip_is_ahead(decoder, ev->variant.tsx.ip, 0x1000)) {
+			decoder->ip = ev->variant.tsx.ip;
+			return process_tsx_event(decoder, insn);
+		}
 
 		return 0;
 

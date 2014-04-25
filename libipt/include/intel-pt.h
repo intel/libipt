@@ -416,6 +416,18 @@ struct pt_errata {
 	 * includes FUP and MODE.Exec packets.
 	 */
 	uint32_t bdm70:1;
+
+	/** BDM64: An Incorrect LBR or Intel(R) Processor Trace Packet May Be
+	 *         Recorded Following a Transactional Abort.
+	 *
+	 * Use of Intel(R) Transactional Synchronization Extensions (Intel(R)
+	 * TSX) may result in a transactional abort.  If an abort occurs
+	 * immediately following a branch instruction, an incorrect branch
+	 * target may be logged in an LBR (Last Branch Record) or in an Intel(R)
+	 * Processor Trace (Intel(R) PT) packet before the LBR or Intel PT
+	 * packet produced by the abort.
+	 */
+	uint32_t bdm64:1;
 };
 
 /** An unknown packet. */
