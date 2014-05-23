@@ -56,6 +56,13 @@ struct pt_insn_decoder {
 	/* The current IP. */
 	uint64_t ip;
 
+	/* The IP of the last disable.
+	 *
+	 * This is either zero or the IP of the first instruction that wasn't
+	 * executed due to the disable event.
+	 */
+	uint64_t last_disable_ip;
+
 	/* The current execution mode. */
 	enum pt_exec_mode mode;
 

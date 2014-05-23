@@ -66,6 +66,6 @@ l7: hlt
 ; @pt .exp(ptxed)
 ;%0l1 # syscall
 ;[disabled]
-;[enabled]
+;[resumed]
 ;%0l2 # nop
 ;[disabled]

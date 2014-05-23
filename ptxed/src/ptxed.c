@@ -320,6 +320,9 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 	if (insn->enabled)
 		printf("[enabled]\n");
 
+	if (insn->resumed)
+		printf("[resumed]\n");
+
 	if (insn->speculative)
 		printf("? ");
 

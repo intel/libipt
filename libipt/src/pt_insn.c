@@ -213,6 +213,42 @@ static int pt_insn_changes_cr3(const pti_ild_t *ild)
 	}
 }
 
+/* Try to determine the next IP for @ild without using PT.
+ *
+ * If @ip is not NULL, provides the determined IP on success.
+ *
+ * Returns 0 on success.
+ * Returns a negative error code, otherwise.
+ * Returns -pte_bad_query if determining the IP would require PT.
+ * Returns -pte_bad_insn if @ild has not been decoded correctly.
+ * Returns -pte_invalid if @ild is NULL.
+ */
+static int pt_insn_next_ip(uint64_t *ip, const pti_ild_t *ild)
+{
+	if (!ild)
+		return -pte_invalid;
+
+	if (ild->u.s.error)
+		return -pte_bad_insn;
+
+	if (!ild->u.s.branch) {
+		if (ip)
+			*ip = ild->runtime_address + ild->length;
+		return 0;
+	}
+
+	if (ild->u.s.cond)
+		return -pte_bad_query;
+
+	if (ild->u.s.branch_direct) {
+		if (ip)
+			*ip = ild->direct_target;
+		return 0;
+	}
+
+	return -pte_bad_query;
+}
+
 static pti_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 {
 	switch (mode) {
@@ -342,12 +378,22 @@ static int process_enabled_event(struct pt_insn_decoder *decoder,
 
 	decoder->ip = ev->variant.enabled.ip;
 	decoder->enabled = 1;
-	insn->enabled = 1;
 
 	/* Clear an indication of a preceding disable on the same
 	 * instruction.
 	 */
 	insn->disabled = 0;
+
+	/* Check if we resumed from a preceding disable or if we enabled at a
+	 * different position.
+	 * Should we ever get more than one enabled event, enabled wins.
+	 */
+	if (decoder->last_disable_ip == decoder->ip && !insn->enabled)
+		insn->resumed = 1;
+	else {
+		insn->enabled = 1;
+		insn->resumed = 0;
+	}
 
 	return 1;
 }
@@ -374,6 +420,45 @@ static int process_disabled_event(struct pt_insn_decoder *decoder,
 	insn->disabled = 1;
 
 	return 1;
+}
+
+static int process_async_disabled_event(struct pt_insn_decoder *decoder,
+					struct pt_insn *insn)
+{
+	int errcode;
+
+	errcode = process_disabled_event(decoder, insn);
+	if (errcode <= 0)
+		return errcode;
+
+	decoder->last_disable_ip = decoder->ip;
+
+	return errcode;
+}
+
+static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
+				       struct pt_insn *insn,
+				       const pti_ild_t *ild)
+{
+	int errcode, iperr;
+
+	errcode = process_disabled_event(decoder, insn);
+	if (errcode <= 0)
+		return errcode;
+
+	iperr = pt_insn_next_ip(&decoder->last_disable_ip, ild);
+	if (iperr < 0) {
+		/* For indirect calls, assume that we return to the next
+		 * instruction.
+		 */
+		if (iperr == -pte_bad_query && ild->u.s.call)
+			decoder->last_disable_ip =
+				ild->runtime_address + ild->length;
+		else
+			decoder->last_disable_ip = 0ull;
+	}
+
+	return errcode;
 }
 
 static int process_async_branch_event(struct pt_insn_decoder *decoder,
@@ -514,7 +599,7 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		 * we actually started.
 		 */
 		if (ev->variant.async_disabled.at == decoder->ip)
-			return process_disabled_event(decoder, insn);
+			return process_async_disabled_event(decoder, insn);
 
 		return 0;
 
@@ -613,13 +698,15 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 			if (ild->u.s.branch ||
 			    pt_insn_changes_cpl(ild) ||
 			    pt_insn_changes_cr3(ild))
-				return process_disabled_event(decoder, insn);
+				return process_sync_disabled_event(decoder,
+								   insn, ild);
 
 		} else if (ild->u.s.branch) {
 			if (!ild->u.s.branch_direct ||
 			    ild->u.s.cond ||
 			    ild->direct_target == ev->variant.disabled.ip)
-				return process_disabled_event(decoder, insn);
+				return process_sync_disabled_event(decoder,
+								   insn, ild);
 		}
 
 		return 0;
@@ -679,7 +766,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 	switch (ev->type) {
 	case ptev_async_disabled:
 		if (ev->variant.async_disabled.at == decoder->ip)
-			return process_disabled_event(decoder, insn);
+			return process_async_disabled_event(decoder, insn);
 
 		return 0;
 

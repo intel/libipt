@@ -1199,11 +1199,18 @@ struct pt_insn {
 	/** - speculative execution was committed after this instruction. */
 	uint32_t committed:1;
 
+	/** - tracing was disabled after this instruction. */
+	uint32_t disabled:1;
+
 	/** - tracing was enabled at this instruction. */
 	uint32_t enabled:1;
 
-	/** - tracing was disabled after this instruction. */
-	uint32_t disabled:1;
+	/** - tracing was resumed at this instruction.
+	 *
+	 *    In addition to tracing being enabled, it continues from the IP
+	 *    at which tracing had been disabled before.
+	 */
+	uint32_t resumed:1;
 
 	/** - normal execution flow was interrupted after this instruction. */
 	uint32_t interrupted:1;

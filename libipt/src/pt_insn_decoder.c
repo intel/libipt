@@ -38,6 +38,7 @@ void pt_insn_reset(struct pt_insn_decoder *decoder)
 
 	decoder->mode = ptem_unknown;
 	decoder->ip = 0ull;
+	decoder->last_disable_ip = 0ull;
 	decoder->status = 0;
 	decoder->enabled = 0;
 	decoder->process_event = 0;

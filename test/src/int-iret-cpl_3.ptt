@@ -68,6 +68,6 @@ l7: hlt
 ; @pt .exp(ptxed)
 ;%0l1 # int 42
 ;[disabled]
-;[enabled]
+;[resumed]
 ;%0l2 # nop
 ;[disabled]

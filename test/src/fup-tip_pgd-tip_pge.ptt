@@ -57,6 +57,6 @@ l3:     hlt
 
 
 ; @pt .exp(ptxed)
-;[enabled]
+;[resumed]
 ;%0l1 # nop
 ;[disabled]
