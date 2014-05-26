@@ -1,5 +1,5 @@
-Testing the Intel(R) Processor Trace (PT) Decoder Library and Samples {#pttc}
-=============================================================================
+Testing the Intel(R) Processor Trace (Intel PT) Decoder Library and Samples {#pttc}
+===========================================================================
 
 <!---
  ! Copyright (c) 2013-2014, Intel Corporation

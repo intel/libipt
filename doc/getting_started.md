@@ -31,12 +31,12 @@ Getting Started {#start}
 
 This chapter gives a brief introduction into the sample tools using one of the
 tests as example.  It assumes that you are already familiar with Intel(R)
-Processor Trace (PT) and that you already built the decoder library and the
-sample tools.  For detailed information about Intel PT, please refer to the
+Processor Trace (Intel PT) and that you already built the decoder library and
+the sample tools.  For detailed information about Intel PT, please refer to the
 respective chapter in the Software Developer's Manual.
 
 Start by compiling the loop test.  It consists of a small assembly program with
-interleaved PT directives:
+interleaved Intel PT directives:
 
 	$ pttc test/src/loop.ptt
 	loop-ptxed.exp
@@ -46,7 +46,7 @@ This produces the following output files:
 
 	loop.lst          a yasm assembly listing file
 	loop.bin          a raw binary file
-	loop.pt           a PT file
+	loop.pt           a Intel PT file
 	loop-ptxed.exp    the expected ptxed output
 	loop-ptdump.exp   the expected ptdump output
 
@@ -55,7 +55,7 @@ found in the `.ptt` file.  They are used for automated testing.  See
 script/test.bash for details on that.
 
 
-Use `ptdump` to dump the PT packets:
+Use `ptdump` to dump the Intel PT packets:
 
 	$ ptdump loop.pt
 	0000000000000000  psb
@@ -65,13 +65,13 @@ Use `ptdump` to dump the PT packets:
 	000000000000001b  tnt8       !!.
 	000000000000001c  tip.pgd    3: 0x0000000000100013, ip=0x0000000000100013
 
-The ptdump tool takes a PT file as input and dumps the packets in human-readable
-form.  The number on the very left is the offset into the PT stream in hex.
-This is followed by the PT packet opcode and the packet payload.
+The ptdump tool takes an Intel PT file as input and dumps the packets in
+human-readable form.  The number on the very left is the offset into the Intel
+PT packet stream in hex.  This is followed by the packet opcode and payload.
 
 
-Use `ptxed` for reconstructing the execution flow.  For this, you need the PT
-file as well as the corresponding binary image.  You need to specify the load
+Use `ptxed` for reconstructing the execution flow.  For this, you need the Intel
+PT file as well as the corresponding binary image.  You need to specify the load
 address given by the org directive in the .ptt file when using a raw binary
 file.
 

@@ -30,16 +30,17 @@ Decoding Intel(R) Processor Trace Using libipt {#libipt}
  !-->
 
 This chapter describes how to use libipt for various tasks around Intel
-Processor Trace (PT).  For code examples, refer to the sample tools that are
-contained in the source tree:
+Processor Trace (Intel PT).  For code examples, refer to the sample tools that
+are contained in the source tree:
 
   * *ptdump*    A packet dumper example.
   * *ptxed*     A control-flow reconstruction example.
   * *pttc*      A packet encoder example.
 
 
-For an overview of PT and for detailed information about the PT specification,
-refer to the respective chapter in the Software Developer's Manual.
+For an overview of Intel PT and for detailed information about the Intel PT
+specification, refer to the respective chapter in the Software Developer's
+Manual.
 
 
 ## Introduction
@@ -48,7 +49,7 @@ The libipt decoder library provides multiple layers of abstraction ranging from
 packet encoding and decoding to full execution flow reconstruction.  The layers
 are organized as follows:
 
-  * *packets*               This layer deals with raw PT packets.
+  * *packets*               This layer deals with raw Intel PT packets.
 
   * *events*                This layer deals with packet combinations that
                             encode higher-level events.
@@ -59,9 +60,9 @@ are organized as follows:
 
 Each layer provides its own encoder or decoder struct plus a set of functions
 for allocating and freeing encoder or decoder objects and for synchronizing
-decoders onto the PT stream.  Function names are prefixed with `pt_<lyr>_` where
-`<lyr>` is an abbreviation of the layer name.  The following abbreviations are
-used:
+decoders onto the Intel PT packet stream.  Function names are prefixed with
+`pt_<lyr>_` where `<lyr>` is an abbreviation of the layer name.  The following
+abbreviations are used:
 
   * *enc*     Packet encoding (packet layer).
   * *pkt*     Packet decoding (packet layer).
@@ -97,19 +98,20 @@ Here is some generic example code for working with decoders:
 ~~~
 
 First, configure the decoder.  As a minimum, the size of the config struct and
-the `begin` and `end` of the buffer containing the PT data need to be set.
+the `begin` and `end` of the buffer containing the Intel PT data need to be set.
 Configuration options details will be discussed later in this chapter.  In the
 case of packet encoding, this is the begin and end address of the pre-allocated
-buffer, into which PT packets shall be written.
+buffer, into which Intel PT packets shall be written.
 
 Next, allocate a decoder object for the layer you are interested in.  A return
 value of NULL indicates an error.  There is no further information available on
 the exact error condition.  Most of the time, however, the error is the result
 of an incomplete or inconsistent configuration.
 
-Before the decoder can be used, it needs to be synchronized onto the PT stream
-specified in the configuration.  The only exception to this is the packet
-encoder, which is implicitly synchronized onto the beginning of the PT buffer.
+Before the decoder can be used, it needs to be synchronized onto the Intel PT
+packet stream specified in the configuration.  The only exception to this is the
+packet encoder, which is implicitly synchronized onto the beginning of the Intel
+PT buffer.
 
 Depending on the type of decoder, one or more synchronization options are
 available.
@@ -123,7 +125,8 @@ available.
                                   synchronized).
 
   * `pt_<lyr>_sync_set()`         Set the synchronization position to a
-                                  user-defined location in the PT stream.
+                                  user-defined location in the Intel PT packet
+                                  stream.
                                   There is no check whether the specified
                                   location makes sense or is valid.
 
@@ -131,8 +134,8 @@ available.
 After synchronizing, the decoder can be used.  While decoding, the decoder
 stores the location of the last PSB it encountered during normal decode.
 Subsequent calls to pt_<lyr>_sync_forward() will start searching from that
-location.  This is useful for re-synchronizing onto the PT stream in case of
-errors.  An example of a typical decode loop is given below:
+location.  This is useful for re-synchronizing onto the Intel PT packet stream
+in case of errors.  An example of a typical decode loop is given below:
 
 ~~~{.c}
     for (;;) {
@@ -156,13 +159,13 @@ errors.  An example of a typical decode loop is given below:
     }
 ~~~
 
-You can get the current decoder position as offset into the PT buffer via:
+You can get the current decoder position as offset into the Intel PT buffer via:
 
     pt_<lyr>_get_offset()
 
 
-You can get the position of the last synchronization point as offset into the PT
-buffer via:
+You can get the position of the last synchronization point as offset into the
+Intel PT buffer via:
 
     pt_<lyr>_get_sync_offset()
 
@@ -210,27 +213,27 @@ Some of its fields have already been discussed in the example above.  Refer to
 the `intel-pt.h` header for detailed and up-to-date documentation of each field.
 
 As a minimum, the `size` field needs to be set to `sizeof(struct pt_config)` and
-`begin` and `end` need to be set to the PT buffer to use.
+`begin` and `end` need to be set to the Intel PT buffer to use.
 
 The size is used for detecting library version mismatches and to provide
 backwards compatibility.  Without the proper `size`, decoder allocation will
 fail.
 
 Although not strictly required, it is recommended to also set the `cpu` field to
-the processor, on which PT has been collected (for decoders), or for which PT
-shall be generated (for encoders).  This allows implementing processor-specific
-behavior such as erratum workarounds.
+the processor, on which Intel PT has been collected (for decoders), or for which
+Intel PT shall be generated (for encoders).  This allows implementing
+processor-specific behavior such as erratum workarounds.
 
 
 ## The Packet Layer
 
-This layer deals with PT packet encoding and decoding.  It can further be split
-into three sub-layers: opcodes, encoding, and decoding.
+This layer deals with Intel PT packet encoding and decoding.  It can further be
+split into three sub-layers: opcodes, encoding, and decoding.
 
 
 ### Opcodes
 
-The opcodes layer provides enumerations for all the bits necessary for PT
+The opcodes layer provides enumerations for all the bits necessary for Intel PT
 encoding and decoding.  The enumeration constants can be used without linking to
 the decoder library.  There is no encoder or decoder struct associated with this
 layer.  See the intel-pt.h header file for details.
@@ -238,8 +241,9 @@ layer.  See the intel-pt.h header file for details.
 
 ### Packet Encoding
 
-The packet encoding layer provides support for encoding PT packet-by-packet.
-Start by configuring and allocating a `pt_packet_encoder` as shown below:
+The packet encoding layer provides support for encoding Intel PT
+packet-by-packet.  Start by configuring and allocating a `pt_packet_encoder` as
+shown below:
 
 ~~~{.c}
     struct pt_encoder *encoder;
@@ -260,8 +264,8 @@ Start by configuring and allocating a `pt_packet_encoder` as shown below:
 For packet encoding, only the mandatory config fields need to be filled in.
 
 The allocated encoder object will be implicitly synchronized onto the beginning
-of the PT buffer.  You may change the encoder's position at any time by calling
-`pt_enc_sync_set()` with the desired buffer offset.
+of the Intel PT buffer.  You may change the encoder's position at any time by
+calling `pt_enc_sync_set()` with the desired buffer offset.
 
 Next, fill in a `pt_packet` object with details about the packet to be encoded.
 You do not need to fill in the `size` field.  The needed size is computed by the
@@ -295,17 +299,17 @@ shown here:
         <handle error>(errcode);
 ~~~
 
-The encoder will encode the packet, write it into the PT buffer, and advance its
-position to the next byte after the packet.  On a successful encode, it will
-return the number of bytes that have been written.  In case of errors, nothing
-will be written and the encoder returns a negative error code.
+The encoder will encode the packet, write it into the Intel PT buffer, and
+advance its position to the next byte after the packet.  On a successful encode,
+it will return the number of bytes that have been written.  In case of errors,
+nothing will be written and the encoder returns a negative error code.
 
 
 ### Packet Decoding
 
-The packet decoding layer provides support for decoding PT packet-by-packet.
-Start by configuring and allocating a `pt_packet_decoder` as shown
-here:
+The packet decoding layer provides support for decoding Intel PT
+packet-by-packet.  Start by configuring and allocating a `pt_packet_decoder` as
+shown here:
 
 ~~~{.c}
     struct pt_packet_decoder *decoder;
@@ -333,17 +337,17 @@ to the callback function pointer, an optional pointer to user-defined context
 information can be specified.  This context will be passed to the decode
 callback function.
 
-Before the decoder can be used, it needs to be synchronized onto the PT stream.
-Packet decoders offer three synchronization functions.  To iterate over
-synchronization points in the PT stream in forward or backward direction, use
-one of the following two functions respectively:
+Before the decoder can be used, it needs to be synchronized onto the Intel PT
+packet stream.  Packet decoders offer three synchronization functions.  To
+iterate over synchronization points in the Intel PT packet stream in forward or
+backward direction, use one of the following two functions respectively:
 
     pt_pkt_sync_forward()
     pt_pkt_sync_backward()
 
 
-To manually synchronize the decoder at a particular offset into the PT stream,
-use the following function:
+To manually synchronize the decoder at a particular offset into the Intel PT
+packet stream, use the following function:
 
     pt_pkt_sync_set()
 
@@ -365,13 +369,13 @@ The decoder will remember the last synchronization packet it decoded.
 Subsequent calls to `pt_pkt_sync_forward` and `pt_pkt_sync_backward` will use
 this as their starting point.
 
-You can get the current decoder position as offset into the PT buffer via:
+You can get the current decoder position as offset into the Intel PT buffer via:
 
     pt_pkt_get_offset()
 
 
-You can get the position of the last synchronization point as offset into the PT
-buffer via:
+You can get the position of the last synchronization point as offset into the
+Intel PT buffer via:
 
     pt_pkt_get_sync_offset()
 
@@ -434,10 +438,10 @@ the callback function pointer, an optional pointer to user-defined context
 information can be specified.  This context will be passed to the decode
 callback function.
 
-Before the decoder can be used, it needs to be synchronized onto the PT stream.
-To iterate over synchronization points in the PT stream in forward or backward
-direction, the query decoders offer the following two synchronization functions
-respectively:
+Before the decoder can be used, it needs to be synchronized onto the Intel PT
+packet stream.  To iterate over synchronization points in the Intel PT packet
+stream in forward or backward direction, the query decoders offer the following
+two synchronization functions respectively:
 
 
     pt_qry_sync_forward()
@@ -552,7 +556,8 @@ the instruction associated with the event.
 For example, if tracing is disabled at the synchronization point, the IP will be
 suppressed.  In this case, it is very likely that a tracing enabled event is
 signaled.  You will also get events for initializing the decoder state after
-synchronizing onto the PT stream.  For example, paging or execution mode events.
+synchronizing onto the Intel PT packet stream.  For example, paging or execution
+mode events.
 
 See the `enum pt_event_type` and `struct pt_event` in the intel-pt.h header for
 details on possible events.  This document does not give an example of event
@@ -572,12 +577,13 @@ time at our next query.
 
 #### Return Compression
 
-If PT has been configured to compress returns, a successfully compressed return
-is represented as a conditional branch instead of an indirect branch.  For a RET
-instruction, you first query for a conditional branch.  If the query succeeds,
-it should indicate that the branch was taken.  In that case, the return has been
-compressed.  A not taken branch indicates an error.  If the query fails, the
-return has not been compressed and you query for an indirect branch.
+If Intel PT has been configured to compress returns, a successfully compressed
+return is represented as a conditional branch instead of an indirect branch.
+For a RET instruction, you first query for a conditional branch.  If the query
+succeeds, it should indicate that the branch was taken.  In that case, the
+return has been compressed.  A not taken branch indicates an error.  If the
+query fails, the return has not been compressed and you query for an indirect
+branch.
 
 There is no guarantee that returns will be compressed.  Even though return
 compression has been enabled, returns may still be represented as indirect
@@ -626,10 +632,10 @@ callback function.
 
 #### The Process Image
 
-In addition to the PT configuration, the instruction flow decoder needs to know
-the process image, for which PT has been recorded.  This can be specified by
-repeated calls to `pt_insn_add_file()`, one for each section of contiguous
-memory.
+In addition to the Intel PT configuration, the instruction flow decoder needs to
+know the process image, for which Intel PT has been recorded.  This can be
+specified by repeated calls to `pt_insn_add_file()`, one for each section of
+contiguous memory.
 
 If decoding failed due to an IP lying outside the specified process image,
 `pt_insn_next()` will return `-pte_nomap`.
@@ -651,10 +657,10 @@ calls.
 
 #### Synchronizing
 
-Before the decoder can be used, it needs to be synchronized onto the PT stream.
-To iterate over synchronization points in the PT stream in forward or backward
-directions, the instruction flow decoders offer the following two
-synchronization functions respectively:
+Before the decoder can be used, it needs to be synchronized onto the Intel PT
+packet stream.  To iterate over synchronization points in the Intel PT packet
+stream in forward or backward directions, the instruction flow decoders offer
+the following two synchronization functions respectively:
 
     pt_insn_sync_forward()
     pt_insn_sync_backward()
@@ -675,13 +681,13 @@ The decoder will remember the last synchronization packet it decoded.
 Subsequent calls to `pt_insn_sync_forward` and `pt_insn_sync_backward` will use
 this as their starting point.
 
-You can get the current decoder position as offset into the PT buffer via:
+You can get the current decoder position as offset into the Intel PT buffer via:
 
     pt_insn_get_offset()
 
 
-You can get the position of the last synchronization point as offset into the PT
-buffer via:
+You can get the position of the last synchronization point as offset into the
+Intel PT buffer via:
 
     pt_insn_get_sync_offset()
 
