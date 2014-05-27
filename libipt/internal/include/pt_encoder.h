@@ -32,7 +32,7 @@
 #include "intel-pt.h"
 
 
-/* A PT packet encoder. */
+/* An Intel PT packet encoder. */
 struct pt_encoder {
 	/* The encoder configuration. */
 	struct pt_config config;

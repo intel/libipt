@@ -32,7 +32,7 @@
 #include <stdint.h>
 
 
-/* The size of the PT call/return stack in number of entries. */
+/* The size of the call/return stack in number of entries. */
 enum {
 	pt_retstack_size	= 64
 };

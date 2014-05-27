@@ -35,7 +35,7 @@ struct pt_packet_ip;
 struct pt_config;
 
 
-/* Keeping track of the last-ip in PT packets. */
+/* Keeping track of the last-ip in Intel PT packets. */
 struct pt_last_ip {
 	/* The last IP. */
 	uint64_t ip;

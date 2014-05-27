@@ -65,7 +65,7 @@ static struct ptunit_result ptunit_ild_decode(pti_ild_t *ild,
 	return ptu_passed();
 }
 
-/* Initialize a PT ILD decoder for testing.
+/* Initialize an ILD decoder for testing.
  *
  * We can't use a fixture since we don't know the instruction size upfront.
  */
@@ -352,7 +352,6 @@ int main(int argc, const char **argv)
 {
 	struct ptunit_suite suite;
 
-	/* Initialize the PT ILD. */
 	pti_ild_init();
 
 	suite = ptunit_mk_suite(argc, argv);

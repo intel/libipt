@@ -16,8 +16,8 @@ Documentation for using the Intel PT Decoder Library
 -------------------------------------------------------------------------
 - [Getting Started](@ref start)
 - [Decoding Intel PT Using libipt](@ref libipt)
-- [Building the PT Decoder Library and Samples](@ref build)
-- [Testing the PT Decoder Library and Samples](@ref pttc)
+- [Building the Intel PT Decoder Library and Samples](@ref build)
+- [Testing the Intel PT Decoder Library and Samples](@ref pttc)
 
 
 Contact markus.t.metzger@intel.com for additional questions.

@@ -30,7 +30,7 @@ project(PT)
 
 # versioning
 #
-# the major and the minor number define the supported PT set.
+# the major and the minor number define the supported Intel PT set.
 #
 # a build number and a version extension can be optionally specified.
 #

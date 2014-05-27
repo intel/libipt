@@ -53,10 +53,10 @@ struct parser {
 	/* Current pt directive.  */
 	struct pt_directive *pd;
 
-	/* PT encoder configuration, passed during p_alloc.  */
+	/* The encoder configuration, passed during p_alloc.  */
 	const struct pt_config *conf;
 
-	/* Labels for PT directives.  */
+	/* Labels for @pt directives.  */
 	struct label *pt_labels;
 
 	/* Number of bytes written to pt file.  */

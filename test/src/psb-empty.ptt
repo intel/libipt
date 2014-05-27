@@ -24,7 +24,7 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 
-; Test that we do not diagnose an error if PT exists of a single PSB only.
+; Test that we do not diagnose an error for an empty trace.
 ;
 
 org 0x100000

@@ -32,7 +32,7 @@
 #include "pt_decoder.h"
 
 
-/* A PT packet decoder. */
+/* An Intel PT packet decoder. */
 struct pt_packet_decoder {
 	/* The internal decoder. */
 	struct pt_decoder decoder;

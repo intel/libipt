@@ -72,7 +72,7 @@ extern int pt_tnt_cache_is_empty(const struct pt_tnt_cache *cache);
  */
 extern int pt_tnt_cache_query(struct pt_tnt_cache *cache);
 
-/* Update the tnt cache based on PT packets.
+/* Update the tnt cache based on Intel PT packets.
  *
  * Updates @cache based on @packet and, if non-null, @config.
  *

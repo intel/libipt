@@ -33,7 +33,7 @@
 #include <stdlib.h>
 
 
-/* Intel(R) Processor Trace (PT) decoder library.
+/* Intel(R) Processor Trace (Intel PT) decoder library.
  *
  * This file is logically structured into the following sections:
  *
@@ -72,7 +72,7 @@ struct pt_insn_decoder;
 
 
 
-/** PT library version. */
+/** The library version. */
 struct pt_version {
 	/** Major version number. */
 	uint8_t major;
@@ -310,7 +310,7 @@ enum pt_packet_size {
 
 
 
-/** PT error codes. */
+/** Error codes. */
 enum pt_error_code {
 	/* No error. Everything is OK. */
 	pte_ok,
@@ -398,8 +398,7 @@ struct pt_cpu {
 /** An unknown packet. */
 struct pt_packet_unknown;
 
-/** A PT configuration that is used for allocating any of the decoders
- * below.
+/** An Intel PT decoder configuration.
  */
 struct pt_config {
 	/** The size of the config structure in bytes. */
@@ -431,19 +430,18 @@ struct pt_config {
 		void *context;
 	} decode;
 
-	/** The cpu on which PT has been recorded. */
+	/** The cpu on which Intel PT has been recorded. */
 	struct pt_cpu cpu;
 };
 
 
-/** Configure the PT library.
+/** Create an Intel PT decoder configuration for the current cpu.
  *
- * Collects information on the current system necessary for PT decoding and
- * stores it into \@config.
+ * Collects information on the current system necessary for Intel PT decoding
+ * and stores it into \@config.
  *
- * This function should be executed on the system on which PT is collected.
- * The resulting PT configuration should then be used for allocating PT
- * decoders.
+ * This function should be executed on the system on which Intel PT is
+ * collected.
  *
  * Returns zero on success, a negative error code otherwise.
  *
@@ -457,7 +455,7 @@ extern pt_export int pt_configure(struct pt_config *config);
 
 
 
-/** PT packet types. */
+/** Intel PT packet types. */
 enum pt_packet_type {
 	/* 1-byte header packets. */
 	ppt_pad			= pt_opc_pad,
@@ -601,7 +599,7 @@ struct pt_packet_unknown {
 	void *priv;
 };
 
-/** A PT packet. */
+/** An Intel PT packet. */
 struct pt_packet {
 	/** Type of the packet, used to indicate which sub-struct to use. */
 	enum pt_packet_type type;
@@ -642,7 +640,7 @@ struct pt_packet {
 
 
 
-/** Allocate a PT packet encoder.
+/** Allocate an Intel PT packet encoder.
  *
  * The encoder will work on the buffer defined in \@config, it shall contain
  * raw trace data and remain valid for the lifetime of the encoder.
@@ -652,13 +650,13 @@ struct pt_packet {
 extern pt_export struct pt_encoder *
 pt_alloc_encoder(const struct pt_config *config);
 
-/** Free a PT packet encoder.
+/** Free an Intel PT packet encoder.
  *
  * The \@encoder must not be used after a successful return.
  */
 extern pt_export void pt_free_encoder(struct pt_encoder *encoder);
 
-/** Hard set synchronization point of a PT packet encoder.
+/** Hard set synchronization point of an Intel PT packet encoder.
  *
  * Synchronize \@encoder to \@offset within the trace buffer.
  *
@@ -684,22 +682,22 @@ extern pt_export int pt_enc_sync_set(struct pt_encoder *encoder,
 extern pt_export int pt_enc_get_offset(struct pt_encoder *encoder,
 				       uint64_t *offset);
 
-/** Encode a PT packet.
+/** Encode an Intel PT packet.
  *
- * Writes \@packet at \@encoder's current position in the PT buffer and
+ * Writes \@packet at \@encoder's current position in the Intel PT buffer and
  * advances the \@encoder beyond the written packet.
  *
  * The \@packet.size field is ignored.
  *
  * In case of errors, the \@encoder is not advanced and nothing is written
- * into the PT buffer.
+ * into the Intel PT buffer.
  *
  * Returns the number of bytes written on success, a negative error code
  * otherwise.
  *
  * Returns -pte_bad_opc if \@packet.type is not known.
  * Returns -pte_bad_packet if \@packet's payload is invalid.
- * Returns -pte_eos if \@encoder reached the end of the PT buffer.
+ * Returns -pte_eos if \@encoder reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@encoder or \@packet is NULL.
  * Returns -pte_nosync if \@encoder is out of sync.
  */
@@ -712,7 +710,7 @@ extern pt_export int pt_enc_next(struct pt_encoder *encoder,
 
 
 
-/** Allocate a PT packet decoder.
+/** Allocate an Intel PT packet decoder.
  *
  * The decoder will work on the buffer defined in \@config, it shall contain
  * raw trace data and remain valid for the lifetime of the decoder.
@@ -722,13 +720,13 @@ extern pt_export int pt_enc_next(struct pt_encoder *encoder,
 extern pt_export struct pt_packet_decoder *
 pt_pkt_alloc_decoder(const struct pt_config *config);
 
-/** Free a PT packet decoder.
+/** Free an Intel PT packet decoder.
  *
  * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_pkt_free_decoder(struct pt_packet_decoder *decoder);
 
-/** Synchronize a PT packet decoder.
+/** Synchronize an Intel PT packet decoder.
  *
  * Search for the next synchronization point in forward or backward direction.
  *
@@ -746,7 +744,7 @@ extern pt_export void pt_pkt_free_decoder(struct pt_packet_decoder *decoder);
 extern pt_export int pt_pkt_sync_forward(struct pt_packet_decoder *decoder);
 extern pt_export int pt_pkt_sync_backward(struct pt_packet_decoder *decoder);
 
-/** Hard set synchronization point of a PT decoder.
+/** Hard set synchronization point of an Intel PT decoder.
  *
  * Synchronize \@decoder to \@offset within the trace buffer.
  *
@@ -758,7 +756,7 @@ extern pt_export int pt_pkt_sync_backward(struct pt_packet_decoder *decoder);
 extern pt_export int pt_pkt_sync_set(struct pt_packet_decoder *decoder,
 				     uint64_t offset);
 
-/** Get a pointer to the current position of the raw PT buffer.
+/** Get a pointer to the current position of the raw Intel PT buffer.
  *
  * Returns \@decoder's current position.
  *
@@ -805,7 +803,7 @@ extern pt_export int pt_pkt_get_sync_offset(struct pt_packet_decoder *decoder,
  * otherwise.
  *
  * Returns -pte_bad_opc if the packet is unknown.
- * Returns -pte_eos if \@decoder reached the end of the PT buffer.
+ * Returns -pte_eos if \@decoder reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@packet is NULL.
  * Returns -pte_nosync if \@decoder is out of sync.
  */
@@ -818,7 +816,7 @@ extern pt_export int pt_pkt_next(struct pt_packet_decoder *decoder,
 
 
 
-/** PT decoder status flags. */
+/** Decoder status flags. */
 enum pt_status_flag {
 	/* There is an event pending. */
 	pts_event_pending	= 1 << 0,
@@ -827,7 +825,7 @@ enum pt_status_flag {
 	pts_ip_suppressed	= 1 << 1
 };
 
-/** PT event type. */
+/** Event types. */
 enum pt_event_type {
 	/* Tracing has been enabled/disabled. */
 	ptev_enabled,
@@ -855,7 +853,7 @@ enum pt_event_type {
 	ptev_tsx
 };
 
-/** A PT event. */
+/** An event. */
 struct pt_event {
 	/** The type of the event. */
 	enum pt_event_type type;
@@ -982,7 +980,7 @@ struct pt_event {
 };
 
 
-/** Allocate a PT query decoder.
+/** Allocate an Intel PT query decoder.
  *
  * The decoder will work on the buffer defined in \@config, it shall contain
  * raw trace data and remain valid for the lifetime of the decoder.
@@ -992,13 +990,13 @@ struct pt_event {
 extern pt_export struct pt_query_decoder *
 pt_qry_alloc_decoder(const struct pt_config *config);
 
-/** Free a PT query decoder.
+/** Free an Intel PT query decoder.
  *
  * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_qry_free_decoder(struct pt_query_decoder *decoder);
 
-/** Synchronize a PT query decoder.
+/** Synchronize an Intel PT query decoder.
  *
  * Search for the next synchronization point in forward or backward direction.
  *
@@ -1060,7 +1058,7 @@ extern pt_export int pt_qry_get_sync_offset(struct pt_query_decoder *decoder,
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_bad_query if no conditional branch is found.
- * Returns -pte_eos if decoding reached the end of the PT buffer.
+ * Returns -pte_eos if decoding reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@taken is NULL.
  * Returns -pte_nosync if \@decoder is out of sync.
  */
@@ -1078,7 +1076,7 @@ extern pt_export int pt_qry_cond_branch(struct pt_query_decoder *decoder,
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_bad_query if no indirect branch is found.
- * Returns -pte_eos if decoding reached the end of the PT buffer.
+ * Returns -pte_eos if decoding reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@ip is NULL.
  * Returns -pte_nosync if \@decoder is out of sync.
  */
@@ -1095,7 +1093,7 @@ extern pt_export int pt_qry_indirect_branch(struct pt_query_decoder *decoder,
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_bad_query if no event is found.
- * Returns -pte_eos if decoding reached the end of the PT buffer.
+ * Returns -pte_eos if decoding reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@event is NULL.
  * Returns -pte_nosync if \@decoder is out of sync.
  */
@@ -1220,7 +1218,7 @@ struct pt_insn {
 };
 
 
-/** Allocate a PT instruction flow decoder.
+/** Allocate an Intel PT instruction flow decoder.
  *
  * The decoder will work on the buffer defined in \@config, it shall contain
  * raw trace data and remain valid for the lifetime of the decoder.
@@ -1230,13 +1228,13 @@ struct pt_insn {
 extern pt_export struct pt_insn_decoder *
 pt_insn_alloc_decoder(const struct pt_config *config);
 
-/** Free a PT instruction flow decoder.
+/** Free an Intel PT instruction flow decoder.
  *
  * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_insn_free_decoder(struct pt_insn_decoder *decoder);
 
-/** Synchronize a PT instruction flow decoder.
+/** Synchronize an Intel PT instruction flow decoder.
  *
  * Search for the next synchronization point in forward or backward direction.
  *
@@ -1347,8 +1345,8 @@ extern pt_export int pt_insn_add_callback(struct pt_insn_decoder *decoder,
  *
  * Returns -pte_bad_opc if the decoder encountered unknown packets.
  * Returns -pte_bad_packet if the decoder encountered unknown packet payloads.
- * Returns -pte_bad_query if the instruction stream doesn't match the PT stream.
- * Returns -pte_eos if decoding reached the end of the PT buffer.
+ * Returns -pte_bad_query if the decoder got out of sync.
+ * Returns -pte_eos if decoding reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@insn is NULL.
  * Returns -pte_nomap if the memory at the instruction address can't be read.
  * Returns -pte_nosync if \@decoder is out of sync.

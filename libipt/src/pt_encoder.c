@@ -124,7 +124,7 @@ int pt_enc_get_offset(struct pt_encoder *encoder, uint64_t *offset)
 /* Check the remaining space.
  *
  * Returns zero if there are at least \@size bytes of free space available in
- * \@encoder's PT buffer.
+ * \@encoder's Intel PT buffer.
  *
  * Returns -pte_eos if not enough space is available.
  * Returns -pte_internal if \@encoder is NULL.
@@ -194,7 +194,7 @@ static uint8_t *pt_encode_int(uint8_t *pos, uint64_t val, int size)
 /* Encode an IP packet.
  *
  * Write an IP packet with opcode \@opc and payload from \@packet if there is
- * enough space in \@encoder's PT buffer.
+ * enough space in \@encoder's Intel PT buffer.
  *
  * Returns the number of bytes written on success.
  *

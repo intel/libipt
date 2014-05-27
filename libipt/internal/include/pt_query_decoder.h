@@ -32,7 +32,7 @@
 #include "pt_decoder.h"
 
 
-/* A PT query decoder. */
+/* An Intel PT query decoder. */
 struct pt_query_decoder {
 	/* The internal decoder. */
 	struct pt_decoder decoder;

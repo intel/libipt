@@ -213,13 +213,13 @@ static int pt_insn_changes_cr3(const pti_ild_t *ild)
 	}
 }
 
-/* Try to determine the next IP for @ild without using PT.
+/* Try to determine the next IP for @ild without using Intel PT.
  *
  * If @ip is not NULL, provides the determined IP on success.
  *
  * Returns 0 on success.
  * Returns a negative error code, otherwise.
- * Returns -pte_bad_query if determining the IP would require PT.
+ * Returns -pte_bad_query if determining the IP would require Intel PT.
  * Returns -pte_bad_insn if @ild has not been decoded correctly.
  * Returns -pte_invalid if @ild is NULL.
  */
