@@ -40,12 +40,15 @@ enum errcode {
 	err_out_of_range,
 
 	err_label_addr,
-	err_section,
 	err_no_org_directive,
 	err_no_directive,
 	err_no_label,
 	err_label_name,
 	err_label_not_unique,
+
+	err_section_no_name,
+	err_section_attribute_no_value,
+	err_section_unknown_attribute,
 
 	err_missing_closepar,
 	err_missing_openpar,

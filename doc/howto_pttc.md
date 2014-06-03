@@ -231,4 +231,16 @@ numbers are printed in decimal. The syntax is as follows:
 	%label
 
 
+### Special Labels
+
 There is a special label for the byte offset after the last packet: `%%eos`.
+
+
+Labels in sections are relative to the section's vstart address.  PTTC also adds
+the following special section labels:
+
+ * *section_<name>_start*   gives the section's offset in the binary file
+ * *section_<name>_vstart*  gives the virtual base address of the mapped section
+ * *section_<name>_length*  gives the size of the section in bytes
+
+Beware that PTTC does not support switching back and forth between sections.

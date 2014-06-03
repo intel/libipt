@@ -198,6 +198,20 @@ extern int yasm_parse(struct yasm *y);
 extern int yasm_lookup_label(const struct yasm *y, uint64_t *addr,
 			     const char *labelname);
 
+/* Looks up the special section label "section_@name_@attribute" and stores
+ * its value in @value if found.
+ *
+ * Valid attributes are:
+ *
+ * - start    the section's start address in the binary file
+ * - vstart   the section's virtual load address
+ * - length   the section's size in bytes
+ *
+ * Returns 0 on success; a negative enum errcode otherwise.
+ */
+extern int yasm_lookup_section_label(const struct yasm *y, const char *name,
+				     const char *attribute, uint64_t *value);
+
 /* Stores the next pt directive in @pd.
  *
  * Returns 0 on success; a negative enum errcode otherwise.

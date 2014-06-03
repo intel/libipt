@@ -38,12 +38,15 @@ const char *errstr[] = {
 	"out of range",
 
 	"label has no address",
-	"yasm directive 'section' is not supported",
 	"yasm directive 'org' is required",
 	"no pt directive",
 	"no such label",
 	"label name is too long",
 	"label name is not unique",
+
+	"failed to find section name",
+	"failed to find value for section attribute",
+	"unknown section attribute",
 
 	"missing ')'",
 	"missing '('",

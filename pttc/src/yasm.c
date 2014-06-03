@@ -38,6 +38,117 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+static int create_section_label_name(char *label, int size, const char *name,
+				     const char *attribute)
+{
+	int written;
+
+	written = snprintf(label, size, "section_%s_%s", name, attribute);
+	if (size <= written)
+		return -err_no_mem;
+
+	return 0;
+}
+
+static int add_section_label(struct label *l, const char *name,
+			     const char *attribute, uint64_t value,
+			     struct label **length)
+{
+	char label[255];
+	int errcode;
+
+	errcode = create_section_label_name(label, sizeof(label), name,
+					    attribute);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = l_append(l, label, value);
+	if (errcode < 0)
+		return errcode;
+
+	if (length)
+		*length = l_find(l, label);
+
+	return 0;
+}
+
+static int parse_section_label(struct label *l, const char *name,
+			       const char *attribute)
+{
+	uint64_t addr;
+	char *value;
+
+	value = strtok(NULL, " ]");
+	if (!value)
+		return -err_section_attribute_no_value;
+
+	if (sscanf(value, "%" PRIx64, &addr) != 1)
+		return -err_parse_int;
+
+	return add_section_label(l, name, attribute, addr, NULL);
+}
+
+static int parse_section(char *line, struct label *l, struct label **length)
+{
+	char *name, *attribute;
+	int errcode;
+
+	name = strtok(line, " ");
+	if (!name)
+		return -err_section_no_name;
+
+	/* we initialize the section's length to zero - it will be updated
+	 * when we process the section's content.
+	 */
+	errcode = add_section_label(l, name, "length", 0ull, length);
+	if (errcode < 0)
+		return errcode;
+
+	for (;;) {
+		attribute = strtok(NULL, " =]");
+		if (!attribute)
+			return 0;
+
+		if (strcmp(attribute, "start") == 0) {
+			errcode = parse_section_label(l, name, "start");
+			if (errcode < 0)
+				return errcode;
+		} else if (strcmp(attribute, "vstart") == 0) {
+			errcode = parse_section_label(l, name, "vstart");
+			if (errcode < 0)
+				return errcode;
+		} else
+			return -err_section_unknown_attribute;
+	}
+}
+
+static int lookup_section_label(struct label *l, const char *name,
+				const char *attribute, uint64_t *value)
+{
+	char label[255];
+	int errcode;
+
+	errcode = create_section_label_name(label, sizeof(label), name,
+					    attribute);
+	if (errcode < 0)
+		return errcode;
+
+	return l_lookup(l, value, label);
+}
+
+static int lookup_section_vstart(struct label *l, char *line,
+				 uint64_t *vstart)
+{
+	char *name;
+
+	name = strtok(line, " ");
+	if (!name)
+		return -err_section_no_name;
+
+	return lookup_section_label(l, name, "vstart", vstart);
+}
+
 int parse_yasm_labels(struct label *l, const struct text *t)
 {
 	int errcode, no_org_directive;
@@ -45,15 +156,17 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 	uint64_t base_addr;
 	enum { linelen = 1024 };
 	char line[linelen];
+	struct label *length;
 
 	if (bug_on(!t))
 		return -err_internal;
 
 	base_addr = 0;
 	no_org_directive = 1;
+	length = NULL;
 
-	/* determine base address from org directive, error out on
-	 * sections.
+	/* determine base address from org directive and insert special
+	 * section labels.
 	 */
 	for (i = 0; i < t->n; i++) {
 		char *tmp;
@@ -63,16 +176,67 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 			return errcode;
 
 		tmp = strstr(line, "[section");
-		if (tmp)
-			return -err_section;
+		if (tmp) {
+			tmp += strlen("[section");
+			errcode = parse_section(tmp, l, &length);
+			if (errcode < 0)
+				return errcode;
+			continue;
+		}
 
 		tmp = strstr(line, "[org");
-		if (!tmp)
-			continue;
+		if (tmp) {
+			base_addr = strtol(tmp+strlen("[org"), NULL, 0);
 
-		base_addr = strtol(tmp+strlen("[org"), NULL, 0);
-		no_org_directive = 0;
-		break;
+			errcode = l_append(l, "org", base_addr);
+			if (errcode < 0)
+				return errcode;
+
+			no_org_directive = 0;
+			continue;
+		}
+
+		/* update the section_<name>_length label, if we have one.
+		 *
+		 * this must be last; it destroys @line.
+		 */
+		if (length) {
+			uint64_t value, size;
+
+			tmp = strtok(line, " ");
+			if (!tmp)
+				continue;
+
+			/* we expect a line number. */
+			errcode = str_to_uint64(tmp, &value, 10);
+			if (errcode < 0)
+				continue;
+
+			tmp = strtok(NULL, " ");
+			if (!tmp)
+				continue;
+
+			/* we expect an address. */
+			errcode = str_to_uint64(tmp, &value, 16);
+			if (errcode < 0)
+				continue;
+
+			tmp = strtok(NULL, " ");
+			if (!tmp)
+				continue;
+
+			/* we expect an opcode. */
+			errcode = str_to_uint64(tmp, &value, 16);
+			if (errcode < 0)
+				continue;
+
+			/* we got an opcode - let's compute it's size. */
+			for (size = 0; value != 0; value >>= 8)
+				size += 1;
+
+			/* update the section_<name>_length label. */
+			length->addr += size;
+		}
 	}
 
 	if (no_org_directive)
@@ -85,6 +249,16 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 		errcode = text_line(t, line, linelen, i);
 		if (errcode < 0)
 			goto error;
+
+		/* Change the base on section switches. */
+		tmp = strstr(line, "[section");
+		if (tmp) {
+			tmp += strlen("[section");
+			errcode = lookup_section_vstart(l, tmp, &base_addr);
+			if (errcode < 0)
+				return errcode;
+			continue;
+		}
 
 		/* skip line number count.  */
 		tmp = strtok(line, " ");
@@ -644,4 +818,13 @@ int yasm_print_err(const struct yasm *y, const char *s, int errcode)
 
 
 	return st_print_err(y->st_asm, s, errcode);
+}
+
+int yasm_lookup_section_label(const struct yasm *y, const char *name,
+			      const char *attribute, uint64_t *value)
+{
+	if (bug_on(!y))
+		return -err_internal;
+
+	return lookup_section_label(y->l, name, attribute, value);
 }
