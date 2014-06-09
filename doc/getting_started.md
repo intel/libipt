@@ -38,7 +38,7 @@ respective chapter in the Software Developer's Manual.
 Start by compiling the loop test.  It consists of a small assembly program with
 interleaved Intel PT directives:
 
-	$ pttc test/src/loop.ptt
+	$ pttc test/src/loop-tnt.ptt
 	loop-ptxed.exp
 	loop-ptdump.exp
 
