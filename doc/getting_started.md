@@ -35,20 +35,20 @@ Processor Trace (Intel PT) and that you already built the decoder library and
 the sample tools.  For detailed information about Intel PT, please refer to the
 respective chapter in the Software Developer's Manual.
 
-Start by compiling the loop test.  It consists of a small assembly program with
-interleaved Intel PT directives:
+Start by compiling the loop-tnt test.  It consists of a small assembly program
+with interleaved Intel PT directives:
 
-	$ pttc test/src/loop.ptt
-	loop-ptxed.exp
-	loop-ptdump.exp
+	$ pttc test/src/loop-tnt.ptt
+	loop-tnt-ptxed.exp
+	loop-tnt-ptdump.exp
 
 This produces the following output files:
 
-	loop.lst          a yasm assembly listing file
-	loop.bin          a raw binary file
-	loop.pt           a Intel PT file
-	loop-ptxed.exp    the expected ptxed output
-	loop-ptdump.exp   the expected ptdump output
+	loop-tnt.lst          a yasm assembly listing file
+	loop-tnt.bin          a raw binary file
+	loop-tnt.pt           a Intel PT file
+	loop-tnt-ptxed.exp    the expected ptxed output
+	loop-tnt-ptdump.exp   the expected ptdump output
 
 The latter two files are generated based on the `@pt .exp(<tool>)` directives
 found in the `.ptt` file.  They are used for automated testing.  See
@@ -57,7 +57,7 @@ script/test.bash for details on that.
 
 Use `ptdump` to dump the Intel PT packets:
 
-	$ ptdump loop.pt
+	$ ptdump loop-tnt.pt
 	0000000000000000  psb
 	0000000000000010  fup        3: 0x0000000000100000, ip=0x0000000000100000
 	0000000000000017  mode.exec  cs.d=0, cs.l=1 (64-bit mode)
@@ -75,7 +75,7 @@ PT file as well as the corresponding binary image.  You need to specify the load
 address given by the org directive in the .ptt file when using a raw binary
 file.
 
-	$ ptxed --pt loop.pt --raw loop.bin:0x100000
+	$ ptxed --pt loop-tnt.pt --raw loop-tnt.bin:0x100000
 	0x0000000000100000  mov rax, 0x0
 	0x0000000000100007  jmp 0x10000d
 	0x000000000010000d  cmp rax, 0x1
