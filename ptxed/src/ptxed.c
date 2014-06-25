@@ -518,6 +518,10 @@ extern int main(int argc, char *argv[])
 			if (use_cpu)
 				config.cpu = cpu;
 
+			errcode = pt_cpu_errata(&config.errata, &config.cpu);
+			if (errcode < 0)
+				goto err;
+
 			errcode = load_pt(&config, arg, prog);
 			if (errcode < 0)
 				goto err;

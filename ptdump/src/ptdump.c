@@ -628,6 +628,10 @@ int main(int argc, char *argv[])
 	if (!ptfile)
 		return no_file_error(argv[0]);
 
+	errcode = pt_cpu_errata(&config.errata, &config.cpu);
+	if (errcode < 0)
+		diag_err("failed to determine errata", pt_errcode(errcode));
+
 	/* We will leak the pt buffer. */
 	errcode = load_pt(&config, ptfile, argv[0]);
 	if (errcode < 0)

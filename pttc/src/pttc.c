@@ -41,14 +41,21 @@ int pttc_main(const struct pttc_options *options)
 	conf.end = buf+buflen;
 
 	errcode = pt_configure(&conf);
+	if (errcode < 0) {
+		fprintf(stderr, "fatal: configuration failed %d: %s\n",
+			errcode, pt_errstr(pt_errcode(errcode)));
+		return errcode;
+	}
 
 	/* check if we need to override auto-detected vaule.  */
 	if (options->use_cpu)
 		conf.cpu = options->cpu;
 
+	/* apply errata for the chosen cpu. */
+	errcode = pt_cpu_errata(&conf.errata, &conf.cpu);
 	if (errcode < 0) {
-		fprintf(stderr, "fatal: pt_configure failed %d: %s\n", errcode,
-			pt_errstr(pt_errcode(errcode)));
+		fprintf(stderr, "fatal: errata configuration failed %d: %s\n",
+			errcode, pt_errstr(pt_errcode(errcode)));
 		return errcode;
 	}
 

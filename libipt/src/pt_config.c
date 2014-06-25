@@ -108,6 +108,17 @@ int pt_configure(struct pt_config *config)
 	config->size = sizeof(*config);
 
 	set_cpuid(&config->cpu);
+	(void) pt_cpu_errata(&config->errata, &config->cpu);
+
+	return 0;
+}
+
+int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
+{
+	if (!errata || !cpu)
+		return -pte_invalid;
+
+	memset(errata, 0, sizeof(*errata));
 
 	return 0;
 }

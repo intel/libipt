@@ -395,6 +395,12 @@ struct pt_cpu {
 	uint8_t stepping;
 };
 
+/** A collection of Intel PT errata. */
+struct pt_errata {
+	/* A dummy field to avoid having an empty struct. */
+	uint32_t dummy;
+};
+
 /** An unknown packet. */
 struct pt_packet_unknown;
 
@@ -432,6 +438,9 @@ struct pt_config {
 
 	/** The cpu on which Intel PT has been recorded. */
 	struct pt_cpu cpu;
+
+	/** The errata to apply when encoding or decoding Intel PT. */
+	struct pt_errata errata;
 };
 
 
@@ -448,6 +457,16 @@ struct pt_config {
  * Returns -pte_invalid if \@config is NULL.
  */
 extern pt_export int pt_configure(struct pt_config *config);
+
+/** Determine errata for a given cpu.
+ *
+ * Updates @errata based on \@cpu.
+ *
+ * Returns 0 on success, a negative error code otherwise.
+ * Returns -pte_invalid if \@errata or \@cpu is NULL.
+ */
+extern pt_export int pt_cpu_errata(struct pt_errata *errata,
+				   const struct pt_cpu *cpu);
 
 
 
