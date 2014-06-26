@@ -92,13 +92,6 @@ extern void st_free(struct state *st);
  */
 extern int st_print_err(const struct state *st, const char *s, int errcode);
 
-/* Sets @st to @filename, @inc and @n.
- *
- * Returns 0 on success.
- * Returns -err_internal if @st or @filename is the NULL pointer.
- */
-extern int st_set(struct state *st, const char *filename, int inc, int n);
-
 /* Represents a pt directive with name and payload.  */
 struct pt_directive {
 	/* Name of the directive.  */
