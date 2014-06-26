@@ -106,8 +106,13 @@ int l_append(struct label *l, const char *name, uint64_t addr)
 		return -err_internal;
 
 	/* skip to the last label.  */
-	while (l->next)
+	while (l->next) {
 		l = l->next;
+
+		/* ignore the first label, which has no name. */
+		if (strcmp(l->name, name) == 0)
+			return -err_label_not_unique;
+	}
 
 	/* append a new label.  */
 	l->next = l_alloc();
