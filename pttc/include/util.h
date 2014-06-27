@@ -115,4 +115,10 @@ extern int l_append(struct label *l, const char *name, uint64_t addr);
  */
 extern int l_lookup(const struct label *l, uint64_t *addr, const char *name);
 
+/* Find the label @name in @l and return a pointer to it.
+ *
+ * Returns a pointer to the found label on success; NULL otherwise.
+ */
+extern struct label *l_find(struct label *l, const char *name);
+
 #endif /* UTIL_H */

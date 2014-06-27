@@ -217,3 +217,24 @@ int l_lookup(const struct label *l, uint64_t *addr,
 	}
 	return -err_no_label;
 }
+
+struct label *l_find(struct label *l, const char *name)
+{
+	if (bug_on(!l))
+		return NULL;
+
+	if (bug_on(!name))
+		return NULL;
+
+
+	while (l->next) {
+		l = l->next;
+
+		if (bug_on(!l->name))
+			continue;
+
+		if (strcmp(l->name, name) == 0)
+			return l;
+	}
+	return NULL;
+}
