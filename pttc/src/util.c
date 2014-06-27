@@ -48,7 +48,7 @@ char *duplicate_str(const char *s)
 	return strcpy(dup, s);
 }
 
-int str_to_uint64(const char *str, uint64_t *val)
+int str_to_uint64(const char *str, uint64_t *val, int base)
 {
 	char *endptr;
 	uint64_t x;
@@ -57,7 +57,7 @@ int str_to_uint64(const char *str, uint64_t *val)
 		return -err_internal;
 
 	errno = 0;
-	x = strtoull(str, &endptr, 0);
+	x = strtoull(str, &endptr, base);
 
 	if (errno == EINVAL)
 		return -err_parse_int;

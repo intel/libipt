@@ -979,7 +979,7 @@ int parse_ip(struct parser *p, uint64_t *ip, enum pt_ip_compression *ipc,
 		/* can be parsed as address?  */
 		int errcode;
 
-		errcode = str_to_uint64(payload, ip);
+		errcode = str_to_uint64(payload, ip, 0);
 		if (errcode < 0)
 			return errcode;
 	}
@@ -1003,7 +1003,7 @@ int parse_uint64(uint64_t *x, char *payload)
 	if (!payload)
 		return -err_parse_no_args;
 
-	errcode = str_to_uint64(payload, x);
+	errcode = str_to_uint64(payload, x, 0);
 	if (errcode < 0)
 		return errcode;
 
