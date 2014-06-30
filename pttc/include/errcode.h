@@ -67,6 +67,10 @@ enum errcode {
 	err_parse_c_state_sub,
 	err_parse_c_state_invalid,
 
+	err_sb_missing,
+	err_sb_mix,
+	err_sb_final,
+
 	err_pt_lib,
 
 	err_run,

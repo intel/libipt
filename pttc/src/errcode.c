@@ -65,6 +65,10 @@ const char *errstr[] = {
 	"unexpected sub C-state",
 	"invalid C-state",
 
+	"no open sideband file",
+	"sideband format error",
+	"configuration error",
+
 	"pt library error",
 
 	"run failed",

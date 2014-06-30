@@ -33,9 +33,68 @@
 
 #include "intel-pt.h"
 
+#if defined(FEATURE_PEVENT)
+#  include "pevent.h"
+#endif /* defined(FEATURE_PEVENT) */
+
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+
+#if defined(FEATURE_SIDEBAND)
+
+/* The sideband format. */
+enum sb_format {
+	sbf_raw,
+
+#if defined(FEATURE_PEVENT)
+	sbf_pevent,
+#endif /* defined(FEATURE_PEVENT) */
+};
+
+/* A sideband file. */
+struct sb_file {
+	/* The file name. */
+	char *name;
+
+	/* The file pointer. */
+	FILE *file;
+
+	/* The sideband format. */
+	enum sb_format format;
+
+	/* The number of bytes written into the sideband file. */
+	int bytes_written;
+
+	/* Format-specific information. */
+	union {
+		/* A dummy entry. */
+		uint64_t dummy;
+
+#if defined(FEATURE_PEVENT)
+		/* format = sbf_pevent. */
+		struct {
+			/* The perf_event sideband configuration. */
+			struct pev_config config;
+
+			/* If set, the configuration can't be changed. */
+			uint32_t is_final:1;
+		} pevent;
+#endif /* defined(FEATURE_PEVENT) */
+	} variant;
+};
+
+/* A list of sideband files. */
+struct sb_filelist {
+	/* The next file in the list. */
+	struct sb_filelist *next;
+
+	/* The sideband file. */
+	struct sb_file sbfile;
+};
+
+#endif /* defined(FEATURE_SIDEBAND) */
 
 /* Represents the parser.  */
 struct parser {
@@ -47,6 +106,14 @@ struct parser {
 	 */
 	char *ptfilename;
 
+#if defined(FEATURE_SIDEBAND)
+	/* A list of open sideband files. */
+	struct sb_filelist *sbfiles;
+
+	/* The currently active sideband file. */
+	struct sb_file *current_sbfile;
+#endif /* defined(FEATURE_SIDEBAND) */
+
 	/* The yasm structure, initialized with pttfile in p_alloc.  */
 	struct yasm *y;
 
@@ -56,7 +123,7 @@ struct parser {
 	/* The encoder configuration, passed during p_alloc.  */
 	const struct pt_config *conf;
 
-	/* Labels for @pt directives.  */
+	/* Labels for @pt or @sb directives.  */
 	struct label *pt_labels;
 
 	/* Number of bytes written to pt file.  */

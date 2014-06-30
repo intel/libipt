@@ -92,8 +92,19 @@ extern void st_free(struct state *st);
  */
 extern int st_print_err(const struct state *st, const char *s, int errcode);
 
+/* The kind of directive: Intel PT or sideband. */
+enum pt_directive_kind {
+	pdk_pt,
+#if defined(FEATURE_SIDEBAND)
+	pdk_sb,
+#endif
+};
+
 /* Represents a pt directive with name and payload.  */
 struct pt_directive {
+	/* The kind of the directive. */
+	enum pt_directive_kind kind;
+
 	/* Name of the directive.  */
 	char *name;
 
@@ -119,14 +130,14 @@ extern struct pt_directive *pd_alloc(size_t n);
  */
 extern void pd_free(struct pt_directive *pd);
 
-/* Copies @name and @payload to the corresponding fields in @pd.
+/* Copies @kind, @name and @payload to the corresponding fields in @pd.
  *
  * Returns 0 on success; a negative enum errcode otherwise.
  * Returns -err_internal if @pd or @name or @payload is the NULL
  * pointer.
  */
-extern int pd_set(struct pt_directive *pd, const char *name,
-		   const char *payload);
+extern int pd_set(struct pt_directive *pd, enum pt_directive_kind kind,
+		  const char *name, const char *payload);
 
 /* Parses a pt directive from @st and stores it in @pd.
  *

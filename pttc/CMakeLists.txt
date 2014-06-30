@@ -62,3 +62,7 @@ add_executable(pttc
 )
 
 target_link_libraries(pttc libipt)
+
+if (PEVENT)
+  target_link_libraries(pttc pevent)
+endif (PEVENT)
