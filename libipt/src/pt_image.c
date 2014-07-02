@@ -111,11 +111,6 @@ const char *pt_image_name(const struct pt_image *image)
 	return image->name;
 }
 
-int pt_image_is_empty(const struct pt_image *image)
-{
-	return !image || !image->sections;
-}
-
 int pt_image_add(struct pt_image *image, struct pt_section *section)
 {
 	struct pt_section_list **list, *next;

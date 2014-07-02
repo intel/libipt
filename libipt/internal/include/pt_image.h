@@ -81,13 +81,6 @@ extern void pt_image_fini(struct pt_image *image);
  */
 extern const char *pt_image_name(const struct pt_image *image);
 
-/* Test an image for emptiness.
- *
- * Returns non-zero if @image is empty or NULL.
- * Returns zero otherwise.
- */
-extern int pt_image_is_empty(const struct pt_image *image);
-
 /* Add a section to an image.
  *
  * Add @section to @image if @section fits without overlap.

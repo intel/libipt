@@ -278,36 +278,6 @@ static struct ptunit_result name_null(void)
 	return ptu_passed();
 }
 
-static struct ptunit_result empty(struct image_fixture *ifix)
-{
-	int status;
-
-	status = pt_image_is_empty(&ifix->image);
-	ptu_int_ne(status, 0);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result not_empty(struct image_fixture *ifix)
-{
-	int status;
-
-	status = pt_image_is_empty(&ifix->image);
-	ptu_int_eq(status, 0);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result is_empty_null(struct image_fixture *ifix)
-{
-	int status;
-
-	status = pt_image_is_empty(NULL);
-	ptu_int_ne(status, 0);
-
-	return ptu_passed();
-}
-
 static struct ptunit_result read_empty(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc };
@@ -427,9 +397,6 @@ static struct ptunit_result remove_section(struct image_fixture *ifix)
 	ptu_int_ne(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
 
-	status = pt_image_is_empty(&ifix->image);
-	ptu_int_eq(status, 0);
-
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1003ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0x01);
@@ -462,9 +429,6 @@ static struct ptunit_result remove_by_name(struct image_fixture *ifix)
 	ptu_int_ne(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
 
-	status = pt_image_is_empty(&ifix->image);
-	ptu_int_eq(status, 0);
-
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1003ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0x01);
@@ -490,9 +454,6 @@ static struct ptunit_result remove_none_by_name(struct image_fixture *ifix)
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
-
-	status = pt_image_is_empty(&ifix->image);
-	ptu_int_eq(status, 0);
 
 	status = pt_image_read(&ifix->image, buffer, 2, 0x1003ull);
 	ptu_int_eq(status, 2);
@@ -534,9 +495,6 @@ static struct ptunit_result remove_all_by_name(struct image_fixture *ifix)
 
 	ptu_int_ne(ifix->section[0].deleted, 0);
 	ptu_int_ne(ifix->section[1].deleted, 0);
-
-	status = pt_image_is_empty(&ifix->image);
-	ptu_int_ne(status, 0);
 
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1003ull);
 	ptu_int_eq(status, -pte_nomap);
@@ -615,10 +573,6 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, name, dfix);
 	ptu_run(suite, name_none);
 	ptu_run(suite, name_null);
-
-	ptu_run_f(suite, empty, ifix);
-	ptu_run_f(suite, not_empty, rfix);
-	ptu_run_f(suite, is_empty_null, rfix);
 
 	ptu_run_f(suite, read_empty, ifix);
 	ptu_run_f(suite, overlap, ifix);
