@@ -34,6 +34,7 @@
 #include "intel-pt.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 
 /* A test fixture providing a temporary file and an initially NULL section. */

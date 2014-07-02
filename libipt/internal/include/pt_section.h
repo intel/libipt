@@ -30,7 +30,6 @@
 #define __PT_SECTION_H__
 
 #include <stdint.h>
-#include <stdio.h>
 
 
 /* A section of contiguous memory loaded from a file. */
