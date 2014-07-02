@@ -99,7 +99,7 @@ static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
 			continue;
 
 		errcode = pt_insn_add_file(decoder, name, phdr.p_offset,
-					   phdr.p_filesz,
+					   phdr.p_filesz, NULL,
 					   phdr.p_vaddr + offset);
 		if (errcode < 0) {
 			fprintf(stderr, "%s: warning: %s: failed to create "

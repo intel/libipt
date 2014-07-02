@@ -119,13 +119,16 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	return size;
 }
 
-/* A test fixture providing an image and two test sections. */
+/* A test fixture providing an image, two test sections, and two asids. */
 struct image_fixture {
 	/* The image. */
 	struct pt_image image;
 
 	/* The sections. */
 	struct pt_section section[2];
+
+	/* The asids. */
+	struct pt_asid asid[2];
 
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct image_fixture *);
@@ -134,6 +137,7 @@ struct image_fixture {
 
 /* A test read memory callback. */
 static int image_readmem_callback(uint8_t *buffer, size_t size,
+				  const struct pt_asid *asid,
 				  uint64_t ip, void *context)
 {
 	const uint8_t *memory;
@@ -203,7 +207,7 @@ static struct ptunit_result fini(void)
 	pt_init_section(&section, NULL);
 
 	pt_image_init(&image, NULL);
-	pt_image_add(&image, &section, 0x0ull);
+	pt_image_add(&image, &section, NULL, 0x0ull);
 
 	pt_image_fini(&image);
 	ptu_int_eq(section.deleted, 1);
@@ -268,7 +272,8 @@ static struct ptunit_result read_empty(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1000ull);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), NULL,
+			       0x1000ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0xcc);
 	ptu_uint_eq(buffer[1], 0xcc);
@@ -281,15 +286,65 @@ static struct ptunit_result overlap(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_add(&ifix->image, &ifix->section[0], 0x1000ull);
+	status = pt_image_add(&ifix->image, &ifix->section[0], NULL, 0x1000ull);
 	ptu_int_eq(status, 0);
 
-	status = pt_image_add(&ifix->image, &ifix->section[1], 0x1008ull);
+	status = pt_image_add(&ifix->image, &ifix->section[1], NULL, 0x1008ull);
 	ptu_int_eq(status, -pte_bad_context);
 
-	status = pt_image_read(&ifix->image, buffer, 1, 0x1009ull);
+	status = pt_image_read(&ifix->image, buffer, 1, NULL, 0x1009ull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], 0x09);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result overlap_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
+			      0x1000ull);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add(&ifix->image, &ifix->section[1], &ifix->asid[0],
+			      0x1008ull);
+	ptu_int_eq(status, -pte_bad_context);
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1009ull);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0x09);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result overlap_different_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
+			      0x1000ull);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add(&ifix->image, &ifix->section[1], &ifix->asid[1],
+			      0x1008ull);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1009ull);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0x09);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[1],
+			       0x1009ull);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0xcc);
 
 	return ptu_passed();
@@ -300,11 +355,36 @@ static struct ptunit_result read(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_replace_callback(&ifix->image,
-					   image_readmem_callback, NULL);
-	ptu_int_eq(status, 0);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x2003ull);
+	return ptu_passed();
+}
+
+static struct ptunit_result read_bad_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
+			       &ifix->asid[0], 0x2003ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_no_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_read(&ifix->image, buffer, 2, NULL, 0x2003ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x03);
 	ptu_uint_eq(buffer[1], 0x04);
@@ -323,7 +403,7 @@ static struct ptunit_result read_callback(struct image_fixture *ifix)
 					   image_readmem_callback, memory);
 	ptu_int_eq(status, 0);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x3001ull);
+	status = pt_image_read(&ifix->image, buffer, 2, NULL, 0x3001ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
@@ -337,11 +417,8 @@ static struct ptunit_result read_nomem(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_replace_callback(&ifix->image,
-					   image_readmem_callback, NULL);
-	ptu_int_eq(status, 0);
-
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1010ull);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
+			       &ifix->asid[1], 0x1010ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0xcc);
 	ptu_uint_eq(buffer[1], 0xcc);
@@ -354,7 +431,8 @@ static struct ptunit_result read_truncated(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x100full);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
+			       &ifix->asid[0], 0x100full);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], 0x0f);
 	ptu_uint_eq(buffer[1], 0xcc);
@@ -367,25 +445,29 @@ static struct ptunit_result remove_section(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x1001ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1001ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove(&ifix->image, &ifix->section[0], 0x1000ull);
+	status = pt_image_remove(&ifix->image, &ifix->section[0],
+				 &ifix->asid[0], 0x1000ull);
 	ptu_int_eq(status, 0);
 
 	ptu_int_ne(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
 
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1003ull);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
+			       &ifix->asid[0], 0x1003ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x2003ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x03);
 	ptu_uint_eq(buffer[1], 0x04);
@@ -399,25 +481,65 @@ static struct ptunit_result remove_bad_vaddr(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x1001ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1001ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove(&ifix->image, &ifix->section[0], 0x2000ull);
+	status = pt_image_remove(&ifix->image, &ifix->section[0],
+				 &ifix->asid[0], 0x2000ull);
 	ptu_int_eq(status, -pte_bad_context);
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x1003ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x03);
 	ptu_uint_eq(buffer[1], 0x04);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x2005ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2005ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x05);
+	ptu_uint_eq(buffer[1], 0x06);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result remove_bad_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1001ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x01);
+	ptu_uint_eq(buffer[1], 0x02);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_image_remove(&ifix->image, &ifix->section[0],
+				 &ifix->asid[1], 0x1000ull);
+	ptu_int_eq(status, -pte_bad_context);
+
+	ptu_int_eq(ifix->section[0].deleted, 0);
+	ptu_int_eq(ifix->section[1].deleted, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2005ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x05);
 	ptu_uint_eq(buffer[1], 0x06);
@@ -431,28 +553,68 @@ static struct ptunit_result remove_by_name(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x1001ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1001ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove_by_name(&ifix->image, ifix->section[0].name);
+	status = pt_image_remove_by_name(&ifix->image, ifix->section[0].name,
+					 &ifix->asid[0]);
 	ptu_int_eq(status, 1);
 
 	ptu_int_ne(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
 
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1003ull);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
+			       &ifix->asid[0], 0x1003ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x2003ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x03);
 	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result remove_by_name_bad_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1001ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x01);
+	ptu_uint_eq(buffer[1], 0x02);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_image_remove_by_name(&ifix->image, ifix->section[0].name,
+					 &ifix->asid[1]);
+	ptu_int_eq(status, 0);
+
+	ptu_int_eq(ifix->section[0].deleted, 0);
+	ptu_int_eq(ifix->section[1].deleted, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2005ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x05);
+	ptu_uint_eq(buffer[1], 0x06);
 	ptu_uint_eq(buffer[2], 0xcc);
 
 	return ptu_passed();
@@ -463,19 +625,22 @@ static struct ptunit_result remove_none_by_name(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_remove_by_name(&ifix->image, "bad-name");
+	status = pt_image_remove_by_name(&ifix->image, "bad-name",
+					 &ifix->asid[0]);
 	ptu_int_eq(status, 0);
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x1003ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x03);
 	ptu_uint_eq(buffer[1], 0x04);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x2001ull);
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2001ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
@@ -492,31 +657,33 @@ static struct ptunit_result remove_all_by_name(struct image_fixture *ifix)
 	ifix->section[0].name = "same-name";
 	ifix->section[1].name = "same-name";
 
-	status = pt_image_add(&ifix->image, &ifix->section[0], 0x1000ull);
+	status = pt_image_add(&ifix->image, &ifix->section[0], NULL, 0x1000ull);
 	ptu_int_eq(status, 0);
 
-	status = pt_image_add(&ifix->image, &ifix->section[1], 0x2000ull);
+	status = pt_image_add(&ifix->image, &ifix->section[1], NULL, 0x2000ull);
 	ptu_int_eq(status, 0);
 
-	status = pt_image_read(&ifix->image, buffer, 2, 0x1001ull);
+	status = pt_image_read(&ifix->image, buffer, 2, NULL, 0x1001ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove_by_name(&ifix->image, "same-name");
+	status = pt_image_remove_by_name(&ifix->image, "same-name", NULL);
 	ptu_int_eq(status, 2);
 
 	ptu_int_ne(ifix->section[0].deleted, 0);
 	ptu_int_ne(ifix->section[1].deleted, 0);
 
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x1003ull);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), NULL,
+			       0x1003ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), 0x2003ull);
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer), NULL,
+			       0x2003ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0x01);
 	ptu_uint_eq(buffer[1], 0x02);
@@ -532,6 +699,12 @@ struct ptunit_result ifix_init(struct image_fixture *ifix)
 	pt_init_section(&ifix->section[0], "file-0");
 	pt_init_section(&ifix->section[1], "file-1");
 
+	pt_asid_init(&ifix->asid[0]);
+	ifix->asid[0].cr3 = 0xa000;
+
+	pt_asid_init(&ifix->asid[1]);
+	ifix->asid[1].cr3 = 0xb000;
+
 	return ptu_passed();
 }
 
@@ -541,10 +714,12 @@ struct ptunit_result rfix_init(struct image_fixture *ifix)
 
 	ptu_check(ifix_init, ifix);
 
-	status = pt_image_add(&ifix->image, &ifix->section[0], 0x1000ull);
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
+			      0x1000ull);
 	ptu_int_eq(status, 0);
 
-	status = pt_image_add(&ifix->image, &ifix->section[1], 0x2000ull);
+	status = pt_image_add(&ifix->image, &ifix->section[1], &ifix->asid[1],
+			      0x2000ull);
 	ptu_int_eq(status, 0);
 
 	return ptu_passed();
@@ -590,15 +765,21 @@ int main(int argc, const char **argv)
 
 	ptu_run_f(suite, read_empty, ifix);
 	ptu_run_f(suite, overlap, ifix);
+	ptu_run_f(suite, overlap_asid, ifix);
+	ptu_run_f(suite, overlap_different_asid, ifix);
 
 	ptu_run_f(suite, read, rfix);
+	ptu_run_f(suite, read_bad_asid, rfix);
+	ptu_run_f(suite, read_no_asid, rfix);
 	ptu_run_f(suite, read_callback, rfix);
 	ptu_run_f(suite, read_nomem, rfix);
 	ptu_run_f(suite, read_truncated, rfix);
 
 	ptu_run_f(suite, remove_section, rfix);
 	ptu_run_f(suite, remove_bad_vaddr, rfix);
+	ptu_run_f(suite, remove_bad_asid, rfix);
 	ptu_run_f(suite, remove_by_name, rfix);
+	ptu_run_f(suite, remove_by_name_bad_asid, rfix);
 	ptu_run_f(suite, remove_none_by_name, rfix);
 	ptu_run_f(suite, remove_all_by_name, ifix);
 

@@ -45,7 +45,7 @@ struct pt_section_list {
 	struct pt_mapped_section section;
 };
 
-/* A process image consisting of a collection of sections. */
+/* A traced image consisting of a collection of sections. */
 struct pt_image {
 	/* The optional image name. */
 	char *name;
@@ -83,7 +83,7 @@ extern const char *pt_image_name(const struct pt_image *image);
 
 /* Add a section to an image.
  *
- * Add @section to @image at @vaddr if @section fits without overlap.
+ * Add @section to @image at @vaddr in @asid if @section fits without overlap.
  *
  * Successfully added sections will be freed when they are removed.
  *
@@ -92,27 +92,28 @@ extern const char *pt_image_name(const struct pt_image *image);
  * Returns -pte_bad_context if @section overlaps with a section in @image.
  */
 extern int pt_image_add(struct pt_image *image, struct pt_section *section,
-			uint64_t vaddr);
+			const struct pt_asid *asid, uint64_t vaddr);
 
 /* Remove a section from an image.
  *
- * Removes and frees @section mapped at @vaddr from @image.
+ * Removes and frees @section mapped at @vaddr in @asid from @image.
  *
  * Returns zero on success.
  * Returns -pte_invalid if @section or @image are NULL.
  * Returns -pte_bad_context if @image does not contain @section at @vaddr.
  */
 extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
-			   uint64_t vaddr);
+			   const struct pt_asid *asid, uint64_t vaddr);
 
 /* Remove zero or more sections from an image by section name.
  *
- * Removes and frees all sections from @image whose name equals @name.
+ * Removes and frees all sections from @image in @asid whose name equals @name.
  *
  * Returns the number of removed sections on success.
  * Returns -pte_invalid if @section or @name are NULL.
  */
-extern int pt_image_remove_by_name(struct pt_image *image, const char *name);
+extern int pt_image_remove_by_name(struct pt_image *image, const char *name,
+				   const struct pt_asid *asid);
 
 /* Replace the read memory callback.
  *
@@ -128,13 +129,14 @@ extern int pt_image_replace_callback(struct pt_image *image,
 
 /* Read memory from an image.
  *
- * Reads at most @size bytes from @image at @addr into @buffer.
+ * Reads at most @size bytes from @image at @addr in @asid into @buffer.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
  * Returns -pte_invalid if @section or @buffer are NULL.
  * Returns -pte_nomap if the section does not contain @addr.
  */
 extern int pt_image_read(struct pt_image *image, uint8_t *buffer,
-			 uint16_t size, uint64_t addr);
+			 uint16_t size, const struct pt_asid *asid,
+			 uint64_t addr);
 
 #endif /* __PT_IMAGE_H__ */

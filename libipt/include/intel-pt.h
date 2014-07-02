@@ -1325,10 +1325,38 @@ extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
 extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
 					    uint32_t *cbr);
 
-/** Add a new file section to the traced process image.
+/** An Intel PT address space identifier.
+ *
+ * This identifies a particular address space when adding file sections or
+ * when reading memory.
+ */
+struct pt_asid {
+	/** The size of this object - set to sizeof(struct pt_asid). */
+	size_t size;
+
+	/** The CR3 value. */
+	uint64_t cr3;
+};
+
+/** An unknown CR3 value to be used for pt_asid objects. */
+static const uint64_t pt_asid_no_cr3 = 0xffffffffffffffffull;
+
+/** Initialize an address space identifier. */
+static inline void pt_asid_init(struct pt_asid *asid)
+{
+	asid->size = sizeof(*asid);
+	asid->cr3 = pt_asid_no_cr3;
+}
+
+
+/** Add a new file section to the traced image.
  *
  * Adds \@size bytes starting at \@offset in \@filename. The section is
- * loaded at the virtual address \@vaddr in the traced process.
+ * loaded at the virtual address \@vaddr in the address space \@asid.
+ *
+ * The \@asid may be NULL or (partially) invalid.  In that case only the valid
+ * fields are considered when comparing with other address-spaces.  Use this
+ * when tracing a single process or when adding sections to all processes.
  *
  * The section is silently truncated to match the size of \@filename.
  *
@@ -1340,11 +1368,14 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
  */
 extern pt_export int pt_insn_add_file(struct pt_insn_decoder *decoder,
 				      const char *filename, uint64_t offset,
-				      uint64_t size, uint64_t vaddr);
+				      uint64_t size,
+				      const struct pt_asid *asid,
+				      uint64_t vaddr);
 
-/** Remove all sections loaded from a file from the traced process image.
+/** Remove all sections loaded from a file.
  *
- * Removes all sections loaded from \@filename.
+ * Removes all sections loaded from \@filename from the address space \@asid.
+ * Specify the same \@asid that was used for adding sections from \@filename.
  *
  * Returns the number of removed sections on success, a negative error code
  * otherwise.
@@ -1352,19 +1383,22 @@ extern pt_export int pt_insn_add_file(struct pt_insn_decoder *decoder,
  * Returns -pte_invalid if \@decoder or \@filename is NULL.
  */
 extern pt_export int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
-						const char *filename);
+						const char *filename,
+						const struct pt_asid *asid);
 
 /** A read memory callback function.
  *
- * It shall read \@size bytes of memory starting at \@ip into \@buffer.
+ * It shall read \@size bytes of memory from address space \@asid starting
+ * at \@ip into \@buffer.
  *
  * It shall return the number of bytes read on success.
  * It shall return a negative pt_error_code otherwise.
  */
 typedef int (read_memory_callback_t)(uint8_t *buffer, size_t size,
+				     const struct pt_asid *asid,
 				     uint64_t ip, void *context);
 
-/** Add a new memory callback to the traced process image.
+/** Add a new memory callback to the traced image.
  *
  * Adds \@callback for reading memory.  The callback is used for addresses
  * that are not found in file sections.  The \@context argument is passed

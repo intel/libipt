@@ -127,20 +127,52 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 	return pt_qry_core_bus_ratio(&decoder->query, cbr);
 }
 
+static int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user)
+{
+	if (!asid)
+		return -pte_internal;
+
+	pt_asid_init(asid);
+
+	if (user) {
+		size_t size;
+
+		size = user->size;
+
+		/* Ignore fields in the user's asid we don't know. */
+		if (sizeof(*asid) < size)
+			size = sizeof(*asid);
+
+		/* Copy (portions of) the user's asid. */
+		memcpy(asid, user, size);
+
+		/* We copied user's size - fix it. */
+		asid->size = sizeof(*asid);
+	}
+
+	return 0;
+}
+
 int pt_insn_add_file(struct pt_insn_decoder *decoder, const char *filename,
-		     uint64_t offset, uint64_t size, uint64_t vaddr)
+		     uint64_t offset, uint64_t size,
+		     const struct pt_asid *uasid, uint64_t vaddr)
 {
 	struct pt_section *section;
+	struct pt_asid asid;
 	int errcode;
 
 	if (!decoder)
 		return -pte_invalid;
 
+	errcode = pt_asid_from_user(&asid, uasid);
+	if (errcode < 0)
+		return errcode;
+
 	section = pt_mk_section(filename, offset, size);
 	if (!section)
 		return -pte_invalid;
 
-	errcode = pt_image_add(&decoder->image, section, vaddr);
+	errcode = pt_image_add(&decoder->image, section, &asid, vaddr);
 	if (errcode < 0)
 		pt_section_free(section);
 
@@ -148,12 +180,20 @@ int pt_insn_add_file(struct pt_insn_decoder *decoder, const char *filename,
 }
 
 int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
-			       const char *filename)
+			       const char *filename,
+			       const struct pt_asid *uasid)
 {
+	struct pt_asid asid;
+	int errcode;
+
 	if (!decoder)
 		return -pte_invalid;
 
-	return pt_image_remove_by_name(&decoder->image, filename);
+	errcode = pt_asid_from_user(&asid, uasid);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_image_remove_by_name(&decoder->image, filename, &asid);
 }
 
 int pt_insn_add_callback(struct pt_insn_decoder *decoder,
@@ -302,9 +342,9 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	insn->mode = decoder->mode;
 	insn->ip = decoder->ip;
 
-	/* Read the memory at the current IP. */
+	/* Read the memory at the current IP in the current address space. */
 	size = pt_image_read(&decoder->image, insn->raw, sizeof(insn->raw),
-			     decoder->ip);
+			     &decoder->asid, decoder->ip);
 	if (size < 0)
 		return size;
 
@@ -499,10 +539,15 @@ static int process_async_branch_event(struct pt_insn_decoder *decoder,
 static int process_paging_event(struct pt_insn_decoder *decoder,
 				struct pt_insn *insn)
 {
+	struct pt_event *ev;
+
 	if (!decoder || !insn)
 		return -pte_internal;
 
-	/* We do currently not support paging. */
+	ev = &decoder->event;
+
+	decoder->asid.cr3 = ev->variant.paging.cr3;
+
 	return 1;
 }
 

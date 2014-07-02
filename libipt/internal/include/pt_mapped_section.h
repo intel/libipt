@@ -29,6 +29,8 @@
 #ifndef __PT_MAPPED_SECTION_H__
 #define __PT_MAPPED_SECTION_H__
 
+#include "intel-pt.h"
+
 #include <stdint.h>
 
 struct pt_section;
@@ -39,6 +41,9 @@ struct pt_mapped_section {
 	/* The section that is mapped. */
 	struct pt_section *section;
 
+	/* The address space into which the section is mapped. */
+	struct pt_asid asid;
+
 	/* The virtual address at which the section is mapped. */
 	uint64_t vaddr;
 };
@@ -46,7 +51,8 @@ struct pt_mapped_section {
 
 /* Initialize a mapped section - @section may be NULL. */
 extern void pt_msec_init(struct pt_mapped_section *msec,
-			 struct pt_section *section, uint64_t vaddr);
+			 struct pt_section *section, const struct pt_asid *asid,
+			 uint64_t vaddr);
 
 /* Destroy a mapped section - does not free @msec->section. */
 extern void pt_msec_fini(struct pt_mapped_section *msec);
@@ -56,6 +62,9 @@ extern uint64_t pt_msec_begin(const struct pt_mapped_section *msec);
 
 /* Return the virtual address one byte past the end of the memory region. */
 extern uint64_t pt_msec_end(const struct pt_mapped_section *msec);
+
+/* Return an identifier for the address-space the section is mapped into. */
+extern const struct pt_asid *pt_msec_asid(const struct pt_mapped_section *msec);
 
 /* Read memory from a mapped section.
  *

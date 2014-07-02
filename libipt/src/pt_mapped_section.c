@@ -31,17 +31,20 @@
 
 #include "intel-pt.h"
 
-#include <stdlib.h>
-
 
 void pt_msec_init(struct pt_mapped_section *msec, struct pt_section *section,
-		  uint64_t vaddr)
+		  const struct pt_asid *asid, uint64_t vaddr)
 {
 	if (!msec)
 		return;
 
 	msec->section = section;
 	msec->vaddr = vaddr;
+
+	if (asid)
+		msec->asid = *asid;
+	else
+		pt_asid_init(&msec->asid);
 }
 
 void pt_msec_fini(struct pt_mapped_section *msec)
@@ -73,6 +76,14 @@ uint64_t pt_msec_end(const struct pt_mapped_section *msec)
 		return 0ull;
 
 	return msec->vaddr + size;
+}
+
+const struct pt_asid *pt_msec_asid(const struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return NULL;
+
+	return &msec->asid;
 }
 
 int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,

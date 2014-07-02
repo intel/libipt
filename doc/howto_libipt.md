@@ -630,20 +630,26 @@ information can be specified.  This context will be passed to the decode
 callback function.
 
 
-#### The Process Image
+#### The Traced Image
 
 In addition to the Intel PT configuration, the instruction flow decoder needs to
-know the process image, for which Intel PT has been recorded.  This can be
+know the memory image, for which Intel PT has been recorded.  This can be
 specified by repeated calls to `pt_insn_add_file()`, one for each section of
 contiguous memory.
 
-If decoding failed due to an IP lying outside the specified process image,
+If decoding failed due to an IP lying outside the specified memory image,
 `pt_insn_next()` will return `-pte_nomap`.
 
-In some cases, the process image may change during the execution.  You can use
+In some cases, the memory image may change during the execution.  You can use
 the `pt_insn_remove_by_filename()` function to remove previously added sections
 by their file name.  You can also add new sections by calling
 `pt_insn_add_file()` at any time.
+
+If more than one process is traced, the memory image may change when the process
+context is switched.  To simplify handling this case, an address-space
+identifier may be passed to each of the above functions to define separate
+images for different processes at the same time.  The decoder will select the
+correct image based on context switch information in the Intel PT trace.
 
 If you prefer to manage the image on your own, you can register a callback
 function for reading memory using `pt_insn_add_callback()`.  The `context`

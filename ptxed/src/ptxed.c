@@ -283,7 +283,7 @@ static int load_raw(struct pt_insn_decoder *decoder, char *arg,
 	if (has_base <= 0)
 		return 1;
 
-	errcode = pt_insn_add_file(decoder, arg, 0, UINT64_MAX, base);
+	errcode = pt_insn_add_file(decoder, arg, 0, UINT64_MAX, NULL, base);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
 			prog, arg, base, pt_errstr(pt_errcode(errcode)));

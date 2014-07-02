@@ -44,6 +44,9 @@ struct pt_insn_decoder {
 	/* The image of the traced process. */
 	struct pt_image image;
 
+	/* The current address space. */
+	struct pt_asid asid;
+
 	/* The current Intel(R) Processor Trace event. */
 	struct pt_event event;
 

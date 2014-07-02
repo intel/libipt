@@ -45,6 +45,7 @@ void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->speculative = 0;
 
 	pt_retstack_init(&decoder->retstack);
+	pt_asid_init(&decoder->asid);
 }
 
 int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
