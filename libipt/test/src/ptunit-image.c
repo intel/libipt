@@ -108,8 +108,8 @@ uint64_t pt_section_end(const struct pt_section *section)
 	return section->address + section->size;
 }
 
-int pt_section_read(struct pt_section *section, uint8_t *buffer, uint16_t size,
-		    uint64_t addr)
+int pt_section_read(const struct pt_section *section, uint8_t *buffer,
+		    uint16_t size, uint64_t addr)
 {
 	uint64_t begin, end;
 

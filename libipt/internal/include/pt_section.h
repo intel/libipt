@@ -73,7 +73,7 @@ extern uint64_t pt_section_end(const struct pt_section *section);
  * Returns -pte_invalid, if @section or @buffer are NULL.
  * Returns -pte_nomap, if the section does not contain @addr.
  */
-extern int pt_section_read(struct pt_section *section, uint8_t *buffer,
+extern int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 			   uint16_t size, uint64_t addr);
 
 #endif /* __PT_SECTION_H__ */
