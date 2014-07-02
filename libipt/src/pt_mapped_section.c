@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Intel Corporation
+ * Copyright (c) 2014, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,51 +26,65 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_SECTION_H__
-#define __PT_SECTION_H__
+#include "pt_mapped_section.h"
+#include "pt_section.h"
 
-#include <stdint.h>
+#include "intel-pt.h"
+
+#include <stdlib.h>
 
 
-/* A section of contiguous memory loaded from a file. */
-struct pt_section;
+void pt_msec_init(struct pt_mapped_section *msec, struct pt_section *section,
+		  uint64_t vaddr)
+{
+	if (!msec)
+		return;
 
-/* Create a section.
- *
- * The returned section describes the contents of @file starting at @offset
- * for @size bytes.
- *
- * If @file is shorter than the requested @size, the section is silently
- * truncated to the size of @file.
- *
- * If @offset lies beyond the end of @file, no section is created.
- *
- * Returns a new section on success, NULL otherwise.
- */
-extern struct pt_section *pt_mk_section(const char *file, uint64_t offset,
-					uint64_t size);
+	msec->section = section;
+	msec->vaddr = vaddr;
+}
 
-/* Free a section.
- *
- * The @section must have been allocated by pt_mk_section() or be NULL.
- */
-extern void pt_section_free(struct pt_section *section);
+void pt_msec_fini(struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return;
 
-/* Return the filename of @section. */
-extern const char *pt_section_filename(const struct pt_section *section);
+	msec->section = NULL;
+	msec->vaddr = 0ull;
+}
 
-/* Return the size of the section in bytes. */
-extern uint64_t pt_section_size(const struct pt_section *section);
+uint64_t pt_msec_begin(const struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return 0ull;
 
-/* Read memory from a section.
- *
- * Reads at most @size bytes from @section at @offset into @buffer.
- *
- * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_invalid, if @section or @buffer are NULL.
- * Returns -pte_nomap, if @offset is beyond the end of the section.
- */
-extern int pt_section_read(const struct pt_section *section, uint8_t *buffer,
-			   uint16_t size, uint64_t offset);
+	return msec->vaddr;
+}
 
-#endif /* __PT_SECTION_H__ */
+uint64_t pt_msec_end(const struct pt_mapped_section *msec)
+{
+	uint64_t size;
+
+	if (!msec)
+		return 0ull;
+
+	size = pt_section_size(msec->section);
+	if (!size)
+		return 0ull;
+
+	return msec->vaddr + size;
+}
+
+int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
+		 uint16_t size, uint64_t addr)
+{
+	if (!msec)
+		return -pte_invalid;
+
+	if (addr < msec->vaddr)
+		return -pte_nomap;
+
+	addr -= msec->vaddr;
+
+	return pt_section_read(msec->section, buffer, size, addr);
+}

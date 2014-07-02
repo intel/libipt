@@ -45,9 +45,6 @@ struct pt_section {
 
 	/* The begin and end of the section as offset into @file. */
 	long begin, end;
-
-	/* The load address of this section in virtual memory. */
-	uint64_t address;
 };
 
 static char *dupstr(const char *str)
@@ -67,7 +64,7 @@ static char *dupstr(const char *str)
 }
 
 struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
-				 uint64_t size, uint64_t addr)
+				 uint64_t size)
 {
 	struct pt_section *section;
 	uint64_t begin, end, msize;
@@ -125,7 +122,6 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 	section->file = file;
 	section->begin = fbegin;
 	section->end = fend;
-	section->address = addr;
 
 	return section;
 
@@ -153,24 +149,16 @@ const char *pt_section_filename(const struct pt_section *section)
 	return section->filename;
 }
 
-uint64_t pt_section_begin(const struct pt_section *section)
+uint64_t pt_section_size(const struct pt_section *section)
 {
 	if (!section)
 		return 0ull;
 
-	return section->address;
-}
-
-uint64_t pt_section_end(const struct pt_section *section)
-{
-	if (!section)
-		return 0ull;
-
-	return section->address + (section->end - section->begin);
+	return section->end - section->begin;
 }
 
 int pt_section_read(const struct pt_section *section, uint8_t *buffer,
-		    uint16_t size, uint64_t addr)
+		    uint16_t size, uint64_t offset)
 {
 	long begin, end;
 	size_t read;
@@ -179,12 +167,8 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	if (!buffer || !section)
 		return -pte_invalid;
 
-	if (addr < section->address)
-		return -pte_nomap;
-
-	addr -= section->address;
-	begin = (long) addr;
-	if (((uint64_t) begin) != addr)
+	begin = (long) offset;
+	if (((uint64_t) begin) != offset)
 		return -pte_nomap;
 
 	begin += section->begin;

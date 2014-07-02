@@ -136,11 +136,11 @@ int pt_insn_add_file(struct pt_insn_decoder *decoder, const char *filename,
 	if (!decoder)
 		return -pte_invalid;
 
-	section = pt_mk_section(filename, offset, size, vaddr);
+	section = pt_mk_section(filename, offset, size);
 	if (!section)
 		return -pte_invalid;
 
-	errcode = pt_image_add(&decoder->image, section);
+	errcode = pt_image_add(&decoder->image, section, vaddr);
 	if (errcode < 0)
 		pt_section_free(section);
 

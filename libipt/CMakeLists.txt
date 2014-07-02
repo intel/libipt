@@ -50,6 +50,7 @@ set(LIBIPT_FILES
   src/pt_insn_decoder.c
   src/pt_insn.c
   src/pt_time.c
+  src/pt_mapped_section.c
 )
 
 if (FEATURE_MMAP)
@@ -141,6 +142,7 @@ add_executable(ptunit-section_file
 
 add_executable(ptunit-image
   test/src/ptunit-image.c
+  src/pt_mapped_section.c
   src/pt_image.c
 )
 
@@ -159,6 +161,11 @@ add_executable(ptunit-time
   src/pt_time.c
 )
 
+add_executable(ptunit-mapped_section
+  test/src/ptunit-mapped_section.c
+  src/pt_mapped_section.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
@@ -169,6 +176,7 @@ target_link_libraries(ptunit-image ptunit)
 target_link_libraries(ptunit-ild ptunit)
 target_link_libraries(ptunit-cpu ptunit)
 target_link_libraries(ptunit-time ptunit)
+target_link_libraries(ptunit-mapped_section ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap

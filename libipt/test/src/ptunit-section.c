@@ -74,28 +74,25 @@ static struct ptunit_result create(struct section_fixture *sfix)
 {
 	const char *name;
 	uint8_t bytes[] = { 0xcc, 0xcc, 0xcc, 0xcc, 0xcc };
-	uint64_t begin, end;
+	uint64_t size;
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
 	name = pt_section_filename(sfix->section);
 	ptu_str_eq(name, sfix->name);
 
-	begin = pt_section_begin(sfix->section);
-	ptu_uint_eq(begin, 0x1000ull);
-
-	end = pt_section_end(sfix->section);
-	ptu_uint_eq(end, 0x1003ull);
+	size = pt_section_size(sfix->section);
+	ptu_uint_eq(size, 0x3ull);
 
 	return ptu_passed();
 }
 
 static struct ptunit_result create_bad_offset(struct section_fixture *sfix)
 {
-	sfix->section = pt_mk_section(sfix->name, 0x10ull, 0x0ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x10ull, 0x0ull);
 	ptu_null(sfix->section);
 
 	return ptu_passed();
@@ -105,28 +102,25 @@ static struct ptunit_result create_truncated(struct section_fixture *sfix)
 {
 	const char *name;
 	uint8_t bytes[] = { 0xcc, 0xcc, 0xcc, 0xcc, 0xcc };
-	uint64_t begin, end;
+	uint64_t size;
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, UINT64_MAX, 0x101ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, UINT64_MAX);
 	ptu_ptr(sfix->section);
 
 	name = pt_section_filename(sfix->section);
 	ptu_str_eq(name, sfix->name);
 
-	begin = pt_section_begin(sfix->section);
-	ptu_uint_eq(begin, 0x101ull);
-
-	end = pt_section_end(sfix->section);
-	ptu_uint_eq(end, 0x105ull);
+	size = pt_section_size(sfix->section);
+	ptu_uint_eq(size, sizeof(bytes) - 1);
 
 	return ptu_passed();
 }
 
 static struct ptunit_result create_empty(struct section_fixture *sfix)
 {
-	sfix->section = pt_mk_section(sfix->name, 0x0ull, 0x10ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x0ull, 0x10ull);
 	ptu_null(sfix->section);
 
 	return ptu_passed();
@@ -149,22 +143,12 @@ static struct ptunit_result filename_null(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result begin_null(struct section_fixture *sfix)
+static struct ptunit_result size_null(struct section_fixture *sfix)
 {
-	uint64_t begin;
+	uint64_t size;
 
-	begin = pt_section_begin(NULL);
-	ptu_uint_eq(begin, 0ull);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result end_null(struct section_fixture *sfix)
-{
-	uint64_t end;
-
-	end = pt_section_end(NULL);
-	ptu_uint_eq(end, 0ull);
+	size = pt_section_size(NULL);
+	ptu_uint_eq(size, 0ull);
 
 	return ptu_passed();
 }
@@ -177,10 +161,10 @@ static struct ptunit_result read(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	status = pt_section_read(sfix->section, buffer, 2, 0x1000ull);
+	status = pt_section_read(sfix->section, buffer, 2, 0x0ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], bytes[1]);
 	ptu_uint_eq(buffer[1], bytes[2]);
@@ -197,10 +181,10 @@ static struct ptunit_result read_offset(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	status = pt_section_read(sfix->section, buffer, 2, 0x1001ull);
+	status = pt_section_read(sfix->section, buffer, 2, 0x1ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], bytes[2]);
 	ptu_uint_eq(buffer[1], bytes[3]);
@@ -216,10 +200,10 @@ static struct ptunit_result read_truncated(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	status = pt_section_read(sfix->section, buffer, 2, 0x1002ull);
+	status = pt_section_read(sfix->section, buffer, 2, 0x2ull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], bytes[3]);
 	ptu_uint_eq(buffer[1], 0xcc);
@@ -234,10 +218,10 @@ static struct ptunit_result read_from_truncated(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x2ull, 0x10ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x2ull, 0x10ull);
 	ptu_ptr(sfix->section);
 
-	status = pt_section_read(sfix->section, buffer, 2, 0x1001ull);
+	status = pt_section_read(sfix->section, buffer, 2, 0x1ull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], bytes[3]);
 	ptu_uint_eq(buffer[1], 0xcc);
@@ -252,10 +236,10 @@ static struct ptunit_result read_nomem(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	status = pt_section_read(sfix->section, buffer, 1, 0x1003ull);
+	status = pt_section_read(sfix->section, buffer, 1, 0x3ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0xcc);
 
@@ -269,7 +253,7 @@ static struct ptunit_result read_overflow(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
 	status = pt_section_read(sfix->section, buffer, 1,
@@ -331,8 +315,7 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, create_empty, sfix);
 	ptu_run_f(suite, free_null, sfix);
 	ptu_run_f(suite, filename_null, sfix);
-	ptu_run_f(suite, begin_null, sfix);
-	ptu_run_f(suite, end_null, sfix);
+	ptu_run_f(suite, size_null, sfix);
 	ptu_run_f(suite, read, sfix);
 	ptu_run_f(suite, read_offset, sfix);
 	ptu_run_f(suite, read_truncated, sfix);

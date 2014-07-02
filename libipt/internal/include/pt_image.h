@@ -29,11 +29,11 @@
 #ifndef __PT_IMAGE_H__
 #define __PT_IMAGE_H__
 
+#include "pt_mapped_section.h"
+
 #include "intel-pt.h"
 
 #include <stdint.h>
-
-struct pt_section;
 
 
 /* A list of sections. */
@@ -41,8 +41,8 @@ struct pt_section_list {
 	/* The next list element. */
 	struct pt_section_list *next;
 
-	/* The section. */
-	struct pt_section *section;
+	/* The mapped section. */
+	struct pt_mapped_section section;
 };
 
 /* A process image consisting of a collection of sections. */
@@ -54,7 +54,7 @@ struct pt_image {
 	struct pt_section_list *sections;
 
 	/* The last section that satisfied a read request. */
-	struct pt_section *cache;
+	const struct pt_mapped_section *cache;
 
 	/* An optional read memory callback. */
 	struct {
@@ -83,7 +83,7 @@ extern const char *pt_image_name(const struct pt_image *image);
 
 /* Add a section to an image.
  *
- * Add @section to @image if @section fits without overlap.
+ * Add @section to @image at @vaddr if @section fits without overlap.
  *
  * Successfully added sections will be freed when they are removed.
  *
@@ -91,17 +91,19 @@ extern const char *pt_image_name(const struct pt_image *image);
  * Returns -pte_invalid if @section or @image are NULL.
  * Returns -pte_bad_context if @section overlaps with a section in @image.
  */
-extern int pt_image_add(struct pt_image *image, struct pt_section *section);
+extern int pt_image_add(struct pt_image *image, struct pt_section *section,
+			uint64_t vaddr);
 
 /* Remove a section from an image.
  *
- * Removes and frees @section from @image.
+ * Removes and frees @section mapped at @vaddr from @image.
  *
  * Returns zero on success.
  * Returns -pte_invalid if @section or @image are NULL.
- * Returns -pte_bad_context if @image does not contain @section.
+ * Returns -pte_bad_context if @image does not contain @section at @vaddr.
  */
-extern int pt_image_remove(struct pt_image *image, struct pt_section *section);
+extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
+			   uint64_t vaddr);
 
 /* Remove zero or more sections from an image by section name.
  *

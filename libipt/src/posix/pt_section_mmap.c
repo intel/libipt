@@ -53,9 +53,6 @@ struct pt_section {
 
 	/* The begin and end of the mapped memory. */
 	const uint8_t *begin, *end;
-
-	/* The load address of this section in virtual memory. */
-	uint64_t address;
 };
 
 static char *dupstr(const char *str)
@@ -75,7 +72,7 @@ static char *dupstr(const char *str)
 }
 
 struct pt_section *pt_mk_section(const char *file, uint64_t offset,
-				 uint64_t size, uint64_t addr)
+				 uint64_t size)
 {
 	struct pt_section *section;
 	struct stat stat;
@@ -129,7 +126,6 @@ struct pt_section *pt_mk_section(const char *file, uint64_t offset,
 	section->size = size;
 	section->begin = base + adjustment;
 	section->end = base + size;
-	section->address = addr;
 
 out:
 	close(fd);
@@ -155,36 +151,23 @@ const char *pt_section_filename(const struct pt_section *section)
 	return section->filename;
 }
 
-uint64_t pt_section_begin(const struct pt_section *section)
+uint64_t pt_section_size(const struct pt_section *section)
 {
 	if (!section)
 		return 0ull;
 
-	return section->address;
-}
-
-uint64_t pt_section_end(const struct pt_section *section)
-{
-	if (!section)
-		return 0ull;
-
-	return section->address + (section->end - section->begin);
+	return section->end - section->begin;
 }
 
 int pt_section_read(const struct pt_section *section, uint8_t *buffer,
-		    uint16_t size, uint64_t addr)
+		    uint16_t size, uint64_t offset)
 {
 	const uint8_t *begin, *end;
 
 	if (!buffer || !section)
 		return -pte_invalid;
 
-	if (addr < section->address)
-		return -pte_nomap;
-
-	addr -= section->address;
-
-	begin = section->begin + addr;
+	begin = section->begin + offset;
 	end = begin + size;
 
 	if (end < begin)
