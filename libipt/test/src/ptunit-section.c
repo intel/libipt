@@ -109,7 +109,7 @@ static struct ptunit_result create_truncated(struct section_fixture *sfix)
 
 	sfix_write(sfix, bytes);
 
-	sfix->section = pt_mk_section(sfix->name, 0x0ull, UINT64_MAX, 0x101ull);
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, UINT64_MAX, 0x101ull);
 	ptu_ptr(sfix->section);
 
 	name = pt_section_filename(sfix->section);
@@ -119,7 +119,7 @@ static struct ptunit_result create_truncated(struct section_fixture *sfix)
 	ptu_uint_eq(begin, 0x101ull);
 
 	end = pt_section_end(sfix->section);
-	ptu_uint_eq(end, 0x106ull);
+	ptu_uint_eq(end, 0x105ull);
 
 	return ptu_passed();
 }

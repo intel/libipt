@@ -91,20 +91,18 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 	if (fsize < 0)
 		goto out;
 
-	begin = offset;
-	end = offset + size;
-	msize = fsize;
-
-	if (end < begin)
-		goto out;
-
 	/* Fail if the requested @offset lies beyond the end of @file. */
-	if (msize <= begin)
+	msize = fsize;
+	if (msize <= offset)
 		goto out;
 
 	/* Truncate the requested @size to match the file size. */
-	if (msize < end)
-		end = msize;
+	msize -= offset;
+	if (msize < size)
+		size = msize;
+
+	begin = offset;
+	end = offset + size;
 
 	/* File operations only support long - adjust @begin and @end. */
 	fbegin = (long) begin;
