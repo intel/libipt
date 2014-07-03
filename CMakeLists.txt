@@ -146,6 +146,9 @@ if (CMAKE_HOST_WIN32)
 endif (CMAKE_HOST_WIN32)
 
 if (CMAKE_HOST_UNIX)
+  include_directories(
+    include/posix
+  )
 
   if (CMAKE_C_COMPILER_ID MATCHES "Clang")
     add_definitions(
