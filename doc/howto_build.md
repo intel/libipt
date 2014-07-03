@@ -55,6 +55,11 @@ The following features are supported:
                         This feature is not available on Windows.
 
 
+    FEATURE_THREADS     Support some amount of multi-threading.
+
+                        This feature makes image functions thread-safe.
+
+
 ### Build Variants
 
 Some build variants depend on libraries or header files that may not be

@@ -85,6 +85,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_bad_image:
 		return "bad image";
+
+	case pte_bad_lock:
+		return "locking error";
 	}
 
 	/* Should not reach here. */

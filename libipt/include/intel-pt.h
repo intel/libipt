@@ -366,7 +366,10 @@ enum pt_error_code {
 	pte_no_cbr,
 
 	/* Bad traced image. */
-	pte_bad_image
+	pte_bad_image,
+
+	/* A locking error. */
+	pte_bad_lock
 };
 
 

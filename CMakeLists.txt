@@ -58,6 +58,11 @@ if (FEATURE_MMAP)
   add_definitions(-DFEATURE_MMAP)
 endif (FEATURE_MMAP)
 
+option(FEATURE_THREADS "A small amount of multi-threading support." OFF)
+if (FEATURE_THREADS)
+  add_definitions(-DFEATURE_THREADS)
+endif (FEATURE_THREADS)
+
 option(DEVBUILD "Enable compiler warnings and turn them into errors." OFF)
 
 include_directories(
@@ -164,6 +169,10 @@ if (CMAKE_HOST_UNIX)
 
     link_libraries(gcov)
   endif (GCOV)
+
+  if (FEATURE_THREADS)
+    link_libraries(pthread)
+  endif (FEATURE_THREADS)
 
   # set the language
   #
