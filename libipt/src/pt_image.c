@@ -320,6 +320,45 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 	return removed;
 }
 
+int pt_image_remove_by_asid(struct pt_image *image,
+			    const struct pt_asid *uasid)
+{
+	struct pt_section_list **list;
+	struct pt_asid asid;
+	int errcode, removed;
+
+	if (!image)
+		return -pte_invalid;
+
+	errcode = pt_asid_from_user(&asid, uasid);
+	if (errcode < 0)
+		return errcode;
+
+	removed = 0;
+	for (list = &image->sections; *list;) {
+		const struct pt_mapped_section *msec;
+		struct pt_section_list *trash;
+
+		trash = *list;
+		msec = &trash->section;
+
+		if (!pt_asid_matches(pt_msec_asid(msec), &asid)) {
+			list = &trash->next;
+			continue;
+		}
+
+		if (image->cache == msec)
+			image->cache = NULL;
+
+		*list = trash->next;
+		pt_section_list_free(trash);
+
+		removed += 1;
+	}
+
+	return removed;
+}
+
 int pt_image_set_callback(struct pt_image *image,
 			  read_memory_callback_t *callback, void *context)
 {

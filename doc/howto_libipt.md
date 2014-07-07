@@ -661,7 +661,8 @@ calls to `pt_image_add_file()`, one for each section.
 
 In some cases, the memory image may change during the execution.  You can use
 the `pt_image_remove_by_filename()` function to remove previously added sections
-by their file name.
+by their file name and `pt_image_remove_by_asid()` to remove all sections for an
+address-space.
 
 Sections may be added and removed at any time as long as no decoder that uses
 the modified image is running.

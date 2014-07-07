@@ -702,6 +702,41 @@ static struct ptunit_result remove_all_by_filename(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result remove_by_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1001ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x01);
+	ptu_uint_eq(buffer[1], 0x02);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_image_remove_by_asid(&ifix->image, &ifix->asid[0]);
+	ptu_int_eq(status, 1);
+
+	ptu_int_ne(ifix->section[0].deleted, 0);
+	ptu_int_eq(ifix->section[1].deleted, 0);
+
+	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
+			       &ifix->asid[0], 0x1003ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0x01);
+	ptu_uint_eq(buffer[1], 0x02);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
 struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	pt_image_init(&ifix->image, NULL);
@@ -792,6 +827,7 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, remove_by_filename_bad_asid, rfix);
 	ptu_run_f(suite, remove_none_by_filename, rfix);
 	ptu_run_f(suite, remove_all_by_filename, ifix);
+	ptu_run_f(suite, remove_by_asid, rfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

@@ -1236,6 +1236,19 @@ extern pt_export int pt_image_remove_by_filename(struct pt_image *image,
 						 const char *filename,
 						 const struct pt_asid *asid);
 
+/** Remove all sections loaded into an address space.
+ *
+ * Removes all sections loaded into \@asid.  Specify the same \@asid that was
+ * used for adding sections.
+ *
+ * Returns the number of removed sections on success, a negative error code
+ * otherwise.
+ *
+ * Returns -pte_invalid if \@image is NULL.
+ */
+extern pt_export int pt_image_remove_by_asid(struct pt_image *image,
+					     const struct pt_asid *asid);
+
 /** A read memory callback function.
  *
  * It shall read \@size bytes of memory from address space \@asid starting
