@@ -153,13 +153,42 @@ run-ptt-test() {
 
 
 	# execute pttc - remove the extra \r in Windows line endings
-	exps=`run "$pttc_cmd" $pttc_arg $cpu "$ptt" | sed 's/\r\n/\n/g'`
+	files=`run "$pttc_cmd" $pttc_arg $cpu "$ptt" | sed 's/\r\n/\n/g'`
 	ret=$?
 	if [[ $ret != 0 ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg failed with $ret" >&2
 		status=1
 		continue
-	elif [[ -z $exps ]]; then
+	fi
+
+	exps=""
+	sb=""
+	for file in $files; do
+		case $file in
+		*.sb)
+			sb_base=${file%.sb}
+			sb_part=${sb_base#$base-}
+			sb_prefix=${sb_part%%,*}
+			sb_options=${sb_part#$sb_prefix}
+			sb_prio=${sb_prefix##*-}
+			sb_prefix2=${sb_prefix%-$sb_prio}
+			sb_format=${sb_prefix2##*-}
+
+			sb+=`echo $sb_options | sed -e "s/,/ --$sb_format:/g" -e "s/=/ /g"`
+			sb+=" --$sb_format:$sb_prio $file"
+			;;
+		*.exp)
+			exps+=" $file"
+			;;
+		*)
+			echo "$file: unknown file type"
+			status=1
+			return
+			;;
+		esac
+	done
+
+	if [[ -z $exps ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg did not produce any .exp file" >&2
 		status=1
 		continue
@@ -184,11 +213,11 @@ run-ptt-test() {
 			fi
 			local opts=`ptt-ptxed-opts "$ptt"`
 			opts+=" --no-inst --check"
-			run "$ptxed_cmd" $ptxed_arg --raw $bin:$addr $cpu $opts --pt $pt > $out
+			run "$ptxed_cmd" $ptxed_arg --raw $bin:$addr $cpu $opts --pt $pt $sb > $out
 			;;
 		ptdump)
 			local opts=`ptt-ptdump-opts "$ptt"`
-			run "$ptdump_cmd" $ptdump_arg $cpu $opts $pt > $out
+			run "$ptdump_cmd" $ptdump_arg $cpu $opts $sb $pt > $out
 			;;
 		*)
 			echo "$ptt: unknown tool '$tool'"
