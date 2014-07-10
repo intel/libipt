@@ -35,6 +35,8 @@ Optional Contents and Samples
 
   sideband      A sideband correlation library
 
+  pevent        A library for reading/writing Linux perf event records
+
   script        A collection of scripts
 
   test          A collection of tests

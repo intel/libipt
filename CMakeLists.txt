@@ -74,6 +74,10 @@ option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 option(MAN "Enable man pages (requires pandoc)." OFF)
 option(SIDEBAND "Enable libipt-sb, a sideband correlation library")
 
+if (SIDEBAND)
+  option(PEVENT "Enable perf_event sideband support." OFF)
+endif (SIDEBAND)
+
 if (PTXED)
   option(FEATURE_ELF "Support ELF files." OFF)
 endif (PTXED)
@@ -115,6 +119,16 @@ if (SIDEBAND)
     ${CMAKE_CURRENT_BINARY_DIR}/sideband/include
   )
 endif (SIDEBAND)
+
+if (PEVENT)
+  add_definitions(
+    -DFEATURE_PEVENT
+  )
+
+  include_directories(
+    pevent/include
+  )
+endif (PEVENT)
 
 if (CMAKE_HOST_WIN32)
   include_directories(
@@ -290,3 +304,6 @@ endif (MAN)
 if (SIDEBAND)
   add_subdirectory(sideband)
 endif (SIDEBAND)
+if (PEVENT)
+  add_subdirectory(pevent)
+endif (PEVENT)
