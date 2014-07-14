@@ -161,11 +161,8 @@ static int pt_asid_matches(const struct pt_asid *lhs, const struct pt_asid *rhs)
 {
 	uint64_t lcr3, rcr3;
 
-	if (lhs == rhs)
-		return 1;
-
 	if (!lhs || !rhs)
-		return 1;
+		return -pte_internal;
 
 	lcr3 = lhs->cr3;
 	rcr3 = rhs->cr3;
@@ -183,7 +180,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 	uint64_t begin, end;
 
 	if (!image || !section)
-		return -pte_invalid;
+		return -pte_internal;
 
 	begin = vaddr;
 	end = begin + pt_section_size(section);
@@ -192,10 +189,15 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 	for (list = &(image->sections); *list; list = &((*list)->next)) {
 		const struct pt_mapped_section *msec;
 		uint64_t lbegin, lend;
+		int errcode;
 
 		msec = &(*list)->section;
 
-		if (!pt_asid_matches(pt_msec_asid(msec), asid))
+		errcode = pt_asid_matches(pt_msec_asid(msec), asid);
+		if (errcode < 0)
+			return errcode;
+
+		if (!errcode)
 			continue;
 
 		lbegin = pt_msec_begin(msec);
@@ -223,16 +225,21 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 	struct pt_section_list **list;
 
 	if (!image || !section)
-		return -pte_invalid;
+		return -pte_internal;
 
 	for (list = &image->sections; *list; list = &((*list)->next)) {
 		const struct pt_mapped_section *msec;
 		struct pt_section_list *trash;
+		int errcode;
 
 		trash = *list;
 		msec = &trash->section;
 
-		if (!pt_asid_matches(pt_msec_asid(msec), asid))
+		errcode = pt_asid_matches(pt_msec_asid(msec), asid);
+		if (errcode < 0)
+			return errcode;
+
+		if (!errcode)
 			continue;
 
 		if (msec->section == section && msec->vaddr == vaddr) {
@@ -257,7 +264,7 @@ int pt_image_add_file(struct pt_image *image, const char *filename,
 	struct pt_asid asid;
 	int errcode;
 
-	if (!image)
+	if (!image || !filename)
 		return -pte_invalid;
 
 	errcode = pt_asid_from_user(&asid, uasid);
@@ -298,7 +305,11 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 		trash = *list;
 		msec = &trash->section;
 
-		if (!pt_asid_matches(pt_msec_asid(msec), &asid)) {
+		errcode = pt_asid_matches(pt_msec_asid(msec), &asid);
+		if (errcode < 0)
+			return errcode;
+
+		if (!errcode) {
 			list = &trash->next;
 			continue;
 		}
@@ -342,7 +353,11 @@ int pt_image_remove_by_asid(struct pt_image *image,
 		trash = *list;
 		msec = &trash->section;
 
-		if (!pt_asid_matches(pt_msec_asid(msec), &asid)) {
+		errcode = pt_asid_matches(pt_msec_asid(msec), &asid);
+		if (errcode < 0)
+			return errcode;
+
+		if (!errcode) {
 			list = &trash->next;
 			continue;
 		}
@@ -376,12 +391,16 @@ static int pt_image_read_from(struct pt_image *image,
 			      uint8_t *buffer, uint16_t size,
 			      const struct pt_asid *asid, uint64_t addr)
 {
-	int status;
+	int errcode, status;
 
-	if (!buffer || !image || !msec)
-		return -pte_invalid;
+	if (!image)
+		return -pte_internal;
 
-	if (!pt_asid_matches(pt_msec_asid(msec), asid))
+	errcode = pt_asid_matches(pt_msec_asid(msec), asid);
+	if (errcode < 0)
+		return errcode;
+
+	if (!errcode)
 		return -pte_nomap;
 
 	status = pt_msec_read(msec, buffer, size, addr);
@@ -398,8 +417,8 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 	read_memory_callback_t *callback;
 	int status;
 
-	if (!buffer || !image)
-		return -pte_invalid;
+	if (!image || !asid)
+		return -pte_internal;
 
 	status = pt_image_read_from(image, image->cache, buffer, size, asid,
 				    addr);

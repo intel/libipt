@@ -82,7 +82,7 @@ extern void pt_image_fini(struct pt_image *image);
  * Successfully added sections will be freed when they are removed.
  *
  * Returns zero on success.
- * Returns -pte_invalid if @section or @image are NULL.
+ * Returns -pte_internal if @image, @section, or @asid is NULL.
  * Returns -pte_bad_context if @section overlaps with a section in @image.
  */
 extern int pt_image_add(struct pt_image *image, struct pt_section *section,
@@ -93,7 +93,7 @@ extern int pt_image_add(struct pt_image *image, struct pt_section *section,
  * Removes and frees @section mapped at @vaddr in @asid from @image.
  *
  * Returns zero on success.
- * Returns -pte_invalid if @section or @image are NULL.
+ * Returns -pte_internal if @image, @section, or @asid is NULL.
  * Returns -pte_bad_context if @image does not contain @section at @vaddr.
  */
 extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
@@ -104,7 +104,7 @@ extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
  * Reads at most @size bytes from @image at @addr in @asid into @buffer.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_invalid if @section or @buffer are NULL.
+ * Returns -pte_internal if @image, @buffer, or @asid is NULL.
  * Returns -pte_nomap if the section does not contain @addr.
  */
 extern int pt_image_read(struct pt_image *image, uint8_t *buffer,
