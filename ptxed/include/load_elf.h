@@ -31,7 +31,7 @@
 
 #include <stdint.h>
 
-struct pt_insn_decoder;
+struct pt_image;
 
 
 /* Load an ELF file.
@@ -54,7 +54,7 @@ struct pt_insn_decoder;
  * Returns -pte_bad_config if @file can't be processed.
  * Returns -pte_nomem if not enough memory can be allocated.
  */
-extern int load_elf(struct pt_insn_decoder *decoder, const char *file,
+extern int load_elf(struct pt_image *image, const char *file,
 		    uint64_t base, const char *prog, int verbose);
 
 #endif /* __LOAD_ELF_H__ */

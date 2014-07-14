@@ -605,6 +605,7 @@ shown below:
 ~~~{.c}
     struct pt_insn_decoder *decoder;
     struct pt_config config;
+    struct pt_image *image;
     int errcode;
 
     memset(&config, 0, sizeof(config));
@@ -615,7 +616,9 @@ shown below:
     config.decode.callback = <decode function>;
     config.decode.context = <decode context>;
 
-    decoder = pt_insn_alloc_decoder(&config);
+    image = <obtain image> or NULL;
+
+    decoder = pt_insn_alloc_decoder(&config, image);
     if (!decoder)
         <handle error>(errcode);
 ~~~
@@ -629,36 +632,57 @@ callback function pointer, an optional pointer to user-defined context
 information can be specified.  This context will be passed to the decode
 callback function.
 
+The image argument is optional.  If no image is given, the decoder will use an
+empty default image that can be populated later on and that is implicitly
+destroyed when the decoder is freed.  See below for more information on this.
+
 
 #### The Traced Image
 
 In addition to the Intel PT configuration, the instruction flow decoder needs to
-know the memory image, for which Intel PT has been recorded.  This can be
-specified by repeated calls to `pt_insn_add_file()`, one for each section of
-contiguous memory.
+know the memory image for which Intel PT has been recorded.  This memory image
+is represented by a `pt_image` object.  If decoding failed due to an IP lying
+outside of the traced memory image, `pt_insn_next()` will return `-pte_nomap`.
 
-If decoding failed due to an IP lying outside the specified memory image,
-`pt_insn_next()` will return `-pte_nomap`.
+An image is allocated with `pt_image_alloc()` and freed with `pt_image_free()`.
+The same image may be used with multiple decoders.  Beware that all changes will
+be visible to all decoders.  Use this when using multiple decoders on the exact
+same image, if you want to prepare the image in advance, or if you want to
+switch between images.
+
+Every decoder provides an empty default image that is used if no image is
+specified during allocation.  The default image is implicitly destroyed when the
+decoder is freed.  It can be obtained by calling `pt_insn_get_image()`.  Use
+this if you only use one decoder and one image.
+
+An image is a collection of contiguous, non-overlapping memory regions called
+`sections`.  Starting with an empty image, it may be populated with repeated
+calls to `pt_image_add_file()`, one for each section.
 
 In some cases, the memory image may change during the execution.  You can use
-the `pt_insn_remove_by_filename()` function to remove previously added sections
-by their file name.  You can also add new sections by calling
-`pt_insn_add_file()` at any time.
+the `pt_image_remove_by_filename()` function to remove previously added sections
+by their file name.
+
+Sections may be added and removed at any time as long as no decoder that uses
+the modified image is running.
+
+In addition to adding sections you can register a callback function for reading
+memory using `pt_image_set_callback()`.  The `context` parameter you pass
+together with the callback function pointer will be passed to your callback
+function every time it is called.  There can only be one callback at any time.
+Adding a new callback will remove any previously added callback.  To remove the
+callback function, pass `NULL` to `pt_image_set_callback()`.
+
+Callback and files may be combined.  The callback function is used whenever
+the memory cannot be found in any of the image's sections.
 
 If more than one process is traced, the memory image may change when the process
 context is switched.  To simplify handling this case, an address-space
 identifier may be passed to each of the above functions to define separate
 images for different processes at the same time.  The decoder will select the
-correct image based on context switch information in the Intel PT trace.
-
-If you prefer to manage the image on your own, you can register a callback
-function for reading memory using `pt_insn_add_callback()`.  The `context`
-parameter you pass together with the callback function pointer will be passed
-to your callback function every time it is called.
-
-Callback and files may be combined.  The callback function is used whenever
-the memory cannot be found in the image specified by `pt_insn_add_file()`
-calls.
+correct image based on context switch information in the Intel PT trace.  If
+you want to manage this on your own, you can use `pt_insn_set_image()` to
+replace the image a decoder uses.
 
 
 #### Synchronizing
@@ -734,4 +758,6 @@ the intel-pt.h header file.
 ## Threading
 
 The decoder library API is not thread-safe.  Different threads may allocate and
-use different decoder objects at the same time.
+use different decoder objects at the same time.  Different decoders may use the
+same image object.  When changing the image, make sure that no decoder is
+running.

@@ -273,8 +273,7 @@ err_file:
 	return 1;
 }
 
-static int load_raw(struct pt_insn_decoder *decoder, char *arg,
-		    const char *prog)
+static int load_raw(struct pt_image *image, char *arg, const char *prog)
 {
 	uint64_t base;
 	int errcode, has_base;
@@ -283,7 +282,7 @@ static int load_raw(struct pt_insn_decoder *decoder, char *arg,
 	if (has_base <= 0)
 		return 1;
 
-	errcode = pt_insn_add_file(decoder, arg, 0, UINT64_MAX, NULL, base);
+	errcode = pt_image_add_file(image, arg, 0, UINT64_MAX, NULL, base);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
 			prog, arg, base, pt_errstr(pt_errcode(errcode)));
@@ -473,6 +472,7 @@ extern int main(int argc, char *argv[])
 	struct ptxed_options options;
 	struct ptxed_stats stats;
 	struct pt_config config;
+	struct pt_image *image;
 	struct pt_cpu cpu;
 	const char *prog;
 	int errcode, i, use_cpu;
@@ -499,6 +499,12 @@ extern int main(int argc, char *argv[])
 	if (errcode < 0) {
 		fprintf(stderr, "%s: configuration failed: %s\n", prog,
 			pt_errstr(pt_errcode(errcode)));
+		return 1;
+	}
+
+	image = pt_image_alloc(NULL);
+	if (!image) {
+		fprintf(stderr, "%s: failed to allocate image.\n", prog);
 		return 1;
 	}
 
@@ -547,18 +553,20 @@ extern int main(int argc, char *argv[])
 				goto err;
 			}
 
-			continue;
-		}
-		if (strcmp(arg, "--raw") == 0) {
-			if (!decoder) {
-				fprintf(stderr, "%s: please specify the pt "
-					"source file first.\n", prog);
+			errcode = pt_insn_set_image(decoder, image);
+			if (errcode < 0) {
+				fprintf(stderr,
+					"%s: failed to set image.\n",
+					prog);
 				goto err;
 			}
 
+			continue;
+		}
+		if (strcmp(arg, "--raw") == 0) {
 			arg = argv[i++];
 
-			errcode = load_raw(decoder, arg, prog);
+			errcode = load_raw(image, arg, prog);
 			if (errcode < 0)
 				goto err;
 
@@ -568,19 +576,13 @@ extern int main(int argc, char *argv[])
 		if (strcmp(arg, "--elf") == 0) {
 			uint64_t base;
 
-			if (!decoder) {
-				fprintf(stderr, "%s: please specify the pt "
-					"source file first.\n", prog);
-				goto err;
-			}
-
 			arg = argv[i++];
 			base = 0ull;
 			errcode = extract_base(arg, &base, prog);
 			if (errcode < 0)
 				goto err;
 
-			errcode = load_elf(decoder, arg, base, prog,
+			errcode = load_elf(image, arg, base, prog,
 					   options.track_image);
 			if (errcode < 0)
 				goto err;
@@ -662,9 +664,11 @@ extern int main(int argc, char *argv[])
 
 out:
 	pt_insn_free_decoder(decoder);
+	pt_image_free(image);
 	return 0;
 
 err:
 	pt_insn_free_decoder(decoder);
+	pt_image_free(image);
 	return 1;
 }

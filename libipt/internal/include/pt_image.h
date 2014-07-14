@@ -75,12 +75,6 @@ extern void pt_image_init(struct pt_image *image, const char *name);
  */
 extern void pt_image_fini(struct pt_image *image);
 
-/* Return the name of @image.
- *
- * Returns NULL if no name was given at pt_image_init() or if @image is NULL.
- */
-extern const char *pt_image_name(const struct pt_image *image);
-
 /* Add a section to an image.
  *
  * Add @section to @image at @vaddr in @asid if @section fits without overlap.
@@ -104,28 +98,6 @@ extern int pt_image_add(struct pt_image *image, struct pt_section *section,
  */
 extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
 			   const struct pt_asid *asid, uint64_t vaddr);
-
-/* Remove zero or more sections from an image by section name.
- *
- * Removes and frees all sections from @image in @asid whose name equals @name.
- *
- * Returns the number of removed sections on success.
- * Returns -pte_invalid if @section or @name are NULL.
- */
-extern int pt_image_remove_by_name(struct pt_image *image, const char *name,
-				   const struct pt_asid *asid);
-
-/* Replace the read memory callback.
- *
- * Replaces the existing read memory callback in @image with @callback and
- * the existing read memory context with @context.
- *
- * Returns zero on success.
- * Returns -pte_invalid if @image is NULL.
- */
-extern int pt_image_replace_callback(struct pt_image *image,
-				     read_memory_callback_t *callback,
-				     void *context);
 
 /* Read memory from an image.
  *

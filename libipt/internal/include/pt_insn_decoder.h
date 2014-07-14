@@ -41,8 +41,11 @@ struct pt_insn_decoder {
 	/* The Intel(R) Processor Trace query decoder. */
 	struct pt_query_decoder query;
 
-	/* The image of the traced process. */
-	struct pt_image image;
+	/* The default image. */
+	struct pt_image default_image;
+
+	/* The image. */
+	struct pt_image *image;
 
 	/* The current address space. */
 	struct pt_asid asid;
@@ -91,7 +94,7 @@ struct pt_insn_decoder {
 
 /* Reset an instruction flow decoder.
  *
- * Resets all of @decoder's fields except for @image.
+ * Resets all of @decoder's fields except for @image and @default_image.
  */
 extern void pt_insn_reset(struct pt_insn_decoder *decoder);
 

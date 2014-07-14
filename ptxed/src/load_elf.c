@@ -35,9 +35,8 @@
 #include <inttypes.h>
 
 
-static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
-		      uint64_t base, const char *name, const char *prog,
-		      int verbose)
+static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
+		      const char *name, const char *prog, int verbose)
 {
 	Elf64_Ehdr ehdr;
 	Elf64_Half pidx;
@@ -98,9 +97,9 @@ static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
 		if (!phdr.p_filesz)
 			continue;
 
-		errcode = pt_insn_add_file(decoder, name, phdr.p_offset,
-					   phdr.p_filesz, NULL,
-					   phdr.p_vaddr + offset);
+		errcode = pt_image_add_file(image, name, phdr.p_offset,
+					    phdr.p_filesz, NULL,
+					    phdr.p_vaddr + offset);
 		if (errcode < 0) {
 			fprintf(stderr, "%s: warning: %s: failed to create "
 				"section for phdr %u: %s.\n", prog, name, pidx,
@@ -127,14 +126,14 @@ static int load_elf64(struct pt_insn_decoder *decoder, FILE *file,
 	return 0;
 }
 
-int load_elf(struct pt_insn_decoder *decoder, const char *name, uint64_t base,
+int load_elf(struct pt_image *image, const char *name, uint64_t base,
 	     const char *prog, int verbose)
 {
 	uint8_t e_ident[EI_NIDENT];
 	FILE *file;
 	int errcode, count, idx;
 
-	if (!decoder || !name)
+	if (!image || !name)
 		return -pte_invalid;
 
 	file = fopen(name, "rb");
@@ -162,7 +161,7 @@ int load_elf(struct pt_insn_decoder *decoder, const char *name, uint64_t base,
 		break;
 
 	case ELFCLASS64:
-		errcode = load_elf64(decoder, file, base, name, prog, verbose);
+		errcode = load_elf64(image, file, base, name, prog, verbose);
 		break;
 	}
 

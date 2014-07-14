@@ -76,6 +76,13 @@ uint64_t pt_section_size(const struct pt_section *section)
 	return section->size;
 }
 
+struct pt_section *pt_mk_section(const char *file, uint64_t offset,
+				 uint64_t size)
+{
+	/* This function is not used by our tests. */
+	return NULL;
+}
+
 void pt_section_free(struct pt_section *section)
 {
 	if (!section)
@@ -399,8 +406,8 @@ static struct ptunit_result read_callback(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_replace_callback(&ifix->image,
-					   image_readmem_callback, memory);
+	status = pt_image_set_callback(&ifix->image, image_readmem_callback,
+				       memory);
 	ptu_int_eq(status, 0);
 
 	status = pt_image_read(&ifix->image, buffer, 2, NULL, 0x3001ull);
@@ -548,7 +555,7 @@ static struct ptunit_result remove_bad_asid(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-static struct ptunit_result remove_by_name(struct image_fixture *ifix)
+static struct ptunit_result remove_by_filename(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
@@ -560,8 +567,9 @@ static struct ptunit_result remove_by_name(struct image_fixture *ifix)
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove_by_name(&ifix->image, ifix->section[0].name,
-					 &ifix->asid[0]);
+	status = pt_image_remove_by_filename(&ifix->image,
+					     ifix->section[0].name,
+					     &ifix->asid[0]);
 	ptu_int_eq(status, 1);
 
 	ptu_int_ne(ifix->section[0].deleted, 0);
@@ -584,7 +592,8 @@ static struct ptunit_result remove_by_name(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-static struct ptunit_result remove_by_name_bad_asid(struct image_fixture *ifix)
+static struct ptunit_result
+remove_by_filename_bad_asid(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
@@ -596,8 +605,9 @@ static struct ptunit_result remove_by_name_bad_asid(struct image_fixture *ifix)
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove_by_name(&ifix->image, ifix->section[0].name,
-					 &ifix->asid[1]);
+	status = pt_image_remove_by_filename(&ifix->image,
+					     ifix->section[0].name,
+					     &ifix->asid[1]);
 	ptu_int_eq(status, 0);
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
@@ -620,13 +630,13 @@ static struct ptunit_result remove_by_name_bad_asid(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-static struct ptunit_result remove_none_by_name(struct image_fixture *ifix)
+static struct ptunit_result remove_none_by_filename(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_image_remove_by_name(&ifix->image, "bad-name",
-					 &ifix->asid[0]);
+	status = pt_image_remove_by_filename(&ifix->image, "bad-name",
+					     &ifix->asid[0]);
 	ptu_int_eq(status, 0);
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
@@ -649,7 +659,7 @@ static struct ptunit_result remove_none_by_name(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-static struct ptunit_result remove_all_by_name(struct image_fixture *ifix)
+static struct ptunit_result remove_all_by_filename(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
@@ -669,7 +679,7 @@ static struct ptunit_result remove_all_by_name(struct image_fixture *ifix)
 	ptu_uint_eq(buffer[1], 0x02);
 	ptu_uint_eq(buffer[2], 0xcc);
 
-	status = pt_image_remove_by_name(&ifix->image, "same-name", NULL);
+	status = pt_image_remove_by_filename(&ifix->image, "same-name", NULL);
 	ptu_int_eq(status, 2);
 
 	ptu_int_ne(ifix->section[0].deleted, 0);
@@ -778,10 +788,10 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, remove_section, rfix);
 	ptu_run_f(suite, remove_bad_vaddr, rfix);
 	ptu_run_f(suite, remove_bad_asid, rfix);
-	ptu_run_f(suite, remove_by_name, rfix);
-	ptu_run_f(suite, remove_by_name_bad_asid, rfix);
-	ptu_run_f(suite, remove_none_by_name, rfix);
-	ptu_run_f(suite, remove_all_by_name, ifix);
+	ptu_run_f(suite, remove_by_filename, rfix);
+	ptu_run_f(suite, remove_by_filename_bad_asid, rfix);
+	ptu_run_f(suite, remove_none_by_filename, rfix);
+	ptu_run_f(suite, remove_all_by_filename, ifix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

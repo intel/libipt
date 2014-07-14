@@ -106,12 +106,55 @@ void pt_image_fini(struct pt_image *image)
 	memset(image, 0, sizeof(*image));
 }
 
+struct pt_image *pt_image_alloc(const char *name)
+{
+	struct pt_image *image;
+
+	image = malloc(sizeof(*image));
+	if (image)
+		pt_image_init(image, name);
+
+	return image;
+}
+
+void pt_image_free(struct pt_image *image)
+{
+	pt_image_fini(image);
+	free(image);
+}
+
 const char *pt_image_name(const struct pt_image *image)
 {
 	if (!image)
 		return NULL;
 
 	return image->name;
+}
+
+static int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user)
+{
+	if (!asid)
+		return -pte_internal;
+
+	pt_asid_init(asid);
+
+	if (user) {
+		size_t size;
+
+		size = user->size;
+
+		/* Ignore fields in the user's asid we don't know. */
+		if (sizeof(*asid) < size)
+			size = sizeof(*asid);
+
+		/* Copy (portions of) the user's asid. */
+		memcpy(asid, user, size);
+
+		/* We copied user's size - fix it. */
+		asid->size = sizeof(*asid);
+	}
+
+	return 0;
 }
 
 static int pt_asid_matches(const struct pt_asid *lhs, const struct pt_asid *rhs)
@@ -206,14 +249,45 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 	return -pte_bad_context;
 }
 
-int pt_image_remove_by_name(struct pt_image *image, const char *name,
-			    const struct pt_asid *asid)
+int pt_image_add_file(struct pt_image *image, const char *filename,
+		      uint64_t offset, uint64_t size,
+		      const struct pt_asid *uasid, uint64_t vaddr)
+{
+	struct pt_section *section;
+	struct pt_asid asid;
+	int errcode;
+
+	if (!image)
+		return -pte_invalid;
+
+	errcode = pt_asid_from_user(&asid, uasid);
+	if (errcode < 0)
+		return errcode;
+
+	section = pt_mk_section(filename, offset, size);
+	if (!section)
+		return -pte_invalid;
+
+	errcode = pt_image_add(image, section, &asid, vaddr);
+	if (errcode < 0)
+		pt_section_free(section);
+
+	return errcode;
+}
+
+int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
+				const struct pt_asid *uasid)
 {
 	struct pt_section_list **list;
-	int removed;
+	struct pt_asid asid;
+	int errcode, removed;
 
-	if (!image || !name)
+	if (!image || !filename)
 		return -pte_invalid;
+
+	errcode = pt_asid_from_user(&asid, uasid);
+	if (errcode < 0)
+		return errcode;
 
 	removed = 0;
 	for (list = &image->sections; *list;) {
@@ -224,14 +298,14 @@ int pt_image_remove_by_name(struct pt_image *image, const char *name,
 		trash = *list;
 		msec = &trash->section;
 
-		if (!pt_asid_matches(pt_msec_asid(msec), asid)) {
+		if (!pt_asid_matches(pt_msec_asid(msec), &asid)) {
 			list = &trash->next;
 			continue;
 		}
 
 		tname = pt_section_filename(msec->section);
 
-		if (tname && (strcmp(tname, name) == 0)) {
+		if (tname && (strcmp(tname, filename) == 0)) {
 			if (image->cache == msec)
 				image->cache = NULL;
 
@@ -246,8 +320,8 @@ int pt_image_remove_by_name(struct pt_image *image, const char *name,
 	return removed;
 }
 
-int pt_image_replace_callback(struct pt_image *image,
-			      read_memory_callback_t *callback, void *context)
+int pt_image_set_callback(struct pt_image *image,
+			  read_memory_callback_t *callback, void *context)
 {
 	if (!image)
 		return -pte_invalid;

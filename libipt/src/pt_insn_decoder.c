@@ -63,7 +63,9 @@ int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
 	if (errcode < 0)
 		return errcode;
 
-	pt_image_init(&decoder->image, NULL);
+	pt_image_init(&decoder->default_image, NULL);
+	decoder->image = &decoder->default_image;
+
 	pt_insn_reset(decoder);
 
 	return 0;
@@ -74,6 +76,6 @@ void pt_insn_decoder_fini(struct pt_insn_decoder *decoder)
 	if (!decoder)
 		return;
 
-	pt_image_fini(&decoder->image);
+	pt_image_fini(&decoder->default_image);
 	pt_qry_decoder_fini(&decoder->query);
 }

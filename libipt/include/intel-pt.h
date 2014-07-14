@@ -43,6 +43,7 @@
  * - Configuration
  * - Packet encoder / decoder
  * - Query decoder
+ * - Traced image
  * - Instruction flow decoder
  */
 
@@ -1145,6 +1146,125 @@ extern pt_export int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder,
 
 
 
+/* Traced image. */
+
+
+
+/** An Intel PT address space identifier.
+ *
+ * This identifies a particular address space when adding file sections or
+ * when reading memory.
+ */
+struct pt_asid {
+	/** The size of this object - set to sizeof(struct pt_asid). */
+	size_t size;
+
+	/** The CR3 value. */
+	uint64_t cr3;
+};
+
+/** An unknown CR3 value to be used for pt_asid objects. */
+static const uint64_t pt_asid_no_cr3 = 0xffffffffffffffffull;
+
+/** Initialize an address space identifier. */
+static inline void pt_asid_init(struct pt_asid *asid)
+{
+	asid->size = sizeof(*asid);
+	asid->cr3 = pt_asid_no_cr3;
+}
+
+
+/** The traced memory image. */
+struct pt_image;
+
+
+/** Allocate a traced memory image.
+ *
+ * An optional \@name may be given to the image.  The name string is copied.
+ *
+ * Returns a new traced memory image on success, NULL otherwise.
+ */
+extern pt_export struct pt_image *pt_image_alloc(const char *name);
+
+/** Free a traced memory image.
+ *
+ * The \@image must have been allocated with pt_image_alloc().
+ * The \@image must not be used after a successful return.
+ */
+extern pt_export void pt_image_free(struct pt_image *image);
+
+/** Get the image name.
+ *
+ * Returns a pointer to \@image's name or NULL if there is no name.
+ */
+extern pt_export const char *pt_image_name(const struct pt_image *image);
+
+/** Add a new file section to the traced memory image.
+ *
+ * Adds \@size bytes starting at \@offset in \@filename. The section is
+ * loaded at the virtual address \@vaddr in the address space \@asid.
+ *
+ * The \@asid may be NULL or (partially) invalid.  In that case only the valid
+ * fields are considered when comparing with other address-spaces.  Use this
+ * when tracing a single process or when adding sections to all processes.
+ *
+ * The section is silently truncated to match the size of \@filename.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_bad_context if sections would overlap.
+ * Returns -pte_invalid if \@image or \@filename is NULL.
+ * Returns -pte_invalid if \@offset is too big.
+ */
+extern pt_export int pt_image_add_file(struct pt_image *image,
+				       const char *filename, uint64_t offset,
+				       uint64_t size,
+				       const struct pt_asid *asid,
+				       uint64_t vaddr);
+
+/** Remove all sections loaded from a file.
+ *
+ * Removes all sections loaded from \@filename from the address space \@asid.
+ * Specify the same \@asid that was used for adding sections from \@filename.
+ *
+ * Returns the number of removed sections on success, a negative error code
+ * otherwise.
+ *
+ * Returns -pte_invalid if \@image or \@filename is NULL.
+ */
+extern pt_export int pt_image_remove_by_filename(struct pt_image *image,
+						 const char *filename,
+						 const struct pt_asid *asid);
+
+/** A read memory callback function.
+ *
+ * It shall read \@size bytes of memory from address space \@asid starting
+ * at \@ip into \@buffer.
+ *
+ * It shall return the number of bytes read on success.
+ * It shall return a negative pt_error_code otherwise.
+ */
+typedef int (read_memory_callback_t)(uint8_t *buffer, size_t size,
+				     const struct pt_asid *asid,
+				     uint64_t ip, void *context);
+
+/** Set the memory callback for the traced memory image.
+ *
+ * Sets \@callback for reading memory.  The callback is used for addresses
+ * that are not found in file sections.  The \@context argument is passed
+ * to \@callback on each use.
+ *
+ * There can only be one callback at any time.  A subsequent call will replace
+ * the previous callback.  If \@callback is NULL, the callback is removed.
+ *
+ * Returns -pte_invalid if \@image is NULL.
+ */
+extern pt_export int pt_image_set_callback(struct pt_image *image,
+					   read_memory_callback_t *callback,
+					   void *context);
+
+
+
 /* Instruction flow decoder. */
 
 
@@ -1256,6 +1376,8 @@ pt_insn_alloc_decoder(const struct pt_config *config);
 
 /** Free an Intel PT instruction flow decoder.
  *
+ * This will destroy the decoder's default image.
+ *
  * The \@decoder must not be used after a successful return.
  */
 extern pt_export void pt_insn_free_decoder(struct pt_insn_decoder *decoder);
@@ -1292,6 +1414,30 @@ extern pt_export int pt_insn_sync_backward(struct pt_insn_decoder *decoder);
 extern pt_export int pt_insn_get_offset(struct pt_insn_decoder *decoder,
 					uint64_t *offset);
 
+/** Get the traced image.
+ *
+ * The returned image may be modified as long as no decoder that uses this
+ * image is running.
+ *
+ * Returns a pointer to the traced image the decoder uses for reading memory.
+ * Returns NULL if \@decoder is NULL.
+ */
+extern pt_export struct pt_image *
+pt_insn_get_image(struct pt_insn_decoder *decoder);
+
+/** Set the traced image.
+ *
+ * Sets the image that \@decoder uses for reading memory to \@image.  If \@image
+ * is NULL, sets the image to \@decoder's default image.
+ *
+ * Only one image can be active at any time.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Return -pte_invalid if \@decoder is NULL.
+ */
+extern pt_export int pt_insn_set_image(struct pt_insn_decoder *decoder,
+				       struct pt_image *image);
+
 /** Return the current time.
  *
  * On success, provides the time at \@decoder's current position in \@time.
@@ -1324,94 +1470,6 @@ extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
  */
 extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
 					    uint32_t *cbr);
-
-/** An Intel PT address space identifier.
- *
- * This identifies a particular address space when adding file sections or
- * when reading memory.
- */
-struct pt_asid {
-	/** The size of this object - set to sizeof(struct pt_asid). */
-	size_t size;
-
-	/** The CR3 value. */
-	uint64_t cr3;
-};
-
-/** An unknown CR3 value to be used for pt_asid objects. */
-static const uint64_t pt_asid_no_cr3 = 0xffffffffffffffffull;
-
-/** Initialize an address space identifier. */
-static inline void pt_asid_init(struct pt_asid *asid)
-{
-	asid->size = sizeof(*asid);
-	asid->cr3 = pt_asid_no_cr3;
-}
-
-
-/** Add a new file section to the traced image.
- *
- * Adds \@size bytes starting at \@offset in \@filename. The section is
- * loaded at the virtual address \@vaddr in the address space \@asid.
- *
- * The \@asid may be NULL or (partially) invalid.  In that case only the valid
- * fields are considered when comparing with other address-spaces.  Use this
- * when tracing a single process or when adding sections to all processes.
- *
- * The section is silently truncated to match the size of \@filename.
- *
- * Returns zero on success, a negative error code otherwise.
- *
- * Returns -pte_bad_context if sections would overlap.
- * Returns -pte_invalid if \@decoder or \@filename is NULL.
- * Returns -pte_invalid if \@offset is too big.
- */
-extern pt_export int pt_insn_add_file(struct pt_insn_decoder *decoder,
-				      const char *filename, uint64_t offset,
-				      uint64_t size,
-				      const struct pt_asid *asid,
-				      uint64_t vaddr);
-
-/** Remove all sections loaded from a file.
- *
- * Removes all sections loaded from \@filename from the address space \@asid.
- * Specify the same \@asid that was used for adding sections from \@filename.
- *
- * Returns the number of removed sections on success, a negative error code
- * otherwise.
- *
- * Returns -pte_invalid if \@decoder or \@filename is NULL.
- */
-extern pt_export int pt_insn_remove_by_filename(struct pt_insn_decoder *decoder,
-						const char *filename,
-						const struct pt_asid *asid);
-
-/** A read memory callback function.
- *
- * It shall read \@size bytes of memory from address space \@asid starting
- * at \@ip into \@buffer.
- *
- * It shall return the number of bytes read on success.
- * It shall return a negative pt_error_code otherwise.
- */
-typedef int (read_memory_callback_t)(uint8_t *buffer, size_t size,
-				     const struct pt_asid *asid,
-				     uint64_t ip, void *context);
-
-/** Add a new memory callback to the traced image.
- *
- * Adds \@callback for reading memory.  The callback is used for addresses
- * that are not found in file sections.  The \@context argument is passed
- * to \@callback on each use.
- *
- * There can only be one callback at any time.  A subsequent call will replace
- * the previous callback.  If \@callback is NULL, the callback is removed.
- *
- * Returns -pte_invalid if \@decoder is NULL.
- */
-extern pt_export int pt_insn_add_callback(struct pt_insn_decoder *decoder,
-					  read_memory_callback_t *callback,
-					  void *context);
 
 /** Determine the next instruction.
  *
