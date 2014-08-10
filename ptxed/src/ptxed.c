@@ -61,6 +61,9 @@ struct ptxed_options {
 
 	/* Print information about section loads and unloads. */
 	uint32_t track_image:1;
+
+	/* Print in AT&T format. */
+	uint32_t att_format:1;
 };
 
 /* A collection of statistics. */
@@ -85,6 +88,7 @@ static void help(const char *name)
 	       "options:\n"
 	       "  --help|-h                     this text.\n"
 	       "  --version                     display version information and exit.\n"
+	       "  --att                         print instructions in att format.\n"
 	       "  --no-inst                     do not print instructions (only addresses).\n"
 	       "  --quiet|-q                    do not print anything (except errors).\n"
 	       "  --stat                        print statistics (even when quiet).\n"
@@ -351,6 +355,9 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 			pi.blen = sizeof(buffer);
 			pi.runtime_address = insn->ip;
 
+			if (options->att_format)
+				pi.syntax = XED_SYNTAX_ATT;
+
 			ok = xed_format_generic(&pi);
 			if (!ok) {
 				printf("[xed print error]");
@@ -580,6 +587,10 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 #endif /* defined(FEATURE_ELF) */
+		if (strcmp(arg, "--att") == 0) {
+			options.att_format = 1;
+			continue;
+		}
 		if (strcmp(arg, "--no-inst") == 0) {
 			options.dont_print_insn = 1;
 			continue;
