@@ -554,10 +554,12 @@ static int process_tsx_event(struct pt_insn_decoder *decoder,
 			     struct pt_insn *insn)
 {
 	struct pt_event *ev;
+	int old_speculative;
 
 	if (!decoder)
 		return -pte_internal;
 
+	old_speculative = decoder->speculative;
 	ev = &decoder->event;
 
 	decoder->speculative = ev->variant.tsx.speculative;
@@ -565,7 +567,7 @@ static int process_tsx_event(struct pt_insn_decoder *decoder,
 	if (insn && decoder->enabled) {
 		if (ev->variant.tsx.aborted)
 			insn->aborted = 1;
-		else if (!ev->variant.tsx.speculative)
+		else if (old_speculative && !ev->variant.tsx.speculative)
 			insn->committed = 1;
 	}
 
