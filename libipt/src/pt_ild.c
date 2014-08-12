@@ -638,6 +638,7 @@ compute_disp_dec (pti_ild_t * ild)
     /* map 2 */ 0,
     /* map 3 */ 0,
     /* amd3dnow */ 0,
+    /* invalid */ 0
   };
 
   pti_uint8_t const *const disp_table = map_map[ild->map];
@@ -731,9 +732,11 @@ set_imm_bytes (pti_ild_t * ild)
     /* map 2 */ 0,
     /* map 3 */ 0,
     /* amd3dnow */ 0,
+    /* invalid */ 0
   };
   pti_uint8_t const *const map_imm = map_map[ild->map];
   pti_uint_t imm_code;
+
   if (map_imm == 0)
     return;
   imm_code = map_imm[ild->nominal_opcode];
