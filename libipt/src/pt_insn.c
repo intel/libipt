@@ -119,6 +119,14 @@ int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time)
 	return pt_qry_time(&decoder->query, time);
 }
 
+int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
+{
+	if (!decoder)
+		return -pte_invalid;
+
+	return pt_qry_core_bus_ratio(&decoder->query, cbr);
+}
+
 int pt_insn_add_file(struct pt_insn_decoder *decoder, const char *filename,
 		     uint64_t offset, uint64_t size, uint64_t vaddr)
 {

@@ -1654,6 +1654,52 @@ static struct ptunit_result time(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result cbr_null(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_decoder *decoder = dfix->decoder;
+	uint32_t cbr;
+	int errcode;
+
+	errcode = pt_query_core_bus_ratio(NULL, NULL);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_query_core_bus_ratio(decoder, NULL);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_query_core_bus_ratio(NULL, &cbr);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cbr_initial(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_decoder *decoder = dfix->decoder;
+	uint32_t cbr;
+	int errcode;
+
+	errcode = pt_query_core_bus_ratio(decoder, &cbr);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(cbr, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cbr(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_decoder *decoder = dfix->decoder;
+	uint32_t cbr;
+	int errcode;
+
+	decoder->time.cbr = 42;
+
+	errcode = pt_query_core_bus_ratio(decoder, &cbr);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(cbr, 42);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result ptu_dfix_init(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_config *config = &dfix->config;
@@ -2144,6 +2190,10 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, time_null_fail, dfix_empty);
 	ptu_run_f(suite, time_initial, dfix_empty);
 	ptu_run_f(suite, time, dfix_empty);
+
+	ptu_run_f(suite, cbr_null, dfix_empty);
+	ptu_run_f(suite, cbr_initial, dfix_empty);
+	ptu_run_f(suite, cbr, dfix_empty);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

@@ -244,6 +244,20 @@ extern int pt_query_event(struct pt_decoder *, struct pt_event *);
  */
 extern int pt_query_time(struct pt_decoder *, uint64_t *time);
 
+/* Query the current core:bus ratio.
+ *
+ * This returns the core:bus ratio at the decoder's current position. Since
+ * the decoder is reading ahead until the next unconditional branch or event,
+ * the value matches the core:bus ratio for that branch or event.
+ *
+ * The ratio is defined as core cycles per bus clock cycle.
+ *
+ * Returns zero on success.
+ *
+ * Returns -pte_invalid if no @decoder is given.
+ */
+extern int pt_query_core_bus_ratio(struct pt_decoder *decoder, uint32_t *cbr);
+
 static inline const uint8_t *pt_begin(const struct pt_decoder *decoder)
 {
 	return decoder->config.begin;

@@ -418,3 +418,11 @@ int pt_query_time(struct pt_decoder *decoder, uint64_t *time)
 
 	return pt_time_query_tsc(time, &decoder->time);
 }
+
+int pt_query_core_bus_ratio(struct pt_decoder *decoder, uint32_t *cbr)
+{
+	if (!decoder || !cbr)
+		return -pte_invalid;
+
+	return pt_time_query_cbr(cbr, &decoder->time);
+}

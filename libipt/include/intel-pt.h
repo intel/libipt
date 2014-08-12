@@ -1136,6 +1136,22 @@ extern pt_export int pt_qry_event(struct pt_query_decoder *decoder,
 extern pt_export int pt_qry_time(struct pt_query_decoder *decoder,
 				 uint64_t *time);
 
+/** Return the current core bus ratio.
+ *
+ * On success, provides the core:bus ratio at \@decoder's current position
+ * in \@cbr.
+ * Since \@decoder is reading ahead until the next indirect branch or event,
+ * the value matches the core:bus ratio for that branch or event.
+ *
+ * The ratio is defined as core cycles per bus clock cycle.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@cbr is NULL.
+ */
+extern pt_export int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder,
+					   uint32_t *cbr);
+
 
 
 /* Instruction flow decoder. */
@@ -1301,6 +1317,22 @@ extern pt_export int pt_insn_get_offset(struct pt_insn_decoder *decoder,
  */
 extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
 				  uint64_t *time);
+
+/** Return the current core bus ratio.
+ *
+ * On success, provides the core:bus ratio at \@decoder's current position
+ * in \@cbr.
+ * Since \@decoder is reading ahead until the next indirect branch or event,
+ * the value matches the core:bus ratio for that branch or event.
+ *
+ * The ratio is defined as core cycles per bus clock cycle.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@cbr is NULL.
+ */
+extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
+					    uint32_t *cbr);
 
 /** Add a new file section to the traced process image.
  *
