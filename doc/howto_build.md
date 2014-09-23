@@ -110,6 +110,9 @@ files must be specified.
     XED_LIBDIR          Path to the directory containing the XED library.
 
 
+When using XED from a PIN distribution, the respective directories are located
+in `extras/xed2-<arch>/`.
+
 
 ## Building on Linux``*`` and OS X``*``
 
