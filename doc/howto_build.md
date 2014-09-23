@@ -84,6 +84,9 @@ available on all supported platforms.
                         on Windows.
 
 
+    DEVBUILD            Enable compiler warnings and turn them into errors.
+
+
 ### Version Settings
 
 The major and minor version numbers are set in the sources and must be changed

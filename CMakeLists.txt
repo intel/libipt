@@ -66,6 +66,8 @@ if (FEATURE_ELF)
   add_definitions(-DFEATURE_ELF)
 endif (FEATURE_ELF)
 
+set(DEVBUILD "" CACHE BOOL OFF)
+
 include_directories(
   include
   libipt/include
@@ -100,10 +102,17 @@ if (CMAKE_HOST_WIN32)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
-  # compiler warnings
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+  if (DEVBUILD)
+    # compiler warnings
+    #
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+
+    # warnings are errors
+    #
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+  endif (DEVBUILD)
 
   # allow functions to ignore parameters
   #
@@ -118,11 +127,6 @@ if (CMAKE_HOST_WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd869")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd869")
-
-  # warnings are errors
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
 
 endif (CMAKE_HOST_WIN32)
 
@@ -163,29 +167,31 @@ if (CMAKE_HOST_UNIX)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 
-  # compiler warnings
+  # track dependencies
   #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MMD")
+
+  if (DEVBUILD)
+    # compiler warnings
+    #
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic")
+
+    # warnings are errors
+    #
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+  endif (DEVBUILD)
 
   # allow functions to ignore parameters
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
-
-  # warnings are errors
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
-
-  # track dependencies
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MMD")
 
 endif (CMAKE_HOST_UNIX)
 
