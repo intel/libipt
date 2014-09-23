@@ -460,7 +460,7 @@ extern pt_export int pt_configure(struct pt_config *config);
 
 /** Determine errata for a given cpu.
  *
- * Updates @errata based on \@cpu.
+ * Updates \@errata based on \@cpu.
  *
  * Returns 0 on success, a negative error code otherwise.
  * Returns -pte_invalid if \@errata or \@cpu is NULL.
