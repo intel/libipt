@@ -416,7 +416,5 @@ int pt_query_time(struct pt_decoder *decoder, uint64_t *time)
 	if (!decoder || !time)
 		return -pte_invalid;
 
-	*time = decoder->tsc;
-
-	return 0;
+	return pt_time_query_tsc(time, &decoder->time);
 }

@@ -94,6 +94,19 @@ void pt_dfix_setup_standard(void)
 	dfix->decoder->pos = dfix->config.begin;
 }
 
+void pt_dfix_setup_timing(void)
+{
+	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
+	struct pt_time *time = &dfix->time;
+
+	pt_dfix_setup_standard();
+
+	time->tsc = 0xceaccdfaull;
+	time->cbr = 0xd;
+
+	dfix->decoder->time = *time;
+}
+
 void pt_teardown_decoder_fixture(void)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
@@ -132,6 +145,19 @@ void pt_dfix_check_tnt_cache(const char *file, int line)
 		      "Bad tnt-cache.index. Got: 0x%" PRIx64 ", expected: 0x%"
 		      PRIx64 " at %s:%d.", dtnt->index, ftnt->index, file,
 		      line);
+}
+
+void pt_dfix_check_time(const char *file, int line)
+{
+	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
+	struct pt_time *dtime = &dfix->decoder->time, *ftime = &dfix->time;
+
+	ck_assert_msg(dtime->tsc == ftime->tsc,
+		      "Bad time.tsc. Got: 0x%" PRIx64 ", expected: 0x%" PRIx64
+		      ".", dtime->tsc, ftime->tsc, file, line);
+	ck_assert_msg(dtime->cbr == ftime->cbr,
+		      "Bad time.cbr. Got: 0x%x, expected: 0x%x.",
+		      dtime->cbr, ftime->cbr, file, line);
 }
 
 static const char *create_tcase_name(const char *dd, const char *td)

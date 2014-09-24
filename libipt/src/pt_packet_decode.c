@@ -1348,7 +1348,11 @@ static int decode_tsc(struct pt_decoder *decoder)
 	if (size < 0)
 		return size;
 
-	decoder->tsc = packet.tsc;
+	/* Ignore time update errors.  Timing will be off but we should still
+	 * be able to decode the instruction trace.
+	 */
+	(void) pt_time_update_tsc(&decoder->time, &packet, &decoder->config);
+
 	decoder->pos += size;
 	return 0;
 }
@@ -1400,6 +1404,11 @@ static int decode_cbr(struct pt_decoder *decoder)
 	size = extract_cbr(&packet, decoder);
 	if (size < 0)
 		return size;
+
+	/* Ignore time update errors.  Timing will be off but we should still
+	 * be able to decode the instruction trace.
+	 */
+	(void) pt_time_update_cbr(&decoder->time, &packet, &decoder->config);
 
 	decoder->pos += size;
 	return 0;

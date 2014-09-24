@@ -111,12 +111,12 @@ int pt_insn_get_offset(struct pt_insn_decoder *decoder, uint64_t *offset)
 	return pt_qry_get_offset(&decoder->query, offset);
 }
 
-int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *offset)
+int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time)
 {
 	if (!decoder)
 		return -pte_invalid;
 
-	return pt_qry_time(&decoder->query, offset);
+	return pt_qry_time(&decoder->query, time);
 }
 
 int pt_insn_add_file(struct pt_insn_decoder *decoder, const char *filename,

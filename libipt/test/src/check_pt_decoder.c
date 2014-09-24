@@ -43,7 +43,8 @@ START_TEST(check_pt_initial)
 	ck_null(decoder->next);
 	ck_uint64_eq(decoder->flags, 0);
 	ck_null(decoder->event);
-	ck_uint64_eq(decoder->tsc, 0);
+	ck_uint64_eq(decoder->time.tsc, 0);
+	ck_uint64_eq(decoder->time.cbr, 0);
 
 	pt_tnt_cache_init(&dfix->tnt);
 	ck_tnt_cache();

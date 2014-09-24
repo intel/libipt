@@ -35,6 +35,7 @@
 #include "pt_last_ip.h"
 #include "pt_tnt_cache.h"
 #include "pt_encoder.h"
+#include "pt_time.h"
 
 #include "intel-pt.h"
 
@@ -56,6 +57,9 @@ struct pt_decoder_fixture_s {
 
 	/* For testing tnt cache changes. */
 	struct pt_tnt_cache tnt;
+
+	/* For testing timing. */
+	struct pt_time time;
 };
 
 /* The highest possible address. */
@@ -100,6 +104,11 @@ extern void pt_dfix_check_last_ip(const char *file, int line);
 extern void pt_dfix_check_tnt_cache(const char *file, int line);
 
 #define ck_tnt_cache() pt_dfix_check_tnt_cache(__FILE__, __LINE__)
+
+/* Check the decoder's and the fixture's time for equality. */
+extern void pt_dfix_check_time(const char *file, int line);
+
+#define ck_time() pt_dfix_check_time(__FILE__, __LINE__)
 
 /* Add a decoder fixture to a test case. */
 static inline void add_dfix(TCase *tcase, void (*setup)(void))

@@ -162,10 +162,10 @@ void pt_reset(struct pt_decoder *decoder)
 
 	decoder->flags = 0;
 	decoder->event = NULL;
-	decoder->tsc = 0;
 
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
+	pt_time_init(&decoder->time);
 
 	for (evb = 0; evb < evb_max; ++evb)
 		pt_discard_events(decoder, (enum pt_event_binding) evb);

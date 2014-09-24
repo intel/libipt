@@ -31,6 +31,7 @@
 
 #include "pt_packet_decode.h"
 #include "pt_decoder.h"
+#include "pt_time.h"
 
 #include <check.h>
 
@@ -60,10 +61,10 @@ START_TEST(check_decode_empty)
 	ck_ptr(decoder->pos, config->begin);
 	ck_null(decoder->sync);
 	ck_uint64_eq(decoder->flags, 0);
-	ck_uint64_eq(decoder->tsc, 0);
 
 	ck_last_ip();
 	ck_tnt_cache();
+	ck_time();
 }
 END_TEST
 
@@ -95,10 +96,10 @@ static void check_non_fetch_state(struct pt_decoder *decoder)
 	ck_ptr(decoder->pos, decoder->config.begin);
 	ck_null(decoder->sync);
 	ck_uint64_eq(decoder->flags, 0);
-	ck_uint64_eq(decoder->tsc, 0);
 
 	ck_last_ip();
 	ck_tnt_cache();
+	ck_time();
 }
 
 START_TEST(check_fetch_unknown)
@@ -1657,13 +1658,13 @@ END_TEST
 static void check_header_non_fup_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
-	ck_uint64_eq(decoder->tsc, 0);
 
 	ck_false(pt_event_pending(decoder, evb_psbend));
 	ck_false(pt_event_pending(decoder, evb_tip));
 	ck_false(pt_event_pending(decoder, evb_fup));
 
 	ck_tnt_cache();
+	ck_time();
 }
 
 START_TEST(check_header_fup_suppressed)
@@ -1942,15 +1943,22 @@ START_TEST(check_header_tsc)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	uint64_t tsc = 0x11223344556677;
+	struct pt_config *config = &decoder->config;
+	struct pt_time *time = &dfix->time;
+	struct pt_packet_tsc packet;
 	int errcode;
 
-	check_encode_tsc(encoder, tsc);
+	packet.tsc = 0xcececeull;
+
+	check_encode_tsc(encoder, packet.tsc);
+
+	errcode = pt_time_update_tsc(time, &packet, config);
+	ck_int_eq(errcode, 0);
 
 	errcode = pt_decode_tsc.header(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
-	ck_uint64_eq(decoder->tsc, tsc);
+	ck_time();
 
 	check_non_timing_state(decoder);
 }
@@ -1973,6 +1981,7 @@ START_TEST(check_header_tsc_cutoff_fail)
 	ck_int_eq(errcode, -pte_eos);
 	ck_ptr(decoder->pos, config->begin);
 	ck_uint64_eq(decoder->flags, flags);
+	ck_time();
 
 	check_blank_state(decoder);
 }
@@ -1983,14 +1992,24 @@ START_TEST(check_header_cbr)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_config *config = &decoder->config;
+	struct pt_time *time = &dfix->time;
+	struct pt_packet_cbr packet;
+	uint64_t flags = decoder->flags;
 	int errcode;
 
-	check_encode_cbr(encoder, 0);
+	packet.ratio = 0x38;
+
+	check_encode_cbr(encoder, packet.ratio);
+
+	errcode = pt_time_update_cbr(time, &packet, config);
+	ck_int_eq(errcode, 0);
 
 	errcode = pt_decode_cbr.header(decoder);
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
-	ck_uint64_eq(decoder->tsc, 0);
+	ck_uint64_eq(decoder->flags, flags);
+	ck_time();
 
 	check_non_timing_state(decoder);
 }
@@ -2013,8 +2032,9 @@ START_TEST(check_header_cbr_cutoff_fail)
 	ck_int_eq(errcode, -pte_eos);
 	ck_ptr(decoder->pos, config->begin);
 	ck_uint64_eq(decoder->flags, flags);
+	ck_time();
 
-	check_blank_state(decoder);
+	check_non_timing_state(decoder);
 }
 END_TEST
 
@@ -2185,13 +2205,13 @@ END_TEST
 static void check_non_ip_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
-	ck_uint64_eq(decoder->tsc, 0);
 
 	ck_false(pt_event_pending(decoder, evb_psbend));
 	ck_false(pt_event_pending(decoder, evb_tip));
 	ck_false(pt_event_pending(decoder, evb_fup));
 
 	ck_tnt_cache();
+	ck_time();
 }
 
 START_TEST(check_decode_tip_suppressed)
@@ -2443,13 +2463,13 @@ static void check_non_tnt_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
 	ck_uint64_eq(decoder->flags, 0);
-	ck_uint64_eq(decoder->tsc, 0);
 
 	ck_false(pt_event_pending(decoder, evb_psbend));
 	ck_false(pt_event_pending(decoder, evb_tip));
 	ck_false(pt_event_pending(decoder, evb_fup));
 
 	ck_last_ip();
+	ck_time();
 }
 
 START_TEST(check_decode_tnt_8)
@@ -3487,13 +3507,15 @@ static void check_clean_state(struct pt_decoder *decoder)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 
 	ck_null(decoder->sync);
-	ck_uint64_eq(decoder->tsc, 0);
 
 	pt_last_ip_init(&dfix->last_ip);
 	ck_last_ip();
 
 	pt_tnt_cache_init(&dfix->tnt);
 	ck_tnt_cache();
+
+	pt_time_init(&dfix->time);
+	ck_time();
 }
 
 START_TEST(check_decode_ovf)
@@ -3963,15 +3985,24 @@ START_TEST(check_decode_tsc)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
-	uint64_t tsc = 0x11223344556677, flags = decoder->flags;
+	struct pt_config *config = &decoder->config;
+	struct pt_time *time = &dfix->time;
+	struct pt_packet_tsc packet;
+	uint64_t flags = decoder->flags;
 	int errcode;
 
-	check_encode_tsc(encoder, tsc);
+	packet.tsc = 0x8c3a2ull;
+
+	check_encode_tsc(encoder, packet.tsc);
+
+	errcode = pt_time_update_tsc(time, &packet, config);
+	ck_int_eq(errcode, 0);
 
 	errcode = pt_decode_tsc.decode(decoder);
 	ck_int_eq(errcode, 0);
+	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, flags);
-	ck_uint64_eq(decoder->tsc, tsc);
+	ck_time();
 
 	check_non_timing_state(decoder);
 }
@@ -3983,18 +4014,18 @@ START_TEST(check_decode_tsc_cutoff_fail)
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
-	uint64_t tsc = 0x11223344556677, flags = decoder->flags;
+	uint64_t flags = decoder->flags;
 	int errcode;
 
-	check_encode_tsc(encoder, 0);
+	check_encode_tsc(encoder, 0xffull);
 
 	config->end = encoder->pos - 1;
-	decoder->tsc = tsc;
 
 	errcode = pt_decode_tsc.decode(decoder);
 	ck_int_eq(errcode, -pte_eos);
+	ck_ptr(decoder->pos, config->begin);
 	ck_uint64_eq(decoder->flags, flags);
-	ck_uint64_eq(decoder->tsc, tsc);
+	ck_time();
 
 	check_non_timing_state(decoder);
 }
@@ -4005,14 +4036,24 @@ START_TEST(check_decode_cbr)
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
 	struct pt_decoder *decoder = dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_config *config = &decoder->config;
+	struct pt_time *time = &dfix->time;
+	struct pt_packet_cbr packet;
 	uint64_t flags = decoder->flags;
 	int errcode;
 
-	check_encode_cbr(encoder, 0);
+	packet.ratio = 0x42;
+
+	check_encode_cbr(encoder, packet.ratio);
+
+	errcode = pt_time_update_cbr(time, &packet, config);
+	ck_int_eq(errcode, 0);
 
 	errcode = pt_decode_cbr.decode(decoder);
 	ck_int_eq(errcode, 0);
+	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, flags);
+	ck_time();
 
 	check_non_timing_state(decoder);
 }
@@ -4027,13 +4068,15 @@ START_TEST(check_decode_cbr_cutoff_fail)
 	uint64_t flags = decoder->flags;
 	int errcode;
 
-	check_encode_cbr(encoder, 0);
+	check_encode_cbr(encoder, 0x23);
 
 	config->end = encoder->pos - 1;
 
 	errcode = pt_decode_cbr.decode(decoder);
 	ck_int_eq(errcode, -pte_eos);
+	ck_ptr(decoder->pos, config->begin);
 	ck_uint64_eq(decoder->flags, flags);
+	ck_time();
 
 	check_non_timing_state(decoder);
 }

@@ -1606,7 +1606,7 @@ sync_ovf_event_cutoff_fail(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result tsc_null_fail(struct ptu_decoder_fixture *dfix)
+static struct ptunit_result time_null_fail(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t tsc;
@@ -1624,7 +1624,7 @@ static struct ptunit_result tsc_null_fail(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result tsc_initial(struct ptu_decoder_fixture *dfix)
+static struct ptunit_result time_initial(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t tsc;
@@ -1637,7 +1637,7 @@ static struct ptunit_result tsc_initial(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result tsc(struct ptu_decoder_fixture *dfix)
+static struct ptunit_result time(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_decoder *decoder = dfix->decoder;
 	uint64_t tsc, exp;
@@ -1645,7 +1645,7 @@ static struct ptunit_result tsc(struct ptu_decoder_fixture *dfix)
 
 	exp = 0x11223344556677ull;
 
-	decoder->tsc = exp;
+	decoder->time.tsc = exp;
 
 	errcode = pt_query_time(decoder, &tsc);
 	ptu_int_eq(errcode, 0);
@@ -2141,9 +2141,9 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, event_skip_tnt_8_fail, dfix_event_psb);
 	ptu_run_f(suite, event_skip_tnt_64_fail, dfix_event_psb);
 
-	ptu_run_f(suite, tsc_null_fail, dfix_empty);
-	ptu_run_f(suite, tsc_initial, dfix_empty);
-	ptu_run_f(suite, tsc, dfix_empty);
+	ptu_run_f(suite, time_null_fail, dfix_empty);
+	ptu_run_f(suite, time_initial, dfix_empty);
+	ptu_run_f(suite, time, dfix_empty);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

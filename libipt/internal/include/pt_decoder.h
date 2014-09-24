@@ -31,6 +31,7 @@
 
 #include "pt_last_ip.h"
 #include "pt_tnt_cache.h"
+#include "pt_time.h"
 
 #include "intel-pt.h"
 
@@ -101,8 +102,8 @@ struct pt_decoder {
 	/* A standalone event that is reported immediately. */
 	struct pt_event ev_immed;
 
-	/* The current time stamp count. */
-	uint64_t tsc;
+	/* Timing information. */
+	struct pt_time time;
 };
 
 /* Allocate an Intel(R) Processor Trace decoder.
