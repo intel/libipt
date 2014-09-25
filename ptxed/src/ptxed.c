@@ -341,12 +341,17 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		errcode = xed_decode(&inst, insn->raw, insn->size);
 		switch (errcode) {
 		case XED_ERROR_NONE: {
+			xed_print_info_t pi;
 			char buffer[256];
 			xed_bool_t ok;
 
-			ok = xed_decoded_inst_dump_intel_format(&inst, buffer,
-								sizeof(buffer),
-								insn->ip);
+			xed_init_print_info(&pi);
+			pi.p = &inst;
+			pi.buf = buffer;
+			pi.blen = sizeof(buffer);
+			pi.runtime_address = insn->ip;
+
+			ok = xed_format_generic(&pi);
 			if (!ok) {
 				printf("[xed print error]");
 				break;
