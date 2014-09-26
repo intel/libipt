@@ -753,7 +753,7 @@ extern pt_export void pt_pkt_free_decoder(struct pt_packet_decoder *decoder);
  * beginning of the trace buffer in case of forward synchronization and at the
  * end of the trace buffer in case of backward synchronization.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero or a positive value on success, a negative error code otherwise.
  *
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
@@ -1277,7 +1277,7 @@ extern pt_export void pt_insn_free_decoder(struct pt_insn_decoder *decoder);
  * beginning of the trace buffer in case of forward synchronization and at the
  * end of the trace buffer in case of backward synchronization.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero or a positive value on success, a negative error code otherwise.
  *
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
@@ -1392,7 +1392,7 @@ extern pt_export int pt_insn_add_callback(struct pt_insn_decoder *decoder,
  *
  * On success, provides the next instruction in execution order in \@insn.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero or a positive value on success, a negative error code otherwise.
  *
  * Returns -pte_bad_opc if the decoder encountered unknown packets.
  * Returns -pte_bad_packet if the decoder encountered unknown packet payloads.
