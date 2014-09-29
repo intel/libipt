@@ -28,6 +28,7 @@
 
 #include "pt_image.h"
 #include "pt_section.h"
+#include "pt_asid.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -131,48 +132,6 @@ const char *pt_image_name(const struct pt_image *image)
 	return image->name;
 }
 
-static int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user)
-{
-	if (!asid)
-		return -pte_internal;
-
-	pt_asid_init(asid);
-
-	if (user) {
-		size_t size;
-
-		size = user->size;
-
-		/* Ignore fields in the user's asid we don't know. */
-		if (sizeof(*asid) < size)
-			size = sizeof(*asid);
-
-		/* Copy (portions of) the user's asid. */
-		memcpy(asid, user, size);
-
-		/* We copied user's size - fix it. */
-		asid->size = sizeof(*asid);
-	}
-
-	return 0;
-}
-
-static int pt_asid_matches(const struct pt_asid *lhs, const struct pt_asid *rhs)
-{
-	uint64_t lcr3, rcr3;
-
-	if (!lhs || !rhs)
-		return -pte_internal;
-
-	lcr3 = lhs->cr3;
-	rcr3 = rhs->cr3;
-
-	if (lcr3 != rcr3 && lcr3 != pt_asid_no_cr3 && rcr3 != pt_asid_no_cr3)
-		return 0;
-
-	return 1;
-}
-
 int pt_image_add(struct pt_image *image, struct pt_section *section,
 		 const struct pt_asid *asid, uint64_t vaddr)
 {
@@ -193,7 +152,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 
 		msec = &(*list)->section;
 
-		errcode = pt_asid_matches(pt_msec_asid(msec), asid);
+		errcode = pt_msec_matches_asid(msec, asid);
 		if (errcode < 0)
 			return errcode;
 
@@ -235,7 +194,7 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 		trash = *list;
 		msec = &trash->section;
 
-		errcode = pt_asid_matches(pt_msec_asid(msec), asid);
+		errcode = pt_msec_matches_asid(msec, asid);
 		if (errcode < 0)
 			return errcode;
 
@@ -305,7 +264,7 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 		trash = *list;
 		msec = &trash->section;
 
-		errcode = pt_asid_matches(pt_msec_asid(msec), &asid);
+		errcode = pt_msec_matches_asid(msec, &asid);
 		if (errcode < 0)
 			return errcode;
 
@@ -353,7 +312,7 @@ int pt_image_remove_by_asid(struct pt_image *image,
 		trash = *list;
 		msec = &trash->section;
 
-		errcode = pt_asid_matches(pt_msec_asid(msec), &asid);
+		errcode = pt_msec_matches_asid(msec, &asid);
 		if (errcode < 0)
 			return errcode;
 
@@ -391,19 +350,12 @@ static int pt_image_read_from(struct pt_image *image,
 			      uint8_t *buffer, uint16_t size,
 			      const struct pt_asid *asid, uint64_t addr)
 {
-	int errcode, status;
+	int status;
 
 	if (!image)
 		return -pte_internal;
 
-	errcode = pt_asid_matches(pt_msec_asid(msec), asid);
-	if (errcode < 0)
-		return errcode;
-
-	if (!errcode)
-		return -pte_nomap;
-
-	status = pt_msec_read(msec, buffer, size, addr);
+	status = pt_msec_read(msec, buffer, size, asid, addr);
 	if (status >= 0)
 		image->cache = msec;
 

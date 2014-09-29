@@ -83,6 +83,9 @@ struct section_fixture {
 	/* The test mapped section. */
 	struct pt_mapped_section msec;
 
+	/* The address space of @msec. */
+	struct pt_asid asid;
+
 	/* The virtual address of @msec. */
 	uint64_t vaddr;
 
@@ -96,8 +99,8 @@ static struct ptunit_result init(struct section_fixture *sfix)
 {
 	ptu_ptr_eq(sfix->msec.section, &sfix->section);
 	ptu_uint_eq(sfix->msec.vaddr, sfix->vaddr);
-	ptu_uint_eq(sfix->msec.asid.size, sizeof(sfix->msec.asid));
-	ptu_uint_eq(sfix->msec.asid.cr3, pt_asid_no_cr3);
+	ptu_uint_eq(sfix->msec.asid.size, sfix->asid.size);
+	ptu_uint_eq(sfix->msec.asid.cr3, sfix->asid.cr3);
 
 	return ptu_passed();
 }
@@ -188,7 +191,24 @@ static struct ptunit_result read(struct section_fixture *sfix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, sfix->vaddr);
+	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid, sfix->vaddr);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], sfix->section.content[0]);
+	ptu_uint_eq(buffer[1], sfix->section.content[1]);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_default_asid(struct section_fixture *sfix)
+{
+	struct pt_asid asid;
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	pt_asid_init(&asid);
+
+	status = pt_msec_read(&sfix->msec, buffer, 2, &asid, sfix->vaddr);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], sfix->section.content[0]);
 	ptu_uint_eq(buffer[1], sfix->section.content[1]);
@@ -202,7 +222,8 @@ static struct ptunit_result read_offset(struct section_fixture *sfix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, sfix->vaddr + 3);
+	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid,
+			      sfix->vaddr + 3);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], sfix->section.content[3]);
 	ptu_uint_eq(buffer[1], sfix->section.content[4]);
@@ -216,7 +237,7 @@ static struct ptunit_result read_truncated(struct section_fixture *sfix)
 	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2,
+	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid,
 			      sfix->vaddr + sfix->section.size - 1);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], sfix->section.content[sfix->section.size - 1]);
@@ -225,13 +246,29 @@ static struct ptunit_result read_truncated(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result read_nomem(struct section_fixture *sfix)
+static struct ptunit_result read_nomem_vaddr(struct section_fixture *sfix)
 {
 	uint8_t buffer[] = { 0xcc };
 	int status;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2,
+	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid,
 			      sfix->vaddr + sfix->section.size);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_nomem_asid(struct section_fixture *sfix)
+{
+	struct pt_asid asid;
+	uint8_t buffer[] = { 0xcc };
+	int status;
+
+	pt_asid_init(&asid);
+	asid.cr3 = 0xcece00ull;
+
+	status = pt_msec_read(&sfix->msec, buffer, 2, &asid, sfix->vaddr);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0xcc);
 
@@ -248,7 +285,10 @@ static struct ptunit_result sfix_init(struct section_fixture *sfix)
 	for (i = 0; i < sfix->section.size; ++i)
 		sfix->section.content[i] = i;
 
-	pt_msec_init(&sfix->msec, &sfix->section, NULL, sfix->vaddr);
+	pt_asid_init(&sfix->asid);
+	sfix->asid.cr3 = 0x4200ull;
+
+	pt_msec_init(&sfix->msec, &sfix->section, &sfix->asid, sfix->vaddr);
 
 	return ptu_passed();
 }
@@ -283,9 +323,11 @@ int main(int argc, const char **argv)
 	ptu_run(suite, asid);
 
 	ptu_run_f(suite, read, sfix);
+	ptu_run_f(suite, read_default_asid, sfix);
 	ptu_run_f(suite, read_offset, sfix);
 	ptu_run_f(suite, read_truncated, sfix);
-	ptu_run_f(suite, read_nomem, sfix);
+	ptu_run_f(suite, read_nomem_vaddr, sfix);
+	ptu_run_f(suite, read_nomem_asid, sfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

@@ -66,15 +66,28 @@ extern uint64_t pt_msec_end(const struct pt_mapped_section *msec);
 /* Return an identifier for the address-space the section is mapped into. */
 extern const struct pt_asid *pt_msec_asid(const struct pt_mapped_section *msec);
 
+/* Check if a section matches an asid.
+ *
+ * Returns a positive number if @msec matches @asid.
+ * Returns zero if @msec does not match @asid.
+ * Returns a negative error code otherwise.
+ *
+ * Returns -pte_internal if @msec or @asid are NULL.
+ */
+extern int pt_msec_matches_asid(const struct pt_mapped_section *msec,
+				const struct pt_asid *asid);
+
 /* Read memory from a mapped section.
  *
- * Reads at most @size bytes from @msec at @addr into @buffer.
+ * Reads at most @size bytes from @msec at @addr in @asid into @buffer.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_invalid, if @msec or @buffer are NULL.
- * Returns -pte_nomap, if the mapped section does not contain @addr.
+ * Returns -pte_internal, if @msec or @asid are NULL.
+ * Returns -pte_invalid, if @buffer is NULL.
+ * Returns -pte_nomap, if the mapped section does not contain @addr in @asid.
  */
 extern int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
-			uint16_t size, uint64_t addr);
+			uint16_t size, const struct pt_asid *asid,
+			uint64_t addr);
 
 #endif /* __PT_MAPPED_SECTION_H__ */
