@@ -621,7 +621,12 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_disabled:
+		return 0;
+
 	case ptev_paging:
+		if (!decoder->enabled)
+			return process_paging_event(decoder, insn);
+
 		return 0;
 
 	case ptev_overflow:
