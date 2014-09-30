@@ -129,6 +129,31 @@ int pt_qry_sync_backward(struct pt_query_decoder *qry, uint64_t *ip)
 	return pt_query_start(decoder, ip);
 }
 
+int pt_qry_sync_set(struct pt_query_decoder *qry, uint64_t *ip,
+		    uint64_t offset)
+{
+	struct pt_decoder *decoder;
+	const uint8_t *sync, *pos;
+	int errcode;
+
+	if (!qry)
+		return -pte_invalid;
+
+	decoder = &qry->decoder;
+	pos = decoder->config.begin + offset;
+
+	errcode = pt_sync_set(&sync, pos, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	decoder->sync = sync;
+	decoder->pos = sync;
+
+	pt_reset(decoder);
+
+	return pt_query_start(decoder, ip);
+}
+
 int pt_qry_get_offset(struct pt_query_decoder *decoder, uint64_t *offset)
 {
 	if (!decoder)

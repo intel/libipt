@@ -52,4 +52,20 @@ extern int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
 extern int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
 			    const struct pt_config *config);
 
+/* Manually synchronize onto the trace stream.
+ *
+ * Validate that @pos is within the bounds of @config's trace buffer and that
+ * there is a synchronization point at @pos.
+ *
+ * On success, stores @pos in @sync.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if @pos is outside of @config's trace buffer.
+ * Returns -pte_internal if @sync, @pos, or @config is NULL.
+ * Returns -pte_bad_packet if there is no PSB at @pos.
+ */
+extern int pt_sync_set(const uint8_t **sync, const uint8_t *pos,
+		       const struct pt_config *config);
+
 #endif /* __PT_SYNC_H__ */

@@ -116,6 +116,37 @@ static const uint8_t *pt_find_psb(const uint8_t *pos,
 	return pos;
 }
 
+int pt_sync_set(const uint8_t **sync, const uint8_t *pos,
+		const struct pt_config *config)
+{
+	const uint8_t *begin, *end;
+	int errcode;
+
+	if (!sync || !pos || !config)
+		return -pte_internal;
+
+	begin = config->begin;
+	end = config->end;
+
+	if ((pos < begin) || (end < pos))
+		return -pte_invalid;
+
+	if (end < pos + 2)
+		return -pte_eos;
+
+	/* Check that this is indeed a psb packet we're at. */
+	if (pos[0] != pt_opc_psb || pos[1] != pt_ext_psb)
+		return -pte_nosync;
+
+	errcode = pt_pkt_read_psb(pos, config);
+	if (errcode < 0)
+		return errcode;
+
+	*sync = pos;
+
+	return 0;
+}
+
 int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
 		    const struct pt_config *config)
 {

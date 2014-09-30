@@ -443,9 +443,14 @@ packet stream.  To iterate over synchronization points in the Intel PT packet
 stream in forward or backward direction, the query decoders offer the following
 two synchronization functions respectively:
 
-
     pt_qry_sync_forward()
     pt_qry_sync_backward()
+
+
+To manually synchronize the decoder at a synchronization point (i.e. PSB packet)
+in the Intel PT packet stream, use the following function:
+
+    pt_qry_sync_set()
 
 
 After successfully synchronizing, the query decoder will start reading the PSB+
@@ -695,6 +700,12 @@ the following two synchronization functions respectively:
 
     pt_insn_sync_forward()
     pt_insn_sync_backward()
+
+
+To manually synchronize the decoder at a synchronization point (i.e. PSB packet)
+in the Intel PT packet stream, use the following function:
+
+    pt_insn_sync_set()
 
 
 The example below shows synchronization to the first synchronization point:

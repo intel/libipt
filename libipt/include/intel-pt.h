@@ -1030,6 +1030,26 @@ extern pt_export int pt_qry_sync_forward(struct pt_query_decoder *decoder,
 extern pt_export int pt_qry_sync_backward(struct pt_query_decoder *decoder,
 					 uint64_t *ip);
 
+/** Manually synchronize an Intel PT query decoder.
+ *
+ * Synchronize \@decoder on the syncpoint at \@offset.  There must be a PSB
+ * packet at \@offset.
+ *
+ * If \@ip is not NULL, set it to last ip.
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
+ *
+ * Returns -pte_bad_opc if an unknown packet is encountered.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if @decoder reaches the end of its trace buffer.
+ * Returns -pte_invalid if \@decoder is NULL.
+ * Returns -pte_invalid if @offset lies outside of @decoder's trace buffer.
+ * Returns -pte_nosync if there is no syncpoint at \@offset.
+ */
+extern pt_export int pt_qry_sync_set(struct pt_query_decoder *decoder,
+				     uint64_t *ip, uint64_t offset);
+
 /** Get the current decoder position.
  *
  * Fills the current \@decoder position into \@offset.
@@ -1412,6 +1432,23 @@ extern pt_export void pt_insn_free_decoder(struct pt_insn_decoder *decoder);
  */
 extern pt_export int pt_insn_sync_forward(struct pt_insn_decoder *decoder);
 extern pt_export int pt_insn_sync_backward(struct pt_insn_decoder *decoder);
+
+/** Manually synchronize an Intel PT instruction flow decoder.
+ *
+ * Synchronize \@decoder on the syncpoint at \@offset.  There must be a PSB
+ * packet at \@offset.
+ *
+ * Returns zero or a positive value on success, a negative error code otherwise.
+ *
+ * Returns -pte_bad_opc if an unknown packet is encountered.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if @decoder reaches the end of its trace buffer.
+ * Returns -pte_invalid if \@decoder is NULL.
+ * Returns -pte_invalid if @offset lies outside of @decoder's trace buffer.
+ * Returns -pte_nosync if there is no syncpoint at \@offset.
+ */
+extern pt_export int pt_insn_sync_set(struct pt_insn_decoder *decoder,
+				      uint64_t offset);
 
 /** Get the current decoder position.
  *

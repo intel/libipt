@@ -102,6 +102,30 @@ int pt_insn_sync_backward(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
+int pt_insn_sync_set(struct pt_insn_decoder *decoder, uint64_t offset)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_invalid;
+
+	pt_insn_reset(decoder);
+
+	status = pt_qry_sync_set(&decoder->query, &decoder->ip, offset);
+	if (status < 0)
+		goto out;
+
+	if (!(status & pts_ip_suppressed))
+		decoder->enabled = 1;
+
+out:
+	decoder->status = status;
+	if (status < 0)
+		return status;
+
+	return 0;
+}
+
 int pt_insn_get_offset(struct pt_insn_decoder *decoder, uint64_t *offset)
 {
 	if (!decoder)
