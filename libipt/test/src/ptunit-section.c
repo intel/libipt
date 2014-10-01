@@ -262,6 +262,24 @@ static struct ptunit_result read_nomem(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result read_overflow(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 }, buffer[] = { 0xcc };
+	int status;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull, 0x1000ull);
+	ptu_ptr(sfix->section);
+
+	status = pt_section_read(sfix->section, buffer, 1,
+				 0xffffffffffff0000ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result sfix_init(struct section_fixture *sfix)
 {
 	sfix->section = NULL;
@@ -320,6 +338,7 @@ int main(int argc, const char **argv)
 	ptu_run_f(suite, read_truncated, sfix);
 	ptu_run_f(suite, read_from_truncated, sfix);
 	ptu_run_f(suite, read_nomem, sfix);
+	ptu_run_f(suite, read_overflow, sfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

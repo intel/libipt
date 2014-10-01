@@ -193,6 +193,9 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	if (section->end <= begin)
 		return -pte_nomap;
 
+	if (begin < section->begin)
+		return -pte_nomap;
+
 	if (section->end < end)
 		size -= (end - section->end);
 

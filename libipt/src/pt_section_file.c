@@ -196,6 +196,9 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	if (section->end <= begin)
 		return -pte_nomap;
 
+	if (begin < section->begin)
+		return -pte_nomap;
+
 	errcode = fseek(section->file, begin, SEEK_SET);
 	if (errcode)
 		return -pte_nomap;
