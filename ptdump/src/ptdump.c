@@ -533,10 +533,7 @@ skip_last_ip_printing:
 
 			print(options, "[");
 			for (idx = 0; idx < packet.size; ++idx) {
-				uint8_t u;
-
-				u = *(pt_pkt_get_pos(decoder) + idx);
-				print(options, "%02x", (unsigned)u);
+				print(options, "%02x", config->begin[pos+idx]);
 				if (idx != (packet.size - 1))
 					print(options, " ");
 			}
