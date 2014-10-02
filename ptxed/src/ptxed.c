@@ -360,7 +360,7 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 
 			ok = xed_format_generic(&pi);
 			if (!ok) {
-				printf("[xed print error]");
+				printf(" [xed print error]");
 				break;
 			}
 
@@ -369,7 +369,8 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 			break;
 
 		default:
-			printf("[xed decode error: %u]", errcode);
+			printf(" [xed decode error: (%u) %s]", errcode,
+			       xed_error_enum_t2str(errcode));
 			break;
 		}
 	}
