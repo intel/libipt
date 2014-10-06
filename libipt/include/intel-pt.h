@@ -775,15 +775,6 @@ extern pt_export int pt_pkt_sync_backward(struct pt_packet_decoder *decoder);
 extern pt_export int pt_pkt_sync_set(struct pt_packet_decoder *decoder,
 				     uint64_t offset);
 
-/** Get a pointer to the current position of the raw Intel PT buffer.
- *
- * Returns \@decoder's current position.
- *
- * Returns NULL if \@decoder is NULL.
- */
-extern pt_export const uint8_t *
-pt_pkt_get_pos(struct pt_packet_decoder *decoder);
-
 /** Get the current decoder position.
  *
  * Fills the current \@decoder position into \@offset.
