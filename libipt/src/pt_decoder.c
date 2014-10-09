@@ -55,6 +55,7 @@ int pt_decoder_init(struct pt_decoder *decoder, const struct pt_config *config)
 
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
+	pt_time_init(&decoder->time);
 
 	return 0;
 }
