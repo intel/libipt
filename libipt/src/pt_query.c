@@ -147,15 +147,8 @@ int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 	if (status < 0)
 		return status;
 
-	/* Tracing is enabled if and only if we have an IP after reading the
-	 * PSB header.
-	 */
 	errcode = pt_last_ip_query(addr, &decoder->ip);
-	if (!errcode)
-		decoder->flags &= ~pdf_pt_disabled;
-	else {
-		decoder->flags |= pdf_pt_disabled;
-
+	if (errcode < 0) {
 		/* Indicate the missing IP in the status. */
 		if (addr)
 			status |= pts_ip_suppressed;

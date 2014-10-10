@@ -62,6 +62,7 @@ static void init_fixture(void)
 	pt_decoder_fixture.decoder->ip.ip = pt_dfix_bad_ip;
 	pt_decoder_fixture.decoder->ip.need_full_ip = 0;
 	pt_decoder_fixture.decoder->ip.suppressed = 0;
+	pt_decoder_fixture.decoder->flags = 0;
 
 	dfix->last_ip = pt_decoder_fixture.decoder->ip;
 }

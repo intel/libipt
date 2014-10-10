@@ -176,6 +176,8 @@ static int header_psb(struct pt_decoder *decoder)
 
 static int read_psb_header(struct pt_decoder *decoder)
 {
+	pt_last_ip_init(&decoder->ip);
+
 	for (;;) {
 		const struct pt_decoder_function *dfun;
 		int errcode;
@@ -783,6 +785,10 @@ static int header_fup(struct pt_decoder *decoder)
 	if (errcode < 0)
 		return errcode;
 
+	/* Tracing is enabled if we have an IP in the header. */
+	if (packet.ipc != pt_ipc_suppressed)
+		decoder->flags &= ~pdf_pt_disabled;
+
 	return consume_fup(decoder, size);
 }
 
@@ -1060,7 +1066,7 @@ static int decode_ovf(struct pt_decoder *decoder)
 	if (status)
 		return 0;
 
-	/* Reset the decoder state - but preserve some flags.
+	/* Reset the decoder state - but preserve trace enabling.
 	 *
 	 * We don't know how many packets we lost so any queued events or unused
 	 * TNT bits will likely be wrong.
@@ -1069,7 +1075,8 @@ static int decode_ovf(struct pt_decoder *decoder)
 
 	pt_reset(decoder);
 
-	decoder->flags |= flags & pdf_pt_disabled;
+	if (!(flags & pdf_pt_disabled))
+		decoder->flags &= ~pdf_pt_disabled;
 
 	/* OVF binds to FUP as long as tracing is enabled.
 	 * It binds to TIP.PGE when tracing is disabled.

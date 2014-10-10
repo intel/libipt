@@ -52,6 +52,7 @@ int pt_decoder_init(struct pt_decoder *decoder, const struct pt_config *config)
 	memset(decoder, 0, sizeof(*decoder));
 
 	decoder->config = *config;
+	decoder->flags = pdf_pt_disabled;
 
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
@@ -161,7 +162,7 @@ void pt_reset(struct pt_decoder *decoder)
 	if (!decoder)
 		return;
 
-	decoder->flags = 0;
+	decoder->flags = pdf_pt_disabled;
 	decoder->event = NULL;
 
 	pt_last_ip_init(&decoder->ip);
