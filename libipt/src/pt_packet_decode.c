@@ -176,8 +176,6 @@ static int header_psb(struct pt_decoder *decoder)
 
 static int read_psb_header(struct pt_decoder *decoder)
 {
-	decoder->flags &= ~pdf_status_have_ip;
-
 	for (;;) {
 		const struct pt_decoder_function *dfun;
 		int errcode;
@@ -784,9 +782,6 @@ static int header_fup(struct pt_decoder *decoder)
 	errcode = pt_last_ip_update_ip(&decoder->ip, &packet, &decoder->config);
 	if (errcode < 0)
 		return errcode;
-
-	if (packet.ipc != pt_ipc_suppressed)
-		decoder->flags |= pdf_status_have_ip;
 
 	return consume_fup(decoder, size);
 }

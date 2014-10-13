@@ -46,10 +46,7 @@ enum pt_decoder_flag {
 	pdf_pt_disabled		= 1 << 0,
 
 	/* The packet will be consumed after all events have been processed. */
-	pdf_consume_packet	= 1 << 1,
-
-	/* There had been a FUP in the last PSB+. */
-	pdf_status_have_ip	= 1 << 2
+	pdf_consume_packet	= 1 << 1
 };
 
 /* Intel(R) Processor Trace event bindings.
