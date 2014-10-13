@@ -52,6 +52,7 @@ set(LIBIPT_FILES
   src/pt_time.c
   src/pt_mapped_section.c
   src/pt_asid.c
+  src/pt_event_queue.c
 )
 
 if (FEATURE_MMAP)
@@ -124,6 +125,7 @@ add_executable(ptunit-query
   src/pt_sync.c
   src/pt_tnt_cache.c
   src/pt_time.c
+  src/pt_event_queue.c
   ${LIBIPT_CONFIG_FILES}
 )
 
@@ -174,6 +176,11 @@ add_executable(ptunit-asid
   src/pt_asid.c
 )
 
+add_executable(ptunit-event_queue
+  test/src/ptunit-event_queue.c
+  src/pt_event_queue.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
@@ -186,6 +193,7 @@ target_link_libraries(ptunit-cpu ptunit)
 target_link_libraries(ptunit-time ptunit)
 target_link_libraries(ptunit-mapped_section ptunit)
 target_link_libraries(ptunit-asid ptunit)
+target_link_libraries(ptunit-event_queue ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap

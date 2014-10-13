@@ -32,6 +32,7 @@
 #include "pt_last_ip.h"
 #include "pt_tnt_cache.h"
 #include "pt_time.h"
+#include "pt_event_queue.h"
 
 #include "intel-pt.h"
 
@@ -47,21 +48,6 @@ enum pt_decoder_flag {
 
 	/* The packet will be consumed after all events have been processed. */
 	pdf_consume_packet	= 1 << 1
-};
-
-/* Intel(R) Processor Trace event bindings.
- *
- * Events are grouped by the packet the event packet binds to.
- */
-enum pt_event_binding {
-	evb_psbend,
-	evb_tip,
-	evb_fup,
-
-	evb_max,
-
-	/* The maximal number of pending events - should be a power of two. */
-	evb_max_pend = 8
 };
 
 struct pt_decoder {
@@ -86,21 +72,14 @@ struct pt_decoder {
 	/* A bit-vector of decoder flags. */
 	uint64_t flags;
 
-	/* The last event. */
-	struct pt_event *event;
-
-	/* A series of pending event queues. */
-	struct pt_event ev_pend[evb_max][evb_max_pend];
-
-	/* The begin and end indices for the above event queues. */
-	uint8_t ev_begin[evb_max];
-	uint8_t ev_end[evb_max];
-
-	/* A standalone event that is reported immediately. */
-	struct pt_event ev_immed;
-
 	/* Timing information. */
 	struct pt_time time;
+
+	/* Pending (incomplete) events. */
+	struct pt_event_queue evq;
+
+	/* The current event. */
+	struct pt_event *event;
 };
 
 /* Allocate an Intel(R) Processor Trace decoder.
@@ -308,59 +287,5 @@ extern int pt_will_event(const struct pt_decoder *decoder);
  * buffer-related fields.
  */
 extern void pt_reset(struct pt_decoder *);
-
-/* Get a standalone event.
- *
- * Returns a pointer to the decoder's standalone event struct.
- */
-extern struct pt_event *pt_standalone_event(struct pt_decoder *);
-
-/* Enqueue an event.
- *
- * Adds a new event to the event queue for binding @evb.
- *
- * Returns a pointer to the queued event on success.
- * Returns NULL if the queue is full.
- */
-extern struct pt_event *pt_enqueue_event(struct pt_decoder *,
-					 enum pt_event_binding evb);
-
-/* Dequeue an event.
- *
- * Removes the first event from the queue for binding @evb and returns a pointer
- * to it. The pointer is valid until the next dequeue operation.
- *
- * Returns a pointer to the dequeued event on success.
- * Returns NULL if the queue is empty.
- */
-extern struct pt_event *pt_dequeue_event(struct pt_decoder *,
-					 enum pt_event_binding evb);
-
-/* Clear an event queue.
- *
- * Removes all events from the event queue for binding @evb.
- */
-extern void pt_discard_events(struct pt_decoder *,
-			      enum pt_event_binding evb);
-
-/* Check whether events are pending.
- *
- * Returns non-zero if there is at least one event in the event queue
- * for binding @evb.
- * Returns 0 if the event queue for binging @evb is empty.
- * Returns a negative error code otherwise.
- */
-extern int pt_event_pending(const struct pt_decoder *,
-			    enum pt_event_binding evb);
-
-/* Search for an event of a specific type.
- *
- * Returns a pointer to an event of type @type in the event queue for
- * binding @evb. If there is more than one event of type @type, it is
- * undefined to which of these events the returned pointer points.
- */
-extern struct pt_event *pt_find_event(struct pt_decoder *,
-				      enum pt_event_type type,
-				      enum pt_event_binding evb);
 
 #endif /* __PT_DECODER_H__ */

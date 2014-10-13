@@ -356,7 +356,7 @@ static int decode_tip(struct pt_decoder *decoder)
 		return size;
 
 	/* Process any pending events binding to TIP. */
-	ev = pt_dequeue_event(decoder, evb_tip);
+	ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 	if (ev) {
 		switch (ev->type) {
 		default:
@@ -386,7 +386,7 @@ static int decode_tip(struct pt_decoder *decoder)
 		decoder->event = ev;
 
 		/* Process further pending events. */
-		if (pt_event_pending(decoder, evb_tip))
+		if (pt_evq_pending(&decoder->evq, evb_tip))
 			return 0;
 
 		/* No further events.
@@ -603,7 +603,7 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 			return -pte_bad_packet;
 
 		/* This packet signals a standalone enabled event. */
-		ev = pt_standalone_event(decoder);
+		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;
 		ev->type = ptev_enabled;
@@ -624,7 +624,7 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 		decoder->flags |= pdf_consume_packet;
 	} else {
 		/* Process any pending events binding to TIP. */
-		ev = pt_dequeue_event(decoder, evb_tip);
+		ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 		if (ev) {
 			switch (ev->type) {
 			default:
@@ -661,7 +661,7 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 	decoder->event = ev;
 
 	/* Process further pending events. */
-	if (pt_event_pending(decoder, evb_tip))
+	if (pt_evq_pending(&decoder->evq, evb_tip))
 		return 0;
 
 	/* We must consume the packet. */
@@ -713,14 +713,14 @@ static int decode_tip_pgd(struct pt_decoder *decoder)
 		return size;
 
 	/* Process any pending events binding to TIP. */
-	ev = pt_dequeue_event(decoder, evb_tip);
+	ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 	if (ev) {
 		/* The only event we expect is an async branch. */
 		if (ev->type != ptev_async_branch)
 			return -pte_internal;
 
 		/* We do not expect any further events. */
-		if (pt_event_pending(decoder, evb_tip))
+		if (pt_evq_pending(&decoder->evq, evb_tip))
 			return -pte_internal;
 
 		/* Turn the async branch into an async disable. */
@@ -731,7 +731,7 @@ static int decode_tip_pgd(struct pt_decoder *decoder)
 		fill_in_event_ip(ev, &ev->variant.async_disabled.ip, decoder);
 	} else {
 		/* This packet signals a standalone disabled event. */
-		ev = pt_standalone_event(decoder);
+		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;
 		ev->type = ptev_disabled;
@@ -802,7 +802,7 @@ static int decode_fup(struct pt_decoder *decoder)
 		return size;
 
 	/* Process any pending events binding to FUP. */
-	ev = pt_dequeue_event(decoder, evb_fup);
+	ev = pt_evq_dequeue(&decoder->evq, evb_fup);
 	if (ev) {
 		switch (ev->type) {
 		default:
@@ -838,7 +838,7 @@ static int decode_fup(struct pt_decoder *decoder)
 		decoder->event = ev;
 
 		/* Process further pending events. */
-		if (pt_event_pending(decoder, evb_fup))
+		if (pt_evq_pending(&decoder->evq, evb_fup))
 			return 0;
 
 		/* No further events.
@@ -864,7 +864,7 @@ static int decode_fup(struct pt_decoder *decoder)
 		if (errcode < 0)
 			return -pte_bad_packet;
 
-		ev = pt_enqueue_event(decoder, evb_tip);
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip);
 		if (!ev)
 			return -pte_nomem;
 
@@ -931,9 +931,9 @@ static int decode_pip(struct pt_decoder *decoder)
 	/* Paging events are either standalone or bind to the same TIP packet
 	 * as an in-flight async branch event.
 	 */
-	event = pt_find_event(decoder, ptev_async_branch, evb_tip);
+	event = pt_evq_find(&decoder->evq, evb_tip, ptev_async_branch);
 	if (!event) {
-		event = pt_standalone_event(decoder);
+		event = pt_evq_standalone(&decoder->evq);
 		if (!event)
 			return -pte_internal;
 		event->type = ptev_paging;
@@ -941,7 +941,7 @@ static int decode_pip(struct pt_decoder *decoder)
 
 		decoder->event = event;
 	} else {
-		event = pt_enqueue_event(decoder, evb_tip);
+		event = pt_evq_enqueue(&decoder->evq, evb_tip);
 		if (!event)
 			return -pte_nomem;
 
@@ -964,7 +964,7 @@ static int header_pip(struct pt_decoder *decoder)
 		return size;
 
 	/* Paging events are reported at the end of the PSB. */
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	if (!event)
 		return -pte_nomem;
 
@@ -1019,7 +1019,7 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 	struct pt_event *ev;
 	int errcode;
 
-	ev = pt_dequeue_event(decoder, evb_psbend);
+	ev = pt_evq_dequeue(&decoder->evq, evb_psbend);
 	if (!ev)
 		return 0;
 
@@ -1088,7 +1088,7 @@ static int decode_ovf(struct pt_decoder *decoder)
 	 * We must be able to enqueue the overflow event since we just reset
 	 * the decoder state.
 	 */
-	ev = pt_enqueue_event(decoder, evb);
+	ev = pt_evq_enqueue(&decoder->evq, evb);
 	if (!ev)
 		return -pte_internal;
 
@@ -1169,7 +1169,7 @@ static int decode_mode_exec(struct pt_decoder *decoder,
 	struct pt_event *event;
 
 	/* MODE.EXEC binds to TIP. */
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	if (!event)
 		return -pte_nomem;
 
@@ -1186,7 +1186,7 @@ static int decode_mode_tsx(struct pt_decoder *decoder,
 
 	/* MODE.TSX is standalone if tracing is disabled. */
 	if (decoder->flags & pdf_pt_disabled) {
-		event = pt_standalone_event(decoder);
+		event = pt_evq_standalone(&decoder->evq);
 		if (!event)
 			return -pte_internal;
 
@@ -1198,7 +1198,7 @@ static int decode_mode_tsx(struct pt_decoder *decoder,
 		decoder->event = event;
 	} else {
 		/* MODE.TSX binds to FUP. */
-		event = pt_enqueue_event(decoder, evb_fup);
+		event = pt_evq_enqueue(&decoder->evq, evb_fup);
 		if (!event)
 			return -pte_nomem;
 	}
@@ -1248,7 +1248,7 @@ static int header_mode(struct pt_decoder *decoder)
 		return size;
 
 	/* Inside the header, events are reported at the end. */
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	if (!event)
 		return -pte_nomem;
 

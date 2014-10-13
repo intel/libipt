@@ -399,9 +399,9 @@ static void check_blank_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
 
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
+	ck_false(pt_evq_pending(&decoder->evq, evb_psbend));
+	ck_false(pt_evq_pending(&decoder->evq, evb_tip));
+	ck_false(pt_evq_pending(&decoder->evq, evb_fup));
 
 	ck_last_ip();
 	ck_tnt_cache();
@@ -1659,9 +1659,9 @@ static void check_header_non_fup_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
 
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
+	ck_false(pt_evq_pending(&decoder->evq, evb_psbend));
+	ck_false(pt_evq_pending(&decoder->evq, evb_tip));
+	ck_false(pt_evq_pending(&decoder->evq, evb_fup));
 
 	ck_tnt_cache();
 	ck_time();
@@ -1795,7 +1795,7 @@ START_TEST(check_header_pip)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, flags);
 
-	event = pt_dequeue_event(decoder, evb_psbend);
+	event = pt_evq_dequeue(&decoder->evq, evb_psbend);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_paging);
 	ck_uint64_eq(event->variant.paging.cr3, cr3);
@@ -1843,7 +1843,7 @@ START_TEST(check_header_mode_exec)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, flags);
 
-	event = pt_dequeue_event(decoder, evb_psbend);
+	event = pt_evq_dequeue(&decoder->evq, evb_psbend);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_exec_mode);
 	ck_int_eq(event->variant.exec_mode.mode, mode);
@@ -1890,7 +1890,7 @@ START_TEST(check_header_mode_tsx)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, flags);
 
-	event = pt_dequeue_event(decoder, evb_psbend);
+	event = pt_evq_dequeue(&decoder->evq, evb_psbend);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_tsx);
 	ck_int_eq(event->variant.tsx.speculative, 1);
@@ -1929,9 +1929,9 @@ static void check_non_timing_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
 
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
+	ck_false(pt_evq_pending(&decoder->evq, evb_psbend));
+	ck_false(pt_evq_pending(&decoder->evq, evb_tip));
+	ck_false(pt_evq_pending(&decoder->evq, evb_fup));
 
 	ck_last_ip();
 	ck_tnt_cache();
@@ -2205,9 +2205,9 @@ static void check_non_ip_state(struct pt_decoder *decoder)
 {
 	ck_null(decoder->sync);
 
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
+	ck_false(pt_evq_pending(&decoder->evq, evb_psbend));
+	ck_false(pt_evq_pending(&decoder->evq, evb_tip));
+	ck_false(pt_evq_pending(&decoder->evq, evb_fup));
 
 	ck_tnt_cache();
 	ck_time();
@@ -2342,7 +2342,7 @@ START_TEST(check_decode_tip_exec_mode)
 
 	check_encode_tip(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = mode;
 
@@ -2375,7 +2375,7 @@ START_TEST(check_decode_tip_exec_mode_suppressed)
 
 	check_encode_tip(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = mode;
 
@@ -2407,7 +2407,7 @@ START_TEST(check_decode_tip_async_branch)
 
 	check_encode_tip(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_async_branch;
 	event->variant.async_branch.from = at;
 
@@ -2439,7 +2439,7 @@ START_TEST(check_decode_tip_async_branch_suppressed)
 
 	check_encode_tip(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_async_branch;
 	event->variant.async_branch.from = at;
 
@@ -2463,9 +2463,9 @@ static void check_non_tnt_state(struct pt_decoder *decoder)
 	ck_null(decoder->sync);
 	ck_uint64_eq(decoder->flags, 0);
 
-	ck_false(pt_event_pending(decoder, evb_psbend));
-	ck_false(pt_event_pending(decoder, evb_tip));
-	ck_false(pt_event_pending(decoder, evb_fup));
+	ck_false(pt_evq_pending(&decoder->evq, evb_psbend));
+	ck_false(pt_evq_pending(&decoder->evq, evb_tip));
+	ck_false(pt_evq_pending(&decoder->evq, evb_fup));
 
 	ck_last_ip();
 	ck_time();
@@ -2693,7 +2693,7 @@ START_TEST(check_decode_tip_pge_event)
 
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 
 	errcode = pt_decode_tip_pge.decode(decoder);
 	ck_int_eq(errcode, 0);
@@ -2704,7 +2704,7 @@ START_TEST(check_decode_tip_pge_event)
 	ck_uint64_eq(decoder->event->variant.enabled.ip, dfix->last_ip.ip);
 	ck_last_ip();
 
-	ev = pt_dequeue_event(decoder, evb_tip);
+	ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_ptr(ev, event);
 
 	check_non_ip_state(decoder);
@@ -2726,14 +2726,14 @@ START_TEST(check_decode_tip_pge_event_suppressed)
 
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 
 	errcode = pt_decode_tip_pge.decode(decoder);
 	ck_int_eq(errcode, -pte_bad_packet);
 	ck_ptr(decoder->pos, config->begin);
 	ck_last_ip();
 
-	ev = pt_dequeue_event(decoder, evb_tip);
+	ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_ptr(ev, event);
 
 	check_non_ip_state(decoder);
@@ -2755,7 +2755,7 @@ START_TEST(check_decode_tip_pge_overflow)
 
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_overflow;
 
 	decoder->flags |= pdf_consume_packet;
@@ -2787,7 +2787,7 @@ START_TEST(check_decode_tip_pge_overflow_suppressed)
 
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_overflow;
 
 	decoder->flags |= pdf_consume_packet;
@@ -2818,7 +2818,7 @@ START_TEST(check_decode_tip_pge_exec_mode)
 
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = mode;
 
@@ -2853,7 +2853,7 @@ START_TEST(check_decode_tip_pge_exec_mode_suppressed)
 
 	check_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = mode;
 
@@ -3015,7 +3015,7 @@ START_TEST(check_decode_tip_pgd_async_branch)
 
 	check_encode_tip_pgd(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_async_branch;
 	event->variant.async_branch.from = at;
 
@@ -3049,7 +3049,7 @@ START_TEST(check_decode_tip_pgd_async_branch_suppressed)
 
 	check_encode_tip_pgd(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_async_branch;
 	event->variant.async_branch.from = at;
 
@@ -3109,7 +3109,7 @@ START_TEST(check_decode_fup_update_16)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_last_ip();
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_async_branch);
 	ck_uint64_eq(event->variant.async_branch.from, dfix->last_ip.ip);
@@ -3138,7 +3138,7 @@ START_TEST(check_decode_fup_update_32)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_last_ip();
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_async_branch);
 	ck_uint64_eq(event->variant.async_branch.from, dfix->last_ip.ip);
@@ -3167,7 +3167,7 @@ START_TEST(check_decode_fup_sext_48)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_last_ip();
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_async_branch);
 	ck_uint64_eq(event->variant.async_branch.from, dfix->last_ip.ip);
@@ -3212,7 +3212,7 @@ START_TEST(check_decode_fup_overflow)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_overflow;
 
 	errcode = pt_decode_fup.decode(decoder);
@@ -3241,7 +3241,7 @@ START_TEST(check_decode_fup_overflow_suppressed)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_overflow;
 
 	errcode = pt_decode_fup.decode(decoder);
@@ -3268,7 +3268,7 @@ START_TEST(check_decode_fup_tsx)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 1;
 	event->variant.tsx.aborted = 0;
@@ -3303,7 +3303,7 @@ START_TEST(check_decode_fup_tsx_abort)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 0;
 	event->variant.tsx.aborted = 1;
@@ -3336,7 +3336,7 @@ START_TEST(check_decode_fup_tsx_suppressed)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 1;
 	event->variant.tsx.aborted = 0;
@@ -3369,7 +3369,7 @@ START_TEST(check_decode_fup_tsx_abort_suppressed)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 0;
 	event->variant.tsx.aborted = 1;
@@ -3402,7 +3402,7 @@ START_TEST(check_decode_fup_tsx_abort_consume)
 
 	check_encode_fup(encoder, packet.ip, packet.ipc);
 
-	event = pt_enqueue_event(decoder, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 0;
 	event->variant.tsx.aborted = 1;
@@ -3455,7 +3455,7 @@ START_TEST(check_decode_pip_async_branch)
 
 	check_encode_pip(encoder, cr3);
 
-	event = pt_enqueue_event(decoder, evb_tip);
+	event = pt_evq_enqueue(&decoder->evq, evb_tip);
 	event->type = ptev_async_branch;
 
 	errcode = pt_decode_pip.decode(decoder);
@@ -3463,11 +3463,11 @@ START_TEST(check_decode_pip_async_branch)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_null(decoder->event);
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_async_branch);
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_async_paging);
 	ck_uint64_eq(event->variant.async_paging.cr3, cr3);
@@ -3535,7 +3535,7 @@ START_TEST(check_decode_ovf)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, 0);
 
-	event = pt_dequeue_event(decoder, evb_fup);
+	event = pt_evq_dequeue(&decoder->evq, evb_fup);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_overflow);
 
@@ -3562,7 +3562,7 @@ START_TEST(check_decode_ovf_disabled)
 	ck_ptr(decoder->pos, encoder->pos);
 	ck_uint64_eq(decoder->flags, pdf_pt_disabled);
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_overflow);
 
@@ -3583,7 +3583,7 @@ START_TEST(check_decode_ovf_psbend_paging)
 
 	check_encode_ovf(encoder);
 
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	event->type = ptev_paging;
 	event->variant.paging.cr3 = cr3;
 
@@ -3614,7 +3614,7 @@ START_TEST(check_decode_ovf_psbend_exec_mode)
 
 	check_encode_ovf(encoder);
 
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = mode;
 
@@ -3644,7 +3644,7 @@ START_TEST(check_decode_ovf_psbend_tsx)
 
 	check_encode_ovf(encoder);
 
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 0;
 	event->variant.tsx.aborted = 0;
@@ -3679,7 +3679,7 @@ START_TEST(check_decode_mode_exec)
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_exec_mode);
 	ck_int_eq(event->variant.exec_mode.mode, mode);
@@ -3704,7 +3704,7 @@ START_TEST(check_decode_mode_exec_fault)
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
 
-	event = pt_dequeue_event(decoder, evb_tip);
+	event = pt_evq_dequeue(&decoder->evq, evb_tip);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_exec_mode);
 	ck_int_eq(event->variant.exec_mode.mode, ptem_unknown);
@@ -3727,7 +3727,7 @@ START_TEST(check_decode_mode_tsx_xbegin)
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
 
-	event = pt_dequeue_event(decoder, evb_fup);
+	event = pt_evq_dequeue(&decoder->evq, evb_fup);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_tsx);
 	ck_int_eq(event->variant.tsx.speculative, 1);
@@ -3751,7 +3751,7 @@ START_TEST(check_decode_mode_tsx_xend)
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
 
-	event = pt_dequeue_event(decoder, evb_fup);
+	event = pt_evq_dequeue(&decoder->evq, evb_fup);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_tsx);
 	ck_int_eq(event->variant.tsx.speculative, 0);
@@ -3775,7 +3775,7 @@ START_TEST(check_decode_mode_tsx_xabort)
 	ck_int_eq(errcode, 0);
 	ck_ptr(decoder->pos, encoder->pos);
 
-	event = pt_dequeue_event(decoder, evb_fup);
+	event = pt_evq_dequeue(&decoder->evq, evb_fup);
 	ck_nonnull(event);
 	ck_int_eq(event->type, ptev_tsx);
 	ck_int_eq(event->variant.tsx.speculative, 0);
@@ -3898,7 +3898,7 @@ START_TEST(check_decode_psbend_paging)
 
 	check_encode_psbend(encoder);
 
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	event->type = ptev_paging;
 	event->variant.paging.cr3 = cr3;
 
@@ -3929,7 +3929,7 @@ START_TEST(check_decode_psbend_exec_mode)
 
 	check_encode_psbend(encoder);
 
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = mode;
 
@@ -3959,7 +3959,7 @@ START_TEST(check_decode_psbend_tsx)
 
 	check_encode_psbend(encoder);
 
-	event = pt_enqueue_event(decoder, evb_psbend);
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = 0;
 	event->variant.tsx.aborted = 0;

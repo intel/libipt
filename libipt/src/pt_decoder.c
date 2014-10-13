@@ -57,6 +57,7 @@ int pt_decoder_init(struct pt_decoder *decoder, const struct pt_config *config)
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
 	pt_time_init(&decoder->time);
+	pt_evq_init(&decoder->evq);
 
 	return 0;
 }
@@ -144,21 +145,19 @@ int pt_will_event(const struct pt_decoder *decoder)
 		return 1;
 
 	if (dfun->flags & pdff_psbend)
-		return pt_event_pending(decoder, evb_psbend);
+		return pt_evq_pending(&decoder->evq, evb_psbend);
 
 	if (dfun->flags & pdff_tip)
-		return pt_event_pending(decoder, evb_tip);
+		return pt_evq_pending(&decoder->evq, evb_tip);
 
 	if (dfun->flags & pdff_fup)
-		return pt_event_pending(decoder, evb_fup);
+		return pt_evq_pending(&decoder->evq, evb_fup);
 
 	return 0;
 }
 
 void pt_reset(struct pt_decoder *decoder)
 {
-	int evb;
-
 	if (!decoder)
 		return;
 
@@ -168,169 +167,5 @@ void pt_reset(struct pt_decoder *decoder)
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
 	pt_time_init(&decoder->time);
-
-	for (evb = 0; evb < evb_max; ++evb)
-		pt_discard_events(decoder, (enum pt_event_binding) evb);
-}
-
-static inline uint8_t pt_queue_inc(uint8_t idx)
-{
-	idx += 1;
-	idx %= evb_max_pend;
-
-	return idx;
-}
-
-struct pt_event *pt_standalone_event(struct pt_decoder *decoder)
-{
-	struct pt_event *event;
-
-	if (!decoder)
-		return NULL;
-
-	event = &decoder->ev_immed;
-
-	event->ip_suppressed = 0;
-	event->status_update = 0;
-
-	return event;
-}
-
-struct pt_event *pt_enqueue_event(struct pt_decoder *decoder,
-				  enum pt_event_binding evb)
-{
-	struct pt_event *ev;
-	uint8_t begin, end, gap;
-
-	if (!decoder)
-		return NULL;
-
-	if (evb_max <= evb)
-		return NULL;
-
-	begin = decoder->ev_begin[evb];
-	end = decoder->ev_end[evb];
-
-	if (evb_max_pend <= begin)
-		return NULL;
-
-	if (evb_max_pend <= end)
-		return NULL;
-
-	ev = &decoder->ev_pend[evb][end];
-	ev->ip_suppressed = 0;
-	ev->status_update = 0;
-
-	end = pt_queue_inc(end);
-	gap = pt_queue_inc(end);
-
-	/* Leave a gap so we don't overwrite the last dequeued event. */
-	if (begin == gap)
-		return NULL;
-
-	decoder->ev_end[evb] = end;
-
-	/* This is not strictly necessary. */
-	(void) memset(ev, 0, sizeof(*ev));
-
-	return ev;
-}
-
-struct pt_event *pt_dequeue_event(struct pt_decoder *decoder,
-				  enum pt_event_binding evb)
-{
-	struct pt_event *ev;
-	uint8_t begin, end;
-
-	if (!decoder)
-		return NULL;
-
-	if (evb_max <= evb)
-		return NULL;
-
-	begin = decoder->ev_begin[evb];
-	end = decoder->ev_end[evb];
-
-	if (evb_max_pend <= begin)
-		return NULL;
-
-	if (evb_max_pend <= end)
-		return NULL;
-
-	if (begin == end)
-		return NULL;
-
-	ev = &decoder->ev_pend[evb][begin];
-
-	decoder->ev_begin[evb] = pt_queue_inc(begin);
-
-	return ev;
-}
-
-void pt_discard_events(struct pt_decoder *decoder,
-		       enum pt_event_binding evb)
-{
-	if (!decoder)
-		return;
-
-	if (evb_max <= evb)
-		return;
-
-	decoder->ev_begin[evb] = 0;
-	decoder->ev_end[evb] = 0;
-}
-
-int pt_event_pending(const struct pt_decoder *decoder,
-		     enum pt_event_binding evb)
-{
-	uint8_t begin, end;
-
-	if (!decoder)
-		return -pte_internal;
-
-	if (evb_max <= evb)
-		return -pte_internal;
-
-	begin = decoder->ev_begin[evb];
-	end = decoder->ev_end[evb];
-
-	if (evb_max_pend <= begin)
-		return -pte_internal;
-
-	if (evb_max_pend <= end)
-		return -pte_internal;
-
-	return begin != end;
-}
-
-struct pt_event *pt_find_event(struct pt_decoder *decoder,
-			       enum pt_event_type type,
-			       enum pt_event_binding evb)
-{
-	uint8_t begin, end;
-
-	if (!decoder)
-		return NULL;
-
-	if (evb_max <= evb)
-		return NULL;
-
-	begin = decoder->ev_begin[evb];
-	end = decoder->ev_end[evb];
-
-	if (evb_max_pend <= begin)
-		return NULL;
-
-	if (evb_max_pend <= end)
-		return NULL;
-
-	for (; begin != end; begin = pt_queue_inc(begin)) {
-		struct pt_event *ev;
-
-		ev = &decoder->ev_pend[evb][begin];
-		if (ev->type == type)
-			return ev;
-	}
-
-	return NULL;
+	pt_evq_init(&decoder->evq);
 }

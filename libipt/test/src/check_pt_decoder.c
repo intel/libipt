@@ -178,218 +178,6 @@ START_TEST(check_initial_sync)
 }
 END_TEST
 
-START_TEST(check_null_event)
-{
-	struct pt_event *ev;
-	int evb;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		ev = pt_enqueue_event(NULL, evb);
-		ck_null(ev);
-
-		ev = pt_dequeue_event(NULL, evb);
-		ck_null(ev);
-
-		pt_discard_events(NULL, evb);
-	}
-}
-END_TEST
-
-START_TEST(check_event_initially_empty)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_event *ev;
-	int evb, pend;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		pend = pt_event_pending(decoder, evb);
-		ck_int_eq(pend, 0);
-
-		ev = pt_dequeue_event(decoder, evb);
-		ck_null(ev);
-	}
-}
-END_TEST
-
-START_TEST(check_event_enqueue_dequeue)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_event *ev[evb_max][2];
-	int evb, pend;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		ev[evb][0] = pt_enqueue_event(decoder, evb);
-		ck_nonnull(ev[evb][0]);
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_ne(pend, 0);
-
-		ev[evb][1] = pt_enqueue_event(decoder, evb);
-		ck_nonnull(ev[evb][1]);
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_ne(pend, 0);
-	}
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		struct pt_event *deq;
-
-		deq = pt_dequeue_event(decoder, evb);
-		ck_ptr(deq, ev[evb][0]);
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_ne(pend, 0);
-
-		deq = pt_dequeue_event(decoder, evb);
-		ck_ptr(deq, ev[evb][1]);
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_eq(pend, 0);
-
-		deq = pt_dequeue_event(decoder, evb);
-		ck_null(deq);
-	}
-}
-END_TEST
-
-START_TEST(check_event_discard)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_event *ev;
-	int evb, pend;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		ev = pt_enqueue_event(decoder, evb);
-		ck_nonnull(ev);
-
-		pt_discard_events(decoder, evb);
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_eq(pend, 0);
-
-		ev = pt_dequeue_event(decoder, evb);
-		ck_null(ev);
-	}
-}
-END_TEST
-
-START_TEST(check_event_wrap)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_event *ev[2];
-	int evb, it, pend;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		for (it = 0; it < evb_max_pend * 2; ++it) {
-			ev[0] = pt_enqueue_event(decoder, evb);
-			ck_nonnull(ev[0]);
-
-			pend = pt_event_pending(decoder, evb);
-			ck_int_ne(pend, 0);
-
-			ev[1] = pt_dequeue_event(decoder, evb);
-			ck_ptr(ev[1], ev[0]);
-
-			pend = pt_event_pending(decoder, evb);
-			ck_int_eq(pend, 0);
-
-			ev[1] = pt_dequeue_event(decoder, evb);
-			ck_null(ev[1]);
-		}
-	}
-}
-END_TEST
-
-START_TEST(check_event_overflow)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_event *ev[evb_max][evb_max_pend - 2];
-	int evb, it, pend;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		for (it = 0; it < evb_max_pend - 2; ++it) {
-			ev[evb][it] = pt_enqueue_event(decoder, evb);
-			ck_nonnull(ev[evb][it]);
-		}
-	}
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		struct pt_event *ovf;
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_ne(pend, 0);
-
-		ovf = pt_enqueue_event(decoder, evb);
-		ck_null(ovf);
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_ne(pend, 0);
-	}
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		for (it = 0; it < evb_max_pend - 2; ++it) {
-			struct pt_event *deq;
-
-			pend = pt_event_pending(decoder, evb);
-			ck_int_ne(pend, 0);
-
-			deq = pt_dequeue_event(decoder, evb);
-			ck_ptr(deq, ev[evb][it]);
-		}
-	}
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		struct pt_event *deq;
-
-		pend = pt_event_pending(decoder, evb);
-		ck_int_eq(pend, 0);
-
-		deq = pt_dequeue_event(decoder, evb);
-		ck_null(deq);
-	}
-}
-END_TEST
-
-START_TEST(check_event_consistency)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	struct pt_event *event;
-	int evb, errcode;
-
-	for (evb = 0; evb < evb_max; ++evb) {
-		decoder->ev_begin[evb] = evb_max_pend;
-		decoder->ev_end[evb] = 0;
-
-		event = pt_enqueue_event(decoder, evb);
-		ck_null(event);
-
-		event = pt_dequeue_event(decoder, evb);
-		ck_null(event);
-
-		errcode = pt_event_pending(decoder, evb);
-		ck_int_eq(errcode, -pte_internal);
-
-		decoder->ev_begin[evb] = 0;
-		decoder->ev_end[evb] = evb_max_pend;
-
-		event = pt_enqueue_event(decoder, evb);
-		ck_null(event);
-
-		event = pt_dequeue_event(decoder, evb);
-		ck_null(event);
-
-		errcode = pt_event_pending(decoder, evb);
-		ck_int_eq(errcode, -pte_internal);
-	}
-}
-END_TEST
-
 static void add_alloc_tests(TCase *tcase)
 {
 	tcase_add_test(tcase, check_pt_alloc_null);
@@ -413,17 +201,6 @@ static void add_pos_tests(TCase *tcase)
 	tcase_add_test(tcase, check_null_sync);
 }
 
-static void add_event_tests(TCase *tcase)
-{
-	tcase_add_test(tcase, check_null_event);
-	tcase_add_test(tcase, check_event_initially_empty);
-	tcase_add_test(tcase, check_event_enqueue_dequeue);
-	tcase_add_test(tcase, check_event_discard);
-	tcase_add_test(tcase, check_event_wrap);
-	tcase_add_test(tcase, check_event_overflow);
-	tcase_add_test(tcase, check_event_consistency);
-}
-
 static struct tcase_desc tcase_initial = {
 	/* .name = */ "initial",
 	/* .add_tests = */ add_initial_tests
@@ -432,11 +209,6 @@ static struct tcase_desc tcase_initial = {
 static struct tcase_desc tcase_pos = {
 	/* .name = */ "pos",
 	/* .add_tests = */ add_pos_tests
-};
-
-static struct tcase_desc tcase_event = {
-	/* .name = */ "event",
-	/* .add_tests = */ add_event_tests
 };
 
 Suite *suite_pt_decoder(void)
@@ -452,7 +224,6 @@ Suite *suite_pt_decoder(void)
 
 	pt_add_tcase(suite, &tcase_initial, &dfix_nosync);
 	pt_add_tcase(suite, &tcase_pos, &dfix_standard);
-	pt_add_tcase(suite, &tcase_event, &dfix_standard);
 
 	return suite;
 }
