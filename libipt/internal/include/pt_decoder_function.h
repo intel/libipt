@@ -34,6 +34,7 @@
 
 struct pt_decoder;
 struct pt_packet;
+struct pt_config;
 
 
 /* Intel(R) Processor Trace decoder function flags. */
@@ -75,21 +76,17 @@ struct pt_decoder_function {
 };
 
 
-/* Fetch the decoder function for the next packet.
+/* Fetch the decoder function.
  *
- * Fetch the opcode at the current position and install the respective decoder
- * function to decode the next packet.
- *
- * Does not consume the opcode, i.e. modify the decoder's position.
- *
- * Sets the decoder function to NULL in case of errors.
+ * Sets @dfun to the decoder function for decoding the packet at @pos.
  *
  * Returns 0 on success.
- * Returns -pte_invalid if no decoder or a corrupted decoder is given.
+ * Returns -pte_internal if @dfun or @config is NULL.
+ * Returns -pte_nosync if @pos is NULL or outside @config's trace buffer.
  * Returns -pte_eos if the opcode is incomplete or missing.
- * Returns -pte_bad_opc if a bad or unknown opcode is encountered.
  */
-extern int pt_fetch_decoder(struct pt_decoder *);
+extern int pt_df_fetch(const struct pt_decoder_function **dfun,
+		       const uint8_t *pos, const struct pt_config *config);
 
 
 /* Decoder functions for the various packet types.

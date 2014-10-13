@@ -68,7 +68,8 @@ static int pt_read_ahead(struct pt_decoder *decoder)
 		const struct pt_decoder_function *dfun;
 		int errcode;
 
-		errcode = pt_fetch_decoder(decoder);
+		errcode = pt_df_fetch(&decoder->next, decoder->pos,
+				      &decoder->config);
 		if (errcode)
 			return errcode;
 
@@ -109,9 +110,9 @@ int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 	if (!pos)
 		return -pte_nosync;
 
-	status = pt_fetch_decoder(decoder);
-	if (status < 0)
-		return status;
+	errcode = pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
+	if (errcode)
+		return errcode;
 
 	dfun = decoder->next;
 
@@ -157,12 +158,16 @@ int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 	return status;
 }
 
-static int provoke_fetch_error(struct pt_decoder *decoder)
+static int provoke_fetch_error(const struct pt_decoder *decoder)
 {
+	const struct pt_decoder_function *dfun;
 	int errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	/* Repeat the decoder fetch to reproduce the error. */
-	errcode = pt_fetch_decoder(decoder);
+	errcode = pt_df_fetch(&dfun, decoder->pos, &decoder->config);
 	if (errcode < 0)
 		return errcode;
 

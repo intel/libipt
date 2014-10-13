@@ -110,7 +110,8 @@ static int pt_qry_read_psb_header(struct pt_decoder *decoder)
 		const struct pt_decoder_function *dfun;
 		int errcode;
 
-		errcode = pt_fetch_decoder(decoder);
+		errcode = pt_df_fetch(&decoder->next, decoder->pos,
+				      &decoder->config);
 		if (errcode)
 			return errcode;
 

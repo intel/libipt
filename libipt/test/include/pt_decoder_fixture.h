@@ -160,10 +160,7 @@ static inline void pt_add_tcase_series(Suite *suite,
 /* Synchronize the decoder at the beginning of the trace stream, avoiding the
  * initial PSB header.
  */
-static inline void pt_sync_decoder(struct pt_decoder *decoder)
-{
-	(void) pt_fetch_decoder(decoder);
-}
+extern void pt_sync_decoder(struct pt_decoder *decoder);
 
 /*
  * The below encoding functions operate on an encoder.

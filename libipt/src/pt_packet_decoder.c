@@ -176,11 +176,11 @@ int pt_pkt_next(struct pt_packet_decoder *decoder, struct pt_packet *packet)
 	if (!packet || !decoder)
 		return -pte_invalid;
 
-	errcode = pt_fetch_decoder(&decoder->decoder);
+	errcode = pt_df_fetch(&dfun, decoder->decoder.pos,
+			      &decoder->decoder.config);
 	if (errcode < 0)
 		return errcode;
 
-	dfun = decoder->decoder.next;
 	if (!dfun)
 		return -pte_internal;
 

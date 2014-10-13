@@ -202,6 +202,11 @@ void pt_add_tcase(Suite *suite,
 	suite_add_tcase(suite, tcase);
 }
 
+void pt_sync_decoder(struct pt_decoder *decoder)
+{
+	(void) pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
+}
+
 void *check_encode_pad(struct pt_encoder *encoder)
 {
 	int bytes;

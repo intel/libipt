@@ -78,7 +78,8 @@ static struct ptunit_result ptu_sync_decoder(struct pt_query_decoder *decoder)
 	ptu_ptr(decoder);
 	decoder->decoder.flags &= ~pdf_pt_disabled;
 
-	(void) pt_fetch_decoder(&decoder->decoder);
+	(void) pt_df_fetch(&decoder->decoder.next, decoder->decoder.pos,
+			   &decoder->decoder.config);
 	return ptu_passed();
 }
 

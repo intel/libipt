@@ -1,0 +1,417 @@
+/*
+ * Copyright (c) 2014, Intel Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "ptunit.h"
+
+#include "pt_decoder_function.h"
+#include "pt_encoder.h"
+
+#include "intel-pt.h"
+
+
+/* A test fixture for decoder function fetch tests. */
+struct fetch_fixture {
+	/* The trace buffer. */
+	uint8_t buffer[1024];
+
+	/* A trace configuration. */
+	struct pt_config config;
+
+	/* A trace encoder. */
+	struct pt_encoder encoder;
+
+	/* The test fixture initialization and finalization functions. */
+	struct ptunit_result (*init)(struct fetch_fixture *);
+	struct ptunit_result (*fini)(struct fetch_fixture *);
+};
+
+static struct ptunit_result ffix_init(struct fetch_fixture *ffix)
+{
+	memset(ffix->buffer, pt_opc_bad, sizeof(ffix->buffer));
+
+	memset(&ffix->config, 0, sizeof(ffix->config));
+	ffix->config.size = sizeof(ffix->config);
+	ffix->config.begin = ffix->buffer;
+	ffix->config.end = ffix->buffer + sizeof(ffix->buffer);
+
+	pt_encoder_init(&ffix->encoder, &ffix->config);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result ffix_fini(struct fetch_fixture *ffix)
+{
+	pt_encoder_fini(&ffix->encoder);
+
+	return ptu_passed();
+}
+
+
+static struct ptunit_result flags(void)
+{
+	ptu_int_eq(pt_decode_unknown.flags, pdff_unknown);
+	ptu_int_eq(pt_decode_pad.flags, 0);
+	ptu_int_eq(pt_decode_psb.flags, 0);
+	ptu_int_eq(pt_decode_tip.flags, pdff_tip);
+	ptu_int_eq(pt_decode_tnt_8.flags, pdff_tnt);
+	ptu_int_eq(pt_decode_tnt_64.flags, pdff_tnt);
+	ptu_int_eq(pt_decode_tip_pge.flags, pdff_event);
+	ptu_int_eq(pt_decode_tip_pgd.flags, pdff_event);
+	ptu_int_eq(pt_decode_fup.flags, pdff_fup);
+	ptu_int_eq(pt_decode_pip.flags, pdff_event);
+	ptu_int_eq(pt_decode_ovf.flags, pdff_psbend);
+	ptu_int_eq(pt_decode_mode.flags, pdff_event);
+	ptu_int_eq(pt_decode_psbend.flags, pdff_psbend);
+	ptu_int_eq(pt_decode_tsc.flags, 0);
+	ptu_int_eq(pt_decode_cbr.flags, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_null(struct fetch_fixture *ffix)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	errcode = pt_df_fetch(NULL, ffix->config.begin, &ffix->config);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_df_fetch(&dfun, NULL, &ffix->config);
+	ptu_int_eq(errcode, -pte_nosync);
+
+	errcode = pt_df_fetch(&dfun, ffix->config.begin, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_empty(struct fetch_fixture *ffix)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	errcode = pt_df_fetch(&dfun, ffix->config.end, &ffix->config);
+	ptu_int_eq(errcode, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_unknown(struct fetch_fixture *ffix)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	ffix->config.begin[0] = pt_opc_bad;
+
+	errcode = pt_df_fetch(&dfun, ffix->config.begin, &ffix->config);
+	ptu_int_eq(errcode, 0);
+	ptu_ptr_eq(dfun, &pt_decode_unknown);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_unknown_ext(struct fetch_fixture *ffix)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	ffix->config.begin[0] = pt_opc_ext;
+	ffix->config.begin[1] = pt_ext_bad;
+
+	errcode = pt_df_fetch(&dfun, ffix->config.begin, &ffix->config);
+	ptu_int_eq(errcode, 0);
+	ptu_ptr_eq(dfun, &pt_decode_unknown);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_packet(struct fetch_fixture *ffix,
+					 const struct pt_packet *packet,
+					 const struct pt_decoder_function *df)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	errcode = pt_enc_next(&ffix->encoder, packet);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_df_fetch(&dfun, ffix->config.begin, &ffix->config);
+	ptu_int_eq(errcode, 0);
+	ptu_ptr_eq(dfun, df);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_type(struct fetch_fixture *ffix,
+				       enum pt_packet_type type,
+				       const struct pt_decoder_function *dfun)
+{
+	struct pt_packet packet;
+
+	memset(&packet, 0, sizeof(packet));
+	packet.type = type;
+
+	ptu_test(fetch_packet, ffix, &packet, dfun);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_tnt_8(struct fetch_fixture *ffix)
+{
+	struct pt_packet packet;
+
+	memset(&packet, 0, sizeof(packet));
+	packet.type = ppt_tnt_8;
+	packet.payload.tnt.bit_size = 1;
+
+	ptu_test(fetch_packet, ffix, &packet, &pt_decode_tnt_8);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_mode_exec(struct fetch_fixture *ffix)
+{
+	struct pt_packet packet;
+
+	memset(&packet, 0, sizeof(packet));
+	packet.type = ppt_mode;
+	packet.payload.mode.leaf = pt_mol_exec;
+
+	ptu_test(fetch_packet, ffix, &packet, &pt_decode_mode);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result fetch_mode_tsx(struct fetch_fixture *ffix)
+{
+	struct pt_packet packet;
+
+	memset(&packet, 0, sizeof(packet));
+	packet.type = ppt_mode;
+	packet.payload.mode.leaf = pt_mol_tsx;
+
+	ptu_test(fetch_packet, ffix, &packet, &pt_decode_mode);
+
+	return ptu_passed();
+}
+
+int main(int argc, char **argv)
+{
+	struct fetch_fixture ffix;
+	struct ptunit_suite suite;
+
+	ffix.init = ffix_init;
+	ffix.fini = ffix_fini;
+
+	suite = ptunit_mk_suite(argc, argv);
+
+	ptu_run(suite, flags);
+
+	ptu_run_f(suite, fetch_null, ffix);
+	ptu_run_f(suite, fetch_empty, ffix);
+
+	ptu_run_f(suite, fetch_unknown, ffix);
+	ptu_run_f(suite, fetch_unknown_ext, ffix);
+
+	ptu_run_fp(suite, fetch_type, ffix, ppt_pad, &pt_decode_pad);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_psb, &pt_decode_psb);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_tip, &pt_decode_tip);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_tnt_64, &pt_decode_tnt_64);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_tip_pge, &pt_decode_tip_pge);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_tip_pgd, &pt_decode_tip_pgd);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_fup, &pt_decode_fup);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_pip, &pt_decode_pip);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_ovf, &pt_decode_ovf);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_psbend, &pt_decode_psbend);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_tsc, &pt_decode_tsc);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_cbr, &pt_decode_cbr);
+
+	ptu_run_f(suite, fetch_tnt_8, ffix);
+	ptu_run_f(suite, fetch_mode_exec, ffix);
+	ptu_run_f(suite, fetch_mode_tsx, ffix);
+
+	ptunit_report(&suite);
+	return suite.nr_fails;
+}
+
+
+/* Dummy decode functions to satisfy link dependencies.
+ *
+ * As a nice side-effect, we will know if we need to add more tests when
+ * adding new decoder functions.
+ */
+int pt_pkt_decode_unknown(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_unknown(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_pad(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_pad(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_psb(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_psb(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_header_psb(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tip(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_tip(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tnt_8(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_tnt_8(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tnt_64(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_tnt_64(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tip_pge(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_tip_pge(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tip_pgd(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_tip_pgd(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_fup(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_fup(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_header_fup(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_pip(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_pip(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_header_pip(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_ovf(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_ovf(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_mode(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_mode(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_header_mode(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_psbend(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_psbend(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tsc(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_tsc(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+
+int pt_pkt_decode_cbr(struct pt_packet *p, const struct pt_decoder *d)
+{
+	return -pte_internal;
+}
+int pt_qry_decode_cbr(struct pt_decoder *d)
+{
+	return -pte_internal;
+}
