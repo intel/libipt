@@ -157,6 +157,19 @@ int pt_query_start(struct pt_decoder *decoder, uint64_t *addr)
 	return status;
 }
 
+static int provoke_fetch_error(struct pt_decoder *decoder)
+{
+	int errcode;
+
+	/* Repeat the decoder fetch to reproduce the error. */
+	errcode = pt_fetch_decoder(decoder);
+	if (errcode < 0)
+		return errcode;
+
+	/* We must get some error or something's wrong. */
+	return -pte_internal;
+}
+
 int pt_query_uncond_branch(struct pt_decoder *decoder, uint64_t *addr)
 {
 	int errcode, flags;
@@ -169,16 +182,8 @@ int pt_query_uncond_branch(struct pt_decoder *decoder, uint64_t *addr)
 		const struct pt_decoder_function *dfun;
 
 		dfun = decoder->next;
-		if (!dfun) {
-			/* Repeat the decoder fetch to reproduce the error. */
-			errcode = pt_fetch_decoder(decoder);
-
-			/* We must get some error or something's wrong. */
-			if (errcode >= 0)
-				errcode = -pte_internal;
-
-			return errcode;
-		}
+		if (!dfun)
+			return provoke_fetch_error(decoder);
 
 		if (!dfun->decode)
 			return -pte_internal;
@@ -250,16 +255,8 @@ static int pt_cache_tnt(struct pt_decoder *decoder)
 		int errcode;
 
 		dfun = decoder->next;
-		if (!dfun) {
-			/* Repeat the decoder fetch to reproduce the error. */
-			errcode = pt_fetch_decoder(decoder);
-
-			/* We must get some error or something's wrong. */
-			if (errcode >= 0)
-				errcode = -pte_internal;
-
-			return errcode;
-		}
+		if (!dfun)
+			return provoke_fetch_error(decoder);
 
 		if (!dfun->decode)
 			return -pte_internal;
@@ -345,16 +342,8 @@ int pt_query_event(struct pt_decoder *decoder, struct pt_event *event)
 		const struct pt_decoder_function *dfun;
 
 		dfun = decoder->next;
-		if (!dfun) {
-			/* Repeat the decoder fetch to reproduce the error. */
-			errcode = pt_fetch_decoder(decoder);
-
-			/* We must get some error or something's wrong. */
-			if (errcode >= 0)
-				errcode = -pte_internal;
-
-			return errcode;
-		}
+		if (!dfun)
+			return provoke_fetch_error(decoder);
 
 		if (!dfun->decode)
 			return -pte_internal;
