@@ -96,7 +96,6 @@ if (CHECK)
     test/src/check.c
     test/src/check_pt_packet_decode.c
     test/src/check_pt_decoder.c
-    test/src/check_pt_sync.c
     test/src/check_pt_use.c
     test/src/pt_decoder_fixture.c
   )
@@ -195,6 +194,11 @@ add_executable(ptunit-packet
   src/pt_packet_decode.c
 )
 
+add_executable(ptunit-sync
+  test/src/ptunit-sync.c
+  src/pt_sync.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
@@ -209,6 +213,7 @@ target_link_libraries(ptunit-mapped_section ptunit)
 target_link_libraries(ptunit-asid ptunit)
 target_link_libraries(ptunit-event_queue ptunit)
 target_link_libraries(ptunit-packet ptunit)
+target_link_libraries(ptunit-sync ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap

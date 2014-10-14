@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Intel Corporation
+ * Copyright (c) 2014, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,13 +26,30 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __SUITES_H__
-#define __SUITES_H__
+#ifndef __PT_SYNC_H__
+#define __PT_SYNC_H__
 
-#include <check.h>
+#include <stdint.h>
 
-extern Suite *suite_pt_decoder(void);
-extern Suite *suite_pt_packet_decode(void);
-extern Suite *suite_pt_use(void);
+struct pt_config;
 
-#endif /* __SUITES_H__ */
+
+/* Synchronize onto the trace stream.
+ *
+ * Search for the next synchronization point in forward or backward direction
+ * starting at @pos using the trace configuration @config.
+ *
+ * On success, stores a pointer to the next synchronization point in @sync.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_internal if @sync, @pos, or @config is NULL.
+ * Returns -pte_nosync if @pos lies outside of @config's buffer.
+ * Returns -pte_eos if no further synchronization point is found.
+ */
+extern int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
+			   const struct pt_config *config);
+extern int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
+			    const struct pt_config *config);
+
+#endif /* __PT_SYNC_H__ */

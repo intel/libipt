@@ -26,14 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pt_decoder.h"
-#include "pt_packet_decode.h"
+#include "pt_sync.h"
 
 #include "intel-pt.h"
 
 
-/*
- * A psb packet contains a unique 2-byte repeating pattern.
+/* A psb packet contains a unique 2-byte repeating pattern.
  *
  * There are only two ways to fill up a 64bit work with such a pattern.
  */
@@ -67,6 +65,8 @@ static const uint8_t *align(const uint8_t *pointer, size_t alignment)
 static const uint8_t *pt_find_psb(const uint8_t *pos,
 				  const uint8_t *begin, const uint8_t *end)
 {
+	size_t idx;
+
 	/* Navigate to the end of the psb payload pattern.
 	 *
 	 * Beware that PSB is an extended opcode. We must not confuse the extend
@@ -91,7 +91,7 @@ static const uint8_t *pt_find_psb(const uint8_t *pos,
 	 * We're right after the psb payload and within the buffer.
 	 * Navigate to the expected beginning of the psb packet.
 	 */
-	pos -= (pt_psb_repeat_count * 2) + 2;
+	pos -= ptps_psb;
 
 	/* Check if we're still inside the buffer. */
 	if (pos < begin)
@@ -103,60 +103,30 @@ static const uint8_t *pt_find_psb(const uint8_t *pos,
 	if (pos[1] != pt_ext_psb)
 		return NULL;
 
+	for (idx = 2; idx < ptps_psb;) {
+		if (pos[idx++] != pt_psb_hi)
+			return NULL;
+		if (pos[idx++] != pt_psb_lo)
+			return NULL;
+	}
+
 	return pos;
 }
 
-/* Sync the decoder at the given position.
- *
- * Returns zero on success.
- * Returns a negative error code otherwise.
- */
-static int pt_sync_decoder(struct pt_decoder *decoder, const uint8_t *pos)
+int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
+		    const struct pt_config *config)
 {
-	struct pt_packet packet;
-	int status;
+	const uint8_t *begin, *end;
 
-	decoder->pos = pos;
+	if (!sync || !pos || !config)
+		return -pte_internal;
 
-	/* Let's try to decode the PSB packet we found. */
-	status = pt_decode_psb.packet(&packet, decoder);
-	if (status < 0)
-		return -pte_nosync;
-
-	/* We synchronized successfully. */
-	decoder->sync = pos;
-	decoder->pos = pos;
-
-	pt_reset(decoder);
-
-	return 0;
-}
-
-/* Synchronize the decoder.
- */
-
-int pt_sync_forward(struct pt_decoder *decoder)
-{
-	const uint8_t *pos, *begin, *end, *sync;
-
-	if (!decoder)
-		return -pte_invalid;
-
-	begin = pt_begin(decoder);
-	end = pt_end(decoder);
-
-	sync = decoder->sync;
-	pos = decoder->pos;
-	if (!pos)
-		pos = begin;
+	begin = config->begin;
+	end = config->end;
 
 	/* Check if the buffer is valid. */
 	if ((pos < begin) || (end < pos))
-		return -pte_invalid;
-
-	/* Ignore the current syncpoint. */
-	if (pos == sync)
-		pos += ptps_psb;
+		return -pte_internal;
 
 	/* We search for a full 64bit word. It's OK to skip the current one. */
 	pos = align(pos, sizeof(*psb_pattern));
@@ -177,34 +147,28 @@ int pt_sync_forward(struct pt_decoder *decoder)
 
 		/* We found a 64bit word's worth of psb payload pattern. */
 		current = pt_find_psb(pos, begin, end);
-		if (current) {
-			int errcode;
+		if (!current)
+			continue;
 
-			errcode = pt_sync_decoder(decoder, current);
-			if (!errcode)
-				return 0;
-		}
+		*sync = current;
+		return 0;
 	}
 }
 
-int pt_sync_backward(struct pt_decoder *decoder)
+int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
+		    const struct pt_config *config)
 {
-	const uint8_t *sync, *pos, *begin, *end;
+	const uint8_t *begin, *end;
 
-	if (!decoder)
-		return -pte_invalid;
+	if (!sync || !pos || !config)
+		return -pte_internal;
 
-	begin = pt_begin(decoder);
-	end = pt_end(decoder);
+	begin = config->begin;
+	end = config->end;
 
-	sync = decoder->sync;
-	pos = decoder->pos;
-	if (!pos)
-		pos = end;
-
-	/* Check if we're still inside the buffer. */
+	/* Check if the buffer is valid. */
 	if ((pos < begin) || (end < pos))
-		return -pte_invalid;
+		return -pte_internal;
 
 	/* We search for a full 64bit word. It's OK to skip the current one. */
 	pos = truncate(pos, sizeof(*psb_pattern));
@@ -225,14 +189,10 @@ int pt_sync_backward(struct pt_decoder *decoder)
 
 		/* We found a 64bit word's worth of psb payload pattern. */
 		next = pt_find_psb(next, begin, end);
+		if (!next)
+			continue;
 
-		/* Make sure we skip the current segment. */
-		if (next && (!sync || (next < sync))) {
-			int errcode;
-
-			errcode = pt_sync_decoder(decoder, next);
-			if (!errcode)
-				return 0;
-		}
+		*sync = next;
+		return 0;
 	}
 }

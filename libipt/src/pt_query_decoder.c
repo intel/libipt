@@ -27,6 +27,7 @@
  */
 
 #include "pt_query_decoder.h"
+#include "pt_sync.h"
 
 
 int pt_qry_decoder_init(struct pt_query_decoder *decoder,
@@ -70,32 +71,62 @@ void pt_qry_free_decoder(struct pt_query_decoder *decoder)
 	free(decoder);
 }
 
-int pt_qry_sync_forward(struct pt_query_decoder *decoder, uint64_t *ip)
+int pt_qry_sync_forward(struct pt_query_decoder *qry, uint64_t *ip)
 {
+	struct pt_decoder *decoder;
+	const uint8_t *pos, *sync;
 	int errcode;
 
-	if (!decoder)
+	if (!qry)
 		return -pte_invalid;
 
-	errcode = pt_sync_forward(&decoder->decoder);
+	decoder = &qry->decoder;
+
+	sync = decoder->sync;
+	pos = decoder->pos;
+	if (!pos)
+		pos = decoder->config.begin;
+
+	if (pos == sync)
+		pos += ptps_psb;
+
+	errcode = pt_sync_forward(&sync, pos, &decoder->config);
 	if (errcode < 0)
 		return errcode;
 
-	return pt_query_start(&decoder->decoder, ip);
+	decoder->sync = sync;
+	decoder->pos = sync;
+
+	pt_reset(decoder);
+
+	return pt_query_start(decoder, ip);
 }
 
-int pt_qry_sync_backward(struct pt_query_decoder *decoder, uint64_t *ip)
+int pt_qry_sync_backward(struct pt_query_decoder *qry, uint64_t *ip)
 {
+	struct pt_decoder *decoder;
+	const uint8_t *pos, *sync;
 	int errcode;
 
-	if (!decoder)
+	if (!qry)
 		return -pte_invalid;
 
-	errcode = pt_sync_forward(&decoder->decoder);
+	decoder = &qry->decoder;
+
+	pos = decoder->sync;
+	if (!pos)
+		pos = decoder->config.end;
+
+	errcode = pt_sync_backward(&sync, pos, &decoder->config);
 	if (errcode < 0)
 		return errcode;
 
-	return pt_query_start(&decoder->decoder, ip);
+	decoder->sync = sync;
+	decoder->pos = sync;
+
+	pt_reset(decoder);
+
+	return pt_query_start(decoder, ip);
 }
 
 int pt_qry_get_offset(struct pt_query_decoder *decoder, uint64_t *offset)

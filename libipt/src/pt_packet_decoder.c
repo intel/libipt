@@ -28,6 +28,7 @@
 
 #include "pt_packet_decoder.h"
 #include "pt_packet_decode.h"
+#include "pt_sync.h"
 
 
 int pt_pkt_decoder_init(struct pt_packet_decoder *decoder,
@@ -71,20 +72,62 @@ void pt_pkt_free_decoder(struct pt_packet_decoder *decoder)
 	free(decoder);
 }
 
-int pt_pkt_sync_forward(struct pt_packet_decoder *decoder)
+int pt_pkt_sync_forward(struct pt_packet_decoder *pkt)
 {
-	if (!decoder)
+	struct pt_decoder *decoder;
+	const uint8_t *pos, *sync;
+	int errcode;
+
+	if (!pkt)
 		return -pte_invalid;
 
-	return pt_sync_forward(&decoder->decoder);
+	decoder = &pkt->decoder;
+
+	sync = decoder->sync;
+	pos = decoder->pos;
+	if (!pos)
+		pos = decoder->config.begin;
+
+	if (pos == sync)
+		pos += ptps_psb;
+
+	errcode = pt_sync_forward(&sync, pos, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	decoder->sync = sync;
+	decoder->pos = sync;
+
+	pt_reset(decoder);
+
+	return 0;
 }
 
-int pt_pkt_sync_backward(struct pt_packet_decoder *decoder)
+int pt_pkt_sync_backward(struct pt_packet_decoder *pkt)
 {
-	if (!decoder)
+	struct pt_decoder *decoder;
+	const uint8_t *pos, *sync;
+	int errcode;
+
+	if (!pkt)
 		return -pte_invalid;
 
-	return pt_sync_backward(&decoder->decoder);
+	decoder = &pkt->decoder;
+
+	pos = decoder->sync;
+	if (!pos)
+		pos = decoder->config.end;
+
+	errcode = pt_sync_backward(&sync, pos, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	decoder->sync = sync;
+	decoder->pos = sync;
+
+	pt_reset(decoder);
+
+	return 0;
 }
 
 int pt_pkt_sync_set(struct pt_packet_decoder *decoder, uint64_t offset)

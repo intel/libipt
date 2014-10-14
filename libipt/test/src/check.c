@@ -36,7 +36,6 @@ int main(void)
 	SRunner *srunner = srunner_create(NULL);
 
 	srunner_add_suite(srunner, suite_pt_decoder());
-	srunner_add_suite(srunner, suite_pt_sync());
 	srunner_add_suite(srunner, suite_pt_packet_decode());
 	srunner_add_suite(srunner, suite_pt_use());
 

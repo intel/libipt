@@ -118,24 +118,6 @@ extern int pt_get_decoder_pos(struct pt_decoder *decoder, uint64_t *offset);
  */
 extern int pt_get_decoder_sync(struct pt_decoder *decoder, uint64_t *offset);
 
-/* Synchronize the decoder.
- *
- * Search for the next synchronization point in forward or backward direction.
- *
- * If the decoder has not been synchronized, yet, the search is started at the
- * beginning of the trace buffer in case of forward synchronization and at the
- * end of the trace buffer in case of backward synchronization.
- *
- * Returns zero on success.
- *
- * Returns -pte_invalid if no decoder is given.
- * Returns -pte_eos if no further synchronization point is found.
- * Returns -pte_bad_opc if the decoder encountered unknown packets.
- * Returns -pte_bad_packet if the decoder encountered unknown packet payloads.
- */
-extern int pt_sync_forward(struct pt_decoder *);
-extern int pt_sync_backward(struct pt_decoder *);
-
 /* Start querying.
  *
  * Read ahead until the first query-relevant packet and return the current
