@@ -211,7 +211,7 @@ static struct ptunit_result overflow(void)
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 

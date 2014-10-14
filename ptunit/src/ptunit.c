@@ -183,7 +183,7 @@ void ptunit_fini_test(struct ptunit_test *test)
 	}
 }
 
-struct ptunit_suite ptunit_mk_suite(int argc, const char **argv)
+struct ptunit_suite ptunit_mk_suite(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 

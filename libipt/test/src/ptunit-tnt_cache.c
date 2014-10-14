@@ -221,7 +221,7 @@ static struct ptunit_result update_tnt_null_packet(void)
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 

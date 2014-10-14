@@ -424,7 +424,7 @@ static struct ptunit_result frun_fini_preserve(void)
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 	struct test_fixture tfix;

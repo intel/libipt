@@ -300,7 +300,7 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct section_fixture sfix;
 	struct ptunit_suite suite;

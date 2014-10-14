@@ -767,7 +767,7 @@ struct ptunit_result dfix_fini(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct image_fixture dfix, ifix, rfix;
 	struct ptunit_suite suite;

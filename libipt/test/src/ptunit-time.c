@@ -189,7 +189,7 @@ static struct ptunit_result tfix_init(struct time_fixture *tfix)
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 	struct time_fixture tfix;

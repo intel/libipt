@@ -300,7 +300,7 @@ extern struct ptunit_test ptunit_mk_test(const char *name, const char *args);
 extern void ptunit_fini_test(struct ptunit_test *);
 
 /* Create a unit test suite. */
-extern struct ptunit_suite ptunit_mk_suite(int argc, const char **argv);
+extern struct ptunit_suite ptunit_mk_suite(int argc, char **argv);
 
 /* Log a unit test result.
  *

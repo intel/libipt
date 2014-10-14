@@ -384,7 +384,7 @@ static struct ptunit_result find(struct evq_fixture *efix,
 	return ptu_passed();
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct evq_fixture efix, pfix;
 	struct ptunit_suite suite;

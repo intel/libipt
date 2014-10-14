@@ -1918,7 +1918,7 @@ static void init_fixtures(void)
 	dfix_event_psb.header = ptu_dfix_header_event_psb;
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 
