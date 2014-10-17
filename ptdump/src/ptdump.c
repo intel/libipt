@@ -629,12 +629,13 @@ int main(int argc, char *argv[])
 	if (errcode < 0)
 		diag_err("failed to determine errata", pt_errcode(errcode));
 
-	/* We will leak the pt buffer. */
 	errcode = load_pt(&config, ptfile, argv[0]);
 	if (errcode < 0)
 		return errcode;
 
 	errcode = dump(&config, &options);
+
+	free(config.begin);
 
 	return -errcode;
 }
