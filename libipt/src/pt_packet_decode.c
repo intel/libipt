@@ -28,55 +28,17 @@
 
 #include "pt_packet_decode.h"
 #include "pt_decoder.h"
+#include "pt_packet.h"
 
 #include "intel-pt.h"
 
-#include <inttypes.h>
-#include <limits.h>
-
-
-static int extract_unknown(struct pt_packet *packet,
-			   const struct pt_decoder *decoder)
-{
-	int (*decode)(struct pt_packet_unknown *, const struct pt_config *,
-		      const uint8_t *, void *);
-	int size, errcode;
-
-	decode = decoder->config.decode.callback;
-	if (!decode)
-		return -pte_bad_opc;
-
-	/* Fill in some default values. */
-	packet->payload.unknown.packet = decoder->pos;
-	packet->payload.unknown.priv = NULL;
-
-	/* We accept a size of zero to allow the callback to modify the
-	 * trace buffer and resume normal decoding.
-	 */
-	size = (*decode)(&packet->payload.unknown, &decoder->config,
-			 decoder->pos, decoder->config.decode.context);
-	if (size < 0)
-		return size;
-
-	if (size > UCHAR_MAX)
-		return -pte_invalid;
-
-	packet->type = ppt_unknown;
-	packet->size = (uint8_t) size;
-
-	errcode = pt_check_bounds(decoder, size);
-	if (errcode < 0)
-		return errcode;
-
-	return size;
-}
 
 static int packet_unknown(struct pt_packet *packet,
 			  const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_unknown(packet, decoder);
+	size = pt_pkt_read_unknown(packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -88,7 +50,7 @@ static int decode_unknown(struct pt_decoder *decoder)
 	struct pt_packet packet;
 	int size;
 
-	size = extract_unknown(&packet, decoder);
+	size = pt_pkt_read_unknown(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -126,33 +88,12 @@ const struct pt_decoder_function pt_decode_pad = {
 	/* .flags = */ 0
 };
 
-static int extract_psb(const struct pt_decoder *decoder)
-{
-	const uint8_t *pos;
-	int errcode, count;
-
-	errcode = pt_check_bounds(decoder, ptps_psb);
-	if (errcode < 0)
-		return errcode;
-
-	pos = decoder->pos + pt_opcs_psb;
-
-	for (count = 0; count < pt_psb_repeat_count; ++count) {
-		if (*pos++ != pt_psb_hi)
-			return -pte_bad_packet;
-		if (*pos++ != pt_psb_lo)
-			return -pte_bad_packet;
-	}
-
-	return ptps_psb;
-}
-
 static int packet_psb(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_psb(decoder);
+	size = pt_pkt_read_psb(decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -166,7 +107,7 @@ static int header_psb(struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_psb(decoder);
+	size = pt_pkt_read_psb(decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -230,21 +171,6 @@ const struct pt_decoder_function pt_decode_psb = {
 	/* .flags = */ 0
 };
 
-static uint64_t pt_read_value(const uint8_t *pos, int size)
-{
-	uint64_t val;
-	int idx;
-
-	for (val = 0, idx = 0; idx < size; ++idx) {
-		uint64_t byte = *pos++;
-
-		byte <<= (idx * 8);
-		val |= byte;
-	}
-
-	return val;
-}
-
 static void fill_in_event_ip(struct pt_event *event, uint64_t *ip,
 			     const struct pt_decoder *decoder)
 {
@@ -253,52 +179,6 @@ static void fill_in_event_ip(struct pt_event *event, uint64_t *ip,
 	errcode = pt_last_ip_query(ip, &decoder->ip);
 	if (errcode < 0)
 		event->ip_suppressed = 1;
-}
-
-static int extract_ip(struct pt_packet_ip *packet,
-		      const struct pt_decoder *decoder)
-{
-	const uint8_t *pos;
-	uint64_t ip;
-	uint8_t ipc;
-	int size, ipsize, errcode;
-
-	pos = decoder->pos;
-	ipc = (*pos++ >> pt_opm_ipc_shr) & pt_opm_ipc_shr_mask;
-
-	size = 1;
-	ipsize = 0;
-	switch (ipc) {
-	case pt_ipc_suppressed:
-		ipsize = 0;
-		break;
-
-	case pt_ipc_update_16:
-		ipsize = 2;
-		break;
-
-	case pt_ipc_update_32:
-		ipsize = 4;
-		break;
-
-	case pt_ipc_sext_48:
-		ipsize = 6;
-		break;
-	}
-
-	size += ipsize;
-	errcode = pt_check_bounds(decoder, size);
-	if (errcode < 0)
-		return errcode;
-
-	ip = 0;
-	if (ipsize)
-		ip = pt_read_value(pos, ipsize);
-
-	packet->ipc = (enum pt_ip_compression) ipc;
-	packet->ip = ip;
-
-	return size;
 }
 
 /* Decode a generic IP packet.
@@ -312,7 +192,7 @@ static int decode_ip(struct pt_decoder *decoder)
 	struct pt_packet_ip packet;
 	int errcode, size;
 
-	size = extract_ip(&packet, decoder);
+	size = pt_pkt_read_ip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -330,7 +210,8 @@ static int packet_tip(struct pt_packet *packet,
 {
 	int size;
 
-	size = extract_ip(&packet->payload.ip, decoder);
+	size = pt_pkt_read_ip(&packet->payload.ip, decoder->pos,
+			      &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -412,50 +293,13 @@ const struct pt_decoder_function pt_decode_tip = {
 	/* .flags = */ pdff_tip
 };
 
-static uint8_t get_tnt_bit_size(uint64_t payload)
-{
-	uint8_t size;
-
-	/* The payload bit-size is the bit-index of the payload's stop-bit,
-	 * which itself is not part of the payload proper.
-	 */
-	for (size = 0; ; size += 1) {
-		payload >>= 1;
-		if (!payload)
-			break;
-	}
-
-	return size;
-}
-
-static int extract_tnt_8(struct pt_packet_tnt *packet,
-			 const struct pt_decoder *decoder)
-{
-	uint64_t payload;
-	uint8_t bit_size;
-
-	/* TNT-8 does not have a separate payload.  Skip the bounds check. */
-	payload = *decoder->pos >> pt_opm_tnt_8_shr;
-
-	bit_size = get_tnt_bit_size(payload);
-	if (!bit_size)
-		return -pte_bad_packet;
-
-	/* Remove the stop bit from the payload. */
-	payload &= ~(1ull << bit_size);
-
-	packet->payload = payload;
-	packet->bit_size = bit_size;
-
-	return ptps_tnt_8;
-}
-
 static int packet_tnt_8(struct pt_packet *packet,
 			const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_tnt_8(&packet->payload.tnt, decoder);
+	size = pt_pkt_read_tnt_8(&packet->payload.tnt, decoder->pos,
+				 &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -470,7 +314,7 @@ static int decode_tnt_8(struct pt_decoder *decoder)
 	struct pt_packet_tnt packet;
 	int size, errcode;
 
-	size = extract_tnt_8(&packet, decoder);
+	size = pt_pkt_read_tnt_8(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -490,39 +334,13 @@ const struct pt_decoder_function pt_decode_tnt_8 = {
 	/* .flags = */ pdff_tnt
 };
 
-static int extract_tnt_64(struct pt_packet_tnt *packet,
-			  const struct pt_decoder *decoder)
-{
-	uint64_t payload;
-	uint8_t bit_size;
-	int errcode;
-
-	errcode = pt_check_bounds(decoder, ptps_tnt_64);
-	if (errcode < 0)
-		return errcode;
-
-	payload = pt_read_value(decoder->pos + pt_opcs_tnt_64,
-				pt_pl_tnt_64_size);
-
-	bit_size = get_tnt_bit_size(payload);
-	if (!bit_size)
-		return -pte_bad_packet;
-
-	/* Remove the stop bit from the payload. */
-	payload &= ~(1ull << bit_size);
-
-	packet->payload = payload;
-	packet->bit_size = bit_size;
-
-	return ptps_tnt_64;
-}
-
 static int packet_tnt_64(struct pt_packet *packet,
 			 const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_tnt_64(&packet->payload.tnt, decoder);
+	size = pt_pkt_read_tnt_64(&packet->payload.tnt, decoder->pos,
+				  &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -537,7 +355,7 @@ static int decode_tnt_64(struct pt_decoder *decoder)
 	struct pt_packet_tnt packet;
 	int size, errcode;
 
-	size = extract_tnt_64(&packet, decoder);
+	size = pt_pkt_read_tnt_64(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -562,7 +380,8 @@ static int packet_tip_pge(struct pt_packet *packet,
 {
 	int size;
 
-	size = extract_ip(&packet->payload.ip, decoder);
+	size = pt_pkt_read_ip(&packet->payload.ip, decoder->pos,
+			      &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -685,7 +504,8 @@ static int packet_tip_pgd(struct pt_packet *packet,
 {
 	int size;
 
-	size = extract_ip(&packet->payload.ip, decoder);
+	size = pt_pkt_read_ip(&packet->payload.ip, decoder->pos,
+			      &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -756,7 +576,8 @@ static int packet_fup(struct pt_packet *packet,
 {
 	int size;
 
-	size = extract_ip(&packet->payload.ip, decoder);
+	size = pt_pkt_read_ip(&packet->payload.ip, decoder->pos,
+			      &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -777,7 +598,7 @@ static int header_fup(struct pt_decoder *decoder)
 	struct pt_packet_ip packet;
 	int errcode, size;
 
-	size = extract_ip(&packet, decoder);
+	size = pt_pkt_read_ip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -882,33 +703,13 @@ const struct pt_decoder_function pt_decode_fup = {
 	/* .flags = */ pdff_fup
 };
 
-static int extract_pip(struct pt_packet_pip *packet,
-		       const struct pt_decoder *decoder)
-{
-	uint64_t payload;
-	int errcode;
-
-	errcode = pt_check_bounds(decoder, ptps_pip);
-	if (errcode < 0)
-		return errcode;
-
-	/* Read the payload. */
-	payload = pt_read_value(decoder->pos + pt_opcs_pip, pt_pl_pip_size);
-
-	/* Create the cr3 value. */
-	payload  >>= pt_pl_pip_shr;
-	payload  <<= pt_pl_pip_shl;
-	packet->cr3 = payload;
-
-	return ptps_pip;
-}
-
 static int packet_pip(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_pip(&packet->payload.pip, decoder);
+	size = pt_pkt_read_pip(&packet->payload.pip, decoder->pos,
+			       &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -924,7 +725,7 @@ static int decode_pip(struct pt_decoder *decoder)
 	struct pt_event *event;
 	int size;
 
-	size = extract_pip(&packet, decoder);
+	size = pt_pkt_read_pip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -959,7 +760,7 @@ static int header_pip(struct pt_decoder *decoder)
 	struct pt_event *event;
 	int size;
 
-	size = extract_pip(&packet, decoder);
+	size = pt_pkt_read_pip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1105,55 +906,13 @@ const struct pt_decoder_function pt_decode_ovf = {
 	/* .flags = */ pdff_psbend
 };
 
-static int extract_mode_exec(struct pt_packet_mode_exec *packet, uint8_t mode)
-{
-	packet->csl = (mode & pt_mob_exec_csl) != 0;
-	packet->csd = (mode & pt_mob_exec_csd) != 0;
-
-	return ptps_mode;
-}
-
-static int extract_mode_tsx(struct pt_packet_mode_tsx *packet, uint8_t mode)
-{
-	packet->intx = (mode & pt_mob_tsx_intx) != 0;
-	packet->abrt = (mode & pt_mob_tsx_abrt) != 0;
-
-	return ptps_mode;
-}
-
-static int extract_mode(struct pt_packet_mode *packet,
-			const struct pt_decoder *decoder)
-{
-	uint8_t payload, mode, leaf;
-	int errcode;
-
-	errcode = pt_check_bounds(decoder, ptps_mode);
-	if (errcode < 0)
-		return errcode;
-
-	payload = decoder->pos[pt_opcs_mode];
-	leaf = payload & pt_mom_leaf;
-	mode = payload & pt_mom_bits;
-
-	packet->leaf = (enum pt_mode_leaf) leaf;
-	switch (leaf) {
-	default:
-		return -pte_bad_packet;
-
-	case pt_mol_exec:
-		return extract_mode_exec(&packet->bits.exec, mode);
-
-	case pt_mol_tsx:
-		return extract_mode_tsx(&packet->bits.tsx, mode);
-	}
-}
-
 static int packet_mode(struct pt_packet *packet,
 		       const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_mode(&packet->payload.mode, decoder);
+	size = pt_pkt_read_mode(&packet->payload.mode, decoder->pos,
+				&decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1215,7 +974,7 @@ static int decode_mode(struct pt_decoder *decoder)
 	struct pt_packet_mode packet;
 	int size, errcode;
 
-	size = extract_mode(&packet, decoder);
+	size = pt_pkt_read_mode(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1243,7 +1002,7 @@ static int header_mode(struct pt_decoder *decoder)
 	struct pt_event *event;
 	int size;
 
-	size = extract_mode(&packet, decoder);
+	size = pt_pkt_read_mode(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1312,26 +1071,13 @@ const struct pt_decoder_function pt_decode_psbend = {
 	/* .flags = */ pdff_psbend
 };
 
-static int extract_tsc(struct pt_packet_tsc *packet,
-		       const struct pt_decoder *decoder)
-{
-	int errcode;
-
-	errcode = pt_check_bounds(decoder, ptps_tsc);
-	if (errcode < 0)
-		return errcode;
-
-	packet->tsc = pt_read_value(decoder->pos + pt_opcs_tsc, pt_pl_tsc_size);
-
-	return ptps_tsc;
-}
-
 static int packet_tsc(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_tsc(&packet->payload.tsc, decoder);
+	size = pt_pkt_read_tsc(&packet->payload.tsc, decoder->pos,
+			       &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1346,7 +1092,7 @@ static int decode_tsc(struct pt_decoder *decoder)
 	struct pt_packet_tsc packet;
 	int size;
 
-	size = extract_tsc(&packet, decoder);
+	size = pt_pkt_read_tsc(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1366,29 +1112,13 @@ const struct pt_decoder_function pt_decode_tsc = {
 	/* .flags = */ 0
 };
 
-static int extract_cbr(struct pt_packet_cbr *packet,
-		       const struct pt_decoder *decoder)
-{
-	const uint8_t *pos;
-	int errcode;
-
-	pos = decoder->pos;
-
-	errcode = pt_check_bounds(decoder, ptps_cbr);
-	if (errcode < 0)
-		return errcode;
-
-	packet->ratio = pos[2];
-
-	return ptps_cbr;
-}
-
 static int packet_cbr(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
 
-	size = extract_cbr(&packet->payload.cbr, decoder);
+	size = pt_pkt_read_cbr(&packet->payload.cbr, decoder->pos,
+			       &decoder->config);
 	if (size < 0)
 		return size;
 
@@ -1403,7 +1133,7 @@ static int decode_cbr(struct pt_decoder *decoder)
 	struct pt_packet_cbr packet;
 	int size;
 
-	size = extract_cbr(&packet, decoder);
+	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
