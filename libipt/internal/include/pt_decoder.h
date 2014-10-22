@@ -226,26 +226,6 @@ static inline const uint8_t *pt_end(const struct pt_decoder *decoder)
 	return decoder->config.end;
 }
 
-static inline int pt_check_bounds(const struct pt_decoder *decoder, int size)
-{
-	const uint8_t *begin, *end;
-
-	if (size < 0)
-		return -pte_internal;
-
-	begin = decoder->pos;
-	end = pt_end(decoder);
-
-	if (end < begin)
-		return -pte_internal;
-
-	begin += size;
-	if (end < begin)
-		return -pte_eos;
-
-	return 0;
-}
-
 /* Initialize the decoder.
  *
  * Returns zero on success, a negative error code otherwise.
