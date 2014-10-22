@@ -126,6 +126,7 @@ add_executable(ptunit-query
   src/pt_tnt_cache.c
   src/pt_time.c
   src/pt_event_queue.c
+  src/pt_query_decoder.c
   ${LIBIPT_CONFIG_FILES}
 )
 
