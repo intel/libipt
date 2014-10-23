@@ -644,11 +644,11 @@ know the memory image for which Intel PT has been recorded.  This memory image
 is represented by a `pt_image` object.  If decoding failed due to an IP lying
 outside of the traced memory image, `pt_insn_next()` will return `-pte_nomap`.
 
-An image is allocated with `pt_image_alloc()` and freed with `pt_image_free()`.
-The same image may be used with multiple decoders.  Beware that all changes will
-be visible to all decoders.  Use this when using multiple decoders on the exact
-same image, if you want to prepare the image in advance, or if you want to
-switch between images.
+Use `pt_image_alloc()` to allocate and `pt_image_free()` to free an image.  The
+same image may be used with multiple decoders.  Note that all changes will be
+visible to all decoders.  Use this when using multiple decoders on the exact
+same image if you want to prepare the image in advance or if you want to switch
+between images.
 
 Every decoder provides an empty default image that is used if no image is
 specified during allocation.  The default image is implicitly destroyed when the
@@ -667,7 +667,7 @@ address-space.
 Sections may be added and removed at any time as long as no decoder that uses
 the modified image is running.
 
-In addition to adding sections you can register a callback function for reading
+In addition to adding sections, you can register a callback function for reading
 memory using `pt_image_set_callback()`.  The `context` parameter you pass
 together with the callback function pointer will be passed to your callback
 function every time it is called.  There can only be one callback at any time.
