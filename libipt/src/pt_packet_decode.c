@@ -33,7 +33,7 @@
 #include "intel-pt.h"
 
 
-static int packet_unknown(struct pt_packet *packet,
+int pt_pkt_decode_unknown(struct pt_packet *packet,
 			  const struct pt_decoder *decoder)
 {
 	int size;
@@ -45,7 +45,7 @@ static int packet_unknown(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_unknown(struct pt_decoder *decoder)
+int pt_qry_decode_unknown(struct pt_decoder *decoder)
 {
 	struct pt_packet packet;
 	int size;
@@ -59,13 +59,13 @@ static int decode_unknown(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_unknown = {
-	/* .packet = */ packet_unknown,
-	/* .decode = */ decode_unknown,
-	/* .header = */ decode_unknown,
+	/* .packet = */ pt_pkt_decode_unknown,
+	/* .decode = */ pt_qry_decode_unknown,
+	/* .header = */ pt_qry_decode_unknown,
 	/* .flags = */ pdff_unknown
 };
 
-static int packet_pad(struct pt_packet *packet,
+int pt_pkt_decode_pad(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	packet->type = ppt_pad;
@@ -74,7 +74,7 @@ static int packet_pad(struct pt_packet *packet,
 	return ptps_pad;
 }
 
-static int decode_pad(struct pt_decoder *decoder)
+int pt_qry_decode_pad(struct pt_decoder *decoder)
 {
 	decoder->pos += ptps_pad;
 
@@ -82,13 +82,13 @@ static int decode_pad(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_pad = {
-	/* .packet = */ packet_pad,
-	/* .decode = */ decode_pad,
-	/* .header = */ decode_pad,
+	/* .packet = */ pt_pkt_decode_pad,
+	/* .decode = */ pt_qry_decode_pad,
+	/* .header = */ pt_qry_decode_pad,
 	/* .flags = */ 0
 };
 
-static int packet_psb(struct pt_packet *packet,
+int pt_pkt_decode_psb(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
@@ -103,7 +103,7 @@ static int packet_psb(struct pt_packet *packet,
 	return size;
 }
 
-static int header_psb(struct pt_decoder *decoder)
+int pt_qry_header_psb(struct pt_decoder *decoder)
 {
 	int size;
 
@@ -115,7 +115,7 @@ static int header_psb(struct pt_decoder *decoder)
 	return 0;
 }
 
-static int read_psb_header(struct pt_decoder *decoder)
+static int pt_qry_read_psb_header(struct pt_decoder *decoder)
 {
 	pt_last_ip_init(&decoder->ip);
 
@@ -144,15 +144,15 @@ static int read_psb_header(struct pt_decoder *decoder)
 	}
 }
 
-static int decode_psb(struct pt_decoder *decoder)
+int pt_qry_decode_psb(struct pt_decoder *decoder)
 {
 	int errcode;
 
-	errcode = header_psb(decoder);
+	errcode = pt_qry_header_psb(decoder);
 	if (errcode < 0)
 		return errcode;
 
-	errcode = read_psb_header(decoder);
+	errcode = pt_qry_read_psb_header(decoder);
 	if (errcode < 0)
 		return errcode;
 
@@ -165,14 +165,14 @@ static int decode_psb(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_psb = {
-	/* .packet = */ packet_psb,
-	/* .decode = */ decode_psb,
-	/* .header = */ header_psb,
+	/* .packet = */ pt_pkt_decode_psb,
+	/* .decode = */ pt_qry_decode_psb,
+	/* .header = */ pt_qry_header_psb,
 	/* .flags = */ 0
 };
 
-static void fill_in_event_ip(struct pt_event *event, uint64_t *ip,
-			     const struct pt_decoder *decoder)
+static void pt_qry_add_event_ip(struct pt_event *event, uint64_t *ip,
+				const struct pt_decoder *decoder)
 {
 	int errcode;
 
@@ -187,7 +187,7 @@ static void fill_in_event_ip(struct pt_event *event, uint64_t *ip,
  * Returns -pte_eos if the ip does not fit into the buffer.
  * Returns -pte_bad_packet if the ip compression is not known.
  */
-static int decode_ip(struct pt_decoder *decoder)
+static int pt_qry_decode_ip(struct pt_decoder *decoder)
 {
 	struct pt_packet_ip packet;
 	int errcode, size;
@@ -205,7 +205,7 @@ static int decode_ip(struct pt_decoder *decoder)
 	return size;
 }
 
-static int packet_tip(struct pt_packet *packet,
+int pt_pkt_decode_tip(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
@@ -221,18 +221,18 @@ static int packet_tip(struct pt_packet *packet,
 	return size;
 }
 
-static int consume_tip(struct pt_decoder *decoder, int size)
+static int pt_qry_consume_tip(struct pt_decoder *decoder, int size)
 {
 	decoder->pos += size;
 	return 0;
 }
 
-static int decode_tip(struct pt_decoder *decoder)
+int pt_qry_decode_tip(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	int size;
 
-	size = decode_ip(decoder);
+	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
 		return size;
 
@@ -244,8 +244,8 @@ static int decode_tip(struct pt_decoder *decoder)
 			return -pte_internal;
 
 		case ptev_async_branch:
-			fill_in_event_ip(ev, &ev->variant.async_branch.to,
-					 decoder);
+			pt_qry_add_event_ip(ev, &ev->variant.async_branch.to,
+					    decoder);
 
 			/* The event will consume the packet. */
 			decoder->flags |= pdf_consume_packet;
@@ -253,13 +253,13 @@ static int decode_tip(struct pt_decoder *decoder)
 			break;
 
 		case ptev_async_paging:
-			fill_in_event_ip(ev, &ev->variant.async_paging.ip,
-					 decoder);
+			pt_qry_add_event_ip(ev, &ev->variant.async_paging.ip,
+					    decoder);
 			break;
 
 		case ptev_exec_mode:
-			fill_in_event_ip(ev, &ev->variant.exec_mode.ip,
-					 decoder);
+			pt_qry_add_event_ip(ev, &ev->variant.exec_mode.ip,
+					    decoder);
 			break;
 		}
 
@@ -283,17 +283,17 @@ static int decode_tip(struct pt_decoder *decoder)
 		decoder->flags &= ~pdf_consume_packet;
 	}
 
-	return consume_tip(decoder, size);
+	return pt_qry_consume_tip(decoder, size);
 }
 
 const struct pt_decoder_function pt_decode_tip = {
-	/* .packet = */ packet_tip,
-	/* .decode = */ decode_tip,
+	/* .packet = */ pt_pkt_decode_tip,
+	/* .decode = */ pt_qry_decode_tip,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_tip
 };
 
-static int packet_tnt_8(struct pt_packet *packet,
+int pt_pkt_decode_tnt_8(struct pt_packet *packet,
 			const struct pt_decoder *decoder)
 {
 	int size;
@@ -309,7 +309,7 @@ static int packet_tnt_8(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_tnt_8(struct pt_decoder *decoder)
+int pt_qry_decode_tnt_8(struct pt_decoder *decoder)
 {
 	struct pt_packet_tnt packet;
 	int size, errcode;
@@ -328,13 +328,13 @@ static int decode_tnt_8(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_tnt_8 = {
-	/* .packet = */ packet_tnt_8,
-	/* .decode = */ decode_tnt_8,
+	/* .packet = */ pt_pkt_decode_tnt_8,
+	/* .decode = */ pt_qry_decode_tnt_8,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_tnt
 };
 
-static int packet_tnt_64(struct pt_packet *packet,
+int pt_pkt_decode_tnt_64(struct pt_packet *packet,
 			 const struct pt_decoder *decoder)
 {
 	int size;
@@ -350,7 +350,7 @@ static int packet_tnt_64(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_tnt_64(struct pt_decoder *decoder)
+int pt_qry_decode_tnt_64(struct pt_decoder *decoder)
 {
 	struct pt_packet_tnt packet;
 	int size, errcode;
@@ -369,13 +369,13 @@ static int decode_tnt_64(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_tnt_64 = {
-	/* .packet = */ packet_tnt_64,
-	/* .decode = */ decode_tnt_64,
+	/* .packet = */ pt_pkt_decode_tnt_64,
+	/* .decode = */ pt_qry_decode_tnt_64,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_tnt
 };
 
-static int packet_tip_pge(struct pt_packet *packet,
+int pt_pkt_decode_tip_pge(struct pt_packet *packet,
 			  const struct pt_decoder *decoder)
 {
 	int size;
@@ -391,18 +391,18 @@ static int packet_tip_pge(struct pt_packet *packet,
 	return size;
 }
 
-static int consume_tip_pge(struct pt_decoder *decoder, int size)
+static int pt_qry_consume_tip_pge(struct pt_decoder *decoder, int size)
 {
 	decoder->pos += size;
 	return 0;
 }
 
-static int decode_tip_pge(struct pt_decoder *decoder)
+int pt_qry_decode_tip_pge(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	int size;
 
-	size = decode_ip(decoder);
+	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
 		return size;
 
@@ -463,8 +463,9 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 				break;
 
 			case ptev_exec_mode:
-				fill_in_event_ip(ev, &ev->variant.exec_mode.ip,
-						 decoder);
+				pt_qry_add_event_ip(ev,
+						    &ev->variant.exec_mode.ip,
+						    decoder);
 				break;
 			}
 		}
@@ -489,17 +490,17 @@ static int decode_tip_pge(struct pt_decoder *decoder)
 
 	decoder->flags &= ~pdf_consume_packet;
 
-	return consume_tip_pge(decoder, size);
+	return pt_qry_consume_tip_pge(decoder, size);
 }
 
 const struct pt_decoder_function pt_decode_tip_pge = {
-	/* .packet = */ packet_tip_pge,
-	/* .decode = */ decode_tip_pge,
+	/* .packet = */ pt_pkt_decode_tip_pge,
+	/* .decode = */ pt_qry_decode_tip_pge,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_event
 };
 
-static int packet_tip_pgd(struct pt_packet *packet,
+int pt_pkt_decode_tip_pgd(struct pt_packet *packet,
 			  const struct pt_decoder *decoder)
 {
 	int size;
@@ -515,20 +516,20 @@ static int packet_tip_pgd(struct pt_packet *packet,
 	return size;
 }
 
-static int consume_tip_pgd(struct pt_decoder *decoder, int size)
+static int pt_qry_consume_tip_pgd(struct pt_decoder *decoder, int size)
 {
 	decoder->flags |= pdf_pt_disabled;
 	decoder->pos += size;
 	return 0;
 }
 
-static int decode_tip_pgd(struct pt_decoder *decoder)
+int pt_qry_decode_tip_pgd(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	uint64_t at;
 	int size;
 
-	size = decode_ip(decoder);
+	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
 		return size;
 
@@ -548,30 +549,31 @@ static int decode_tip_pgd(struct pt_decoder *decoder)
 
 		ev->type = ptev_async_disabled;
 		ev->variant.async_disabled.at = at;
-		fill_in_event_ip(ev, &ev->variant.async_disabled.ip, decoder);
+		pt_qry_add_event_ip(ev, &ev->variant.async_disabled.ip,
+				    decoder);
 	} else {
 		/* This packet signals a standalone disabled event. */
 		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;
 		ev->type = ptev_disabled;
-		fill_in_event_ip(ev, &ev->variant.disabled.ip, decoder);
+		pt_qry_add_event_ip(ev, &ev->variant.disabled.ip, decoder);
 	}
 
 	/* Publish the event. */
 	decoder->event = ev;
 
-	return consume_tip_pgd(decoder, size);
+	return pt_qry_consume_tip_pgd(decoder, size);
 }
 
 const struct pt_decoder_function pt_decode_tip_pgd = {
-	/* .packet = */ packet_tip_pgd,
-	/* .decode = */ decode_tip_pgd,
+	/* .packet = */ pt_pkt_decode_tip_pgd,
+	/* .decode = */ pt_qry_decode_tip_pgd,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_event
 };
 
-static int packet_fup(struct pt_packet *packet,
+int pt_pkt_decode_fup(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
@@ -587,13 +589,13 @@ static int packet_fup(struct pt_packet *packet,
 	return size;
 }
 
-static int consume_fup(struct pt_decoder *decoder, int size)
+static int pt_qry_consume_fup(struct pt_decoder *decoder, int size)
 {
 	decoder->pos += size;
 	return 0;
 }
 
-static int header_fup(struct pt_decoder *decoder)
+int pt_qry_header_fup(struct pt_decoder *decoder)
 {
 	struct pt_packet_ip packet;
 	int errcode, size;
@@ -610,15 +612,15 @@ static int header_fup(struct pt_decoder *decoder)
 	if (packet.ipc != pt_ipc_suppressed)
 		decoder->flags &= ~pdf_pt_disabled;
 
-	return consume_fup(decoder, size);
+	return pt_qry_consume_fup(decoder, size);
 }
 
-static int decode_fup(struct pt_decoder *decoder)
+int pt_qry_decode_fup(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	int size;
 
-	size = decode_ip(decoder);
+	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
 		return size;
 
@@ -646,7 +648,7 @@ static int decode_fup(struct pt_decoder *decoder)
 			break;
 
 		case ptev_tsx:
-			fill_in_event_ip(ev, &ev->variant.tsx.ip, decoder);
+			pt_qry_add_event_ip(ev, &ev->variant.tsx.ip, decoder);
 
 			/* A non-abort event will consume the packet. */
 			if (!(ev->variant.tsx.aborted))
@@ -693,17 +695,17 @@ static int decode_fup(struct pt_decoder *decoder)
 		ev->variant.async_branch.from = ip;
 	}
 
-	return consume_fup(decoder, size);
+	return pt_qry_consume_fup(decoder, size);
 }
 
 const struct pt_decoder_function pt_decode_fup = {
-	/* .packet = */ packet_fup,
-	/* .decode = */ decode_fup,
-	/* .header = */ header_fup,
+	/* .packet = */ pt_pkt_decode_fup,
+	/* .decode = */ pt_qry_decode_fup,
+	/* .header = */ pt_qry_header_fup,
 	/* .flags = */ pdff_fup
 };
 
-static int packet_pip(struct pt_packet *packet,
+int pt_pkt_decode_pip(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
@@ -719,7 +721,7 @@ static int packet_pip(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_pip(struct pt_decoder *decoder)
+int pt_qry_decode_pip(struct pt_decoder *decoder)
 {
 	struct pt_packet_pip packet;
 	struct pt_event *event;
@@ -754,7 +756,7 @@ static int decode_pip(struct pt_decoder *decoder)
 	return 0;
 }
 
-static int header_pip(struct pt_decoder *decoder)
+int pt_qry_header_pip(struct pt_decoder *decoder)
 {
 	struct pt_packet_pip packet;
 	struct pt_event *event;
@@ -777,13 +779,13 @@ static int header_pip(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_pip = {
-	/* .packet = */ packet_pip,
-	/* .decode = */ decode_pip,
-	/* .header = */ header_pip,
+	/* .packet = */ pt_pkt_decode_pip,
+	/* .decode = */ pt_qry_decode_pip,
+	/* .header = */ pt_qry_header_pip,
 	/* .flags = */ pdff_event
 };
 
-static int packet_ovf(struct pt_packet *packet,
+int pt_pkt_decode_ovf(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	packet->type = ppt_ovf;
@@ -792,7 +794,7 @@ static int packet_ovf(struct pt_packet *packet,
 	return ptps_ovf;
 }
 
-static int prepare_psb_event(struct pt_event *ev)
+static int pt_qry_prepare_psb_event(struct pt_event *ev)
 {
 	if (!ev)
 		return -pte_internal;
@@ -815,7 +817,7 @@ static int prepare_psb_event(struct pt_event *ev)
 	return 0;
 }
 
-static int process_pending_psb_events(struct pt_decoder *decoder)
+static int pt_qry_process_pending_psb_events(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	int errcode;
@@ -824,7 +826,7 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 	if (!ev)
 		return 0;
 
-	errcode = prepare_psb_event(ev);
+	errcode = pt_qry_prepare_psb_event(ev);
 	if (errcode < 0)
 		return errcode;
 
@@ -833,15 +835,15 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 		return -pte_internal;
 
 	case ptev_async_paging:
-		fill_in_event_ip(ev, &ev->variant.async_paging.ip, decoder);
+		pt_qry_add_event_ip(ev, &ev->variant.async_paging.ip, decoder);
 		break;
 
 	case ptev_exec_mode:
-		fill_in_event_ip(ev, &ev->variant.exec_mode.ip, decoder);
+		pt_qry_add_event_ip(ev, &ev->variant.exec_mode.ip, decoder);
 		break;
 
 	case ptev_tsx:
-		fill_in_event_ip(ev, &ev->variant.tsx.ip, decoder);
+		pt_qry_add_event_ip(ev, &ev->variant.tsx.ip, decoder);
 		break;
 	}
 
@@ -852,14 +854,14 @@ static int process_pending_psb_events(struct pt_decoder *decoder)
 	return 1;
 }
 
-static int decode_ovf(struct pt_decoder *decoder)
+int pt_qry_decode_ovf(struct pt_decoder *decoder)
 {
 	struct pt_event *ev;
 	uint64_t flags;
 	int status;
 	enum pt_event_binding evb;
 
-	status = process_pending_psb_events(decoder);
+	status = pt_qry_process_pending_psb_events(decoder);
 	if (status < 0)
 		return status;
 
@@ -900,13 +902,13 @@ static int decode_ovf(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_ovf = {
-	/* .packet = */ packet_ovf,
-	/* .decode = */ decode_ovf,
+	/* .packet = */ pt_pkt_decode_ovf,
+	/* .decode = */ pt_qry_decode_ovf,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_psbend
 };
 
-static int packet_mode(struct pt_packet *packet,
+int pt_pkt_decode_mode(struct pt_packet *packet,
 		       const struct pt_decoder *decoder)
 {
 	int size;
@@ -922,8 +924,8 @@ static int packet_mode(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_mode_exec(struct pt_decoder *decoder,
-			    const struct pt_packet_mode_exec *packet)
+static int pt_qry_decode_mode_exec(struct pt_decoder *decoder,
+				   const struct pt_packet_mode_exec *packet)
 {
 	struct pt_event *event;
 
@@ -938,8 +940,8 @@ static int decode_mode_exec(struct pt_decoder *decoder,
 	return 0;
 }
 
-static int decode_mode_tsx(struct pt_decoder *decoder,
-			   const struct pt_packet_mode_tsx *packet)
+static int pt_qry_decode_mode_tsx(struct pt_decoder *decoder,
+				  const struct pt_packet_mode_tsx *packet)
 {
 	struct pt_event *event;
 
@@ -969,7 +971,7 @@ static int decode_mode_tsx(struct pt_decoder *decoder,
 	return 0;
 }
 
-static int decode_mode(struct pt_decoder *decoder)
+int pt_qry_decode_mode(struct pt_decoder *decoder)
 {
 	struct pt_packet_mode packet;
 	int size, errcode;
@@ -981,11 +983,11 @@ static int decode_mode(struct pt_decoder *decoder)
 	errcode = 0;
 	switch (packet.leaf) {
 	case pt_mol_exec:
-		errcode = decode_mode_exec(decoder, &packet.bits.exec);
+		errcode = pt_qry_decode_mode_exec(decoder, &packet.bits.exec);
 		break;
 
 	case pt_mol_tsx:
-		errcode = decode_mode_tsx(decoder, &packet.bits.tsx);
+		errcode = pt_qry_decode_mode_tsx(decoder, &packet.bits.tsx);
 		break;
 	}
 
@@ -996,7 +998,7 @@ static int decode_mode(struct pt_decoder *decoder)
 	return 0;
 }
 
-static int header_mode(struct pt_decoder *decoder)
+int pt_qry_header_mode(struct pt_decoder *decoder)
 {
 	struct pt_packet_mode packet;
 	struct pt_event *event;
@@ -1030,13 +1032,13 @@ static int header_mode(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_mode = {
-	/* .packet = */ packet_mode,
-	/* .decode = */ decode_mode,
-	/* .header = */ header_mode,
+	/* .packet = */ pt_pkt_decode_mode,
+	/* .decode = */ pt_qry_decode_mode,
+	/* .header = */ pt_qry_header_mode,
 	/* .flags = */ pdff_event
 };
 
-static int packet_psbend(struct pt_packet *packet,
+int pt_pkt_decode_psbend(struct pt_packet *packet,
 			 const struct pt_decoder *decoder)
 {
 	packet->type = ppt_psbend;
@@ -1045,11 +1047,11 @@ static int packet_psbend(struct pt_packet *packet,
 	return ptps_psbend;
 }
 
-static int decode_psbend(struct pt_decoder *decoder)
+int pt_qry_decode_psbend(struct pt_decoder *decoder)
 {
 	int status;
 
-	status = process_pending_psb_events(decoder);
+	status = pt_qry_process_pending_psb_events(decoder);
 	if (status < 0)
 		return status;
 
@@ -1065,13 +1067,13 @@ static int decode_psbend(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_psbend = {
-	/* .packet = */ packet_psbend,
-	/* .decode = */ decode_psbend,
+	/* .packet = */ pt_pkt_decode_psbend,
+	/* .decode = */ pt_qry_decode_psbend,
 	/* .header = */ NULL,
 	/* .flags = */ pdff_psbend
 };
 
-static int packet_tsc(struct pt_packet *packet,
+int pt_pkt_decode_tsc(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
@@ -1087,7 +1089,7 @@ static int packet_tsc(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_tsc(struct pt_decoder *decoder)
+int pt_qry_decode_tsc(struct pt_decoder *decoder)
 {
 	struct pt_packet_tsc packet;
 	int size;
@@ -1106,13 +1108,13 @@ static int decode_tsc(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_tsc = {
-	/* .packet = */ packet_tsc,
-	/* .decode = */ decode_tsc,
-	/* .header = */ decode_tsc,
+	/* .packet = */ pt_pkt_decode_tsc,
+	/* .decode = */ pt_qry_decode_tsc,
+	/* .header = */ pt_qry_decode_tsc,
 	/* .flags = */ 0
 };
 
-static int packet_cbr(struct pt_packet *packet,
+int pt_pkt_decode_cbr(struct pt_packet *packet,
 		      const struct pt_decoder *decoder)
 {
 	int size;
@@ -1128,7 +1130,7 @@ static int packet_cbr(struct pt_packet *packet,
 	return size;
 }
 
-static int decode_cbr(struct pt_decoder *decoder)
+int pt_qry_decode_cbr(struct pt_decoder *decoder)
 {
 	struct pt_packet_cbr packet;
 	int size;
@@ -1147,9 +1149,9 @@ static int decode_cbr(struct pt_decoder *decoder)
 }
 
 const struct pt_decoder_function pt_decode_cbr = {
-	/* .packet = */ packet_cbr,
-	/* .decode = */ decode_cbr,
-	/* .header = */ decode_cbr,
+	/* .packet = */ pt_pkt_decode_cbr,
+	/* .decode = */ pt_qry_decode_cbr,
+	/* .header = */ pt_qry_decode_cbr,
 	/* .flags = */ 0
 };
 
