@@ -29,7 +29,7 @@
 #include "ptunit.h"
 
 #include "pt_last_ip.h"
-#include "pt_packet_decode.h"
+#include "pt_decoder_function.h"
 #include "pt_query_decoder.h"
 #include "pt_encoder.h"
 

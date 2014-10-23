@@ -30,6 +30,7 @@
 #include "suites.h"
 
 #include "pt_packet_decode.h"
+#include "pt_decoder_function.h"
 #include "pt_decoder.h"
 #include "pt_time.h"
 

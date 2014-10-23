@@ -54,6 +54,7 @@ set(LIBIPT_FILES
   src/pt_asid.c
   src/pt_event_queue.c
   src/pt_packet.c
+  src/pt_decoder_function.c
 )
 
 if (FEATURE_MMAP)
@@ -128,6 +129,7 @@ add_executable(ptunit-query
   src/pt_event_queue.c
   src/pt_query_decoder.c
   src/pt_packet.c
+  src/pt_decoder_function.c
   ${LIBIPT_CONFIG_FILES}
 )
 
@@ -195,6 +197,7 @@ add_executable(ptunit-packet
   src/pt_sync.c
   src/pt_packet_decode.c
   src/pt_packet.c
+  src/pt_decoder_function.c
 )
 
 add_executable(ptunit-sync
