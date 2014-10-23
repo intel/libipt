@@ -33,6 +33,7 @@
 #include <stdio.h>
 
 struct pt_decoder;
+struct pt_packet_decoder;
 struct pt_packet;
 struct pt_config;
 
@@ -61,7 +62,7 @@ enum pt_decoder_function_flag {
 /* An Intel(R) Processor Trace decoder function. */
 struct pt_decoder_function {
 	/* The function to analyze the next packet. */
-	int (*packet)(struct pt_packet *, const struct pt_decoder *);
+	int (*packet)(struct pt_packet_decoder *, struct pt_packet *);
 
 	/* The function to decode the next packet. */
 	int (*decode)(struct pt_decoder *);

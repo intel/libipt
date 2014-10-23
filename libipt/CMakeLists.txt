@@ -130,6 +130,7 @@ add_executable(ptunit-query
   src/pt_query_decoder.c
   src/pt_packet.c
   src/pt_decoder_function.c
+  src/pt_packet_decoder.c
   ${LIBIPT_CONFIG_FILES}
 )
 

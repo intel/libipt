@@ -29,26 +29,8 @@
 #ifndef __PT_PACKET_DECODE_H__
 #define __PT_PACKET_DECODE_H__
 
-struct pt_packet;
 struct pt_decoder;
 
-
-/* Decoder functions for the packet decoder. */
-extern int pt_pkt_decode_unknown(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_pad(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_psb(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_tip(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_tnt_8(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_tnt_64(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_tip_pge(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_tip_pgd(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_fup(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_pip(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_ovf(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_mode(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_psbend(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_tsc(struct pt_packet *, const struct pt_decoder *);
-extern int pt_pkt_decode_cbr(struct pt_packet *, const struct pt_decoder *);
 
 /* Decoder functions for the query decoder (tracing context). */
 extern int pt_qry_decode_unknown(struct pt_decoder *);

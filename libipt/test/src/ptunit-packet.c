@@ -310,7 +310,7 @@ static struct ptunit_result cutoff(struct packet_fixture *pfix,
 	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
 	ptu_int_gt(size, 0);
 
-	pfix->decoder.decoder.config.end = pfix->encoder.pos - 1;
+	pfix->decoder.config.end = pfix->encoder.pos - 1;
 
 	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
 	ptu_int_eq(size, -pte_eos);
@@ -329,7 +329,7 @@ static struct ptunit_result cutoff_ip(struct packet_fixture *pfix,
 	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
 	ptu_int_gt(size, 0);
 
-	pfix->decoder.decoder.config.end = pfix->encoder.pos - 1;
+	pfix->decoder.config.end = pfix->encoder.pos - 1;
 
 	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
 	ptu_int_eq(size, -pte_eos);
@@ -348,7 +348,7 @@ static struct ptunit_result cutoff_mode(struct packet_fixture *pfix,
 	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
 	ptu_int_gt(size, 0);
 
-	pfix->decoder.decoder.config.end = pfix->encoder.pos - 1;
+	pfix->decoder.config.end = pfix->encoder.pos - 1;
 
 	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
 	ptu_int_eq(size, -pte_eos);
