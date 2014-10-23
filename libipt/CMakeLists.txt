@@ -182,6 +182,19 @@ add_executable(ptunit-event_queue
   src/pt_event_queue.c
 )
 
+add_executable(ptunit-packet
+  test/src/ptunit-packet.c
+  src/pt_encoder.c
+  src/pt_packet_decoder.c
+  src/pt_decoder.c
+  src/pt_last_ip.c
+  src/pt_tnt_cache.c
+  src/pt_time.c
+  src/pt_event_queue.c
+  src/pt_sync.c
+  src/pt_packet_decode.c
+)
+
 target_link_libraries(ptunit-last_ip ptunit)
 target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
@@ -195,6 +208,7 @@ target_link_libraries(ptunit-time ptunit)
 target_link_libraries(ptunit-mapped_section ptunit)
 target_link_libraries(ptunit-asid ptunit)
 target_link_libraries(ptunit-event_queue ptunit)
+target_link_libraries(ptunit-packet ptunit)
 
 if (FEATURE_MMAP)
   add_executable(ptunit-section_mmap
