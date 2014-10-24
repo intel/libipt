@@ -37,7 +37,6 @@ set(LIBIPT_FILES
   src/pt_packet_decode.c
   src/pt_packet_decoder.c
   src/pt_query_decoder.c
-  src/pt_query.c
   src/pt_encoder.c
   src/pt_decoder.c
   src/pt_sync.c
@@ -117,7 +116,6 @@ add_executable(ptunit-tnt_cache
 
 add_executable(ptunit-query
   test/src/ptunit-query.c
-  src/pt_query.c
   src/pt_encoder.c
   src/pt_last_ip.c
   src/pt_decoder.c

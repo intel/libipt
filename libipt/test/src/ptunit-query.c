@@ -102,36 +102,6 @@ static struct ptunit_result cutoff(struct pt_query_decoder *decoder,
 	return ptu_passed();
 }
 
-static struct ptunit_result start_nosync_fail(struct ptu_decoder_fixture *dfix)
-{
-	struct pt_query_decoder *decoder = &dfix->decoder;
-	uint64_t ip = pt_dfix_bad_ip, addr = ip;
-	int errcode;
-
-	errcode = pt_query_start(&decoder->decoder, &addr);
-	ptu_int_eq(errcode, -pte_nosync);
-	ptu_uint_eq(addr, ip);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result start_off_fail(struct ptu_decoder_fixture *dfix)
-{
-	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_config *config = &decoder->decoder.config;
-	uint64_t ip = pt_dfix_bad_ip, addr = ip;
-	int errcode;
-
-	decoder->decoder.sync = config->begin;
-	decoder->decoder.pos = config->begin + 1;
-
-	errcode = pt_query_start(&decoder->decoder, &addr);
-	ptu_int_eq(errcode, -pte_nosync);
-	ptu_uint_eq(addr, ip);
-
-	return ptu_passed();
-}
-
 static struct ptunit_result indir_not_synced(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
@@ -1910,12 +1880,9 @@ int main(int argc, char **argv)
 
 	suite = ptunit_mk_suite(argc, argv);
 
-	ptu_run_f(suite, start_nosync_fail, dfix_raw);
 	ptu_run_f(suite, indir_not_synced, dfix_raw);
 	ptu_run_f(suite, cond_not_synced, dfix_raw);
 	ptu_run_f(suite, event_not_synced, dfix_raw);
-
-	ptu_run_f(suite, start_off_fail, dfix_empty);
 
 	ptu_run_f(suite, indir_null, dfix_empty);
 	ptu_run_f(suite, indir_empty, dfix_empty);
