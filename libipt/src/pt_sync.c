@@ -27,6 +27,7 @@
  */
 
 #include "pt_sync.h"
+#include "pt_packet.h"
 
 #include "intel-pt.h"
 
@@ -63,9 +64,16 @@ static const uint8_t *align(const uint8_t *pointer, size_t alignment)
  * Return NULL, if this is not a psb packet.
  */
 static const uint8_t *pt_find_psb(const uint8_t *pos,
-				  const uint8_t *begin, const uint8_t *end)
+				  const struct pt_config *config)
 {
-	size_t idx;
+	const uint8_t *begin, *end;
+	int errcode;
+
+	if (!pos || !config)
+		return NULL;
+
+	begin = config->begin;
+	end = config->end;
 
 	/* Navigate to the end of the psb payload pattern.
 	 *
@@ -98,17 +106,12 @@ static const uint8_t *pt_find_psb(const uint8_t *pos,
 		return NULL;
 
 	/* Check that this is indeed a psb packet we're at. */
-	if (pos[0] != pt_opc_psb)
-		return NULL;
-	if (pos[1] != pt_ext_psb)
+	if (pos[0] != pt_opc_psb || pos[1] != pt_ext_psb)
 		return NULL;
 
-	for (idx = 2; idx < ptps_psb;) {
-		if (pos[idx++] != pt_psb_hi)
-			return NULL;
-		if (pos[idx++] != pt_psb_lo)
-			return NULL;
-	}
+	errcode = pt_pkt_read_psb(pos, config);
+	if (errcode < 0)
+		return NULL;
 
 	return pos;
 }
@@ -146,7 +149,7 @@ int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
 			continue;
 
 		/* We found a 64bit word's worth of psb payload pattern. */
-		current = pt_find_psb(pos, begin, end);
+		current = pt_find_psb(pos, config);
 		if (!current)
 			continue;
 
@@ -188,7 +191,7 @@ int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
 			continue;
 
 		/* We found a 64bit word's worth of psb payload pattern. */
-		next = pt_find_psb(next, begin, end);
+		next = pt_find_psb(next, config);
 		if (!next)
 			continue;
 

@@ -203,6 +203,7 @@ add_executable(ptunit-packet
 add_executable(ptunit-sync
   test/src/ptunit-sync.c
   src/pt_sync.c
+  src/pt_packet.c
 )
 
 target_link_libraries(ptunit-last_ip ptunit)
