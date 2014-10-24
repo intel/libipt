@@ -33,6 +33,5 @@
 
 extern Suite *suite_pt_decoder(void);
 extern Suite *suite_pt_packet_decode(void);
-extern Suite *suite_pt_use(void);
 
 #endif /* __SUITES_H__ */

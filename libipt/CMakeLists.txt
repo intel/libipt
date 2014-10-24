@@ -98,7 +98,6 @@ if (CHECK)
     test/src/check.c
     test/src/check_pt_packet_decode.c
     test/src/check_pt_decoder.c
-    test/src/check_pt_use.c
     test/src/pt_decoder_fixture.c
   )
 
