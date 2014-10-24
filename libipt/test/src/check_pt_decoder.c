@@ -118,66 +118,6 @@ START_TEST(check_pt_free_null)
 }
 END_TEST
 
-START_TEST(check_null_pos)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	uint64_t offset;
-	int errcode;
-
-	errcode = pt_get_decoder_pos(NULL, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-
-	errcode = pt_get_decoder_pos(NULL, &offset);
-	ck_int_eq(errcode, -pte_invalid);
-
-	errcode = pt_get_decoder_pos(decoder, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-}
-END_TEST
-
-START_TEST(check_initial_pos)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	uint64_t offset;
-	int errcode;
-
-	errcode = pt_get_decoder_pos(decoder, &offset);
-	ck_int_eq(errcode, -pte_nosync);
-}
-END_TEST
-
-START_TEST(check_null_sync)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	uint64_t offset;
-	int errcode;
-
-	errcode = pt_get_decoder_sync(NULL, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-
-	errcode = pt_get_decoder_sync(NULL, &offset);
-	ck_int_eq(errcode, -pte_invalid);
-
-	errcode = pt_get_decoder_sync(decoder, NULL);
-	ck_int_eq(errcode, -pte_invalid);
-}
-END_TEST
-
-START_TEST(check_initial_sync)
-{
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
-	uint64_t offset;
-	int errcode;
-
-	errcode = pt_get_decoder_sync(decoder, &offset);
-	ck_int_eq(errcode, -pte_nosync);
-}
-END_TEST
-
 static void add_alloc_tests(TCase *tcase)
 {
 	tcase_add_test(tcase, check_pt_alloc_null);
@@ -191,24 +131,11 @@ static void add_alloc_tests(TCase *tcase)
 static void add_initial_tests(TCase *tcase)
 {
 	tcase_add_test(tcase, check_pt_initial);
-	tcase_add_test(tcase, check_initial_pos);
-	tcase_add_test(tcase, check_initial_sync);
-}
-
-static void add_pos_tests(TCase *tcase)
-{
-	tcase_add_test(tcase, check_null_pos);
-	tcase_add_test(tcase, check_null_sync);
 }
 
 static struct tcase_desc tcase_initial = {
 	/* .name = */ "initial",
 	/* .add_tests = */ add_initial_tests
-};
-
-static struct tcase_desc tcase_pos = {
-	/* .name = */ "pos",
-	/* .add_tests = */ add_pos_tests
 };
 
 Suite *suite_pt_decoder(void)
@@ -223,7 +150,6 @@ Suite *suite_pt_decoder(void)
 	suite_add_tcase(suite, alloc);
 
 	pt_add_tcase(suite, &tcase_initial, &dfix_nosync);
-	pt_add_tcase(suite, &tcase_pos, &dfix_standard);
 
 	return suite;
 }

@@ -98,36 +98,6 @@ extern struct pt_decoder *pt_alloc_decoder(const struct pt_config *);
  */
 extern void pt_free_decoder(struct pt_decoder *);
 
-/* Get the current decoder position.
- *
- * This is useful for reporting errors.
- *
- * Returns zero on success.
- *
- * Returns -pte_invalid if no @decoder is given.
- */
-extern int pt_get_decoder_pos(struct pt_decoder *decoder, uint64_t *offset);
-
-/* Get the position of the last synchronization point.
- *
- * This is useful when splitting a trace stream for parallel decoding.
- *
- * Returns zero on success.
- *
- * Returns -pte_invalid if no @decoder is given.
- */
-extern int pt_get_decoder_sync(struct pt_decoder *decoder, uint64_t *offset);
-
-static inline const uint8_t *pt_begin(const struct pt_decoder *decoder)
-{
-	return decoder->config.begin;
-}
-
-static inline const uint8_t *pt_end(const struct pt_decoder *decoder)
-{
-	return decoder->config.end;
-}
-
 /* Initialize the decoder.
  *
  * Returns zero on success, a negative error code otherwise.

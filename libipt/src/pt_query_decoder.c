@@ -301,19 +301,36 @@ int pt_qry_sync_set(struct pt_query_decoder *qry, uint64_t *ip,
 
 int pt_qry_get_offset(struct pt_query_decoder *decoder, uint64_t *offset)
 {
-	if (!decoder)
+	const uint8_t *begin, *pos;
+
+	if (!decoder || !offset)
 		return -pte_invalid;
 
-	return pt_get_decoder_pos(&decoder->decoder, offset);
+	begin = decoder->decoder.config.begin;
+	pos = decoder->decoder.pos;
+
+	if (!pos)
+		return -pte_nosync;
+
+	*offset = pos - begin;
+	return 0;
 }
 
-int pt_qry_get_sync_offset(struct pt_query_decoder *decoder,
-			   uint64_t *offset)
+int pt_qry_get_sync_offset(struct pt_query_decoder *decoder, uint64_t *offset)
 {
-	if (!decoder)
+	const uint8_t *begin, *sync;
+
+	if (!decoder || !offset)
 		return -pte_invalid;
 
-	return pt_get_decoder_sync(&decoder->decoder, offset);
+	begin = decoder->decoder.config.begin;
+	sync = decoder->decoder.sync;
+
+	if (!sync)
+		return -pte_nosync;
+
+	*offset = sync - begin;
+	return 0;
 }
 
 static int pt_qry_cache_tnt(struct pt_decoder *decoder)

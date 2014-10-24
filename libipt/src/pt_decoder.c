@@ -90,46 +90,6 @@ void pt_free_decoder(struct pt_decoder *decoder)
 	free(decoder);
 }
 
-int pt_get_decoder_pos(struct pt_decoder *decoder, uint64_t *offset)
-{
-	const uint8_t *raw, *begin;
-
-	if (!decoder || !offset)
-		return -pte_invalid;
-
-	begin = pt_begin(decoder);
-	if (!begin)
-		return -pte_invalid;
-
-	raw = decoder->pos;
-	if (!raw)
-		return -pte_nosync;
-
-	*offset = raw - begin;
-
-	return 0;
-}
-
-int pt_get_decoder_sync(struct pt_decoder *decoder, uint64_t *offset)
-{
-	const uint8_t *sync, *begin;
-
-	if (!decoder || !offset)
-		return -pte_invalid;
-
-	begin = pt_begin(decoder);
-	if (!begin)
-		return -pte_invalid;
-
-	sync = decoder->sync;
-	if (!sync)
-		return -pte_nosync;
-
-	*offset = sync - begin;
-
-	return 0;
-}
-
 int pt_will_event(const struct pt_decoder *decoder)
 {
 	const struct pt_decoder_function *dfun;
