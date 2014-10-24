@@ -57,7 +57,7 @@ static int decode_unknown_skip_4(struct pt_packet_unknown *unknown,
 				 const uint8_t *pos, void *context)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 
 	ck_nonnull(unknown);
 	ck_ptr(config, &decoder->config);
@@ -74,7 +74,7 @@ static int decode_unknown_nomem(struct pt_packet_unknown *unknown,
 				const uint8_t *pos, void *context)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 
 	ck_nonnull(unknown);
 	ck_ptr(config, &decoder->config);
@@ -87,7 +87,7 @@ static int decode_unknown_nomem(struct pt_packet_unknown *unknown,
 START_TEST(check_header_unknown_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -104,7 +104,7 @@ END_TEST
 START_TEST(check_header_unknown_skip_4)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -125,7 +125,7 @@ END_TEST
 START_TEST(check_header_unknown_nomem_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -145,7 +145,7 @@ END_TEST
 START_TEST(check_header_pad)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -164,7 +164,7 @@ END_TEST
 START_TEST(check_header_psb)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	const uint8_t *sync;
 	int errcode;
@@ -183,7 +183,7 @@ END_TEST
 START_TEST(check_header_psb_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -205,7 +205,7 @@ END_TEST
 START_TEST(check_header_psb_fault_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -242,7 +242,7 @@ static void check_header_non_fup_state(struct pt_decoder *decoder)
 START_TEST(check_header_fup_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	uint64_t flags = decoder->flags;
@@ -266,7 +266,7 @@ END_TEST
 START_TEST(check_header_fup_update_16_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -287,7 +287,7 @@ END_TEST
 START_TEST(check_header_fup_update_32_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -308,7 +308,7 @@ END_TEST
 START_TEST(check_header_fup_sext_48)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -331,7 +331,7 @@ END_TEST
 START_TEST(check_header_fup_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -354,7 +354,7 @@ END_TEST
 START_TEST(check_header_pip)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	uint64_t cr3 = pt_dfix_max_cr3, flags = decoder->flags;
@@ -379,7 +379,7 @@ END_TEST
 START_TEST(check_header_pip_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -401,7 +401,7 @@ END_TEST
 START_TEST(check_header_mode_exec)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	enum pt_exec_mode mode = ptem_64bit;
@@ -427,7 +427,7 @@ END_TEST
 START_TEST(check_header_mode_exec_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -449,7 +449,7 @@ END_TEST
 START_TEST(check_header_mode_tsx)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	uint64_t flags = decoder->flags;
@@ -475,7 +475,7 @@ END_TEST
 START_TEST(check_header_mode_tsx_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -512,7 +512,7 @@ static void check_non_timing_state(struct pt_decoder *decoder)
 START_TEST(check_header_tsc)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_time *time = &dfix->time;
@@ -538,7 +538,7 @@ END_TEST
 START_TEST(check_header_tsc_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -561,7 +561,7 @@ END_TEST
 START_TEST(check_header_cbr)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_time *time = &dfix->time;
@@ -589,7 +589,7 @@ END_TEST
 START_TEST(check_header_cbr_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -612,7 +612,7 @@ END_TEST
 START_TEST(check_decode_unknown_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -629,7 +629,7 @@ END_TEST
 START_TEST(check_decode_unknown_skip_4)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -650,7 +650,7 @@ END_TEST
 START_TEST(check_decode_unknown_nomem_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -670,7 +670,7 @@ END_TEST
 START_TEST(check_decode_pad)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -689,7 +689,7 @@ END_TEST
 START_TEST(check_decode_psb)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	const uint8_t *pos, *sync;
 	int errcode;
@@ -709,7 +709,7 @@ END_TEST
 START_TEST(check_decode_psb_ovf)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	const uint8_t *pos, *sync;
 	int errcode;
@@ -729,7 +729,7 @@ END_TEST
 START_TEST(check_decode_psb_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -751,7 +751,7 @@ END_TEST
 START_TEST(check_decode_psb_fault_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -788,7 +788,7 @@ static void check_non_ip_state(struct pt_decoder *decoder)
 START_TEST(check_decode_tip_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -810,7 +810,7 @@ END_TEST
 START_TEST(check_decode_tip_update_16)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -833,7 +833,7 @@ END_TEST
 START_TEST(check_decode_tip_update_32)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -856,7 +856,7 @@ END_TEST
 START_TEST(check_decode_tip_sext_48)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -879,7 +879,7 @@ END_TEST
 START_TEST(check_decode_tip_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	int errcode;
@@ -900,7 +900,7 @@ END_TEST
 START_TEST(check_decode_tip_exec_mode)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	enum pt_exec_mode mode = ptem_32bit;
@@ -934,7 +934,7 @@ END_TEST
 START_TEST(check_decode_tip_exec_mode_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	enum pt_exec_mode mode = ptem_16bit;
@@ -966,7 +966,7 @@ END_TEST
 START_TEST(check_decode_tip_async_branch)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -999,7 +999,7 @@ END_TEST
 START_TEST(check_decode_tip_async_branch_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1046,7 +1046,7 @@ static void check_non_tnt_state(struct pt_decoder *decoder)
 START_TEST(check_decode_tnt_8)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_tnt packet;
 	int errcode;
@@ -1069,7 +1069,7 @@ END_TEST
 START_TEST(check_decode_tnt_8_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	int errcode;
@@ -1088,7 +1088,7 @@ END_TEST
 START_TEST(check_decode_tnt_64)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_tnt packet;
 	int errcode;
@@ -1111,7 +1111,7 @@ END_TEST
 START_TEST(check_decode_tnt_64_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	int errcode;
@@ -1130,7 +1130,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1153,7 +1153,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_update_16)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1179,7 +1179,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_update_32)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1205,7 +1205,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_sext_48)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1231,7 +1231,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	int errcode;
@@ -1252,7 +1252,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_event)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1286,7 +1286,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_event_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1315,7 +1315,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_overflow)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1347,7 +1347,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_overflow_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1377,7 +1377,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_exec_mode)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1413,7 +1413,7 @@ END_TEST
 START_TEST(check_decode_tip_pge_exec_mode_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1447,7 +1447,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1472,7 +1472,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_update_16)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1499,7 +1499,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_update_32)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1526,7 +1526,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_sext_48)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	int errcode;
@@ -1553,7 +1553,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	int errcode;
@@ -1574,7 +1574,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_async_branch)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1609,7 +1609,7 @@ END_TEST
 START_TEST(check_decode_tip_pgd_async_branch_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1641,7 +1641,7 @@ END_TEST
 START_TEST(check_decode_fup_suppressed_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1664,7 +1664,7 @@ END_TEST
 START_TEST(check_decode_fup_update_16)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1693,7 +1693,7 @@ END_TEST
 START_TEST(check_decode_fup_update_32)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1722,7 +1722,7 @@ END_TEST
 START_TEST(check_decode_fup_sext_48)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1751,7 +1751,7 @@ END_TEST
 START_TEST(check_decode_fup_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	int errcode;
@@ -1772,7 +1772,7 @@ END_TEST
 START_TEST(check_decode_fup_overflow)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1801,7 +1801,7 @@ END_TEST
 START_TEST(check_decode_fup_overflow_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1828,7 +1828,7 @@ END_TEST
 START_TEST(check_decode_fup_tsx)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1862,7 +1862,7 @@ END_TEST
 START_TEST(check_decode_fup_tsx_abort)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1897,7 +1897,7 @@ END_TEST
 START_TEST(check_decode_fup_tsx_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1929,7 +1929,7 @@ END_TEST
 START_TEST(check_decode_fup_tsx_abort_suppressed)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_packet_ip packet;
@@ -1962,7 +1962,7 @@ END_TEST
 START_TEST(check_decode_fup_tsx_abort_consume)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_packet_ip packet;
 	struct pt_event *event;
@@ -1998,7 +1998,7 @@ END_TEST
 START_TEST(check_decode_pip)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t cr3 = pt_dfix_max_cr3;
 	int errcode;
@@ -2019,7 +2019,7 @@ END_TEST
 START_TEST(check_decode_pip_async_branch)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	uint64_t cr3 = pt_dfix_max_cr3;
@@ -2051,7 +2051,7 @@ END_TEST
 START_TEST(check_decode_pip_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -2092,7 +2092,7 @@ static void check_clean_state(struct pt_decoder *decoder)
 START_TEST(check_decode_ovf)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	int errcode;
@@ -2118,7 +2118,7 @@ END_TEST
 START_TEST(check_decode_ovf_disabled)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	int errcode;
@@ -2145,7 +2145,7 @@ END_TEST
 START_TEST(check_decode_ovf_psbend_paging)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_event *event;
@@ -2176,7 +2176,7 @@ END_TEST
 START_TEST(check_decode_ovf_psbend_exec_mode)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_event *event;
@@ -2207,7 +2207,7 @@ END_TEST
 START_TEST(check_decode_ovf_psbend_tsx)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_event *event;
@@ -2239,7 +2239,7 @@ END_TEST
 START_TEST(check_decode_mode_exec)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	enum pt_exec_mode mode = ptem_16bit;
@@ -2263,7 +2263,7 @@ END_TEST
 START_TEST(check_decode_mode_exec_fault)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	int errcode;
@@ -2288,7 +2288,7 @@ END_TEST
 START_TEST(check_decode_mode_tsx_xbegin)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	int errcode;
@@ -2312,7 +2312,7 @@ END_TEST
 START_TEST(check_decode_mode_tsx_xend)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	int errcode;
@@ -2336,7 +2336,7 @@ END_TEST
 START_TEST(check_decode_mode_tsx_xabort)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event *event;
 	int errcode;
@@ -2360,7 +2360,7 @@ END_TEST
 START_TEST(check_decode_mode_tsx_xbegin_disabled)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -2387,7 +2387,7 @@ END_TEST
 START_TEST(check_decode_mode_tsx_xend_disabled)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -2414,7 +2414,7 @@ END_TEST
 START_TEST(check_decode_mode_tsx_xabort_disabled)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -2441,7 +2441,7 @@ END_TEST
 START_TEST(check_decode_psbend)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	uint64_t flags = decoder->flags;
 	int errcode;
@@ -2460,7 +2460,7 @@ END_TEST
 START_TEST(check_decode_psbend_paging)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_event *event;
@@ -2491,7 +2491,7 @@ END_TEST
 START_TEST(check_decode_psbend_exec_mode)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_event *event;
@@ -2522,7 +2522,7 @@ END_TEST
 START_TEST(check_decode_psbend_tsx)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_event *event;
@@ -2554,7 +2554,7 @@ END_TEST
 START_TEST(check_decode_tsc)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_time *time = &dfix->time;
@@ -2582,7 +2582,7 @@ END_TEST
 START_TEST(check_decode_tsc_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -2605,7 +2605,7 @@ END_TEST
 START_TEST(check_decode_cbr)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	struct pt_time *time = &dfix->time;
@@ -2633,7 +2633,7 @@ END_TEST
 START_TEST(check_decode_cbr_cutoff_fail)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_config *config = &decoder->config;
 	uint64_t flags = decoder->flags;
@@ -2835,7 +2835,7 @@ static void pt_dfix_setup_header(void)
 
 	pt_dfix_setup_standard();
 
-	decoder = dfix->decoder;
+	decoder = &dfix->decoder;
 	pt_last_ip_init(&decoder->ip);
 	pt_last_ip_init(&dfix->last_ip);
 }
@@ -2847,7 +2847,7 @@ static void pt_dfix_setup_disabled(void)
 
 	pt_dfix_setup_standard();
 
-	decoder = dfix->decoder;
+	decoder = &dfix->decoder;
 	decoder->flags |= pdf_pt_disabled;
 }
 

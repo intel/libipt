@@ -36,6 +36,7 @@
 #include "pt_tnt_cache.h"
 #include "pt_encoder.h"
 #include "pt_time.h"
+#include "pt_decoder.h"
 
 #include "intel-pt.h"
 
@@ -50,7 +51,7 @@ struct pt_decoder_fixture_s {
 
 	/* A encoder and decoder for the above configuration. */
 	struct pt_encoder encoder;
-	struct pt_decoder *decoder;
+	struct pt_decoder decoder;
 
 	/* For testing last-ip changes. */
 	struct pt_last_ip last_ip;

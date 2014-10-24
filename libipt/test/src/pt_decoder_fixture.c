@@ -56,15 +56,15 @@ static void init_fixture(void)
 	errcode = pt_encoder_init(&pt_decoder_fixture.encoder, config);
 	ck_int_eq(errcode, 0);
 
-	pt_decoder_fixture.decoder = pt_alloc_decoder(config);
-	ck_nonnull(pt_decoder_fixture.decoder);
+	errcode = pt_decoder_init(&pt_decoder_fixture.decoder, config);
+	ck_int_eq(errcode, 0);
 
-	pt_decoder_fixture.decoder->ip.ip = pt_dfix_bad_ip;
-	pt_decoder_fixture.decoder->ip.need_full_ip = 0;
-	pt_decoder_fixture.decoder->ip.suppressed = 0;
-	pt_decoder_fixture.decoder->flags = 0;
+	pt_decoder_fixture.decoder.ip.ip = pt_dfix_bad_ip;
+	pt_decoder_fixture.decoder.ip.need_full_ip = 0;
+	pt_decoder_fixture.decoder.ip.suppressed = 0;
+	pt_decoder_fixture.decoder.flags = 0;
 
-	dfix->last_ip = pt_decoder_fixture.decoder->ip;
+	dfix->last_ip = pt_decoder_fixture.decoder.ip;
 }
 
 void pt_dfix_setup_config(struct pt_config *config)
@@ -92,7 +92,7 @@ void pt_dfix_setup_standard(void)
 	pt_dfix_setup_nosync();
 
 	/* Synchronize the decoder at the beginning of the buffer. */
-	dfix->decoder->pos = dfix->config.begin;
+	dfix->decoder.pos = dfix->config.begin;
 }
 
 void pt_dfix_setup_timing(void)
@@ -105,21 +105,19 @@ void pt_dfix_setup_timing(void)
 	time->tsc = 0xceaccdfaull;
 	time->cbr = 0xd;
 
-	dfix->decoder->time = *time;
+	dfix->decoder.time = *time;
 }
 
 void pt_teardown_decoder_fixture(void)
 {
-	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-
-	pt_free_decoder(dfix->decoder);
-	dfix->decoder = NULL;
+	pt_decoder_fini(&pt_decoder_fixture.decoder);
+	pt_encoder_fini(&pt_decoder_fixture.encoder);
 }
 
 void pt_dfix_check_last_ip(const char *file, int line)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_last_ip *dip = &decoder->ip, *fip = &dfix->last_ip;
 
 	ck_assert_msg(dip->ip == fip->ip, "Bad last-ip.ip. Got: 0x%" PRIx64
@@ -136,7 +134,7 @@ void pt_dfix_check_last_ip(const char *file, int line)
 void pt_dfix_check_tnt_cache(const char *file, int line)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = dfix->decoder;
+	struct pt_decoder *decoder = &dfix->decoder;
 	struct pt_tnt_cache *dtnt = &decoder->tnt, *ftnt = &dfix->tnt;
 
 	ck_assert_msg(dtnt->tnt == ftnt->tnt,
@@ -151,7 +149,7 @@ void pt_dfix_check_tnt_cache(const char *file, int line)
 void pt_dfix_check_time(const char *file, int line)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_time *dtime = &dfix->decoder->time, *ftime = &dfix->time;
+	struct pt_time *dtime = &dfix->decoder.time, *ftime = &dfix->time;
 
 	ck_assert_msg(dtime->tsc == ftime->tsc,
 		      "Bad time.tsc. Got: 0x%" PRIx64 ", expected: 0x%" PRIx64

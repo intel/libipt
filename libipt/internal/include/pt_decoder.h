@@ -82,22 +82,6 @@ struct pt_decoder {
 	struct pt_event *event;
 };
 
-/* Allocate an Intel(R) Processor Trace decoder.
- *
- * The decoder will work on the buffer defined via its base address and size.
- * The buffer shall contain raw trace data and remain valid for the lifetime of
- * the decoder.
- *
- * The decoder needs to be synchronized before it can be used.
- */
-extern struct pt_decoder *pt_alloc_decoder(const struct pt_config *);
-
-/* Free an Intel(R) Processor Trace decoder.
- *
- * The decoder object must not be used after a successful return.
- */
-extern void pt_free_decoder(struct pt_decoder *);
-
 /* Initialize the decoder.
  *
  * Returns zero on success, a negative error code otherwise.

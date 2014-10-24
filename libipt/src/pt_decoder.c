@@ -62,32 +62,9 @@ int pt_decoder_init(struct pt_decoder *decoder, const struct pt_config *config)
 	return 0;
 }
 
-struct pt_decoder *pt_alloc_decoder(const struct pt_config *config)
-{
-	struct pt_decoder *decoder;
-	int errcode;
-
-	decoder = (struct pt_decoder *) malloc(sizeof(*decoder));
-	if (!decoder)
-		return NULL;
-
-	errcode = pt_decoder_init(decoder, config);
-	if (errcode < 0) {
-		free(decoder);
-		decoder = NULL;
-	}
-
-	return decoder;
-}
-
 void pt_decoder_fini(struct pt_decoder *decoder)
 {
 	/* Nothing to do. */
-}
-
-void pt_free_decoder(struct pt_decoder *decoder)
-{
-	free(decoder);
 }
 
 int pt_will_event(const struct pt_decoder *decoder)
