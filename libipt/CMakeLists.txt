@@ -190,13 +190,7 @@ add_executable(ptunit-packet
   test/src/ptunit-packet.c
   src/pt_encoder.c
   src/pt_packet_decoder.c
-  src/pt_decoder.c
-  src/pt_last_ip.c
-  src/pt_tnt_cache.c
-  src/pt_time.c
-  src/pt_event_queue.c
   src/pt_sync.c
-  src/pt_packet_decode.c
   src/pt_packet.c
   src/pt_decoder_function.c
 )
