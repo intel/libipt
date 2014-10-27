@@ -36,7 +36,7 @@
 #include "pt_tnt_cache.h"
 #include "pt_encoder.h"
 #include "pt_time.h"
-#include "pt_decoder.h"
+#include "pt_query_decoder.h"
 
 #include "intel-pt.h"
 
@@ -51,7 +51,7 @@ struct pt_decoder_fixture_s {
 
 	/* A encoder and decoder for the above configuration. */
 	struct pt_encoder encoder;
-	struct pt_decoder decoder;
+	struct pt_query_decoder decoder;
 
 	/* For testing last-ip changes. */
 	struct pt_last_ip last_ip;
@@ -161,7 +161,7 @@ static inline void pt_add_tcase_series(Suite *suite,
 /* Synchronize the decoder at the beginning of the trace stream, avoiding the
  * initial PSB header.
  */
-extern void pt_sync_decoder(struct pt_decoder *decoder);
+extern void pt_sync_decoder(struct pt_query_decoder *decoder);
 
 /*
  * The below encoding functions operate on an encoder.

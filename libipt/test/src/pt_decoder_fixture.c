@@ -28,8 +28,6 @@
 
 #include "pt_decoder_fixture.h"
 
-#include "pt_decoder.h"
-
 #include <check.h>
 
 
@@ -56,7 +54,7 @@ static void init_fixture(void)
 	errcode = pt_encoder_init(&pt_decoder_fixture.encoder, config);
 	ck_int_eq(errcode, 0);
 
-	errcode = pt_decoder_init(&pt_decoder_fixture.decoder, config);
+	errcode = pt_qry_decoder_init(&pt_decoder_fixture.decoder, config);
 	ck_int_eq(errcode, 0);
 
 	pt_decoder_fixture.decoder.ip.ip = pt_dfix_bad_ip;
@@ -110,14 +108,14 @@ void pt_dfix_setup_timing(void)
 
 void pt_teardown_decoder_fixture(void)
 {
-	pt_decoder_fini(&pt_decoder_fixture.decoder);
+	pt_qry_decoder_fini(&pt_decoder_fixture.decoder);
 	pt_encoder_fini(&pt_decoder_fixture.encoder);
 }
 
 void pt_dfix_check_last_ip(const char *file, int line)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = &dfix->decoder;
+	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_last_ip *dip = &decoder->ip, *fip = &dfix->last_ip;
 
 	ck_assert_msg(dip->ip == fip->ip, "Bad last-ip.ip. Got: 0x%" PRIx64
@@ -134,7 +132,7 @@ void pt_dfix_check_last_ip(const char *file, int line)
 void pt_dfix_check_tnt_cache(const char *file, int line)
 {
 	struct pt_decoder_fixture_s *dfix = &pt_decoder_fixture;
-	struct pt_decoder *decoder = &dfix->decoder;
+	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_tnt_cache *dtnt = &decoder->tnt, *ftnt = &dfix->tnt;
 
 	ck_assert_msg(dtnt->tnt == ftnt->tnt,
@@ -200,7 +198,7 @@ void pt_add_tcase(Suite *suite,
 	suite_add_tcase(suite, tcase);
 }
 
-void pt_sync_decoder(struct pt_decoder *decoder)
+void pt_sync_decoder(struct pt_query_decoder *decoder)
 {
 	(void) pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
 }

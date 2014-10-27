@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-struct pt_decoder;
+struct pt_query_decoder;
 struct pt_packet_decoder;
 struct pt_packet;
 struct pt_config;
@@ -65,12 +65,12 @@ struct pt_decoder_function {
 	int (*packet)(struct pt_packet_decoder *, struct pt_packet *);
 
 	/* The function to decode the next packet. */
-	int (*decode)(struct pt_decoder *);
+	int (*decode)(struct pt_query_decoder *);
 
 	/* The function to decode the next packet in segment header
 	 * context, i.e. between PSB and ENDPSB.
 	 */
-	int (*header)(struct pt_decoder *);
+	int (*header)(struct pt_query_decoder *);
 
 	/* Decoder function flags. */
 	int flags;

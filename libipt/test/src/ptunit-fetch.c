@@ -269,7 +269,7 @@ int pt_pkt_decode_unknown(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_unknown(struct pt_decoder *d)
+int pt_qry_decode_unknown(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -278,7 +278,7 @@ int pt_pkt_decode_pad(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_pad(struct pt_decoder *d)
+int pt_qry_decode_pad(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -287,11 +287,11 @@ int pt_pkt_decode_psb(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_psb(struct pt_decoder *d)
+int pt_qry_decode_psb(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
-int pt_qry_header_psb(struct pt_decoder *d)
+int pt_qry_header_psb(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -300,7 +300,7 @@ int pt_pkt_decode_tip(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_tip(struct pt_decoder *d)
+int pt_qry_decode_tip(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -309,7 +309,7 @@ int pt_pkt_decode_tnt_8(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_tnt_8(struct pt_decoder *d)
+int pt_qry_decode_tnt_8(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -318,7 +318,7 @@ int pt_pkt_decode_tnt_64(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_tnt_64(struct pt_decoder *d)
+int pt_qry_decode_tnt_64(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -327,7 +327,7 @@ int pt_pkt_decode_tip_pge(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_tip_pge(struct pt_decoder *d)
+int pt_qry_decode_tip_pge(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -336,7 +336,7 @@ int pt_pkt_decode_tip_pgd(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_tip_pgd(struct pt_decoder *d)
+int pt_qry_decode_tip_pgd(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -345,11 +345,11 @@ int pt_pkt_decode_fup(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_fup(struct pt_decoder *d)
+int pt_qry_decode_fup(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
-int pt_qry_header_fup(struct pt_decoder *d)
+int pt_qry_header_fup(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -358,11 +358,11 @@ int pt_pkt_decode_pip(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_pip(struct pt_decoder *d)
+int pt_qry_decode_pip(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
-int pt_qry_header_pip(struct pt_decoder *d)
+int pt_qry_header_pip(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -371,7 +371,7 @@ int pt_pkt_decode_ovf(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_ovf(struct pt_decoder *d)
+int pt_qry_decode_ovf(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -380,11 +380,11 @@ int pt_pkt_decode_mode(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_mode(struct pt_decoder *d)
+int pt_qry_decode_mode(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
-int pt_qry_header_mode(struct pt_decoder *d)
+int pt_qry_header_mode(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -393,7 +393,7 @@ int pt_pkt_decode_psbend(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_psbend(struct pt_decoder *d)
+int pt_qry_decode_psbend(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -402,7 +402,7 @@ int pt_pkt_decode_tsc(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_tsc(struct pt_decoder *d)
+int pt_qry_decode_tsc(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
@@ -411,7 +411,7 @@ int pt_pkt_decode_cbr(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	return -pte_internal;
 }
-int pt_qry_decode_cbr(struct pt_decoder *d)
+int pt_qry_decode_cbr(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }

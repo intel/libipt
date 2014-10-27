@@ -29,13 +29,56 @@
 #ifndef __PT_QUERY_DECODER_H__
 #define __PT_QUERY_DECODER_H__
 
-#include "pt_decoder.h"
+#include "pt_last_ip.h"
+#include "pt_tnt_cache.h"
+#include "pt_time.h"
+#include "pt_event_queue.h"
 
+#include "intel-pt.h"
+
+struct pt_decoder_function;
+
+
+/* Query decoder flags. */
+enum pt_decoder_flag {
+	/* Tracing has temporarily been disabled. */
+	pdf_pt_disabled		= 1 << 0,
+
+	/* The packet will be consumed after all events have been processed. */
+	pdf_consume_packet	= 1 << 1
+};
 
 /* An Intel PT query decoder. */
 struct pt_query_decoder {
-	/* The internal decoder. */
-	struct pt_decoder decoder;
+	/* The decoder configuration. */
+	struct pt_config config;
+
+	/* The current position in the trace buffer. */
+	const uint8_t *pos;
+
+	/* The position of the last PSB packet. */
+	const uint8_t *sync;
+
+	/* The decoding function for the next packet. */
+	const struct pt_decoder_function *next;
+
+	/* The last-ip. */
+	struct pt_last_ip ip;
+
+	/* The cached tnt indicators. */
+	struct pt_tnt_cache tnt;
+
+	/* A bit-vector of decoder flags. */
+	uint64_t flags;
+
+	/* Timing information. */
+	struct pt_time time;
+
+	/* Pending (incomplete) events. */
+	struct pt_event_queue evq;
+
+	/* The current event. */
+	struct pt_event *event;
 };
 
 /* Initialize the query decoder.
@@ -47,5 +90,28 @@ extern int pt_qry_decoder_init(struct pt_query_decoder *,
 
 /* Finalize the query decoder. */
 extern void pt_qry_decoder_fini(struct pt_query_decoder *);
+
+/* Decoder functions (tracing context). */
+extern int pt_qry_decode_unknown(struct pt_query_decoder *);
+extern int pt_qry_decode_pad(struct pt_query_decoder *);
+extern int pt_qry_decode_psb(struct pt_query_decoder *);
+extern int pt_qry_decode_tip(struct pt_query_decoder *);
+extern int pt_qry_decode_tnt_8(struct pt_query_decoder *);
+extern int pt_qry_decode_tnt_64(struct pt_query_decoder *);
+extern int pt_qry_decode_tip_pge(struct pt_query_decoder *);
+extern int pt_qry_decode_tip_pgd(struct pt_query_decoder *);
+extern int pt_qry_decode_fup(struct pt_query_decoder *);
+extern int pt_qry_decode_pip(struct pt_query_decoder *);
+extern int pt_qry_decode_ovf(struct pt_query_decoder *);
+extern int pt_qry_decode_mode(struct pt_query_decoder *);
+extern int pt_qry_decode_psbend(struct pt_query_decoder *);
+extern int pt_qry_decode_tsc(struct pt_query_decoder *);
+extern int pt_qry_decode_cbr(struct pt_query_decoder *);
+
+/* Decoder functions (header context). */
+extern int pt_qry_header_psb(struct pt_query_decoder *);
+extern int pt_qry_header_fup(struct pt_query_decoder *);
+extern int pt_qry_header_pip(struct pt_query_decoder *);
+extern int pt_qry_header_mode(struct pt_query_decoder *);
 
 #endif /* __PT_QUERY_DECODER_H__ */
