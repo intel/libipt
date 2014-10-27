@@ -45,7 +45,6 @@ set(LIBIPT_FILES
   src/pt_image.c
   src/pt_retstack.c
   src/pt_insn_decoder.c
-  src/pt_insn.c
   src/pt_time.c
   src/pt_mapped_section.c
   src/pt_asid.c
