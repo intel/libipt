@@ -62,42 +62,48 @@ void pt_insn_free_decoder(struct pt_insn_decoder *decoder)
 
 int pt_insn_sync_forward(struct pt_insn_decoder *decoder)
 {
-	int errcode;
+	int status;
 
 	if (!decoder)
 		return -pte_invalid;
 
 	pt_insn_reset(decoder);
 
-	errcode = pt_qry_sync_forward(&decoder->query, &decoder->ip);
-	if (errcode < 0)
+	status = pt_qry_sync_forward(&decoder->query, &decoder->ip);
+	if (status < 0)
 		goto out;
 
-	if (!(errcode & pts_ip_suppressed))
+	if (!(status & pts_ip_suppressed))
 		decoder->enabled = 1;
 
 out:
-	decoder->status = errcode;
-	if (errcode < 0)
-		return errcode;
+	decoder->status = status;
+	if (status < 0)
+		return status;
 
 	return 0;
 }
 
 int pt_insn_sync_backward(struct pt_insn_decoder *decoder)
 {
-	int errcode;
+	int status;
 
 	if (!decoder)
 		return -pte_invalid;
 
 	pt_insn_reset(decoder);
 
-	errcode = pt_qry_sync_backward(&decoder->query, &decoder->ip);
+	status = pt_qry_sync_backward(&decoder->query, &decoder->ip);
+	if (status < 0)
+		goto out;
 
-	decoder->status = errcode;
-	if (errcode < 0)
-		return errcode;
+	if (!(status & pts_ip_suppressed))
+		decoder->enabled = 1;
+
+out:
+	decoder->status = status;
+	if (status < 0)
+		return status;
 
 	return 0;
 }
