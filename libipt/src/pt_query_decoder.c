@@ -212,20 +212,21 @@ static int pt_qry_read_ahead(struct pt_query_decoder *decoder)
 	}
 }
 
-static int pt_qry_start(struct pt_query_decoder *decoder, uint64_t *addr)
+static int pt_qry_start(struct pt_query_decoder *decoder, const uint8_t *pos,
+			uint64_t *addr)
 {
 	const struct pt_decoder_function *dfun;
-	const uint8_t *pos;
 	int status, errcode;
 
-	if (!decoder)
+	if (!decoder || !pos)
 		return -pte_invalid;
 
-	pos = decoder->pos;
-	if (!pos)
-		return -pte_nosync;
+	pt_qry_reset(decoder);
 
-	errcode = pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
+	decoder->sync = pos;
+	decoder->pos = pos;
+
+	errcode = pt_df_fetch(&decoder->next, pos, &decoder->config);
 	if (errcode)
 		return errcode;
 
@@ -293,12 +294,7 @@ int pt_qry_sync_forward(struct pt_query_decoder *decoder, uint64_t *ip)
 	if (errcode < 0)
 		return errcode;
 
-	decoder->sync = sync;
-	decoder->pos = sync;
-
-	pt_qry_reset(decoder);
-
-	return pt_qry_start(decoder, ip);
+	return pt_qry_start(decoder, sync, ip);
 }
 
 int pt_qry_sync_backward(struct pt_query_decoder *decoder, uint64_t *ip)
@@ -317,12 +313,7 @@ int pt_qry_sync_backward(struct pt_query_decoder *decoder, uint64_t *ip)
 	if (errcode < 0)
 		return errcode;
 
-	decoder->sync = sync;
-	decoder->pos = sync;
-
-	pt_qry_reset(decoder);
-
-	return pt_qry_start(decoder, ip);
+	return pt_qry_start(decoder, sync, ip);
 }
 
 int pt_qry_sync_set(struct pt_query_decoder *decoder, uint64_t *ip,
@@ -340,12 +331,7 @@ int pt_qry_sync_set(struct pt_query_decoder *decoder, uint64_t *ip,
 	if (errcode < 0)
 		return errcode;
 
-	decoder->sync = sync;
-	decoder->pos = sync;
-
-	pt_qry_reset(decoder);
-
-	return pt_qry_start(decoder, ip);
+	return pt_qry_start(decoder, sync, ip);
 }
 
 int pt_qry_get_offset(struct pt_query_decoder *decoder, uint64_t *offset)
