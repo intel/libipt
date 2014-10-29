@@ -162,7 +162,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		lbegin = pt_msec_begin(msec);
 		lend = pt_msec_end(msec);
 
-		if (end < lbegin)
+		if (end <= lbegin)
 			continue;
 		if (lend <= begin)
 			continue;

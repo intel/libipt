@@ -126,16 +126,16 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	return size;
 }
 
-/* A test fixture providing an image, two test sections, and two asids. */
+/* A test fixture providing an image, test sections, and asids. */
 struct image_fixture {
 	/* The image. */
 	struct pt_image image;
 
 	/* The sections. */
-	struct pt_section section[2];
+	struct pt_section section[3];
 
 	/* The asids. */
-	struct pt_asid asid[2];
+	struct pt_asid asid[3];
 
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct image_fixture *);
@@ -303,13 +303,52 @@ static struct ptunit_result overlap(struct image_fixture *ifix)
 	ptu_int_eq(status, 0);
 
 	status = pt_image_add(&ifix->image, &ifix->section[1], &ifix->asid[0],
-			      0x1008ull);
+			      0x1000ull);
 	ptu_int_eq(status, -pte_bad_context);
 
 	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
 			       0x1009ull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], 0x09);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result adjacent(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
+			      0x1000ull);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add(&ifix->image, &ifix->section[1], &ifix->asid[0],
+			      0x1000ull - ifix->section[1].size);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add(&ifix->image, &ifix->section[2], &ifix->asid[0],
+			      0x1000ull + ifix->section[0].size);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0x00);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0xfffull);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0],
+		    ifix->section[1].content[ifix->section[1].size - 1]);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1000ull + ifix->section[0].size);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0x00);
 	ptu_uint_eq(buffer[1], 0xcc);
 
 	return ptu_passed();
@@ -733,12 +772,16 @@ struct ptunit_result ifix_init(struct image_fixture *ifix)
 
 	pt_init_section(&ifix->section[0], "file-0");
 	pt_init_section(&ifix->section[1], "file-1");
+	pt_init_section(&ifix->section[2], "file-2");
 
 	pt_asid_init(&ifix->asid[0]);
 	ifix->asid[0].cr3 = 0xa000;
 
 	pt_asid_init(&ifix->asid[1]);
 	ifix->asid[1].cr3 = 0xb000;
+
+	pt_asid_init(&ifix->asid[2]);
+	ifix->asid[2].cr3 = 0xc000;
 
 	return ptu_passed();
 }
@@ -800,6 +843,7 @@ int main(int argc, char **argv)
 
 	ptu_run_f(suite, read_empty, ifix);
 	ptu_run_f(suite, overlap, ifix);
+	ptu_run_f(suite, adjacent, ifix);
 
 	ptu_run_f(suite, read, rfix);
 	ptu_run_f(suite, read_asid, ifix);
