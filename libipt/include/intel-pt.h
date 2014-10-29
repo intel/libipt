@@ -1527,6 +1527,7 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
  *
  * Returns zero or a positive value on success, a negative error code otherwise.
  *
+ * Returns -pte_bad_context if the decoder encountered an unexpected packet.
  * Returns -pte_bad_opc if the decoder encountered unknown packets.
  * Returns -pte_bad_packet if the decoder encountered unknown packet payloads.
  * Returns -pte_bad_query if the decoder got out of sync.

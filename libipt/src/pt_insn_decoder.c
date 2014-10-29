@@ -1060,7 +1060,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 		/* Any query should give us an end of stream, error. */
 		errcode = pt_qry_event(&decoder->query, &event);
 		if (errcode != -pte_eos)
-			errcode = -pte_internal;
+			errcode = -pte_bad_context;
 
 		goto err;
 	}
