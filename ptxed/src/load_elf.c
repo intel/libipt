@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <elf.h>
 #include <inttypes.h>
+#include <errno.h>
+#include <string.h>
 
 
 static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
@@ -44,16 +46,28 @@ static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
 	int count, errcode, sections;
 
 	errcode = fseek(file, 0, SEEK_SET);
-	if (errcode)
+	if (errcode) {
+		fprintf(stderr,
+			"%s: warning: %s error seeking ELF header: %s.\n",
+			prog, name, strerror(errno));
 		return -pte_bad_config;
+	}
 
 	count = fread(&ehdr, sizeof(ehdr), 1, file);
-	if (count != 1)
+	if (count != 1) {
+		fprintf(stderr,
+			"%s: warning: %s error reading ELF header: %s.\n",
+			prog, name, strerror(errno));
 		return -pte_bad_config;
+	}
 
 	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
-	if (errcode)
+	if (errcode) {
+		fprintf(stderr,
+			"%s: warning: %s error seeking program header: %s.\n",
+			prog, name, strerror(errno));
 		return -pte_bad_config;
+	}
 
 	/* Determine the load offset. */
 	if (!base)
@@ -67,8 +81,13 @@ static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
 			Elf64_Phdr phdr;
 
 			count = fread(&phdr, sizeof(phdr), 1, file);
-			if (count != 1)
+			if (count != 1) {
+				fprintf(stderr,
+					"%s: warning: %s error reading "
+					"phdr %u: %s.\n",
+					prog, name, pidx, strerror(errno));
 				return -pte_bad_config;
+			}
 
 			if (phdr.p_type != PT_LOAD)
 				continue;
@@ -81,15 +100,23 @@ static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
 	}
 
 	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
-	if (errcode)
+	if (errcode) {
+		fprintf(stderr,
+			"%s: warning: %s error seeking program header: %s.\n",
+			prog, name, strerror(errno));
 		return -pte_bad_config;
+	}
 
 	for (sections = 0, pidx = 0; pidx < ehdr.e_phnum; ++pidx) {
 		Elf64_Phdr phdr;
 
 		count = fread(&phdr, sizeof(phdr), 1, file);
-		if (count != 1)
+		if (count != 1) {
+			fprintf(stderr,
+				"%s: warning: %s error reading phdr %u: %s.\n",
+				prog, name, pidx, strerror(errno));
 			return -pte_bad_config;
+		}
 
 		if (phdr.p_type != PT_LOAD)
 			continue;
@@ -137,17 +164,28 @@ int load_elf(struct pt_image *image, const char *name, uint64_t base,
 		return -pte_invalid;
 
 	file = fopen(name, "rb");
-	if (!file)
+	if (!file) {
+		fprintf(stderr, "%s: warning: failed to open %s: %s.\n", prog,
+			name, strerror(errno));
 		return -pte_bad_config;
+	}
 
 	count = fread(e_ident, sizeof(e_ident), 1, file);
 	if (count != 1) {
+		fprintf(stderr,
+			"%s: warning: %s failed to read file header: %s.\n",
+			prog, name, strerror(errno));
+
 		errcode = -pte_bad_config;
 		goto out;
 	}
 
 	for (idx = 0; idx < SELFMAG; ++idx) {
 		if (e_ident[idx] != ELFMAG[idx]) {
+			fprintf(stderr,
+				"%s: warning: ignoring %s: not an ELF file.\n",
+				prog, name);
+
 			errcode = -pte_bad_config;
 			goto out;
 		}
