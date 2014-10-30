@@ -116,6 +116,16 @@ static const uint8_t *pt_find_psb(const uint8_t *pos,
 	return pos;
 }
 
+static int pt_sync_within_bounds(const uint8_t *pos, const uint8_t *begin,
+				 const uint8_t *end)
+{
+	/* We allow @pos == @end representing the very end of the trace.
+	 *
+	 * This will result in -pte_eos when we actually try to read from @pos.
+	 */
+	return (begin <= pos) && (pos <= end);
+}
+
 int pt_sync_set(const uint8_t **sync, const uint8_t *pos,
 		const struct pt_config *config)
 {
@@ -128,7 +138,7 @@ int pt_sync_set(const uint8_t **sync, const uint8_t *pos,
 	begin = config->begin;
 	end = config->end;
 
-	if ((pos < begin) || (end < pos))
+	if (!pt_sync_within_bounds(pos, begin, end))
 		return -pte_invalid;
 
 	if (end < pos + 2)
@@ -158,8 +168,7 @@ int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
 	begin = config->begin;
 	end = config->end;
 
-	/* Check if the buffer is valid. */
-	if ((pos < begin) || (end < pos))
+	if (!pt_sync_within_bounds(pos, begin, end))
 		return -pte_internal;
 
 	/* We search for a full 64bit word. It's OK to skip the current one. */
@@ -200,8 +209,7 @@ int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
 	begin = config->begin;
 	end = config->end;
 
-	/* Check if the buffer is valid. */
-	if ((pos < begin) || (end < pos))
+	if (!pt_sync_within_bounds(pos, begin, end))
 		return -pte_internal;
 
 	/* We search for a full 64bit word. It's OK to skip the current one. */
