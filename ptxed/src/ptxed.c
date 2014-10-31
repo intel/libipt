@@ -172,7 +172,7 @@ static int load_pt(struct pt_config *config, char *arg, const char *prog)
 
 	if (!config || !arg || !prog) {
 		fprintf(stderr, "%s: internal error.\n", prog);
-		return 1;
+		return -1;
 	}
 
 	range = strstr(arg, ":");
@@ -186,7 +186,7 @@ static int load_pt(struct pt_config *config, char *arg, const char *prog)
 	if (!file) {
 		fprintf(stderr, "%s: failed to open %s: %d.\n",
 			prog, arg, errno);
-		return 1;
+		return -1;
 	}
 
 	errcode = fseek(file, 0, SEEK_END);
@@ -270,7 +270,7 @@ err_pt:
 
 err_file:
 	fclose(file);
-	return 1;
+	return -1;
 }
 
 static int load_raw(struct pt_image *image, char *arg, const char *prog)
