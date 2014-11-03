@@ -1060,6 +1060,11 @@ static int scan_for_erratum_bdm70(struct pt_packet_decoder *decoder)
 		case ppt_psbend:
 		case ppt_pip:
 		case ppt_mode:
+		case ppt_vmcs:
+		case ppt_tma:
+		case ppt_mtc:
+		case ppt_cyc:
+		case ppt_mnt:
 			/* Intentionally skip a few packets. */
 			continue;
 		}
