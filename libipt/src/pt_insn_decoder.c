@@ -212,7 +212,7 @@ int pt_insn_set_image(struct pt_insn_decoder *decoder,
 
 int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time)
 {
-	if (!decoder)
+	if (!decoder || !time)
 		return -pte_invalid;
 
 	return pt_qry_time(&decoder->query, time);
@@ -220,7 +220,7 @@ int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time)
 
 int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 {
-	if (!decoder)
+	if (!decoder || !cbr)
 		return -pte_invalid;
 
 	return pt_qry_core_bus_ratio(&decoder->query, cbr);

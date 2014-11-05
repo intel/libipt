@@ -53,7 +53,7 @@ extern void pt_time_init(struct pt_time *time);
  * Provides the Time Stamp Count value in @tsc.
  *
  * Returns zero on success; a negative error code, otherwise.
- * Returns -pte_invalid if @tsc or @time is NULL.
+ * Returns -pte_internal if @tsc or @time is NULL.
  */
 extern int pt_time_query_tsc(uint64_t *tsc, const struct pt_time *time);
 
@@ -62,7 +62,7 @@ extern int pt_time_query_tsc(uint64_t *tsc, const struct pt_time *time);
  * Provides the core:bus ratio in @cbr.
  *
  * Returns zero on success; a negative error code, otherwise.
- * Returns -pte_invalid if @cbr or @time is NULL.
+ * Returns -pte_internal if @cbr or @time is NULL.
  */
 extern int pt_time_query_cbr(uint32_t *cbr, const struct pt_time *time);
 

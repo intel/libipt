@@ -53,10 +53,10 @@ static struct ptunit_result tsc_null(struct time_fixture *tfix)
 	int errcode;
 
 	errcode = pt_time_update_tsc(NULL, &packet, &tfix->config);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	errcode = pt_time_update_tsc(&tfix->time, NULL, &tfix->config);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -67,10 +67,10 @@ static struct ptunit_result cbr_null(struct time_fixture *tfix)
 	int errcode;
 
 	errcode = pt_time_update_cbr(NULL, &packet, &tfix->config);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	errcode = pt_time_update_cbr(&tfix->time, NULL, &tfix->config);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -146,10 +146,10 @@ static struct ptunit_result query_tsc_null(struct time_fixture *tfix)
 	int errcode;
 
 	errcode = pt_time_query_tsc(NULL, &tfix->time);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	errcode = pt_time_query_tsc(&tsc, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -174,10 +174,10 @@ static struct ptunit_result query_cbr_null(struct time_fixture *tfix)
 	int errcode;
 
 	errcode = pt_time_query_cbr(NULL, &tfix->time);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	errcode = pt_time_query_cbr(&cbr, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }

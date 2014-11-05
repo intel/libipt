@@ -44,7 +44,7 @@ void pt_time_init(struct pt_time *time)
 int pt_time_query_tsc(uint64_t *tsc, const struct pt_time *time)
 {
 	if (!tsc || !time)
-		return -pte_invalid;
+		return -pte_internal;
 
 	*tsc = time->tsc;
 
@@ -54,7 +54,7 @@ int pt_time_query_tsc(uint64_t *tsc, const struct pt_time *time)
 int pt_time_query_cbr(uint32_t *cbr, const struct pt_time *time)
 {
 	if (!cbr || !time)
-		return -pte_invalid;
+		return -pte_internal;
 
 	*cbr = time->cbr;
 
@@ -66,7 +66,7 @@ int pt_time_update_tsc(struct pt_time *time,
 		       const struct pt_config *config)
 {
 	if (!time || !packet)
-		return -pte_invalid;
+		return -pte_internal;
 
 	time->tsc = packet->tsc;
 
@@ -78,7 +78,7 @@ int pt_time_update_cbr(struct pt_time *time,
 		       const struct pt_config *config)
 {
 	if (!time || !packet)
-		return -pte_invalid;
+		return -pte_internal;
 
 	/* We store the CBR even in case of errors so future queries
 	 * get the correct information that we do not know the current
