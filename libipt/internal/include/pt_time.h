@@ -43,6 +43,12 @@ struct pt_time {
 
 	/* The core:bus ratio. */
 	uint8_t cbr;
+
+	/* A flag saying whether we have seen a TSC packet. */
+	uint32_t have_tsc:1;
+
+	/* A flag saying whether we have seen a CBR packet. */
+	uint32_t have_cbr:1;
 };
 
 /* Initialize (or reset) the time. */

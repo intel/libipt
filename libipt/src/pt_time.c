@@ -46,6 +46,9 @@ int pt_time_query_tsc(uint64_t *tsc, const struct pt_time *time)
 	if (!tsc || !time)
 		return -pte_internal;
 
+	if (!time->have_tsc)
+		return -pte_no_time;
+
 	*tsc = time->tsc;
 
 	return 0;
@@ -55,6 +58,9 @@ int pt_time_query_cbr(uint32_t *cbr, const struct pt_time *time)
 {
 	if (!cbr || !time)
 		return -pte_internal;
+
+	if (!time->have_cbr)
+		return -pte_no_cbr;
 
 	*cbr = time->cbr;
 
@@ -68,6 +74,7 @@ int pt_time_update_tsc(struct pt_time *time,
 	if (!time || !packet)
 		return -pte_internal;
 
+	time->have_tsc = 1;
 	time->tsc = packet->tsc;
 
 	return 0;
@@ -80,14 +87,8 @@ int pt_time_update_cbr(struct pt_time *time,
 	if (!time || !packet)
 		return -pte_internal;
 
-	/* We store the CBR even in case of errors so future queries
-	 * get the correct information that we do not know the current
-	 * core:bus ratio.
-	 */
+	time->have_cbr = 1;
 	time->cbr = packet->ratio;
-
-	if (!packet->ratio)
-		return -pte_bad_packet;
 
 	return 0;
 }

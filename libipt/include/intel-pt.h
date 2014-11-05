@@ -356,7 +356,13 @@ enum pt_error_code {
 	pte_nomap,
 
 	/* An instruction could not be decoded. */
-	pte_bad_insn
+	pte_bad_insn,
+
+	/* No timing information is available. */
+	pte_no_time,
+
+	/* No core:bus ratio available. */
+	pte_no_cbr
 };
 
 

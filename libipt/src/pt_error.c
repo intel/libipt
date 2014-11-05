@@ -76,6 +76,12 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_bad_insn:
 		return "unknown instruction";
+
+	case pte_no_time:
+		return "no timing information";
+
+	case pte_no_cbr:
+		return "no core:bus ratio";
 	}
 
 	/* Should not reach here. */
