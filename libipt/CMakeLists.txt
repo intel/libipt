@@ -87,19 +87,6 @@ add_library(libipt SHARED
 
 set_target_properties(libipt PROPERTIES PREFIX "")
 
-if (CHECK)
-  add_executable(check-libipt
-    ${LIBIPT_FILES}
-
-    test/src/check.c
-    test/src/check_pt_packet_decode.c
-    test/src/pt_decoder_fixture.c
-  )
-
-  include_directories(test/include)
-  target_link_libraries(check-libipt check)
-endif (CHECK)
-
 add_executable(ptunit-last_ip
   test/src/ptunit-last_ip.c
   src/pt_last_ip.c

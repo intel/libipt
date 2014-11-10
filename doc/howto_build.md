@@ -48,29 +48,11 @@ This causes the FEATURE_<name> pre-processor macro to be defined and may also
 cause additional source files to be compiled and additional libraries to be
 linked.
 
-Features are enabled globally and will be used by all components that support
-the feature.  The following features are supported:
+The following features are supported:
 
     FEATURE_MMAP        Support for mapping files into memory.
 
                         This feature is not available on Windows.
-
-
-    FEATURE_ELF         Support for the ELF object format.
-
-                        This feature requires the elf.h header.
-
-
-### Optional Components
-
-Some components depend on libraries or header files that may not be available on
-all supported platforms.
-
-
-    CHECK               Support for the check unit test system.
-
-                        This component requires libcheck and is not available on
-                        Windows.
 
 
 ### Build Variants
@@ -103,20 +85,6 @@ build.
                         Defaults to the empty string.
 
 
-### Dependencies
-
-In order to build ptxed, the location of the XED library and the XED header
-files must be specified.
-
-    XED_INCLUDE         Path to the directory containing the XED header files.
-
-    XED_LIBDIR          Path to the directory containing the XED library.
-
-
-When using XED from a PIN distribution, the respective directories are located
-in `extras/xed2-<arch>/`.
-
-
 ## Building on Linux``*`` and OS X``*``
 
 We recommend out-of-tree builds.  Start by creating the destination directory
@@ -133,9 +101,7 @@ arguments, cmake uses default values.
     $ cmake /path/to/src
 
 
-If you have not passed values for XED_INCLUDE or XED_LIBDIR, you need to
-configure them now if you want to build ptxed.  You may also use this command to
-change the configuration at any time later on.
+To change the configuration use:
 
     $ make edit_cache
 
@@ -172,8 +138,7 @@ the
 button and select the builder you want to use.
 
 Cmake will now populate the remainder of the window with configuration options.
-Please make sure to specify at least XED_INCLUDE and XED_LIBDIR if you want to
-build ptxed.  After completing the configuration, press the
+After completing the configuration, press the
 
     Generate
 

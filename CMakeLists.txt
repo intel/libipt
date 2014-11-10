@@ -53,18 +53,10 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_COLOR_MAKEFILE   OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(XED_INCLUDE "" CACHE PATH "")
-set(XED_LIBDIR  "" CACHE PATH "")
-
 set(FEATURE_MMAP "" CACHE BOOL OFF)
 if (FEATURE_MMAP)
   add_definitions(-DFEATURE_MMAP)
 endif (FEATURE_MMAP)
-
-set(FEATURE_ELF "" CACHE BOOL OFF)
-if (FEATURE_ELF)
-  add_definitions(-DFEATURE_ELF)
-endif (FEATURE_ELF)
 
 set(DEVBUILD "" CACHE BOOL OFF)
 
@@ -155,8 +147,6 @@ if (CMAKE_HOST_UNIX)
     link_libraries(gcov)
   endif (GCOV)
 
-  set(CHECK "" CACHE BOOL ON)
-
   # set the language
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
@@ -195,20 +185,5 @@ if (CMAKE_HOST_UNIX)
 
 endif (CMAKE_HOST_UNIX)
 
-find_package(Doxygen)
-
-if (DOXYGEN_FOUND)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in
-    ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-
-  add_custom_target(doc
-    ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
-endif(DOXYGEN_FOUND)
-
 add_subdirectory(libipt)
-add_subdirectory(ptdump)
-add_subdirectory(ptxed)
-add_subdirectory(pttc)
 add_subdirectory(ptunit)
