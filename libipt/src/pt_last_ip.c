@@ -67,16 +67,12 @@ int pt_last_ip_query(uint64_t *ip, const struct pt_last_ip *last_ip)
 /* Sign-extend a uint64_t value. */
 static uint64_t sext(uint64_t val, uint8_t sign)
 {
-	int64_t sval;
-	uint8_t shc;
+	uint64_t signbit, mask;
 
-	sval = (int64_t) val;
-	shc = 64 - sign;
+	signbit = 1ull << (sign - 1);
+	mask = ~0ull << sign;
 
-	sval <<= shc;
-	sval >>= shc;
-
-	return (uint64_t) sval;
+	return val & signbit ? val | mask : val & ~mask;
 }
 
 int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
