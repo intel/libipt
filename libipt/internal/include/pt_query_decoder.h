@@ -41,8 +41,8 @@ struct pt_decoder_function;
 
 /* Query decoder flags. */
 enum pt_decoder_flag {
-	/* Tracing has temporarily been disabled. */
-	pdf_pt_disabled		= 1 << 0,
+	/* Tracing is enabled. */
+	pdf_pt_enabled		= 1 << 0,
 
 	/* The packet will be consumed after all events have been processed. */
 	pdf_consume_packet	= 1 << 1

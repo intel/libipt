@@ -54,7 +54,6 @@ int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 	memset(decoder, 0, sizeof(*decoder));
 
 	decoder->config = *config;
-	decoder->flags = pdf_pt_disabled;
 
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
@@ -98,7 +97,7 @@ void pt_qry_reset(struct pt_query_decoder *decoder)
 	if (!decoder)
 		return;
 
-	decoder->flags = pdf_pt_disabled;
+	decoder->flags = 0ull;
 	decoder->event = NULL;
 
 	pt_last_ip_init(&decoder->ip);
@@ -869,8 +868,7 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 		 */
 		pt_tnt_cache_init(&decoder->tnt);
 
-		/* Tracing is no longer disabled. */
-		decoder->flags &= ~pdf_pt_disabled;
+		decoder->flags |= pdf_pt_enabled;
 
 		/* Process pending events next. */
 		decoder->flags |= pdf_consume_packet;
@@ -928,7 +926,7 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 
 static int pt_qry_consume_tip_pgd(struct pt_query_decoder *decoder, int size)
 {
-	decoder->flags |= pdf_pt_disabled;
+	decoder->flags &= ~pdf_pt_enabled;
 	decoder->pos += size;
 	return 0;
 }
@@ -997,7 +995,7 @@ int pt_qry_header_fup(struct pt_query_decoder *decoder)
 
 	/* Tracing is enabled if we have an IP in the header. */
 	if (packet.ipc != pt_ipc_suppressed)
-		decoder->flags &= ~pdf_pt_disabled;
+		decoder->flags |= pdf_pt_enabled;
 
 	return pt_qry_consume_fup(decoder, size);
 }
@@ -1226,13 +1224,13 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 
 	pt_qry_reset(decoder);
 
-	if (!(flags & pdf_pt_disabled))
-		decoder->flags &= ~pdf_pt_disabled;
+	if (flags & pdf_pt_enabled)
+		decoder->flags |= pdf_pt_enabled;
 
 	/* OVF binds to FUP as long as tracing is enabled.
 	 * It binds to TIP.PGE when tracing is disabled.
 	 */
-	evb = (flags & pdf_pt_disabled) ? evb_tip : evb_fup;
+	evb = (flags & pdf_pt_enabled) ? evb_fup : evb_tip;
 
 	/* Queue the overflow event.
 	 *
@@ -1271,7 +1269,7 @@ static int pt_qry_decode_mode_tsx(struct pt_query_decoder *decoder,
 	struct pt_event *event;
 
 	/* MODE.TSX is standalone if tracing is disabled. */
-	if (decoder->flags & pdf_pt_disabled) {
+	if (!(decoder->flags & pdf_pt_enabled)) {
 		event = pt_evq_standalone(&decoder->evq);
 		if (!event)
 			return -pte_internal;
