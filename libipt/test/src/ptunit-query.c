@@ -76,7 +76,7 @@ static const uint64_t pt_dfix_max_cr3 = ((1ull << 47) - 1) & ~0x1f;
 static struct ptunit_result ptu_sync_decoder(struct pt_query_decoder *decoder)
 {
 	ptu_ptr(decoder);
-	decoder->flags |= pdf_pt_enabled;
+	decoder->enabled = 1;
 
 	(void) pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
 	return ptu_passed();
@@ -1041,7 +1041,7 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 	pt_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
 	ptu_check(ptu_sync_decoder, decoder);
-	decoder->flags &= ~pdf_pt_enabled;
+	decoder->enabled = 0;
 
 	errcode = pt_qry_event(decoder, &event);
 	switch (ipc) {
@@ -1081,7 +1081,7 @@ event_overflow_tip_pge_cutoff_fail(struct ptu_decoder_fixture *dfix)
 
 	ptu_check(cutoff, decoder, encoder);
 	ptu_check(ptu_sync_decoder, decoder);
-	decoder->flags &= ~pdf_pt_enabled;
+	decoder->enabled = 0;
 
 	errcode = pt_qry_event(decoder, &event);
 	ptu_int_eq(errcode, -pte_eos);
@@ -1191,7 +1191,7 @@ event_exec_mode_tip_pge(struct ptu_decoder_fixture *dfix,
 	pt_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
 	ptu_check(ptu_sync_decoder, decoder);
-	decoder->flags &= ~pdf_pt_enabled;
+	decoder->enabled = 0;
 
 	errcode = pt_qry_event(decoder, &event);
 	if (ipc == pt_ipc_suppressed) {

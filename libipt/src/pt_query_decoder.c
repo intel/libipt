@@ -97,7 +97,8 @@ void pt_qry_reset(struct pt_query_decoder *decoder)
 	if (!decoder)
 		return;
 
-	decoder->flags = 0ull;
+	decoder->enabled = 0;
+	decoder->consume_packet = 0;
 	decoder->event = NULL;
 
 	pt_last_ip_init(&decoder->ip);
@@ -748,8 +749,7 @@ int pt_qry_decode_tip(struct pt_query_decoder *decoder)
 			pt_qry_add_event_ip(ev, &ev->variant.async_branch.to,
 					    decoder);
 
-			/* The event will consume the packet. */
-			decoder->flags |= pdf_consume_packet;
+			decoder->consume_packet = 1;
 
 			break;
 
@@ -775,13 +775,13 @@ int pt_qry_decode_tip(struct pt_query_decoder *decoder)
 		 *
 		 * If none of the events consumed the packet, we're done.
 		 */
-		if (!(decoder->flags & pdf_consume_packet))
+		if (!decoder->consume_packet)
 			return 0;
 
 		/* We're done with this packet. Clear the flag we set previously
 		 * and consume it.
 		 */
-		decoder->flags &= ~pdf_consume_packet;
+		decoder->consume_packet = 0;
 	}
 
 	return pt_qry_consume_tip(decoder, size);
@@ -844,7 +844,7 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 	 *
 	 * We use the consume packet decoder flag to indicate this.
 	 */
-	if (!(decoder->flags & pdf_consume_packet)) {
+	if (!decoder->consume_packet) {
 		uint64_t ip;
 		int errcode;
 
@@ -868,10 +868,9 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 		 */
 		pt_tnt_cache_init(&decoder->tnt);
 
-		decoder->flags |= pdf_pt_enabled;
-
 		/* Process pending events next. */
-		decoder->flags |= pdf_consume_packet;
+		decoder->consume_packet = 1;
+		decoder->enabled = 1;
 	} else {
 		/* Process any pending events binding to TIP. */
 		ev = pt_evq_dequeue(&decoder->evq, evb_tip);
@@ -916,17 +915,17 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 		return 0;
 
 	/* We must consume the packet. */
-	if (!(decoder->flags & pdf_consume_packet))
+	if (!decoder->consume_packet)
 		return -pte_internal;
 
-	decoder->flags &= ~pdf_consume_packet;
+	decoder->consume_packet = 0;
 
 	return pt_qry_consume_tip_pge(decoder, size);
 }
 
 static int pt_qry_consume_tip_pgd(struct pt_query_decoder *decoder, int size)
 {
-	decoder->flags &= ~pdf_pt_enabled;
+	decoder->enabled = 0;
 	decoder->pos += size;
 	return 0;
 }
@@ -995,7 +994,7 @@ int pt_qry_header_fup(struct pt_query_decoder *decoder)
 
 	/* Tracing is enabled if we have an IP in the header. */
 	if (packet.ipc != pt_ipc_suppressed)
-		decoder->flags |= pdf_pt_enabled;
+		decoder->enabled = 1;
 
 	return pt_qry_consume_fup(decoder, size);
 }
@@ -1027,17 +1026,15 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 
 			ev->variant.overflow.ip = ip;
 
-			/* The event will consume the packet. */
-			decoder->flags |= pdf_consume_packet;
+			decoder->consume_packet = 1;
 		}
 			break;
 
 		case ptev_tsx:
 			pt_qry_add_event_ip(ev, &ev->variant.tsx.ip, decoder);
 
-			/* A non-abort event will consume the packet. */
 			if (!(ev->variant.tsx.aborted))
-				decoder->flags |= pdf_consume_packet;
+				decoder->consume_packet = 1;
 
 			break;
 		}
@@ -1053,13 +1050,13 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 		 *
 		 * If none of the events consumed the packet, we're done.
 		 */
-		if (!(decoder->flags & pdf_consume_packet))
+		if (!decoder->consume_packet)
 			return 0;
 
 		/* We're done with this packet. Clear the flag we set previously
 		 * and consume it.
 		 */
-		decoder->flags &= ~pdf_consume_packet;
+		decoder->consume_packet = 0;
 	} else {
 		/* FUP indicates an async branch event; it binds to TIP.
 		 *
@@ -1203,8 +1200,7 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t flags;
-	int status;
+	int status, enabled;
 	enum pt_event_binding evb;
 
 	status = pt_qry_process_pending_psb_events(decoder);
@@ -1220,17 +1216,17 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 	 * We don't know how many packets we lost so any queued events or unused
 	 * TNT bits will likely be wrong.
 	 */
-	flags = decoder->flags;
+	enabled = decoder->enabled;
 
 	pt_qry_reset(decoder);
 
-	if (flags & pdf_pt_enabled)
-		decoder->flags |= pdf_pt_enabled;
+	if (enabled)
+		decoder->enabled = 1;
 
 	/* OVF binds to FUP as long as tracing is enabled.
 	 * It binds to TIP.PGE when tracing is disabled.
 	 */
-	evb = (flags & pdf_pt_enabled) ? evb_fup : evb_tip;
+	evb = enabled ? evb_fup : evb_tip;
 
 	/* Queue the overflow event.
 	 *
@@ -1269,7 +1265,7 @@ static int pt_qry_decode_mode_tsx(struct pt_query_decoder *decoder,
 	struct pt_event *event;
 
 	/* MODE.TSX is standalone if tracing is disabled. */
-	if (!(decoder->flags & pdf_pt_enabled)) {
+	if (!decoder->enabled) {
 		event = pt_evq_standalone(&decoder->evq);
 		if (!event)
 			return -pte_internal;

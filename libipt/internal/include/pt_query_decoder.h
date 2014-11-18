@@ -39,15 +39,6 @@
 struct pt_decoder_function;
 
 
-/* Query decoder flags. */
-enum pt_decoder_flag {
-	/* Tracing is enabled. */
-	pdf_pt_enabled		= 1 << 0,
-
-	/* The packet will be consumed after all events have been processed. */
-	pdf_consume_packet	= 1 << 1
-};
-
 /* An Intel PT query decoder. */
 struct pt_query_decoder {
 	/* The decoder configuration. */
@@ -68,9 +59,6 @@ struct pt_query_decoder {
 	/* The cached tnt indicators. */
 	struct pt_tnt_cache tnt;
 
-	/* A bit-vector of decoder flags. */
-	uint64_t flags;
-
 	/* Timing information. */
 	struct pt_time time;
 
@@ -79,6 +67,15 @@ struct pt_query_decoder {
 
 	/* The current event. */
 	struct pt_event *event;
+
+	/* A collection of flags relevant for decoding:
+	 *
+	 * - tracing is enabled.
+	 */
+	uint32_t enabled:1;
+
+	/* - consume the current packet. */
+	uint32_t consume_packet:1;
 };
 
 /* Initialize the query decoder.
