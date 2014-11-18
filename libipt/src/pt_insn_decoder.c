@@ -349,6 +349,7 @@ static pti_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
  */
 static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 {
+	static pti_machine_mode_enum_t mode;
 	pti_ild_t *ild;
 	pti_bool_t status, relevant;
 	int size;
@@ -363,6 +364,11 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	insn->mode = decoder->mode;
 	insn->ip = decoder->ip;
 
+	/* If we don't know the execution mode, we can't decode. */
+	mode = translate_mode(decoder->mode);
+	if (PTI_MODE_LAST <= mode)
+		return -pte_bad_insn;
+
 	/* Read the memory at the current IP in the current address space. */
 	size = pt_image_read(decoder->image, insn->raw, sizeof(insn->raw),
 			     &decoder->asid, decoder->ip);
@@ -375,7 +381,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 
 	ild->itext = insn->raw;
 	ild->max_bytes = size;
-	ild->mode = translate_mode(decoder->mode);
+	ild->mode = mode;
 	ild->runtime_address = decoder->ip;
 
 	status = pti_instruction_length_decode(ild);
