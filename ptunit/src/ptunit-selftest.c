@@ -342,14 +342,13 @@ static struct ptunit_result frun_empty_pass(void)
 	return ptu_passed();
 }
 
-static struct ptunit_result frun_init_fail(void)
+static struct ptunit_result frun_init_fail(struct fixture *pfix)
 {
-	struct fixture pfix;
 	struct ptunit_result result;
 
-	pfix.init = frun_fail;
-	pfix.fini = frun_skip;
-	ptunit_frun(result, frun_die, &pfix, &pfix);
+	pfix->init = frun_fail;
+	pfix->fini = frun_skip;
+	ptunit_frun(result, frun_die, pfix, pfix);
 
 	ptu_uint_eq(result.type, ptur_failed_pointer);
 	ptu_str_eq(result.failed.where.file, __FILE__);
@@ -357,7 +356,7 @@ static struct ptunit_result frun_init_fail(void)
 	ptu_str_eq(result.failed.variant.pointer.expr, "pfix==NULL");
 	ptu_str_eq(result.failed.variant.pointer.cmp, "==");
 	ptu_ptr_eq(result.failed.variant.pointer.expected, NULL);
-	ptu_ptr_eq(result.failed.variant.pointer.actual, &pfix);
+	ptu_ptr_eq(result.failed.variant.pointer.actual, pfix);
 
 	return ptu_passed();
 }
@@ -376,14 +375,13 @@ static struct ptunit_result frun_init_skip(void)
 	return ptu_passed();
 }
 
-static struct ptunit_result frun_fini_fail(void)
+static struct ptunit_result frun_fini_fail(struct fixture *pfix)
 {
-	struct fixture pfix;
 	struct ptunit_result result;
 
-	pfix.init = NULL;
-	pfix.fini = frun_fail;
-	ptunit_frun(result, frun_pass, &pfix, &pfix);
+	pfix->init = NULL;
+	pfix->fini = frun_fail;
+	ptunit_frun(result, frun_pass, pfix, pfix);
 
 	ptu_uint_eq(result.type, ptur_failed_pointer);
 	ptu_str_eq(result.failed.where.file, __FILE__);
@@ -391,7 +389,7 @@ static struct ptunit_result frun_fini_fail(void)
 	ptu_str_eq(result.failed.variant.pointer.expr, "pfix==NULL");
 	ptu_str_eq(result.failed.variant.pointer.cmp, "==");
 	ptu_ptr_eq(result.failed.variant.pointer.expected, NULL);
-	ptu_ptr_eq(result.failed.variant.pointer.actual, &pfix);
+	ptu_ptr_eq(result.failed.variant.pointer.actual, pfix);
 
 	return ptu_passed();
 }
@@ -454,11 +452,12 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, fixture_param, pfix, NULL);
 
 	ptu_run(suite, frun_empty_pass);
-	ptu_run(suite, frun_init_fail);
 	ptu_run(suite, frun_init_skip);
-	ptu_run(suite, frun_fini_fail);
 	ptu_run(suite, frun_fini_skip);
 	ptu_run(suite, frun_fini_preserve);
+
+	ptu_run_p(suite, frun_init_fail, &pfix);
+	ptu_run_p(suite, frun_fini_fail, &pfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
