@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
 
 
 struct ptunit_srcloc ptunit_mk_srcloc(const char *file, uint32_t line)
@@ -138,6 +139,7 @@ struct ptunit_result ptunit_mk_passed(void)
 {
 	struct ptunit_result result;
 
+	memset(&result, 0, sizeof(result));
 	result.type = ptur_passed;
 
 	return result;
@@ -147,6 +149,7 @@ struct ptunit_result ptunit_mk_skipped(void)
 {
 	struct ptunit_result result;
 
+	memset(&result, 0, sizeof(result));
 	result.type = ptur_skipped;
 
 	return result;
