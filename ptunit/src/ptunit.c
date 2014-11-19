@@ -240,6 +240,8 @@ static void ptunit_print_srcloc(const struct ptunit_test *test)
 	case ptur_failed_pointer:
 	case ptur_failed_str:
 		file = basename(test->result.failed.where.file);
+		if (!file)
+			file = "<unknown>";
 
 		fprintf(stderr, "%s:%" PRIu32 ": ", file,
 			test->result.failed.where.line);
