@@ -1048,9 +1048,9 @@ extern pt_export int pt_qry_sync_backward(struct pt_query_decoder *decoder,
  *
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
- * Returns -pte_eos if @decoder reaches the end of its trace buffer.
+ * Returns -pte_eos if \@decoder reaches the end of its trace buffer.
  * Returns -pte_invalid if \@decoder is NULL.
- * Returns -pte_invalid if @offset lies outside of @decoder's trace buffer.
+ * Returns -pte_invalid if \@offset lies outside of \@decoder's trace buffer.
  * Returns -pte_nosync if there is no syncpoint at \@offset.
  */
 extern pt_export int pt_qry_sync_set(struct pt_query_decoder *decoder,
@@ -1448,9 +1448,9 @@ extern pt_export int pt_insn_sync_backward(struct pt_insn_decoder *decoder);
  *
  * Returns -pte_bad_opc if an unknown packet is encountered.
  * Returns -pte_bad_packet if an unknown packet payload is encountered.
- * Returns -pte_eos if @decoder reaches the end of its trace buffer.
+ * Returns -pte_eos if \@decoder reaches the end of its trace buffer.
  * Returns -pte_invalid if \@decoder is NULL.
- * Returns -pte_invalid if @offset lies outside of @decoder's trace buffer.
+ * Returns -pte_invalid if \@offset lies outside of \@decoder's trace buffer.
  * Returns -pte_nosync if there is no syncpoint at \@offset.
  */
 extern pt_export int pt_insn_sync_set(struct pt_insn_decoder *decoder,
