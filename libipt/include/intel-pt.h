@@ -203,6 +203,9 @@ enum pt_payload {
 	/* The size of a PIP payload in bytes. */
 	pt_pl_pip_size		= 6,
 
+	/* The non-root bit in the first byte of the PIP payload. */
+	pt_pl_pip_nr            = 0x01,
+
 	/* The size of a 8bit TNT packet's payload in bits. */
 	pt_pl_tnt_8_bits	= 8 - pt_opm_tnt_8_shr,
 
@@ -628,6 +631,9 @@ struct pt_packet_mode {
 struct pt_packet_pip {
 	/** The CR3 value. */
 	uint64_t cr3;
+
+	/** The non-root bit. */
+	uint32_t nr:1;
 };
 
 /** A TSC packet. */
@@ -1000,6 +1006,11 @@ struct pt_event {
 			 */
 			uint64_t cr3;
 
+			/** A flag indicating whether the cpu is operating in
+			 * vmx non-root (guest) mode.
+			 */
+			uint32_t non_root:1;
+
 			/* The address at which the event is effective is
 			 * obvious from the disassembly.
 			 */
@@ -1014,6 +1025,11 @@ struct pt_event {
 			 * maximum possible address.
 			 */
 			uint64_t cr3;
+
+			/** A flag indicating whether the cpu is operating in
+			 * vmx non-root (guest) mode.
+			 */
+			uint32_t non_root:1;
 
 			/** The address at which the event is effective. */
 			uint64_t ip;

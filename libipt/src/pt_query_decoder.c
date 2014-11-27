@@ -1224,6 +1224,7 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 			return -pte_internal;
 		event->type = ptev_paging;
 		event->variant.paging.cr3 = packet.cr3;
+		event->variant.paging.non_root = packet.nr;
 
 		pt_qry_add_event_time(event, decoder);
 
@@ -1235,6 +1236,7 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 
 		event->type = ptev_async_paging;
 		event->variant.async_paging.cr3 = packet.cr3;
+		event->variant.async_paging.non_root = packet.nr;
 
 		pt_qry_add_event_time(event, decoder);
 	}
@@ -1260,6 +1262,7 @@ int pt_qry_header_pip(struct pt_query_decoder *decoder)
 
 	event->type = ptev_async_paging;
 	event->variant.async_paging.cr3 = packet.cr3;
+	event->variant.async_paging.non_root = packet.nr;
 
 	decoder->pos += size;
 	return 0;

@@ -404,6 +404,9 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		cr3 >>= pt_pl_pip_shl;
 		cr3 <<= pt_pl_pip_shr;
 
+		if (packet->payload.pip.nr)
+			cr3 |= (uint64_t) pt_pl_pip_nr;
+
 		*pos++ = pt_opc_ext;
 		*pos++ = pt_ext_pip;
 		pos = pt_encode_int(pos, cr3, pt_pl_pip_size);
@@ -542,12 +545,13 @@ int pt_encode_fup(struct pt_encoder *encoder, uint64_t ip,
 	return pt_enc_next(encoder, &packet);
 }
 
-int pt_encode_pip(struct pt_encoder *encoder, uint64_t cr3)
+int pt_encode_pip(struct pt_encoder *encoder, uint64_t cr3, uint8_t flags)
 {
 	struct pt_packet packet;
 
 	packet.type = ppt_pip;
 	packet.payload.pip.cr3 = cr3;
+	packet.payload.pip.nr = (flags & pt_pl_pip_nr) != 0;
 
 	return pt_enc_next(encoder, &packet);
 }

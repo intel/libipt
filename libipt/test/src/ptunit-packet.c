@@ -277,6 +277,7 @@ static struct ptunit_result pip(struct packet_fixture *pfix)
 {
 	pfix->packet[0].type = ppt_pip;
 	pfix->packet[0].payload.pip.cr3 = 0x4200ull;
+	pfix->packet[0].payload.pip.nr = 1;
 
 	ptu_test(pfix_test, pfix);
 

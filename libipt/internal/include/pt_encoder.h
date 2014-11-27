@@ -86,7 +86,7 @@ extern int pt_encode_fup(struct pt_encoder *, uint64_t ip,
 			 enum pt_ip_compression ipc);
 
 /* Encode a Paging Information Packet (pip). */
-extern int pt_encode_pip(struct pt_encoder *, uint64_t cr3);
+extern int pt_encode_pip(struct pt_encoder *, uint64_t cr3, uint8_t flags);
 
 /* Encode a Overflow Packet (ovf). */
 extern int pt_encode_ovf(struct pt_encoder *);

@@ -966,7 +966,7 @@ event_async_branch_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 }
 
 static struct ptunit_result event_paging(struct ptu_decoder_fixture *dfix,
-					 uint64_t tsc)
+					 uint8_t flags, uint64_t tsc)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
@@ -974,7 +974,7 @@ static struct ptunit_result event_paging(struct ptu_decoder_fixture *dfix,
 	uint64_t cr3 = pt_dfix_max_cr3;
 	int errcode;
 
-	pt_encode_pip(encoder, cr3);
+	pt_encode_pip(encoder, cr3, flags);
 
 	ptu_check(ptu_sync_decoder, decoder);
 
@@ -982,6 +982,7 @@ static struct ptunit_result event_paging(struct ptu_decoder_fixture *dfix,
 	ptu_int_eq(errcode, pts_eos);
 	ptu_int_eq(event.type, ptev_paging);
 	ptu_uint_eq(event.variant.paging.cr3, cr3);
+	ptu_uint_eq(event.variant.paging.non_root, (flags & pt_pl_pip_nr) != 0);
 
 	if (!tsc)
 		ptu_int_eq(event.has_tsc, 0);
@@ -1001,7 +1002,7 @@ event_paging_cutoff_fail(struct ptu_decoder_fixture *dfix)
 	struct pt_event event;
 	int errcode;
 
-	pt_encode_pip(encoder, 0);
+	pt_encode_pip(encoder, 0, 0);
 
 	ptu_check(cutoff, decoder, encoder);
 	ptu_check(ptu_sync_decoder, decoder);
@@ -1013,7 +1014,8 @@ event_paging_cutoff_fail(struct ptu_decoder_fixture *dfix)
 }
 
 static struct ptunit_result
-event_async_paging(struct ptu_decoder_fixture *dfix, uint64_t tsc)
+event_async_paging(struct ptu_decoder_fixture *dfix, uint8_t flags,
+		   uint64_t tsc)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
@@ -1023,7 +1025,7 @@ event_async_paging(struct ptu_decoder_fixture *dfix, uint64_t tsc)
 	int errcode;
 
 	pt_encode_fup(encoder, from, pt_ipc_sext_48);
-	pt_encode_pip(encoder, cr3);
+	pt_encode_pip(encoder, cr3, flags);
 	pt_encode_tip(encoder, to, pt_ipc_update_16);
 
 	ptu_check(ptu_sync_decoder, decoder);
@@ -1045,6 +1047,8 @@ event_async_paging(struct ptu_decoder_fixture *dfix, uint64_t tsc)
 	ptu_int_eq(errcode, pts_eos);
 	ptu_int_eq(event.type, ptev_async_paging);
 	ptu_uint_eq(event.variant.async_paging.cr3, cr3);
+	ptu_uint_eq(event.variant.async_paging.non_root,
+		    (flags & pt_pl_pip_nr) != 0);
 	ptu_uint_eq(event.variant.async_paging.ip, to);
 
 	if (!tsc)
@@ -1058,7 +1062,8 @@ event_async_paging(struct ptu_decoder_fixture *dfix, uint64_t tsc)
 }
 
 static struct ptunit_result
-event_async_paging_suppressed(struct ptu_decoder_fixture *dfix, uint64_t tsc)
+event_async_paging_suppressed(struct ptu_decoder_fixture *dfix, uint8_t flags,
+			      uint64_t tsc)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
@@ -1067,7 +1072,7 @@ event_async_paging_suppressed(struct ptu_decoder_fixture *dfix, uint64_t tsc)
 	int errcode;
 
 	pt_encode_fup(encoder, from, pt_ipc_sext_48);
-	pt_encode_pip(encoder, cr3);
+	pt_encode_pip(encoder, cr3, flags);
 	pt_encode_tip(encoder, 0, pt_ipc_suppressed);
 
 	ptu_check(ptu_sync_decoder, decoder);
@@ -1090,6 +1095,8 @@ event_async_paging_suppressed(struct ptu_decoder_fixture *dfix, uint64_t tsc)
 	ptu_uint_ne(event.ip_suppressed, 0);
 	ptu_int_eq(event.type, ptev_async_paging);
 	ptu_uint_eq(event.variant.async_paging.cr3, cr3);
+	ptu_uint_eq(event.variant.async_paging.non_root,
+		    (flags & pt_pl_pip_nr) != 0);
 
 	if (!tsc)
 		ptu_int_eq(event.has_tsc, 0);
@@ -1110,7 +1117,7 @@ event_async_paging_cutoff_fail(struct ptu_decoder_fixture *dfix)
 	int errcode;
 
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
-	pt_encode_pip(encoder, 0);
+	pt_encode_pip(encoder, 0, 0);
 
 	ptu_check(cutoff, decoder, encoder);
 	ptu_check(ptu_sync_decoder, decoder);
@@ -2179,10 +2186,14 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, event_async_branch_suppressed_fail, dfix_empty);
 	ptu_run_f(suite, event_async_branch_cutoff_fail_a, dfix_empty);
 	ptu_run_f(suite, event_async_branch_cutoff_fail_b, dfix_empty);
-	ptu_run_fp(suite, event_paging, dfix_empty, 0);
+	ptu_run_fp(suite, event_paging, dfix_empty, 0, 0);
+	ptu_run_fp(suite, event_paging, dfix_empty, pt_pl_pip_nr, 0);
 	ptu_run_f(suite, event_paging_cutoff_fail, dfix_empty);
-	ptu_run_fp(suite, event_async_paging, dfix_empty, 0);
-	ptu_run_fp(suite, event_async_paging_suppressed, dfix_empty, 0);
+	ptu_run_fp(suite, event_async_paging, dfix_empty, 0, 0);
+	ptu_run_fp(suite, event_async_paging, dfix_empty, pt_pl_pip_nr, 0);
+	ptu_run_fp(suite, event_async_paging_suppressed, dfix_empty, 0, 0);
+	ptu_run_fp(suite, event_async_paging_suppressed, dfix_empty,
+		   pt_pl_pip_nr, 0);
 	ptu_run_f(suite, event_async_paging_cutoff_fail, dfix_empty);
 	ptu_run_fp(suite, event_overflow_fup, dfix_empty, pt_ipc_suppressed, 0);
 	ptu_run_fp(suite, event_overflow_fup, dfix_empty, pt_ipc_update_16, 0);
@@ -2271,10 +2282,14 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, event_async_branch_suppressed_fail, dfix_event);
 	ptu_run_f(suite, event_async_branch_cutoff_fail_a, dfix_event);
 	ptu_run_f(suite, event_async_branch_cutoff_fail_b, dfix_event);
-	ptu_run_fp(suite, event_paging, dfix_event, 0x1000);
+	ptu_run_fp(suite, event_paging, dfix_event, 0, 0x1000);
+	ptu_run_fp(suite, event_paging, dfix_event, pt_pl_pip_nr, 0x1000);
 	ptu_run_f(suite, event_paging_cutoff_fail, dfix_event);
-	ptu_run_fp(suite, event_async_paging, dfix_event, 0x1000);
-	ptu_run_fp(suite, event_async_paging_suppressed, dfix_event, 0x1000);
+	ptu_run_fp(suite, event_async_paging, dfix_event, 0, 0x1000);
+	ptu_run_fp(suite, event_async_paging, dfix_event, pt_pl_pip_nr, 0x1000);
+	ptu_run_fp(suite, event_async_paging_suppressed, dfix_event, 0, 0x1000);
+	ptu_run_fp(suite, event_async_paging_suppressed, dfix_event,
+		   pt_pl_pip_nr, 0x1000);
 	ptu_run_f(suite, event_async_paging_cutoff_fail, dfix_event);
 	ptu_run_fp(suite, event_overflow_fup, dfix_event, pt_ipc_suppressed,
 		   0x1000);
@@ -2371,11 +2386,16 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, event_async_branch_suppressed_fail, dfix_event_psb);
 	ptu_run_f(suite, event_async_branch_cutoff_fail_a, dfix_event_psb);
 	ptu_run_f(suite, event_async_branch_cutoff_fail_b, dfix_event_psb);
-	ptu_run_fp(suite, event_paging, dfix_event_psb, 0x1000);
+	ptu_run_fp(suite, event_paging, dfix_event_psb, 0, 0x1000);
+	ptu_run_fp(suite, event_paging, dfix_event_psb, pt_pl_pip_nr, 0x1000);
 	ptu_run_f(suite, event_paging_cutoff_fail, dfix_event_psb);
-	ptu_run_fp(suite, event_async_paging, dfix_event_psb, 0x1000);
-	ptu_run_fp(suite, event_async_paging_suppressed, dfix_event_psb,
+	ptu_run_fp(suite, event_async_paging, dfix_event_psb, 0, 0x1000);
+	ptu_run_fp(suite, event_async_paging, dfix_event_psb, pt_pl_pip_nr,
 		   0x1000);
+	ptu_run_fp(suite, event_async_paging_suppressed, dfix_event_psb, 0,
+		   0x1000);
+	ptu_run_fp(suite, event_async_paging_suppressed, dfix_event_psb,
+		  pt_pl_pip_nr, 0x1000);
 	ptu_run_f(suite, event_async_paging_cutoff_fail, dfix_event_psb);
 	ptu_run_f(suite, event_overflow_cutoff_fail, dfix_event_psb);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_event_psb,

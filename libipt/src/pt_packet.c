@@ -240,6 +240,9 @@ int pt_pkt_read_pip(struct pt_packet_pip *packet, const uint8_t *pos,
 	/* Read the payload. */
 	payload = pt_pkt_read_value(pos + pt_opcs_pip, pt_pl_pip_size);
 
+	/* Extract the non-root information from the payload. */
+	packet->nr = payload & pt_pl_pip_nr;
+
 	/* Create the cr3 value. */
 	payload  >>= pt_pl_pip_shr;
 	payload  <<= pt_pl_pip_shl;
