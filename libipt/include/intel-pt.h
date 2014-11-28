@@ -130,6 +130,7 @@ enum pt_ext_code {
 	pt_ext_psbend		= 0x23,
 	pt_ext_cbr		= 0x03,
 	pt_ext_tma		= 0x73,
+	pt_ext_stop		= 0x83,
 
 	pt_ext_bad		= 0x04
 };
@@ -177,7 +178,8 @@ enum pt_opcode_size {
 	pt_opcs_pip		= 2,
 	pt_opcs_tnt_64		= 2,
 	pt_opcs_cbr		= 2,
-	pt_opcs_tma		= 2
+	pt_opcs_tma		= 2,
+	pt_opcs_stop		= 2
 };
 
 /** The psb magic payload.
@@ -346,7 +348,8 @@ enum pt_packet_size {
 	ptps_fup_upd16		= pt_opcs_fup + pt_pl_ip_upd16_size,
 	ptps_fup_upd32		= pt_opcs_fup + pt_pl_ip_upd32_size,
 	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size,
-	ptps_tma		= pt_opcs_tma + pt_pl_tma_size
+	ptps_tma		= pt_opcs_tma + pt_pl_tma_size,
+	ptps_stop		= pt_opcs_stop
 };
 
 
@@ -595,6 +598,7 @@ enum pt_packet_type {
 	ppt_psb			= pt_opc_ext << 8 | pt_ext_psb,
 	ppt_tnt_64		= pt_opc_ext << 8 | pt_ext_tnt_64,
 	ppt_pip			= pt_opc_ext << 8 | pt_ext_pip,
+	ppt_stop		= pt_opc_ext << 8 | pt_ext_stop,
 	ppt_ovf			= pt_opc_ext << 8 | pt_ext_ovf,
 	ppt_psbend		= pt_opc_ext << 8 | pt_ext_psbend,
 	ppt_cbr			= pt_opc_ext << 8 | pt_ext_cbr,
@@ -758,7 +762,7 @@ struct pt_packet {
 
 	/** Packet specific data. */
 	union {
-		/** Packets: pad, ovf, psb, psbend - no payload. */
+		/** Packets: pad, ovf, psb, psbend, stop - no payload. */
 
 		/** Packet: tnt-8, tnt-64. */
 		struct pt_packet_tnt tnt;
@@ -1018,7 +1022,10 @@ enum pt_event_type {
 	ptev_exec_mode,
 
 	/* A transactional execution state change. */
-	ptev_tsx
+	ptev_tsx,
+
+	/* Trace Stop. */
+	ptev_stop
 };
 
 /** An event. */
@@ -1615,6 +1622,9 @@ struct pt_insn {
 
 	/** - tracing resumed at this instruction after an overflow. */
 	uint32_t resynced:1;
+
+	/** - tracing was stopped after this instruction. */
+	uint32_t stopped:1;
 };
 
 

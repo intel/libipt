@@ -113,4 +113,7 @@ extern int pt_encode_mtc(struct pt_encoder *, uint8_t ctc);
 /* Encode a Cycle Count (cyc) packet. */
 extern int pt_encode_cyc(struct pt_encoder *, uint32_t cyc);
 
+/* Encode a TraceStop Packet (stop). */
+extern int pt_encode_stop(struct pt_encoder *);
+
 #endif /* __PT_ENCODER_H__ */

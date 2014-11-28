@@ -576,3 +576,17 @@ int pt_pkt_decode_cyc(struct pt_packet_decoder *decoder,
 
 	return size;
 }
+
+int pt_pkt_decode_stop(struct pt_packet_decoder *decoder,
+		       struct pt_packet *packet)
+{
+	(void) decoder;
+
+	if (!packet)
+		return -pte_internal;
+
+	packet->type = ppt_stop;
+	packet->size = ptps_stop;
+
+	return ptps_stop;
+}

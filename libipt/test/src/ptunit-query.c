@@ -1292,6 +1292,32 @@ event_overflow_cutoff_fail(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result event_stop(struct ptu_decoder_fixture *dfix,
+				       uint64_t tsc)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_event event;
+	int errcode;
+
+	pt_encode_stop(encoder);
+
+	ptu_sync_decoder(decoder);
+
+	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_eq(errcode, pts_eos);
+	ptu_int_eq(event.type, ptev_stop);
+
+	if (!tsc)
+		ptu_int_eq(event.has_tsc, 0);
+	else {
+		ptu_int_eq(event.has_tsc, 1);
+		ptu_uint_eq(event.tsc, tsc);
+	}
+
+	return ptu_passed();
+}
+
 static struct ptunit_result
 event_exec_mode_tip(struct ptu_decoder_fixture *dfix,
 		    enum pt_ip_compression ipc, uint64_t tsc)
@@ -2210,6 +2236,7 @@ int main(int argc, char **argv)
 		   0);
 	ptu_run_f(suite, event_overflow_tip_pge_cutoff_fail, dfix_empty);
 	ptu_run_f(suite, event_overflow_cutoff_fail, dfix_empty);
+	ptu_run_fp(suite, event_stop, dfix_empty, 0);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_empty, pt_ipc_suppressed,
 		   0);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_empty, pt_ipc_update_16, 0);
@@ -2310,6 +2337,7 @@ int main(int argc, char **argv)
 		   0x1000);
 	ptu_run_f(suite, event_overflow_tip_pge_cutoff_fail, dfix_event);
 	ptu_run_f(suite, event_overflow_cutoff_fail, dfix_event);
+	ptu_run_fp(suite, event_stop, dfix_event, 0x1000);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_event, pt_ipc_suppressed,
 		   0x1000);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_event, pt_ipc_update_16,
@@ -2398,6 +2426,7 @@ int main(int argc, char **argv)
 		  pt_pl_pip_nr, 0x1000);
 	ptu_run_f(suite, event_async_paging_cutoff_fail, dfix_event_psb);
 	ptu_run_f(suite, event_overflow_cutoff_fail, dfix_event_psb);
+	ptu_run_fp(suite, event_stop, dfix_event_psb, 0x1000);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_event_psb,
 		   pt_ipc_suppressed, 0x1000);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_event_psb, pt_ipc_sext_48,

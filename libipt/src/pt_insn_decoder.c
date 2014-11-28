@@ -716,6 +716,30 @@ static int process_tsx_event(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
+static int process_stop_event(struct pt_insn_decoder *decoder,
+			      struct pt_insn *insn)
+{
+	struct pt_event *ev;
+
+	if (!decoder)
+		return -pte_internal;
+
+	ev = &decoder->event;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* Tracing is always disabled before it is stopped. */
+	if (decoder->enabled)
+		return -pte_bad_context;
+
+	if (insn)
+		insn->stopped = 1;
+
+	return 1;
+}
+
 static int process_one_event_before(struct pt_insn_decoder *decoder,
 				    struct pt_insn *insn)
 {
@@ -784,6 +808,15 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 			return process_tsx_event(decoder, NULL);
 
 		return 0;
+
+	case ptev_stop:
+		/* We would normally process the stop event when peeking at
+		 * the next instruction in order to indicate the stop
+		 * properly.
+		 * This is to catch the case where we stop before we actually
+		 * started.
+		 */
+		return process_stop_event(decoder, NULL);
 	}
 
 	/* Diagnose an unknown event. */
@@ -837,6 +870,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 	case ptev_async_branch:
 	case ptev_exec_mode:
 	case ptev_tsx:
+	case ptev_stop:
 		/* We will process those events on the next iteration. */
 		return 0;
 
@@ -990,6 +1024,8 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 
 		return 0;
 
+	case ptev_stop:
+		return process_stop_event(decoder, insn);
 	}
 
 	return -pte_internal;

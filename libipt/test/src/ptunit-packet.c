@@ -441,6 +441,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, no_payload, pfix, ppt_psb);
 	ptu_run_fp(suite, no_payload, pfix, ppt_ovf);
 	ptu_run_fp(suite, no_payload, pfix, ppt_psbend);
+	ptu_run_fp(suite, no_payload, pfix, ppt_stop);
 
 	ptu_run_fp(suite, unknown, pfix, 4);
 	ptu_run_fp(suite, unknown, pfix, -pte_nomem);
@@ -649,6 +650,12 @@ int pt_qry_decode_mtc(struct pt_query_decoder *d)
 	return -pte_internal;
 }
 int pt_qry_decode_cyc(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_stop(struct pt_query_decoder *d)
 {
 	(void) d;
 

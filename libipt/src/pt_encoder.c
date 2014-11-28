@@ -514,6 +514,17 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		return (int) (pos - begin);
 	}
 
+	case ppt_stop:
+		errcode = pt_reserve(encoder, ptps_stop);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_stop;
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;
@@ -718,6 +729,15 @@ int pt_encode_cyc(struct pt_encoder *encoder, uint32_t ctc)
 
 	packet.type = ppt_cyc;
 	packet.payload.cyc.value = ctc;
+
+	return pt_enc_next(encoder, &packet);
+}
+
+int pt_encode_stop(struct pt_encoder *encoder)
+{
+	struct pt_packet packet;
+
+	packet.type = ppt_stop;
 
 	return pt_enc_next(encoder, &packet);
 }

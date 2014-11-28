@@ -1709,3 +1709,21 @@ int pt_qry_decode_cyc(struct pt_query_decoder *decoder)
 	decoder->pos += size;
 	return 0;
 }
+
+int pt_qry_decode_stop(struct pt_query_decoder *decoder)
+{
+	struct pt_event *event;
+
+	/* Stop events are reported immediately. */
+	event = pt_evq_standalone(&decoder->evq);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_stop;
+
+	pt_qry_add_event_time(event, decoder);
+
+	decoder->event = event;
+	decoder->pos += ptps_stop;
+	return 0;
+}
