@@ -1783,13 +1783,13 @@ static struct ptunit_result time_null_fail(struct ptu_decoder_fixture *dfix)
 	uint64_t tsc;
 	int errcode;
 
-	errcode = pt_qry_time(NULL, NULL);
+	errcode = pt_qry_time(NULL, NULL, NULL, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
 
-	errcode = pt_qry_time(decoder, NULL);
+	errcode = pt_qry_time(decoder, NULL, NULL, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
 
-	errcode = pt_qry_time(NULL, &tsc);
+	errcode = pt_qry_time(NULL, &tsc, NULL, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
 
 	return ptu_passed();
@@ -1801,7 +1801,7 @@ static struct ptunit_result time_initial(struct ptu_decoder_fixture *dfix)
 	uint64_t tsc;
 	int errcode;
 
-	errcode = pt_qry_time(decoder, &tsc);
+	errcode = pt_qry_time(decoder, &tsc, NULL, NULL);
 	ptu_int_eq(errcode, -pte_no_time);
 
 	return ptu_passed();
@@ -1818,7 +1818,7 @@ static struct ptunit_result time(struct ptu_decoder_fixture *dfix)
 	decoder->time.have_tsc = 1;
 	decoder->time.tsc = exp;
 
-	errcode = pt_qry_time(decoder, &tsc);
+	errcode = pt_qry_time(decoder, &tsc, NULL, NULL);
 	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(tsc, exp);
 

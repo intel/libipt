@@ -56,6 +56,7 @@ int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
 	pt_time_init(&decoder->time);
+	pt_tcal_init(&decoder->tcal);
 	pt_evq_init(&decoder->evq);
 
 	return 0;
@@ -104,6 +105,7 @@ static void pt_qry_reset(struct pt_query_decoder *decoder)
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
 	pt_time_init(&decoder->time);
+	pt_tcal_init(&decoder->tcal);
 	pt_evq_init(&decoder->evq);
 }
 
@@ -636,12 +638,13 @@ int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event,
 	return flags;
 }
 
-int pt_qry_time(struct pt_query_decoder *decoder, uint64_t *time)
+int pt_qry_time(struct pt_query_decoder *decoder, uint64_t *time,
+		uint32_t *lost_mtc, uint32_t *lost_cyc)
 {
 	if (!decoder || !time)
 		return -pte_invalid;
 
-	return pt_time_query_tsc(time, &decoder->time);
+	return pt_time_query_tsc(time, lost_mtc, lost_cyc, &decoder->time);
 }
 
 int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder, uint32_t *cbr)
@@ -660,7 +663,8 @@ static void pt_qry_add_event_time(struct pt_event *event,
 	if (!event || !decoder)
 		return;
 
-	errcode = pt_time_query_tsc(&event->tsc, &decoder->time);
+	errcode = pt_time_query_tsc(&event->tsc, &event->lost_mtc,
+				    &event->lost_cyc, &decoder->time);
 	if (errcode >= 0)
 		event->has_tsc = 1;
 }
@@ -1489,16 +1493,56 @@ int pt_qry_decode_psbend(struct pt_query_decoder *decoder)
 int pt_qry_decode_tsc(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_tsc packet;
-	int size;
+	int size, errcode;
 
 	size = pt_pkt_read_tsc(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
-	/* Ignore time update errors.  Timing will be off but we should still
-	 * be able to decode the instruction trace.
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
 	 */
-	(void) pt_time_update_tsc(&decoder->time, &packet, &decoder->config);
+	errcode = pt_tcal_update_tsc(&decoder->tcal, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_tsc(&decoder->time, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_header_tsc(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_tsc packet;
+	int size, errcode;
+
+	size = pt_pkt_read_tsc(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
+	 */
+	errcode = pt_tcal_header_tsc(&decoder->tcal, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_tsc(&decoder->time, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
 
 	decoder->pos += size;
 	return 0;
@@ -1507,16 +1551,160 @@ int pt_qry_decode_tsc(struct pt_query_decoder *decoder)
 int pt_qry_decode_cbr(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_cbr packet;
-	int size;
+	int size, errcode;
 
 	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
 
-	/* Ignore time update errors.  Timing will be off but we should still
-	 * be able to decode the instruction trace.
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
 	 */
-	(void) pt_time_update_cbr(&decoder->time, &packet, &decoder->config);
+	errcode = pt_tcal_update_cbr(&decoder->tcal, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_cbr(&decoder->time, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_header_cbr(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_cbr packet;
+	int size, errcode;
+
+	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
+	 */
+	errcode = pt_tcal_header_cbr(&decoder->tcal, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_cbr(&decoder->time, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_tma(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_tma packet;
+	int size, errcode;
+
+	size = pt_pkt_read_tma(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
+	 */
+	errcode = pt_tcal_update_tma(&decoder->tcal, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_tma(&decoder->time, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_mtc(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_mtc packet;
+	int size, errcode;
+
+	size = pt_pkt_read_mtc(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
+	 */
+	errcode = pt_tcal_update_mtc(&decoder->tcal, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_mtc(&decoder->time, &packet, &decoder->config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_cyc(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_cyc packet;
+	struct pt_config *config;
+	uint64_t fcr;
+	int size, errcode;
+
+	size = pt_pkt_read_cyc(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	config = &decoder->config;
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * calibration which will result in imprecise cycle-accurate timing.
+	 *
+	 * We currently do not track them.
+	 */
+	errcode = pt_tcal_update_cyc(&decoder->tcal, &packet, config);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
+
+	/* We need the FastCounter to Cycles ratio below.  Fall back to
+	 * an invalid ratio of 0 if calibration has not kicked in, yet.
+	 *
+	 * This will be tracked as packet loss in struct pt_time.
+	 */
+	errcode = pt_tcal_fcr(&fcr, &decoder->tcal);
+	if (errcode < 0) {
+		if (errcode == -pte_no_time)
+			fcr = 0ull;
+		else
+			return errcode;
+	}
+
+	/* We ignore configuration errors.  They will result in imprecise
+	 * timing and are tracked as packet losses in struct pt_time.
+	 */
+	errcode = pt_time_update_cyc(&decoder->time, &packet, config, fcr);
+	if (errcode < 0 && (errcode != -pte_bad_config))
+		return errcode;
 
 	decoder->pos += size;
 	return 0;

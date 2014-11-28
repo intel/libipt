@@ -210,12 +210,13 @@ pt_insn_get_config(const struct pt_insn_decoder *decoder)
 	return pt_qry_get_config(&decoder->query);
 }
 
-int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time)
+int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time,
+		 uint32_t *lost_mtc, uint32_t *lost_cyc)
 {
 	if (!decoder || !time)
 		return -pte_invalid;
 
-	return pt_qry_time(&decoder->query, time);
+	return pt_qry_time(&decoder->query, time, lost_mtc, lost_cyc);
 }
 
 int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)

@@ -62,6 +62,9 @@ struct pt_query_decoder {
 	/* Timing information. */
 	struct pt_time time;
 
+	/* Timing calibration. */
+	struct pt_time_cal tcal;
+
 	/* Pending (incomplete) events. */
 	struct pt_event_queue evq;
 
@@ -103,7 +106,12 @@ extern int pt_qry_decode_ovf(struct pt_query_decoder *);
 extern int pt_qry_decode_mode(struct pt_query_decoder *);
 extern int pt_qry_decode_psbend(struct pt_query_decoder *);
 extern int pt_qry_decode_tsc(struct pt_query_decoder *);
+extern int pt_qry_header_tsc(struct pt_query_decoder *);
 extern int pt_qry_decode_cbr(struct pt_query_decoder *);
+extern int pt_qry_header_cbr(struct pt_query_decoder *);
+extern int pt_qry_decode_tma(struct pt_query_decoder *);
+extern int pt_qry_decode_mtc(struct pt_query_decoder *);
+extern int pt_qry_decode_cyc(struct pt_query_decoder *);
 
 /* Decoder functions (header context). */
 extern int pt_qry_header_fup(struct pt_query_decoder *);

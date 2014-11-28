@@ -330,3 +330,91 @@ int pt_pkt_read_cbr(struct pt_packet_cbr *packet, const uint8_t *pos,
 
 	return ptps_cbr;
 }
+
+int pt_pkt_read_tma(struct pt_packet_tma *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	uint16_t ctc, fc;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_tma)
+		return -pte_eos;
+
+	ctc = pos[pt_pl_tma_ctc_0];
+	ctc |= pos[pt_pl_tma_ctc_1] << 8;
+
+	fc = pos[pt_pl_tma_fc_0];
+	fc |= pos[pt_pl_tma_fc_1] << 8;
+
+	if (fc & ~pt_pl_tma_fc_mask)
+		return -pte_bad_packet;
+
+	packet->ctc = ctc;
+	packet->fc = fc;
+
+	return ptps_tma;
+}
+
+int pt_pkt_read_mtc(struct pt_packet_mtc *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_mtc)
+		return -pte_eos;
+
+	packet->ctc = pos[pt_opcs_mtc];
+
+	return ptps_mtc;
+}
+
+int pt_pkt_read_cyc(struct pt_packet_cyc *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	const uint8_t *begin, *end;
+	uint64_t value;
+	uint8_t cyc, ext, shl;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	begin = pos;
+	end = config->end;
+
+	/* The first byte contains the opcode and part of the payload.
+	 * We already checked that this first byte is within bounds.
+	 */
+	cyc = *pos++;
+
+	ext = cyc & pt_opm_cyc_ext;
+	cyc >>= pt_opm_cyc_shr;
+
+	value = cyc;
+	shl = (8 - pt_opm_cyc_shr);
+
+	while (ext) {
+		uint64_t bits;
+
+		if (end <= pos)
+			return -pte_eos;
+
+		bits = *pos++;
+		ext = bits & pt_opm_cycx_ext;
+
+		bits >>= pt_opm_cycx_shr;
+		bits <<= shl;
+
+		shl += (8 - pt_opm_cycx_shr);
+		if (sizeof(value) * 8 < shl)
+			return -pte_bad_packet;
+
+		value |= bits;
+	}
+
+	packet->value = value;
+
+	return (int) (pos - begin);
+}

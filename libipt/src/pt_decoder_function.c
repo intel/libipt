@@ -127,15 +127,36 @@ const struct pt_decoder_function pt_decode_psbend = {
 const struct pt_decoder_function pt_decode_tsc = {
 	/* .packet = */ pt_pkt_decode_tsc,
 	/* .decode = */ pt_qry_decode_tsc,
-	/* .header = */ pt_qry_decode_tsc,
-	/* .flags =  */ 0
+	/* .header = */ pt_qry_header_tsc,
+	/* .flags =  */ pdff_timing
 };
 
 const struct pt_decoder_function pt_decode_cbr = {
 	/* .packet = */ pt_pkt_decode_cbr,
 	/* .decode = */ pt_qry_decode_cbr,
-	/* .header = */ pt_qry_decode_cbr,
-	/* .flags =  */ 0
+	/* .header = */ pt_qry_header_cbr,
+	/* .flags =  */ pdff_timing
+};
+
+const struct pt_decoder_function pt_decode_tma = {
+	/* .packet = */ pt_pkt_decode_tma,
+	/* .decode = */ pt_qry_decode_tma,
+	/* .header = */ pt_qry_decode_tma,
+	/* .flags =  */ pdff_timing
+};
+
+const struct pt_decoder_function pt_decode_mtc = {
+	/* .packet = */ pt_pkt_decode_mtc,
+	/* .decode = */ pt_qry_decode_mtc,
+	/* .header = */ pt_qry_decode_mtc,
+	/* .flags =  */ pdff_timing
+};
+
+const struct pt_decoder_function pt_decode_cyc = {
+	/* .packet = */ pt_pkt_decode_cyc,
+	/* .decode = */ pt_qry_decode_cyc,
+	/* .header = */ pt_qry_decode_cyc,
+	/* .flags =  */ pdff_timing
 };
 
 
@@ -166,6 +187,11 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		/* Check opcodes that require masking. */
 		if ((opc & pt_opm_tnt_8) == pt_opc_tnt_8) {
 			*dfun = &pt_decode_tnt_8;
+			return 0;
+		}
+
+		if ((opc & pt_opm_cyc) == pt_opc_cyc) {
+			*dfun = &pt_decode_cyc;
 			return 0;
 		}
 
@@ -204,6 +230,10 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		*dfun = &pt_decode_tsc;
 		return 0;
 
+	case pt_opc_mtc:
+		*dfun = &pt_decode_mtc;
+		return 0;
+
 	case pt_opc_ext:
 		if (pos == end)
 			return -pte_eos;
@@ -236,6 +266,10 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 
 		case pt_ext_pip:
 			*dfun = &pt_decode_pip;
+			return 0;
+
+		case pt_ext_tma:
+			*dfun = &pt_decode_tma;
 			return 0;
 		}
 	}

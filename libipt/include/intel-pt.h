@@ -114,9 +114,11 @@ enum pt_opcode {
 	pt_opc_fup		= 0x1d,
 	pt_opc_mode		= 0x99,
 	pt_opc_tsc		= 0x19,
+	pt_opc_mtc		= 0x59,
+	pt_opc_cyc		= 0x03,
 
 	/* A free opcode to trigger a decode fault. */
-	pt_opc_bad		= 0x59
+	pt_opc_bad		= 0xd9
 };
 
 /** A one byte extension code for ext opcodes. */
@@ -127,6 +129,7 @@ enum pt_ext_code {
 	pt_ext_ovf		= 0xf3,
 	pt_ext_psbend		= 0x23,
 	pt_ext_cbr		= 0x03,
+	pt_ext_tma		= 0x73,
 
 	pt_ext_bad		= 0x04
 };
@@ -145,7 +148,15 @@ enum pt_opcode_mask {
 	pt_opm_ipc_shr		= 5,
 
 	/* The bit mask for the compression bits after shifting. */
-	pt_opm_ipc_shr_mask	= 0x7
+	pt_opm_ipc_shr_mask	= 0x7,
+
+	/* Shift counts and masks for decoding the cyc packet. */
+	pt_opm_cyc              = 0x03,
+	pt_opm_cyc_ext          = 0x04,
+	pt_opm_cyc_bits         = 0xf8,
+	pt_opm_cyc_shr          = 3,
+	pt_opm_cycx_ext         = 0x01,
+	pt_opm_cycx_shr         = 1
 };
 
 /** The size of the various opcodes in bytes. */
@@ -158,12 +169,15 @@ enum pt_opcode_size {
 	pt_opcs_tnt_8		= 1,
 	pt_opcs_mode		= 1,
 	pt_opcs_tsc		= 1,
+	pt_opcs_mtc		= 1,
+	pt_opcs_cyc		= 1,
 	pt_opcs_psb		= 2,
 	pt_opcs_psbend		= 2,
 	pt_opcs_ovf		= 2,
 	pt_opcs_pip		= 2,
 	pt_opcs_tnt_64		= 2,
-	pt_opcs_cbr		= 2
+	pt_opcs_cbr		= 2,
+	pt_opcs_tma		= 2
 };
 
 /** The psb magic payload.
@@ -215,8 +229,9 @@ enum pt_payload {
 	/* The size of a 64bit TNT packet's payload in bits. */
 	pt_pl_tnt_64_bits	= 48,
 
-	/* The size of a TSC packet's payload in bytes. */
+	/* The size of a TSC packet's payload in bytes and in bits. */
 	pt_pl_tsc_size		= 7,
+	pt_pl_tsc_bit_size	= pt_pl_tsc_size * 8,
 
 	/* The size of a CBR packet's payload in bytes. */
 	pt_pl_cbr_size		= 2,
@@ -234,7 +249,30 @@ enum pt_payload {
 	pt_pl_ip_upd32_size	= 4,
 
 	/* The size of an IP packet's payload with sext-48 compression. */
-	pt_pl_ip_sext48_size	= 6
+	pt_pl_ip_sext48_size	= 6,
+
+	/* Byte locations, sizes, and masks for processing TMA packets. */
+	pt_pl_tma_size		= 5,
+	pt_pl_tma_ctc_size	= 2,
+	pt_pl_tma_ctc_bit_size	= pt_pl_tma_ctc_size * 8,
+	pt_pl_tma_ctc_0		= 2,
+	pt_pl_tma_ctc_1		= 3,
+	pt_pl_tma_ctc_mask	= (1 << pt_pl_tma_ctc_bit_size) - 1,
+	pt_pl_tma_fc_size	= 2,
+	pt_pl_tma_fc_bit_size	= 9,
+	pt_pl_tma_fc_0		= 5,
+	pt_pl_tma_fc_1		= 6,
+	pt_pl_tma_fc_mask	= (1 << pt_pl_tma_fc_bit_size) - 1,
+
+	/* The size of a MTC packet's payload in bytes and in bits. */
+	pt_pl_mtc_size		= 1,
+	pt_pl_mtc_bit_size	= pt_pl_mtc_size * 8,
+
+	/* A mask for the MTC payload bits. */
+	pt_pl_mtc_mask		= (1 << pt_pl_mtc_bit_size) - 1,
+
+	/* The maximal payload size in bytes of a CYC packet. */
+	pt_pl_cyc_max_size	= 15
 };
 
 /** Mode packet masks. */
@@ -285,6 +323,7 @@ enum pt_packet_size {
 	ptps_tnt_8		= pt_opcs_tnt_8,
 	ptps_mode		= pt_opcs_mode + pt_pl_mode_size,
 	ptps_tsc		= pt_opcs_tsc + pt_pl_tsc_size,
+	ptps_mtc		= pt_opcs_mtc + pt_pl_mtc_size,
 	ptps_psb		= pt_opcs_psb + pt_pl_psb_size,
 	ptps_psbend		= pt_opcs_psbend,
 	ptps_ovf		= pt_opcs_ovf,
@@ -306,7 +345,8 @@ enum pt_packet_size {
 	ptps_fup_supp		= pt_opcs_fup,
 	ptps_fup_upd16		= pt_opcs_fup + pt_pl_ip_upd16_size,
 	ptps_fup_upd32		= pt_opcs_fup + pt_pl_ip_upd32_size,
-	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size
+	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size,
+	ptps_tma		= pt_opcs_tma + pt_pl_tma_size
 };
 
 
@@ -362,7 +402,7 @@ enum pt_error_code {
 	/* An instruction could not be decoded. */
 	pte_bad_insn,
 
-	/* No timing information is available. */
+	/* No wall-clock time is available. */
 	pte_no_time,
 
 	/* No core:bus ratio available. */
@@ -483,6 +523,33 @@ struct pt_config {
 
 	/** The errata to apply when encoding or decoding Intel PT. */
 	struct pt_errata errata;
+
+	/* The CTC frequency.
+	 *
+	 * This is only required if MTC packets have been enabled in
+	 * IA32_RTIT_CTRL.MTCEn.
+	 */
+	uint32_t cpuid_0x15_eax, cpuid_0x15_ebx;
+
+	/* The MTC frequency as defined in IA32_RTIT_CTL.MTCFreq.
+	 *
+	 * This is only required if MTC packets have been enabled in
+	 * IA32_RTIT_CTRL.MTCEn.
+	 */
+	uint8_t mtc_freq;
+
+	/* The nominal frequency as defined in MSR_PLATFORM_INFO[15:8].
+	 *
+	 * This is only required if CYC packets have been enabled in
+	 * IA32_RTIT_CTRL.CYCEn.
+	 *
+	 * If zero, timing calibration will only be able to use MTC and CYC
+	 * packets.
+	 *
+	 * If not zero, timing calibration will also be able to use CBR
+	 * packets.
+	 */
+	uint8_t nom_freq;
 };
 
 
@@ -521,6 +588,8 @@ enum pt_packet_type {
 	ppt_fup			= pt_opc_fup,
 	ppt_mode		= pt_opc_mode,
 	ppt_tsc			= pt_opc_tsc,
+	ppt_mtc			= pt_opc_mtc,
+	ppt_cyc			= pt_opc_cyc,
 
 	/* 2-byte header packets. */
 	ppt_psb			= pt_opc_ext << 8 | pt_ext_psb,
@@ -529,6 +598,7 @@ enum pt_packet_type {
 	ppt_ovf			= pt_opc_ext << 8 | pt_ext_ovf,
 	ppt_psbend		= pt_opc_ext << 8 | pt_ext_psbend,
 	ppt_cbr			= pt_opc_ext << 8 | pt_ext_cbr,
+	ppt_tma			= pt_opc_ext << 8 | pt_ext_tma,
 
 	/* A packet decodable by the optional decoder callback. */
 	ppt_unknown		= 0x7ffffffe,
@@ -648,6 +718,27 @@ struct pt_packet_cbr {
 	uint8_t ratio;
 };
 
+/** A TMA packet. */
+struct pt_packet_tma {
+	/** The crystal clock tick counter value. */
+	uint16_t ctc;
+
+	/** The fast counter value. */
+	uint16_t fc;
+};
+
+/** A MTC packet. */
+struct pt_packet_mtc {
+	/** The crystal clock tick counter value. */
+	uint8_t ctc;
+};
+
+/** A CYC packet. */
+struct pt_packet_cyc {
+	/** The cycle counter value. */
+	uint64_t value;
+};
+
 /** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
 	/** Pointer to the raw packet bytes. */
@@ -686,6 +777,15 @@ struct pt_packet {
 
 		/** Packet: cbr. */
 		struct pt_packet_cbr cbr;
+
+		/** Packet: tma. */
+		struct pt_packet_tma tma;
+
+		/** Packet: mtc. */
+		struct pt_packet_mtc mtc;
+
+		/** Packet: cyc. */
+		struct pt_packet_cyc cyc;
 
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;
@@ -941,8 +1041,16 @@ struct pt_event {
 	 */
 	uint64_t tsc;
 
+	/** The number of lost mtc and cyc packets.
+	 *
+	 * This gives an idea about the quality of the \@tsc.  The more packets
+	 * were dropped, the less precise timing is.
+	 */
+	uint32_t lost_mtc;
+	uint32_t lost_cyc;
+
 	/* Reserved space for future extensions. */
-	uint64_t reserved[3];
+	uint64_t reserved[2];
 
 	/** Event specific data. */
 	union {
@@ -1226,16 +1334,27 @@ extern pt_export int pt_qry_event(struct pt_query_decoder *decoder,
  * Since \@decoder is reading ahead until the next indirect branch or event,
  * the value matches the time for that branch or event.
  *
- * The time is similar to what an rdtsc instruction would return. Beware that
- * the time is not fully accurate. It should be good enough for a course
- * correlation with other time stamped data such as side-band information.
+ * The time is similar to what a rdtsc instruction would return.  Depending
+ * on the configuration, the time may not be fully accurate.  If TSC is not
+ * enabled, the time is relative to the last synchronization and can't be used
+ * to correlate with other TSC-based time sources.  In this case, -pte_no_time
+ * is returned and the relative time is provided in \@time.
+ *
+ * Some timing-related packets may need to be dropped (mostly due to missing
+ * calibration or incomplete configuration).  To get an idea about the quality
+ * of the estimated time, we record the number of dropped MTC and CYC packets.
+ *
+ * If \@lost_mtc is not NULL, set it to the number of lost MTC packets.
+ * If \@lost_cyc is not NULL, set it to the number of lost CYC packets.
  *
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_invalid if \@decoder or \@time is NULL.
+ * Returns -pte_no_time if there has not been a TSC packet.
  */
 extern pt_export int pt_qry_time(struct pt_query_decoder *decoder,
-				 uint64_t *time);
+				 uint64_t *time, uint32_t *lost_mtc,
+				 uint32_t *lost_cyc);
 
 /** Return the current core bus ratio.
  *
@@ -1615,16 +1734,27 @@ pt_insn_get_config(const struct pt_insn_decoder *decoder);
  * Since \@decoder is reading ahead until the next indirect branch or event,
  * the value matches the time for that branch or event.
  *
- * The time is similar to what an rdtsc instruction would return. Beware that
- * the time is not fully accurate. It should be good enough for a course
- * correlation with other time stamped data such as side-band information.
+ * The time is similar to what a rdtsc instruction would return.  Depending
+ * on the configuration, the time may not be fully accurate.  If TSC is not
+ * enabled, the time is relative to the last synchronization and can't be used
+ * to correlate with other TSC-based time sources.  In this case, -pte_no_time
+ * is returned and the relative time is provided in \@time.
+ *
+ * Some timing-related packets may need to be dropped (mostly due to missing
+ * calibration or incomplete configuration).  To get an idea about the quality
+ * of the estimated time, we record the number of dropped MTC and CYC packets.
+ *
+ * If \@lost_mtc is not NULL, set it to the number of lost MTC packets.
+ * If \@lost_cyc is not NULL, set it to the number of lost CYC packets.
  *
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_invalid if \@decoder or \@time is NULL.
+ * Returns -pte_no_time if there has not been a TSC packet.
  */
 extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
-				  uint64_t *time);
+				  uint64_t *time, uint32_t *lost_mtc,
+				  uint32_t *lost_cyc);
 
 /** Return the current core bus ratio.
  *

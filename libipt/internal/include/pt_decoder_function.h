@@ -56,7 +56,10 @@ enum pt_decoder_function_flag {
 	pdff_fup	= 1 << 4,
 
 	/* The decoded packet is unknown to the decoder. */
-	pdff_unknown	= 1 << 5
+	pdff_unknown	= 1 << 5,
+
+	/* The decoded packet contains timing information. */
+	pdff_timing	= 1 << 6
 };
 
 /* An Intel(R) Processor Trace decoder function. */
@@ -109,5 +112,8 @@ extern const struct pt_decoder_function pt_decode_mode;
 extern const struct pt_decoder_function pt_decode_psbend;
 extern const struct pt_decoder_function pt_decode_tsc;
 extern const struct pt_decoder_function pt_decode_cbr;
+extern const struct pt_decoder_function pt_decode_tma;
+extern const struct pt_decoder_function pt_decode_mtc;
+extern const struct pt_decoder_function pt_decode_cyc;
 
 #endif /* __PT_DECODER_FUNCTION_H__ */

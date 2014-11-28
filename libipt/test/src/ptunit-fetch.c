@@ -227,6 +227,9 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, fetch_type, ffix, ppt_psbend, &pt_decode_psbend);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_tsc, &pt_decode_tsc);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_cbr, &pt_decode_cbr);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_tma, &pt_decode_tma);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_mtc, &pt_decode_mtc);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_cyc, &pt_decode_cyc);
 
 	ptu_run_f(suite, fetch_tnt_8, ffix);
 	ptu_run_f(suite, fetch_mode_exec, ffix);
@@ -455,6 +458,12 @@ int pt_qry_decode_tsc(struct pt_query_decoder *d)
 
 	return -pte_internal;
 }
+int pt_qry_header_tsc(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
 
 int pt_pkt_decode_cbr(struct pt_packet_decoder *d, struct pt_packet *p)
 {
@@ -464,6 +473,54 @@ int pt_pkt_decode_cbr(struct pt_packet_decoder *d, struct pt_packet *p)
 	return -pte_internal;
 }
 int pt_qry_decode_cbr(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_header_cbr(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_tma(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_tma(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_mtc(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_mtc(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_cyc(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_cyc(struct pt_query_decoder *d)
 {
 	(void) d;
 

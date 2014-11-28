@@ -103,4 +103,14 @@ extern int pt_encode_tsc(struct pt_encoder *, uint64_t);
 /* Encode a Core Bus Ratio (cbr) packet. */
 extern int pt_encode_cbr(struct pt_encoder *, uint8_t);
 
+/* Encode a TSC/MTC Alignment (tma) packet. */
+extern int pt_encode_tma(struct pt_encoder *, uint16_t ctc,
+				   uint16_t fc);
+
+/* Encode a Mini Time Counter (mtc) packet. */
+extern int pt_encode_mtc(struct pt_encoder *, uint8_t ctc);
+
+/* Encode a Cycle Count (cyc) packet. */
+extern int pt_encode_cyc(struct pt_encoder *, uint32_t cyc);
+
 #endif /* __PT_ENCODER_H__ */

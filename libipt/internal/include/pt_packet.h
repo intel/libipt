@@ -39,6 +39,9 @@ struct pt_packet_pip;
 struct pt_packet_mode;
 struct pt_packet_tsc;
 struct pt_packet_cbr;
+struct pt_packet_tma;
+struct pt_packet_mtc;
+struct pt_packet_cyc;
 
 
 /* Read the payload of an Intel PT packet.
@@ -75,6 +78,12 @@ extern int pt_pkt_read_mode(struct pt_packet_mode *packet, const uint8_t *pos,
 extern int pt_pkt_read_tsc(struct pt_packet_tsc *packet, const uint8_t *pos,
 			   const struct pt_config *config);
 extern int pt_pkt_read_cbr(struct pt_packet_cbr *packet, const uint8_t *pos,
+			   const struct pt_config *config);
+extern int pt_pkt_read_tma(struct pt_packet_tma *packet, const uint8_t *pos,
+			   const struct pt_config *config);
+extern int pt_pkt_read_mtc(struct pt_packet_mtc *packet, const uint8_t *pos,
+			   const struct pt_config *config);
+extern int pt_pkt_read_cyc(struct pt_packet_cyc *packet, const uint8_t *pos,
 			   const struct pt_config *config);
 
 #endif /* __PT_PACKET_H__ */

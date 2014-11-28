@@ -304,6 +304,51 @@ static struct ptunit_result cbr(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result tma(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_tma;
+	pfix->packet[0].payload.tma.ctc = 0x42;
+	pfix->packet[0].payload.tma.fc = 0x123;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result tma_bad(struct packet_fixture *pfix)
+{
+	int errcode;
+
+	pfix->packet[0].type = ppt_tma;
+	pfix->packet[0].payload.tma.ctc = 0x42;
+	pfix->packet[0].payload.tma.fc = 0x200;
+
+	errcode = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
+	ptu_int_eq(errcode, -pte_bad_packet);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mtc(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_mtc;
+	pfix->packet[0].payload.mtc.ctc = 0x23;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cyc(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_cyc;
+	pfix->packet[0].payload.cyc.value = 0x23;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -330,6 +375,25 @@ static struct ptunit_result cutoff_ip(struct packet_fixture *pfix,
 
 	pfix->packet[0].type = type;
 	pfix->packet[0].payload.ip.ipc = pt_ipc_sext_48;
+
+	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
+	ptu_int_gt(size, 0);
+
+	pfix->decoder.config.end = pfix->encoder.pos - 1;
+
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
+	ptu_int_eq(size, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cutoff_cyc(struct packet_fixture *pfix)
+{
+	int size;
+
+	pfix->packet[0].type = ppt_cyc;
+	pfix->packet[0].payload.cyc.value = 0xa8;
 
 	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
 	ptu_int_gt(size, 0);
@@ -419,6 +483,10 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, pip, pfix);
 	ptu_run_f(suite, tsc, pfix);
 	ptu_run_f(suite, cbr, pfix);
+	ptu_run_f(suite, tma, pfix);
+	ptu_run_f(suite, tma_bad, pfix);
+	ptu_run_f(suite, mtc, pfix);
+	ptu_run_f(suite, cyc, pfix);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -430,6 +498,9 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff, pfix, ppt_tnt_64);
 	ptu_run_fp(suite, cutoff, pfix, ppt_tsc);
 	ptu_run_fp(suite, cutoff, pfix, ppt_cbr);
+	ptu_run_fp(suite, cutoff, pfix, ppt_tma);
+	ptu_run_fp(suite, cutoff, pfix, ppt_mtc);
+	ptu_run_f(suite, cutoff_cyc, pfix);
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_exec);
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_tsx);
 
@@ -547,7 +618,37 @@ int pt_qry_decode_tsc(struct pt_query_decoder *d)
 
 	return -pte_internal;
 }
+int pt_qry_header_tsc(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
 int pt_qry_decode_cbr(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_header_cbr(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_tma(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_mtc(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_cyc(struct pt_query_decoder *d)
 {
 	(void) d;
 

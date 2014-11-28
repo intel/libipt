@@ -117,6 +117,7 @@ add_executable(ptunit-query
   src/pt_packet_decoder.c
   src/pt_config.c
   ${LIBIPT_SECTION_FILES}
+  src/pt_time.c
 )
 
 add_executable(ptunit-cpp

@@ -440,6 +440,80 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		encoder->pos = pos;
 		return (int) (pos - begin);
 
+	case ppt_tma: {
+		uint16_t ctc, fc;
+
+		errcode = pt_reserve(encoder, ptps_tma);
+		if (errcode < 0)
+			return errcode;
+
+		ctc = packet->payload.tma.ctc;
+		fc = packet->payload.tma.fc;
+
+		if (fc & ~pt_pl_tma_fc_mask)
+			return -pte_bad_packet;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_tma;
+		pos = pt_encode_int(pos, ctc, pt_pl_tma_ctc_size);
+		*pos++ = 0;
+		pos = pt_encode_int(pos, fc, pt_pl_tma_fc_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
+	case ppt_mtc:
+		errcode = pt_reserve(encoder, ptps_mtc);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_mtc;
+		*pos++ = packet->payload.mtc.ctc;
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+
+	case ppt_cyc: {
+		uint8_t byte[pt_pl_cyc_max_size], index, end;
+		uint64_t ctc;
+
+		ctc = (uint8_t) packet->payload.cyc.value;
+		ctc <<= pt_opm_cyc_shr;
+
+		byte[0] = pt_opc_cyc;
+		byte[0] |= (uint8_t) ctc;
+
+		ctc = packet->payload.cyc.value;
+		ctc >>= (8 - pt_opm_cyc_shr);
+		if (ctc)
+			byte[0] |= pt_opm_cyc_ext;
+
+		for (end = 1; ctc; ++end) {
+			/* Check if the CYC payload is too big. */
+			if (pt_pl_cyc_max_size <= end)
+				return -pte_bad_packet;
+
+			ctc <<= pt_opm_cycx_shr;
+
+			byte[end] = (uint8_t) ctc;
+
+			ctc >>= 8;
+			if (ctc)
+				byte[end] |= pt_opm_cycx_ext;
+		}
+
+		errcode = pt_reserve(encoder, end);
+		if (errcode < 0)
+			return errcode;
+
+		for (index = 0; index < end; ++index)
+			*pos++ = byte[index];
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;
@@ -613,6 +687,37 @@ int pt_encode_cbr(struct pt_encoder *encoder, uint8_t cbr)
 
 	packet.type = ppt_cbr;
 	packet.payload.cbr.ratio = cbr;
+
+	return pt_enc_next(encoder, &packet);
+}
+
+int pt_encode_tma(struct pt_encoder *encoder, uint16_t ctc, uint16_t fc)
+{
+	struct pt_packet packet;
+
+	packet.type = ppt_tma;
+	packet.payload.tma.ctc = ctc;
+	packet.payload.tma.fc = fc;
+
+	return pt_enc_next(encoder, &packet);
+}
+
+int pt_encode_mtc(struct pt_encoder *encoder, uint8_t ctc)
+{
+	struct pt_packet packet;
+
+	packet.type = ppt_mtc;
+	packet.payload.mtc.ctc = ctc;
+
+	return pt_enc_next(encoder, &packet);
+}
+
+int pt_encode_cyc(struct pt_encoder *encoder, uint32_t ctc)
+{
+	struct pt_packet packet;
+
+	packet.type = ppt_cyc;
+	packet.payload.cyc.value = ctc;
 
 	return pt_enc_next(encoder, &packet);
 }

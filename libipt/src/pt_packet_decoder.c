@@ -519,3 +519,60 @@ int pt_pkt_decode_cbr(struct pt_packet_decoder *decoder,
 
 	return size;
 }
+
+int pt_pkt_decode_tma(struct pt_packet_decoder *decoder,
+		      struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_tma(&packet->payload.tma, decoder->pos,
+			       &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_tma;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
+int pt_pkt_decode_mtc(struct pt_packet_decoder *decoder,
+		      struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_mtc(&packet->payload.mtc, decoder->pos,
+			       &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_mtc;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
+int pt_pkt_decode_cyc(struct pt_packet_decoder *decoder,
+		      struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_cyc(&packet->payload.cyc, decoder->pos,
+			       &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_cyc;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
