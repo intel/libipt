@@ -551,6 +551,9 @@ The `pts_event_pending` status bit is used to indicate that there is an event
 pending.  You should query for this event before continuing execution flow
 reconstruction.
 
+The `pts_eos` status bit is used to indicate the end of the trace.  Any
+subsequent query will return -pte_eos.
+
 
 #### Events
 

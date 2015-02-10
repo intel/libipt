@@ -876,7 +876,10 @@ enum pt_status_flag {
 	pts_event_pending	= 1 << 0,
 
 	/* The destination address has been suppressed due to CPL filtering. */
-	pts_ip_suppressed	= 1 << 1
+	pts_ip_suppressed	= 1 << 1,
+
+	/* There is no more trace data available. */
+	pts_eos			= 1 << 2
 };
 
 /** Event types. */

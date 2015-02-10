@@ -131,6 +131,29 @@ static int pt_qry_will_event(const struct pt_query_decoder *decoder)
 	return 0;
 }
 
+static int pt_qry_will_eos(const struct pt_query_decoder *decoder)
+{
+	const struct pt_decoder_function *dfun;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	dfun = decoder->next;
+	if (dfun)
+		return 0;
+
+	/* The decoding function may be NULL for two reasons:
+	 *
+	 *   - we ran out of trace
+	 *   - we ran into a fetch error such as -pte_bad_opc
+	 *
+	 * Let's fetch again.
+	 */
+	errcode = pt_df_fetch(&dfun, decoder->pos, &decoder->config);
+	return errcode == -pte_eos;
+}
+
 static int pt_qry_status_flags(const struct pt_query_decoder *decoder)
 {
 	int flags = 0;
@@ -152,8 +175,13 @@ static int pt_qry_status_flags(const struct pt_query_decoder *decoder)
 	 * In order to have our user use up the cached TNT bits first, we do
 	 * not indicate the next event until the TNT cache is empty.
 	 */
-	if (pt_tnt_cache_is_empty(&decoder->tnt) && pt_qry_will_event(decoder))
-		flags |= pts_event_pending;
+	if (pt_tnt_cache_is_empty(&decoder->tnt)) {
+		if (pt_qry_will_event(decoder))
+			flags |= pts_event_pending;
+
+		if (pt_qry_will_eos(decoder))
+			flags |= pts_eos;
+	}
 
 	return flags;
 }
