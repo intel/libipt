@@ -765,6 +765,69 @@ information about instructions, see `enum pt_insn_class` and `struct pt_insn` in
 the intel-pt.h header file.
 
 
+## Parallel Decode
+
+Intel PT splits naturally into self-contained PSB segments that can be decoded
+independently.  Use the packet or query decoder to search for PSB's using
+repeated calls to `pt_pkt_sync_forward()` and `pt_pkt_get_sync_offset()` (or
+`pt_qry_sync_forward()` and `pt_qry_get_sync_offset()`).  The following example
+shows this using the query decoder, which will already give the IP needed in
+the next step.
+
+~~~{.c}
+    struct pt_query_decoder *decoder;
+    uint64_t offset, ip;
+    int status, errcode;
+
+    for (;;) {
+        status = pt_qry_sync_forward(decoder, &ip);
+        if (status < 0)
+            break;
+
+        errcode = pt_qry_get_sync_offset(decoder, &offset);
+        if (errcode < 0)
+            <handle error>(errcode);
+
+        <split trace>(offset, ip, status);
+    }
+~~~
+
+The individual trace segments can then be decoded using the query or instruction
+flow decoder as shown above in the previous examples.
+
+When stitching decoded trace segments together, a sequence of linear (in the
+sense that it can be decoded without Intel PT) code has to be filled in.  Use
+the `pts_eos` status indication to stop decoding early enough.  Then proceed
+until the IP at the start of the succeeding trace segment is reached.  When
+using the instruction flow decoder, `pt_insn_next()` may be used for that as
+shown in the following example:
+
+~~~{.c}
+    struct pt_insn_decoder *decoder;
+    struct pt_insn insn;
+    int status;
+
+    for (;;) {
+        status = pt_insn_next(decoder, &insn);
+        if (status < 0)
+            <handle error>(status);
+
+        if (status & pts_eos)
+            break;
+
+        <process instruction>(&insn);
+    }
+
+    while (insn.ip != <next segment's start IP>) {
+        <process instruction>(&insn);
+
+        status = pt_insn_next(decoder, &insn);
+        if (status < 0)
+            <handle error>(status);
+    }
+~~~
+
+
 ## Threading
 
 The decoder library API is not thread-safe.  Different threads may allocate and
