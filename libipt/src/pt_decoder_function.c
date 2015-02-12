@@ -50,7 +50,7 @@ const struct pt_decoder_function pt_decode_pad = {
 const struct pt_decoder_function pt_decode_psb = {
 	/* .packet = */ pt_pkt_decode_psb,
 	/* .decode = */ pt_qry_decode_psb,
-	/* .header = */ pt_qry_header_psb,
+	/* .header = */ NULL,
 	/* .flags =  */ 0
 };
 

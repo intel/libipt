@@ -106,7 +106,6 @@ extern int pt_qry_decode_tsc(struct pt_query_decoder *);
 extern int pt_qry_decode_cbr(struct pt_query_decoder *);
 
 /* Decoder functions (header context). */
-extern int pt_qry_header_psb(struct pt_query_decoder *);
 extern int pt_qry_header_fup(struct pt_query_decoder *);
 extern int pt_qry_header_pip(struct pt_query_decoder *);
 extern int pt_qry_header_mode(struct pt_query_decoder *);

@@ -291,10 +291,6 @@ int pt_qry_decode_psb(struct pt_query_decoder *d)
 {
 	return -pte_internal;
 }
-int pt_qry_header_psb(struct pt_query_decoder *d)
-{
-	return -pte_internal;
-}
 
 int pt_pkt_decode_tip(struct pt_packet_decoder *d, struct pt_packet *p)
 {

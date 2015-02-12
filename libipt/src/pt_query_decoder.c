@@ -628,18 +628,6 @@ int pt_qry_decode_pad(struct pt_query_decoder *decoder)
 	return 0;
 }
 
-int pt_qry_header_psb(struct pt_query_decoder *decoder)
-{
-	int size;
-
-	size = pt_pkt_read_psb(decoder->pos, &decoder->config);
-	if (size < 0)
-		return size;
-
-	decoder->pos += size;
-	return 0;
-}
-
 static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 {
 	pt_last_ip_init(&decoder->ip);
@@ -672,11 +660,13 @@ static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 
 int pt_qry_decode_psb(struct pt_query_decoder *decoder)
 {
-	int errcode;
+	int size, errcode;
 
-	errcode = pt_qry_header_psb(decoder);
-	if (errcode < 0)
-		return errcode;
+	size = pt_pkt_read_psb(decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	decoder->pos += size;
 
 	errcode = pt_qry_read_psb_header(decoder);
 	if (errcode < 0)
