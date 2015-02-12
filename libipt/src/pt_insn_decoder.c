@@ -33,7 +33,7 @@
 #include <string.h>
 
 
-void pt_insn_reset(struct pt_insn_decoder *decoder)
+static void pt_insn_reset(struct pt_insn_decoder *decoder)
 {
 	if (!decoder)
 		return;

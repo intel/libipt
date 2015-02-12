@@ -93,7 +93,7 @@ void pt_qry_free_decoder(struct pt_query_decoder *decoder)
 	free(decoder);
 }
 
-void pt_qry_reset(struct pt_query_decoder *decoder)
+static void pt_qry_reset(struct pt_query_decoder *decoder)
 {
 	if (!decoder)
 		return;

@@ -92,12 +92,6 @@ struct pt_insn_decoder {
 };
 
 
-/* Reset an instruction flow decoder.
- *
- * Resets all of @decoder's fields except for @image and @default_image.
- */
-extern void pt_insn_reset(struct pt_insn_decoder *decoder);
-
 /* Initialize an instruction flow decoder.
  *
  * Returns zero on success; a negative error code otherwise.
