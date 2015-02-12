@@ -35,6 +35,7 @@
 #include "intel-pt.h"
 
 #include <string.h>
+#include <stddef.h>
 
 
 int pt_qry_decoder_init(struct pt_query_decoder *decoder,
@@ -523,11 +524,15 @@ int pt_qry_indirect_branch(struct pt_query_decoder *decoder, uint64_t *addr)
 	return flags;
 }
 
-int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event)
+int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event,
+		 size_t size)
 {
 	int errcode, flags;
 
 	if (!decoder || !event)
+		return -pte_invalid;
+
+	if (size < offsetof(struct pt_event, variant))
 		return -pte_invalid;
 
 	/* We do not allow querying for events while there are still TNT
@@ -535,6 +540,10 @@ int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event)
 	 */
 	if (!pt_tnt_cache_is_empty(&decoder->tnt))
 		return -pte_bad_query;
+
+	/* Do not provide more than we actually have. */
+	if (sizeof(*event) < size)
+		size = sizeof(*event);
 
 	flags = 0;
 	for (;;) {
@@ -574,7 +583,7 @@ int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event)
 		 * configurations.
 		 */
 		if (decoder->event) {
-			(void) memcpy(event, decoder->event, sizeof(*event));
+			(void) memcpy(event, decoder->event, size);
 			break;
 		}
 

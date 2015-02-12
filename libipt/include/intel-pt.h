@@ -1131,6 +1131,8 @@ extern pt_export int pt_qry_indirect_branch(struct pt_query_decoder *decoder,
  *
  * On success, provides the next event \@event and updates \@decoder.
  *
+ * The \@size argument must be set to sizeof(struct pt_event).
+ *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
  *
@@ -1139,10 +1141,11 @@ extern pt_export int pt_qry_indirect_branch(struct pt_query_decoder *decoder,
  * Returns -pte_bad_query if no event is found.
  * Returns -pte_eos if decoding reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@event is NULL.
+ * Returns -pte_invalid if \@size is too small.
  * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_qry_event(struct pt_query_decoder *decoder,
-				  struct pt_event *event);
+				  struct pt_event *event, size_t size);
 
 /** Query the current time.
  *

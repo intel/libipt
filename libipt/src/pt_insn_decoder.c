@@ -416,7 +416,8 @@ static int event_pending(struct pt_insn_decoder *decoder)
 	if (!(status & pts_event_pending))
 		return 0;
 
-	status = pt_qry_event(&decoder->query, &decoder->event);
+	status = pt_qry_event(&decoder->query, &decoder->event,
+			      sizeof(decoder->event));
 	if (status < 0)
 		return status;
 
@@ -1064,7 +1065,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 		struct pt_event event;
 
 		/* Any query should give us an end of stream, error. */
-		errcode = pt_qry_event(&decoder->query, &event);
+		errcode = pt_qry_event(&decoder->query, &event, sizeof(event));
 		if (errcode != -pte_eos)
 			errcode = -pte_bad_context;
 
