@@ -42,9 +42,9 @@ struct pt_last_ip {
 
 	/* Flags governing the handling of IP updates and queries:
 	 *
-	 * - there is no last-ip - we require a full IP.
+	 * - we have seen an IP update.
 	 */
-	uint32_t need_full_ip:1;
+	uint32_t have_ip:1;
 	/* - the IP has been suppressed in the last update. */
 	uint32_t suppressed:1;
 };
@@ -71,7 +71,6 @@ extern int pt_last_ip_query(uint64_t *ip, const struct pt_last_ip *last_ip);
  * Returns zero on success.
  * Returns -pte_invalid if @last_ip or @packet is NULL.
  * Returns -pte_bad_packet if @packet appears to be corrupted.
- * Returns -pte_noip if @packet does not provide a needed full IP.
  */
 extern int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
 				const struct pt_packet_ip *packet,

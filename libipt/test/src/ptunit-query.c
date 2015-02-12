@@ -1132,7 +1132,9 @@ static struct ptunit_result event_overflow_fup(struct ptu_decoder_fixture *dfix,
 	int errcode;
 
 	packet.ipc = ipc;
-	packet.ip = pt_dfix_sext_ip;
+	packet.ip = 0xccull;
+
+	pt_last_ip_init(&dfix->last_ip);
 	pt_last_ip_update_ip(&dfix->last_ip, &packet, &dfix->config);
 
 	pt_encode_ovf(encoder);
@@ -1148,9 +1150,6 @@ static struct ptunit_result event_overflow_fup(struct ptu_decoder_fixture *dfix,
 
 	case pt_ipc_update_16:
 	case pt_ipc_update_32:
-		ptu_int_eq(errcode, -pte_noip);
-		break;
-
 	case pt_ipc_sext_48:
 		ptu_int_eq(errcode, pts_eos);
 		ptu_int_eq(event.type, ptev_overflow);
@@ -1199,7 +1198,9 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 	int errcode;
 
 	packet.ipc = ipc;
-	packet.ip = pt_dfix_sext_ip;
+	packet.ip = 0xccull;
+
+	pt_last_ip_init(&dfix->last_ip);
 	pt_last_ip_update_ip(&dfix->last_ip, &packet, &dfix->config);
 
 	pt_encode_ovf(encoder);
@@ -1216,9 +1217,6 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 
 	case pt_ipc_update_16:
 	case pt_ipc_update_32:
-		ptu_int_eq(errcode, -pte_noip);
-		break;
-
 	case pt_ipc_sext_48:
 		ptu_int_eq(errcode, pts_event_pending);
 		ptu_int_eq(event.type, ptev_enabled);
@@ -1617,7 +1615,9 @@ static struct ptunit_result sync_event(struct ptu_decoder_fixture *dfix,
 	int errcode;
 
 	packet.ipc = ipc;
-	packet.ip = pt_dfix_max_ip;
+	packet.ip = 0xccull;
+
+	pt_last_ip_init(&dfix->last_ip);
 	pt_last_ip_update_ip(&dfix->last_ip, &packet, &dfix->config);
 
 	pt_encode_psb(encoder);
@@ -1633,9 +1633,6 @@ static struct ptunit_result sync_event(struct ptu_decoder_fixture *dfix,
 
 	case pt_ipc_update_16:
 	case pt_ipc_update_32:
-		ptu_int_eq(errcode, -pte_noip);
-		return ptu_passed();
-
 	case pt_ipc_sext_48:
 		ptu_int_eq(errcode, pts_event_pending);
 		ptu_uint_eq(addr, dfix->last_ip.ip);
@@ -1706,10 +1703,11 @@ static struct ptunit_result sync_ovf_event(struct ptu_decoder_fixture *dfix,
 
 	fup.ipc = pt_ipc_sext_48;
 	fup.ip = pt_dfix_max_ip;
-	pt_last_ip_update_ip(&dfix->last_ip, &fup, &dfix->config);
 
 	ovf.ipc = ipc;
-	ovf.ip = pt_dfix_sext_ip;
+	ovf.ip = 0xccull;
+
+	pt_last_ip_init(&dfix->last_ip);
 	pt_last_ip_update_ip(&dfix->last_ip, &ovf, &dfix->config);
 
 	pt_encode_psb(encoder);
@@ -1741,9 +1739,6 @@ static struct ptunit_result sync_ovf_event(struct ptu_decoder_fixture *dfix,
 
 	case pt_ipc_update_16:
 	case pt_ipc_update_32:
-		ptu_int_eq(errcode, -pte_noip);
-		return ptu_passed();
-
 	case pt_ipc_sext_48:
 		ptu_int_eq(errcode, pts_eos);
 		ptu_int_eq(event.type, ptev_overflow);
@@ -1888,7 +1883,7 @@ static struct ptunit_result ptu_dfix_init(struct ptu_decoder_fixture *dfix)
 	ptu_int_eq(errcode, 0);
 
 	dfix->decoder.ip.ip = pt_dfix_bad_ip;
-	dfix->decoder.ip.need_full_ip = 0;
+	dfix->decoder.ip.have_ip = 1;
 	dfix->decoder.ip.suppressed = 0;
 
 	dfix->last_ip = dfix->decoder.ip;

@@ -37,7 +37,7 @@ void pt_last_ip_init(struct pt_last_ip *last_ip)
 		return;
 
 	last_ip->ip = 0ull;
-	last_ip->need_full_ip = 1;
+	last_ip->have_ip = 0;
 	last_ip->suppressed = 0;
 }
 
@@ -46,7 +46,7 @@ int pt_last_ip_query(uint64_t *ip, const struct pt_last_ip *last_ip)
 	if (!last_ip)
 		return -pte_invalid;
 
-	if (last_ip->need_full_ip) {
+	if (!last_ip->have_ip) {
 		if (ip)
 			*ip = 0ull;
 		return -pte_noip;
@@ -91,25 +91,21 @@ int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
 
 	case pt_ipc_sext_48:
 		last_ip->ip = sext(packet->ip, 48);
-		last_ip->need_full_ip = 0;
+		last_ip->have_ip = 1;
 		last_ip->suppressed = 0;
 		return 0;
 
 	case pt_ipc_update_16:
-		if (last_ip->need_full_ip)
-			return -pte_noip;
-
 		last_ip->ip = (last_ip->ip & ~0xffffull)
 			| (packet->ip & 0xffffull);
+		last_ip->have_ip = 1;
 		last_ip->suppressed = 0;
 		return 0;
 
 	case pt_ipc_update_32:
-		if (last_ip->need_full_ip)
-			return -pte_noip;
-
 		last_ip->ip = (last_ip->ip & ~0xffffffffull)
 			| (packet->ip & 0xffffffffull);
+		last_ip->have_ip = 1;
 		last_ip->suppressed = 0;
 		return 0;
 	}
