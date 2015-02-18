@@ -283,6 +283,14 @@ static int pt_insn_changes_cr3(const pti_ild_t *ild)
 	}
 }
 
+static int pt_insn_is_far_branch(const pti_ild_t *ild)
+{
+	if (!ild)
+		return 0;
+
+	return ild->u.s.branch_far;
+}
+
 static int pt_insn_binds_to_pip(const pti_ild_t *ild)
 {
 	if (!ild)
@@ -290,13 +298,15 @@ static int pt_insn_binds_to_pip(const pti_ild_t *ild)
 
 	switch (ild->iclass) {
 	default:
-		return 0;
+		break;
 
 	case PTI_INST_MOV_CR3:
 	case PTI_INST_VMLAUNCH:
 	case PTI_INST_VMRESUME:
 		return 1;
 	}
+
+	return pt_insn_is_far_branch(ild);
 }
 
 static int pt_insn_binds_to_vmcs(const pti_ild_t *ild)
@@ -306,13 +316,15 @@ static int pt_insn_binds_to_vmcs(const pti_ild_t *ild)
 
 	switch (ild->iclass) {
 	default:
-		return 0;
+		break;
 
 	case PTI_INST_VMPTRLD:
 	case PTI_INST_VMLAUNCH:
 	case PTI_INST_VMRESUME:
 		return 1;
 	}
+
+	return pt_insn_is_far_branch(ild);
 }
 
 /* Try to determine the next IP for @ild without using Intel PT.
