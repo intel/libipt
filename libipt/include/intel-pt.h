@@ -362,7 +362,10 @@ enum pt_error_code {
 	pte_no_time,
 
 	/* No core:bus ratio available. */
-	pte_no_cbr
+	pte_no_cbr,
+
+	/* Bad traced image. */
+	pte_bad_image
 };
 
 
@@ -1248,7 +1251,7 @@ extern pt_export const char *pt_image_name(const struct pt_image *image);
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_bad_context if sections would overlap.
+ * Returns -pte_bad_image if sections would overlap.
  * Returns -pte_invalid if \@image or \@filename is NULL.
  * Returns -pte_invalid if \@offset is too big.
  */

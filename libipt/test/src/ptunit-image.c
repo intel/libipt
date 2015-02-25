@@ -304,7 +304,7 @@ static struct ptunit_result overlap(struct image_fixture *ifix)
 
 	status = pt_image_add(&ifix->image, &ifix->section[1], &ifix->asid[0],
 			      0x1000ull);
-	ptu_int_eq(status, -pte_bad_context);
+	ptu_int_eq(status, -pte_bad_image);
 
 	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
 			       0x1009ull);
@@ -522,7 +522,7 @@ static struct ptunit_result remove_bad_vaddr(struct image_fixture *ifix)
 
 	status = pt_image_remove(&ifix->image, &ifix->section[0],
 				 &ifix->asid[0], 0x2000ull);
-	ptu_int_eq(status, -pte_bad_context);
+	ptu_int_eq(status, -pte_bad_image);
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);
@@ -558,7 +558,7 @@ static struct ptunit_result remove_bad_asid(struct image_fixture *ifix)
 
 	status = pt_image_remove(&ifix->image, &ifix->section[0],
 				 &ifix->asid[1], 0x1000ull);
-	ptu_int_eq(status, -pte_bad_context);
+	ptu_int_eq(status, -pte_bad_image);
 
 	ptu_int_eq(ifix->section[0].deleted, 0);
 	ptu_int_eq(ifix->section[1].deleted, 0);

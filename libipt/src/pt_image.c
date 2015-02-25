@@ -167,7 +167,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		if (lend <= begin)
 			continue;
 
-		return -pte_bad_context;
+		return -pte_bad_image;
 	}
 
 	next = pt_mk_section_list(section, asid, vaddr);
@@ -212,7 +212,7 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 		}
 	}
 
-	return -pte_bad_context;
+	return -pte_bad_image;
 }
 
 int pt_image_add_file(struct pt_image *image, const char *filename,

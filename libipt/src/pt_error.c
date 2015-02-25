@@ -82,6 +82,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_no_cbr:
 		return "no core:bus ratio";
+
+	case pte_bad_image:
+		return "bad image";
 	}
 
 	/* Should not reach here. */

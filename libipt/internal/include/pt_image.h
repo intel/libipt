@@ -83,7 +83,7 @@ extern void pt_image_fini(struct pt_image *image);
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.
- * Returns -pte_bad_context if @section overlaps with a section in @image.
+ * Returns -pte_bad_image if @section overlaps with a section in @image.
  */
 extern int pt_image_add(struct pt_image *image, struct pt_section *section,
 			const struct pt_asid *asid, uint64_t vaddr);
@@ -94,7 +94,7 @@ extern int pt_image_add(struct pt_image *image, struct pt_section *section,
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.
- * Returns -pte_bad_context if @image does not contain @section at @vaddr.
+ * Returns -pte_bad_image if @image does not contain @section at @vaddr.
  */
 extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
 			   const struct pt_asid *asid, uint64_t vaddr);
