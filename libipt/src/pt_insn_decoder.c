@@ -703,14 +703,36 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 	if (!decoder->event_may_change_ip)
 		return 0;
 
+	/* We don't know the TSX state.  Let's assume we execute normally.
+	 *
+	 * We also don't know the execution mode.  Let's keep what we have
+	 * in case we don't get an update before we have to decode the next
+	 * instruction.
+	 */
+	decoder->speculative = 0;
+
 	/* Disable tracing if we don't have an IP. */
 	if (ev->ip_suppressed) {
-		decoder->enabled = 0;
-		return 1;
-	}
+		/* Indicate the overflow in case tracing was enabled before.
+		 *
+		 * If tracing was disabled, we're not really resyncing.
+		 */
+		if (decoder->enabled) {
+			decoder->enabled = 0;
 
-	decoder->ip = ev->variant.overflow.ip;
-	insn->resynced = 1;
+			/* We mark the instruction as resynced.  It won't be
+			 * returned unless we enable tracing again, in which
+			 * case this is the labeling we want.
+			 */
+			insn->resynced = 1;
+		}
+	} else {
+		/* Jump to the IP at which the overflow was resolved. */
+		decoder->ip = ev->variant.overflow.ip;
+		decoder->enabled = 1;
+
+		insn->resynced = 1;
+	}
 
 	return 1;
 }

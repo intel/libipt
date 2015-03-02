@@ -1211,6 +1211,10 @@ struct pt_event {
 		/** Event: overflow. */
 		struct {
 			/** The address at which tracing resumes after overflow.
+			 *
+			 * This field is not valid, if ip_suppressed is set.
+			 * In this case, the overflow resolved while tracing
+			 * was disabled.
 			 */
 			uint64_t ip;
 		} overflow;

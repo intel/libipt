@@ -44,7 +44,7 @@ const struct pt_decoder_function pt_decode_pad = {
 	/* .packet = */ pt_pkt_decode_pad,
 	/* .decode = */ pt_qry_decode_pad,
 	/* .header = */ pt_qry_decode_pad,
-	/* .flags =  */ 0
+	/* .flags =  */ pdff_pad
 };
 
 const struct pt_decoder_function pt_decode_psb = {
@@ -107,7 +107,7 @@ const struct pt_decoder_function pt_decode_ovf = {
 	/* .packet = */ pt_pkt_decode_ovf,
 	/* .decode = */ pt_qry_decode_ovf,
 	/* .header = */ NULL,
-	/* .flags =  */ pdff_psbend
+	/* .flags =  */ pdff_psbend | pdff_event
 };
 
 const struct pt_decoder_function pt_decode_mode = {

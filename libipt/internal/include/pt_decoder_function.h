@@ -59,7 +59,10 @@ enum pt_decoder_function_flag {
 	pdff_unknown	= 1 << 5,
 
 	/* The decoded packet contains timing information. */
-	pdff_timing	= 1 << 6
+	pdff_timing	= 1 << 6,
+
+	/* The decoded packet contains padding. */
+	pdff_pad	= 1 << 7
 };
 
 /* An Intel(R) Processor Trace decoder function. */

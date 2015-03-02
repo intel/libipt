@@ -1214,7 +1214,18 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 	pt_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
 	ptu_check(ptu_sync_decoder, decoder);
-	decoder->enabled = 0;
+
+	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_eq(errcode, pts_event_pending);
+	ptu_int_eq(event.type, ptev_overflow);
+	ptu_uint_ne(event.ip_suppressed, 0);
+
+	if (!tsc)
+		ptu_int_eq(event.has_tsc, 0);
+	else {
+		ptu_int_eq(event.has_tsc, 1);
+		ptu_uint_eq(event.tsc, tsc);
+	}
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	switch (ipc) {
@@ -1225,7 +1236,7 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 	case pt_ipc_update_16:
 	case pt_ipc_update_32:
 	case pt_ipc_sext_48:
-		ptu_int_eq(errcode, pts_event_pending);
+		ptu_int_eq(errcode, pts_eos);
 		ptu_int_eq(event.type, ptev_enabled);
 		ptu_uint_eq(event.variant.enabled.ip, dfix->last_ip.ip);
 
@@ -1235,40 +1246,8 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 			ptu_int_eq(event.has_tsc, 1);
 			ptu_uint_eq(event.tsc, tsc);
 		}
-
-		errcode = pt_qry_event(decoder, &event, sizeof(event));
-		ptu_int_eq(errcode, pts_eos);
-		ptu_int_eq(event.type, ptev_overflow);
-		ptu_uint_eq(event.variant.overflow.ip, dfix->last_ip.ip);
-
-		if (!tsc)
-			ptu_int_eq(event.has_tsc, 0);
-		else {
-			ptu_int_eq(event.has_tsc, 1);
-			ptu_uint_eq(event.tsc, tsc);
-		}
+		break;
 	}
-
-	return ptu_passed();
-}
-
-static struct ptunit_result
-event_overflow_tip_pge_cutoff_fail(struct ptu_decoder_fixture *dfix)
-{
-	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_event event;
-	int errcode;
-
-	pt_encode_ovf(encoder);
-	pt_encode_tip_pge(encoder, 0, pt_ipc_update_32);
-
-	ptu_check(cutoff, decoder, encoder);
-	ptu_check(ptu_sync_decoder, decoder);
-	decoder->enabled = 0;
-
-	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	ptu_int_eq(errcode, -pte_eos);
 
 	return ptu_passed();
 }
@@ -2238,7 +2217,6 @@ int main(int argc, char **argv)
 		   0);
 	ptu_run_fp(suite, event_overflow_tip_pge, dfix_empty, pt_ipc_sext_48,
 		   0);
-	ptu_run_f(suite, event_overflow_tip_pge_cutoff_fail, dfix_empty);
 	ptu_run_f(suite, event_overflow_cutoff_fail, dfix_empty);
 	ptu_run_fp(suite, event_stop, dfix_empty, 0);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_empty, pt_ipc_suppressed,
@@ -2339,7 +2317,6 @@ int main(int argc, char **argv)
 		   0x1000);
 	ptu_run_fp(suite, event_overflow_tip_pge, dfix_event, pt_ipc_sext_48,
 		   0x1000);
-	ptu_run_f(suite, event_overflow_tip_pge_cutoff_fail, dfix_event);
 	ptu_run_f(suite, event_overflow_cutoff_fail, dfix_event);
 	ptu_run_fp(suite, event_stop, dfix_event, 0x1000);
 	ptu_run_fp(suite, event_exec_mode_tip, dfix_event, pt_ipc_suppressed,

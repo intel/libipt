@@ -938,19 +938,6 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 			default:
 				return -pte_internal;
 
-			case ptev_overflow: {
-				uint64_t ip;
-				int errcode;
-
-				/* We can't afford a suppressed IP, here. */
-				errcode = pt_last_ip_query(&ip, &decoder->ip);
-				if (errcode < 0)
-					return -pte_bad_packet;
-
-				ev->variant.overflow.ip = ip;
-			}
-				break;
-
 			case ptev_exec_mode:
 				pt_qry_add_event_ip(ev,
 						    &ev->variant.exec_mode.ip,
@@ -1318,12 +1305,44 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 	return 1;
 }
 
+/* Processes packets as long as the packet's event flag matches @pdff.
+ *
+ * Returns zero on success; a negative error code otherwise.
+ */
+static int pt_qry_read_ahead_while(struct pt_query_decoder *decoder,
+				   uint32_t pdff)
+{
+	for (;;) {
+		const struct pt_decoder_function *dfun;
+		int errcode;
+
+		errcode = pt_df_fetch(&decoder->next, decoder->pos,
+				      &decoder->config);
+		if (errcode < 0)
+			return errcode;
+
+		dfun = decoder->next;
+		if (!dfun)
+			return -pte_internal;
+
+		if (!dfun->decode)
+			return -pte_bad_context;
+
+		if (!(dfun->flags & pdff))
+			return 0;
+
+		errcode = dfun->decode(decoder);
+		if (errcode < 0)
+			return errcode;
+	}
+}
+
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
+	const struct pt_decoder_function *dfun;
 	struct pt_event *ev;
 	struct pt_time time;
-	int status, enabled;
-	enum pt_event_binding evb;
+	int status, errcode;
 
 	status = pt_qry_process_pending_psb_events(decoder);
 	if (status < 0)
@@ -1333,39 +1352,67 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 	if (status)
 		return 0;
 
-	/* Reset the decoder state - but preserve trace enabling and timing.
-	 *
-	 * We don't know how many packets we lost so any queued events or unused
-	 * TNT bits will likely be wrong.
-	 */
-	enabled = decoder->enabled;
+	/* Reset the decoder state but preserve timing. */
 	time = decoder->time;
-
 	pt_qry_reset(decoder);
-
-	if (enabled)
-		decoder->enabled = 1;
 	decoder->time = time;
 
-	/* OVF binds to FUP as long as tracing is enabled.
-	 * It binds to TIP.PGE when tracing is disabled.
-	 */
-	evb = enabled ? evb_fup : evb_tip;
+	/* We must consume the OVF before we search for the binding packet. */
+	decoder->pos += ptps_ovf;
 
-	/* Queue the overflow event.
+	/* Overflow binds to either FUP or TIP.PGE.
 	 *
-	 * We must be able to enqueue the overflow event since we just reset
-	 * the decoder state.
+	 * If the overflow can be resolved while PacketEn=1 it binds to FUP.  We
+	 * can see timing packets between OVF anf FUP but that's it.
+	 *
+	 * Otherwise, PacketEn will be zero when the overflow resolves and OVF
+	 * binds to TIP.PGE.  There can be packets between OVF and TIP.PGE that
+	 * do not depend on PacketEn.
+	 *
+	 * We don't need to decode everything until TIP.PGE, however.  As soon
+	 * as we see a non-timing non-FUP packet, we know that tracing has been
+	 * disabled before the overflow resolves.
 	 */
-	ev = pt_evq_enqueue(&decoder->evq, evb);
-	if (!ev)
-		return -pte_internal;
+	errcode = pt_qry_read_ahead_while(decoder, pdff_timing | pdff_pad);
+	if (errcode < 0) {
+		if (errcode != -pte_eos)
+			return errcode;
 
-	ev->type = ptev_overflow;
+		dfun = NULL;
+	} else {
+		dfun = decoder->next;
+		if (!dfun)
+			return -pte_internal;
+	}
+
+	if (dfun && (dfun->flags & pdff_fup)) {
+		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_overflow;
+
+		/* We set tracing to disabled in pt_qry_reset(); fix it. */
+		decoder->enabled = 1;
+	} else {
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_overflow;
+
+		/* We suppress the IP to indicate that tracing has been
+		 * disabled before the overflow resolved.  There can be
+		 * several events before tracing is enabled again.
+		 */
+		ev->ip_suppressed = 1;
+
+		/* Publish the event. */
+		decoder->event = ev;
+	}
 
 	pt_qry_add_event_time(ev, decoder);
 
-	decoder->pos += ptps_ovf;
 	return 0;
 }
 
