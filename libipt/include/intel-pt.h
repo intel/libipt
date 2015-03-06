@@ -369,7 +369,10 @@ enum pt_error_code {
 	pte_bad_image,
 
 	/* A locking error. */
-	pte_bad_lock
+	pte_bad_lock,
+
+	/* The requested feature is not supported. */
+	pte_not_supported
 };
 
 

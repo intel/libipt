@@ -88,6 +88,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_bad_lock:
 		return "locking error";
+
+	case pte_not_supported:
+		return "not supported";
 	}
 
 	/* Should not reach here. */
