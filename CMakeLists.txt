@@ -53,11 +53,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_COLOR_MAKEFILE   OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-option(FEATURE_MMAP "Use mmap() instead of file operations." OFF)
-if (FEATURE_MMAP)
-  add_definitions(-DFEATURE_MMAP)
-endif (FEATURE_MMAP)
-
 option(FEATURE_THREADS "A small amount of multi-threading support." OFF)
 if (FEATURE_THREADS)
   add_definitions(-DFEATURE_THREADS)

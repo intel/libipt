@@ -35,37 +35,59 @@
 #include "intel-pt.h"
 
 
-/* A test section. */
-struct pt_section {
-	/* The file name. */
-	const char *name;
-
+/* A test mapping. */
+struct ifix_mapping {
 	/* The contents. */
 	uint8_t content[0x10];
 
 	/* The size - between 0 and sizeof(content). */
 	uint64_t size;
+};
 
+/* A test file status - turned into a section status. */
+struct ifix_status {
 	/* Delete indication:
-	 * - zero, if initialized and not (yet) deleted
+	 * - zero if initialized and not (yet) deleted
 	 * - non-zero if deleted and not (re-)initialized
 	 */
 	int deleted;
+
+	/* Mapped indication:
+	 * - zero if not mapped
+	 * - non-zero if mapped.
+	 */
+	int mapped;
+
+	/* The test mapping to be used. */
+	struct ifix_mapping *mapping;
 };
 
-static struct ptunit_result pt_init_section(struct pt_section *section,
-					    const char *filename)
+static void pt_init_section(struct pt_section *section, char *filename,
+			    struct ifix_status *status,
+			    struct ifix_mapping *mapping)
 {
 	uint8_t i;
 
-	section->name = filename;
-	section->size = sizeof(section->content);
-	section->deleted = 0;
+	section->size = mapping->size = sizeof(mapping->content);
 
-	for (i = 0; i < section->size; ++i)
-		section->content[i] = i;
+	for (i = 0; i < mapping->size; ++i)
+		mapping->content[i] = i;
 
-	return ptu_passed();
+	status->deleted = 0;
+	status->mapped = 0;
+	status->mapping = mapping;
+
+	section->filename = filename;
+	section->status = status;
+	section->mapping = NULL;
+}
+
+const char *pt_section_filename(const struct pt_section *section)
+{
+	if (!section)
+		return NULL;
+
+	return section->filename;
 }
 
 uint64_t pt_section_size(const struct pt_section *section)
@@ -85,23 +107,39 @@ struct pt_section *pt_mk_section(const char *file, uint64_t offset,
 
 void pt_section_free(struct pt_section *section)
 {
+	struct ifix_status *status;
+
 	if (!section)
 		return;
 
-	section->deleted = 1;
+	status = section->status;
+
+	status->deleted = 1;
 }
 
-const char *pt_section_filename(const struct pt_section *section)
+static int ifix_unmap(struct pt_section *section)
 {
+	struct ifix_status *status;
+
 	if (!section)
-		return NULL;
+		return -pte_internal;
 
-	return section->name;
+	status = section->status;
+	if (!status)
+		return -pte_internal;
+
+	if (!status->mapped)
+		return -pte_nomap;
+
+	status->mapped = 0;
+
+	return 0;
 }
 
-int pt_section_read(const struct pt_section *section, uint8_t *buffer,
-		    uint16_t size, uint64_t offset)
+static int ifix_read(const struct pt_section *section, uint8_t *buffer,
+		     uint16_t size, uint64_t offset)
 {
+	struct ifix_mapping *mapping;
 	uint64_t begin, end;
 
 	if (!section || !buffer)
@@ -113,23 +151,82 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	if (end < begin)
 		return -pte_nomap;
 
-	if (section->size <= begin)
+	mapping = section->mapping;
+	if (!mapping)
 		return -pte_nomap;
 
-	if (section->size < end) {
-		end = section->size;
+	if (mapping->size <= begin)
+		return -pte_nomap;
+
+	if (mapping->size < end) {
+		end = mapping->size;
 		size = (uint16_t) (end - begin);
 	}
 
-	memcpy(buffer, &section->content[begin], size);
+	memcpy(buffer, &mapping->content[begin], size);
 
 	return size;
+}
+
+int pt_section_map(struct pt_section *section)
+{
+	struct ifix_status *status;
+
+	if (!section)
+		return -pte_internal;
+
+	if (section->mapping)
+		return -pte_internal;
+
+	status = section->status;
+	if (!status)
+		return -pte_internal;
+
+	if (status->mapped)
+		return -pte_internal;
+
+	section->mapping = status->mapping;
+	section->unmap = ifix_unmap;
+	section->read = ifix_read;
+
+	status->mapped = 1;
+
+	return 0;
+}
+
+int pt_section_unmap(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+	if (!section->unmap)
+		return -pte_nomap;
+
+	return section->unmap(section);
+}
+
+int pt_section_read(const struct pt_section *section, uint8_t *buffer,
+		    uint16_t size, uint64_t offset)
+{
+	if (!section)
+		return -pte_internal;
+
+	if (!section->read)
+		return -pte_nomap;
+
+	return section->read(section, buffer, size, offset);
 }
 
 /* A test fixture providing an image, test sections, and asids. */
 struct image_fixture {
 	/* The image. */
 	struct pt_image image;
+
+	/* The test states. */
+	struct ifix_status status[3];
+
+	/* The test mappings. */
+	struct ifix_mapping mapping[3];
 
 	/* The sections. */
 	struct pt_section section[3];
@@ -208,18 +305,24 @@ static struct ptunit_result init_null(void)
 
 static struct ptunit_result fini(void)
 {
+	struct ifix_mapping mapping;
+	struct ifix_status status;
 	struct pt_section section;
 	struct pt_image image;
 	struct pt_asid asid;
+	int errcode;
 
 	pt_asid_init(&asid);
-	pt_init_section(&section, NULL);
+	pt_init_section(&section, NULL, &status, &mapping);
 
 	pt_image_init(&image, NULL);
-	pt_image_add(&image, &section, &asid, 0x0ull);
+	errcode = pt_image_add(&image, &section, &asid, 0x0ull);
+	ptu_int_eq(errcode, 0);
+	ptu_int_eq(status.mapped, 1);
 
 	pt_image_fini(&image);
-	ptu_int_eq(section.deleted, 1);
+	ptu_int_eq(status.deleted, 1);
+	ptu_int_eq(status.mapped, 0);
 
 	return ptu_passed();
 }
@@ -342,7 +445,7 @@ static struct ptunit_result adjacent(struct image_fixture *ifix)
 			       0xfffull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0],
-		    ifix->section[1].content[ifix->section[1].size - 1]);
+		    ifix->mapping[1].content[ifix->mapping[1].size - 1]);
 	ptu_uint_eq(buffer[1], 0xcc);
 
 	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
@@ -488,8 +591,8 @@ static struct ptunit_result remove_section(struct image_fixture *ifix)
 				 &ifix->asid[0], 0x1000ull);
 	ptu_int_eq(status, 0);
 
-	ptu_int_ne(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_ne(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
 			       &ifix->asid[0], 0x1003ull);
@@ -524,8 +627,8 @@ static struct ptunit_result remove_bad_vaddr(struct image_fixture *ifix)
 				 &ifix->asid[0], 0x2000ull);
 	ptu_int_eq(status, -pte_bad_image);
 
-	ptu_int_eq(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_eq(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
 			       0x1003ull);
@@ -560,8 +663,8 @@ static struct ptunit_result remove_bad_asid(struct image_fixture *ifix)
 				 &ifix->asid[1], 0x1000ull);
 	ptu_int_eq(status, -pte_bad_image);
 
-	ptu_int_eq(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_eq(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
 			       0x1003ull);
@@ -593,12 +696,12 @@ static struct ptunit_result remove_by_filename(struct image_fixture *ifix)
 	ptu_uint_eq(buffer[2], 0xcc);
 
 	status = pt_image_remove_by_filename(&ifix->image,
-					     ifix->section[0].name,
+					     ifix->section[0].filename,
 					     &ifix->asid[0]);
 	ptu_int_eq(status, 1);
 
-	ptu_int_ne(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_ne(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
 			       &ifix->asid[0], 0x1003ull);
@@ -631,12 +734,12 @@ remove_by_filename_bad_asid(struct image_fixture *ifix)
 	ptu_uint_eq(buffer[2], 0xcc);
 
 	status = pt_image_remove_by_filename(&ifix->image,
-					     ifix->section[0].name,
+					     ifix->section[0].filename,
 					     &ifix->asid[1]);
 	ptu_int_eq(status, 0);
 
-	ptu_int_eq(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_eq(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
 			       0x1003ull);
@@ -664,8 +767,8 @@ static struct ptunit_result remove_none_by_filename(struct image_fixture *ifix)
 					     &ifix->asid[0]);
 	ptu_int_eq(status, 0);
 
-	ptu_int_eq(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_eq(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
 			       0x1003ull);
@@ -689,8 +792,8 @@ static struct ptunit_result remove_all_by_filename(struct image_fixture *ifix)
 	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
 	int status;
 
-	ifix->section[0].name = "same-name";
-	ifix->section[1].name = "same-name";
+	ifix->section[0].filename = "same-name";
+	ifix->section[1].filename = "same-name";
 
 	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
 			      0x1000ull);
@@ -711,8 +814,8 @@ static struct ptunit_result remove_all_by_filename(struct image_fixture *ifix)
 					     &ifix->asid[0]);
 	ptu_int_eq(status, 2);
 
-	ptu_int_ne(ifix->section[0].deleted, 0);
-	ptu_int_ne(ifix->section[1].deleted, 0);
+	ptu_int_ne(ifix->status[0].deleted, 0);
+	ptu_int_ne(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
 			       &ifix->asid[0], 0x1003ull);
@@ -746,8 +849,8 @@ static struct ptunit_result remove_by_asid(struct image_fixture *ifix)
 	status = pt_image_remove_by_asid(&ifix->image, &ifix->asid[0]);
 	ptu_int_eq(status, 1);
 
-	ptu_int_ne(ifix->section[0].deleted, 0);
-	ptu_int_eq(ifix->section[1].deleted, 0);
+	ptu_int_ne(ifix->status[0].deleted, 0);
+	ptu_int_eq(ifix->status[1].deleted, 0);
 
 	status = pt_image_read(&ifix->image, buffer, sizeof(buffer),
 			       &ifix->asid[0], 0x1003ull);
@@ -770,9 +873,12 @@ struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	pt_image_init(&ifix->image, NULL);
 
-	pt_init_section(&ifix->section[0], "file-0");
-	pt_init_section(&ifix->section[1], "file-1");
-	pt_init_section(&ifix->section[2], "file-2");
+	pt_init_section(&ifix->section[0], "file-0", &ifix->status[0],
+			&ifix->mapping[0]);
+	pt_init_section(&ifix->section[1], "file-1", &ifix->status[1],
+			&ifix->mapping[1]);
+	pt_init_section(&ifix->section[2], "file-2", &ifix->status[2],
+			&ifix->mapping[2]);
 
 	pt_asid_init(&ifix->asid[0]);
 	ifix->asid[0].cr3 = 0xa000;

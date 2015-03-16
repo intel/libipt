@@ -71,6 +71,7 @@ static void pt_section_list_free(struct pt_section_list *list)
 	if (!list)
 		return;
 
+	pt_section_unmap(list->section.section);
 	pt_section_free(list->section.section);
 	pt_msec_fini(&list->section);
 	free(list);
@@ -137,6 +138,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 {
 	struct pt_section_list **list, *next;
 	uint64_t begin, end;
+	int errcode;
 
 	if (!image || !section)
 		return -pte_internal;
@@ -148,7 +150,6 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 	for (list = &(image->sections); *list; list = &((*list)->next)) {
 		const struct pt_mapped_section *msec;
 		uint64_t lbegin, lend;
-		int errcode;
 
 		msec = &(*list)->section;
 
@@ -170,9 +171,15 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		return -pte_bad_image;
 	}
 
+	errcode = pt_section_map(section);
+	if (errcode < 0)
+		return errcode;
+
 	next = pt_mk_section_list(section, asid, vaddr);
-	if (!next)
+	if (!next) {
+		(void) pt_section_unmap(section);
 		return -pte_nomap;
+	}
 
 	*list = next;
 	return 0;
@@ -235,10 +242,12 @@ int pt_image_add_file(struct pt_image *image, const char *filename,
 		return -pte_invalid;
 
 	errcode = pt_image_add(image, section, &asid, vaddr);
-	if (errcode < 0)
+	if (errcode < 0) {
 		pt_section_free(section);
+		return errcode;
+	}
 
-	return errcode;
+	return 0;
 }
 
 int pt_image_remove_by_filename(struct pt_image *image, const char *filename,

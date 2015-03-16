@@ -27,166 +27,132 @@
  */
 
 #include "pt_section.h"
+#include "pt_section_file.h"
 
 #include "intel-pt.h"
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 
 
-/* A section based on file operations. */
-struct pt_section {
-	/* The name of the file. */
-	char *filename;
-
-	/* The FILE pointer. */
-	FILE *file;
-
-	/* The begin and end of the section as offset into @file. */
-	long begin, end;
-};
-
-static char *dupstr(const char *str)
+int pt_sec_file_map(struct pt_section *section, FILE *file)
 {
-	char *dup;
-	size_t len;
-
-	if (!str)
-		return NULL;
-
-	len = strlen(str);
-	dup = malloc(len + 1);
-	if (!dup)
-		return NULL;
-
-	return strcpy(dup, str);
-}
-
-struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
-				 uint64_t size)
-{
-	struct pt_section *section;
-	uint64_t begin, end, msize;
-	long fbegin, fend, fsize;
-	FILE *file;
+	struct pt_sec_file_mapping *mapping;
+	uint64_t offset, size;
+	long begin, end, fsize;
 	int errcode;
 
-	if (!filename)
-		return NULL;
+	if (!section)
+		return -pte_internal;
 
-	file = fopen(filename, "rb");
-	if (!file)
-		return NULL;
+	mapping = section->mapping;
+	if (mapping)
+		return -pte_internal;
 
-	/* Determine the size of the file. */
+	offset = section->offset;
+	size = section->size;
+
+	begin = (long) offset;
+	end = begin + (long) size;
+
+	/* Check for overflows. */
+	if ((uint64_t) begin != offset)
+		return -pte_bad_image;
+
+	if ((uint64_t) end != (offset + size))
+		return -pte_bad_image;
+
+	if (end < begin)
+		return -pte_bad_image;
+
+	/* Validate that the section lies within the file. */
 	errcode = fseek(file, 0, SEEK_END);
 	if (errcode)
-		goto out;
+		return -pte_bad_image;
 
 	fsize = ftell(file);
 	if (fsize < 0)
-		goto out;
+		return -pte_bad_image;
 
-	/* Fail if the requested @offset lies beyond the end of @file. */
-	msize = fsize;
-	if (msize <= offset)
-		goto out;
+	if (fsize < end)
+		return -pte_bad_image;
 
-	/* Truncate the requested @size to match the file size. */
-	msize -= offset;
-	if (msize < size)
-		size = msize;
+	mapping = malloc(sizeof(*mapping));
+	if (!mapping)
+		return -pte_nomem;
 
-	begin = offset;
-	end = offset + size;
+	mapping->file = file;
+	mapping->begin = begin;
+	mapping->end = end;
 
-	/* File operations only support long - adjust @begin and @end. */
-	fbegin = (long) begin;
-	fend = (long) end;
+	section->mapping = mapping;
+	section->unmap = pt_sec_file_unmap;
+	section->read = pt_sec_file_read;
 
-	if ((uint64_t) fbegin != begin)
-		goto out;
-
-	if ((uint64_t) fend != end)
-		goto out;
-
-	if (fend < fbegin)
-		goto out;
-
-	section = malloc(sizeof(*section));
-	if (!section)
-		goto out;
-
-	section->filename = dupstr(filename);
-	section->file = file;
-	section->begin = fbegin;
-	section->end = fend;
-
-	return section;
-
-out:
-	fclose(file);
-	return NULL;
+	return 0;
 }
 
-void pt_section_free(struct pt_section *section)
+int pt_sec_file_unmap(struct pt_section *section)
 {
+	struct pt_sec_file_mapping *mapping;
+
 	if (!section)
-		return;
+		return -pte_internal;
 
-	fclose(section->file);
+	mapping = section->mapping;
 
-	free(section->filename);
-	free(section);
+	if (!mapping || !section->unmap || !section->read)
+		return -pte_internal;
+
+	section->mapping = NULL;
+	section->unmap = NULL;
+	section->read = NULL;
+
+	fclose(mapping->file);
+	free(mapping);
+
+	return 0;
 }
 
-const char *pt_section_filename(const struct pt_section *section)
+int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
+		     uint16_t size, uint64_t offset)
 {
-	if (!section)
-		return NULL;
-
-	return section->filename;
-}
-
-uint64_t pt_section_size(const struct pt_section *section)
-{
-	if (!section)
-		return 0ull;
-
-	return section->end - section->begin;
-}
-
-int pt_section_read(const struct pt_section *section, uint8_t *buffer,
-		    uint16_t size, uint64_t offset)
-{
-	long begin, end;
+	struct pt_sec_file_mapping *mapping;
+	FILE *file;
+	long begin, end, fbegin, fend;
 	size_t read;
 	int errcode;
 
 	if (!buffer || !section)
 		return -pte_invalid;
 
-	begin = (long) offset;
-	if (((uint64_t) begin) != offset)
+	mapping = section->mapping;
+	if (!mapping)
+		return -pte_internal;
+
+	file = mapping->file;
+	begin = mapping->begin;
+	end = mapping->end;
+
+	fbegin = (long) offset;
+	if (((uint64_t) fbegin) != offset)
 		return -pte_nomap;
 
-	begin += section->begin;
-	end = begin + size;
+	fbegin += begin;
+	fend = fbegin + size;
 
-	if (end < begin)
+	if (fend < fbegin)
 		return -pte_nomap;
 
-	if (section->end <= begin)
+	if (end <= fbegin)
 		return -pte_nomap;
 
-	if (begin < section->begin)
+	if (fbegin < begin)
 		return -pte_nomap;
 
-	errcode = fseek(section->file, begin, SEEK_SET);
+	errcode = fseek(file, fbegin, SEEK_SET);
 	if (errcode)
 		return -pte_nomap;
 
-	read = fread(buffer, 1, size, section->file);
+	read = fread(buffer, 1, size, file);
 	return (int) read;
 }

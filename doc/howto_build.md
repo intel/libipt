@@ -50,11 +50,6 @@ linked.
 
 The following features are supported:
 
-    FEATURE_MMAP        Support for mapping files into memory.
-
-                        This feature is not available on Windows.
-
-
     FEATURE_THREADS     Support some amount of multi-threading.
 
                         This feature makes image functions thread-safe.

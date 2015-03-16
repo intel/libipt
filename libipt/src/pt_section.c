@@ -31,29 +31,9 @@
 #include "intel-pt.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/user.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
 
-
-/* A section based on mmap. */
-struct pt_section {
-	/* The name of the file this was mapped from. */
-	char *filename;
-
-	/* The mmap base address. */
-	uint8_t *base;
-
-	/* The mapped memory size. */
-	size_t size;
-
-	/* The begin and end of the mapped memory. */
-	const uint8_t *begin, *end;
-};
 
 static char *dupstr(const char *str)
 {
@@ -71,66 +51,43 @@ static char *dupstr(const char *str)
 	return strcpy(dup, str);
 }
 
-struct pt_section *pt_mk_section(const char *file, uint64_t offset,
+struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 				 uint64_t size)
 {
 	struct pt_section *section;
-	struct stat stat;
-	uint64_t fsize, adjustment;
-	uint8_t *base;
-	int fd, errcode;
+	uint64_t fsize;
+	void *status;
+	int errcode;
 
-	if (!file)
+	errcode = pt_section_mk_status(&status, &fsize, filename);
+	if (errcode < 0)
 		return NULL;
-
-	fd = open(file, O_RDONLY);
-	if (fd == -1)
-		return NULL;
-
-	section = NULL;
-
-	/* Determine the size of the file. */
-	errcode = fstat(fd, &stat);
-	if (errcode)
-		goto out;
 
 	/* Fail if the requested @offset lies beyond the end of @file. */
-	fsize = stat.st_size;
 	if (fsize <= offset)
-		goto out;
+		goto out_status;
 
-	/* Truncate the requested @size to match the file size. */
+	/* Truncate @size so the entire range lies within @file. */
 	fsize -= offset;
 	if (fsize < size)
 		size = fsize;
 
-	/* Mmap does not like unaligned offsets. */
-	adjustment = offset % PAGE_SIZE;
-
-	/* Adjust size and offset accordingly. */
-	size += adjustment;
-	offset -= adjustment;
-
-	base = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, offset);
-	if (base == MAP_FAILED)
-		goto out;
-
 	section = malloc(sizeof(*section));
-	if (!section) {
-		munmap(base, size);
-		goto out;
-	}
+	if (!section)
+		goto out_status;
 
-	section->filename = dupstr(file);
-	section->base = base;
+	memset(section, 0, sizeof(*section));
+
+	section->filename = dupstr(filename);
+	section->status = status;
+	section->offset = offset;
 	section->size = size;
-	section->begin = base + adjustment;
-	section->end = base + size;
-
-out:
-	close(fd);
 
 	return section;
+
+out_status:
+	free(status);
+	return NULL;
 }
 
 void pt_section_free(struct pt_section *section)
@@ -138,8 +95,11 @@ void pt_section_free(struct pt_section *section)
 	if (!section)
 		return;
 
-	munmap(section->base, section->size);
+	if (section->mapping)
+		(void) pt_section_unmap(section);
+
 	free(section->filename);
+	free(section->status);
 	free(section);
 }
 
@@ -156,32 +116,28 @@ uint64_t pt_section_size(const struct pt_section *section)
 	if (!section)
 		return 0ull;
 
-	return section->end - section->begin;
+	return section->size;
+}
+
+int pt_section_unmap(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+	if (!section->unmap)
+		return -pte_nomap;
+
+	return section->unmap(section);
 }
 
 int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 		    uint16_t size, uint64_t offset)
 {
-	const uint8_t *begin, *end;
+	if (!section)
+		return -pte_internal;
 
-	if (!buffer || !section)
-		return -pte_invalid;
-
-	begin = section->begin + offset;
-	end = begin + size;
-
-	if (end < begin)
+	if (!section->read)
 		return -pte_nomap;
 
-	if (section->end <= begin)
-		return -pte_nomap;
-
-	if (begin < section->begin)
-		return -pte_nomap;
-
-	if (section->end < end)
-		size -= (end - section->end);
-
-	memcpy(buffer, begin, size);
-	return (int) size;
+	return section->read(section, buffer, size, offset);
 }

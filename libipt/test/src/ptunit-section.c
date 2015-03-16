@@ -153,6 +153,82 @@ static struct ptunit_result size_null(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result map_null(struct section_fixture *sfix)
+{
+	int errcode;
+
+	errcode = pt_section_map(NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result unmap_null(struct section_fixture *sfix)
+{
+	int errcode;
+
+	errcode = pt_section_unmap(NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result map_twice(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result map_change(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	sfix_write(sfix, bytes);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, -pte_bad_image);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result unmap_nomap(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, -pte_nomap);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result read(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
@@ -164,11 +240,17 @@ static struct ptunit_result read(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
 	status = pt_section_read(sfix->section, buffer, 2, 0x0ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], bytes[1]);
 	ptu_uint_eq(buffer[1], bytes[2]);
 	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
 
 	return ptu_passed();
 }
@@ -184,11 +266,17 @@ static struct ptunit_result read_offset(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
 	status = pt_section_read(sfix->section, buffer, 2, 0x1ull);
 	ptu_int_eq(status, 2);
 	ptu_uint_eq(buffer[0], bytes[2]);
 	ptu_uint_eq(buffer[1], bytes[3]);
 	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
 
 	return ptu_passed();
 }
@@ -203,10 +291,16 @@ static struct ptunit_result read_truncated(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
 	status = pt_section_read(sfix->section, buffer, 2, 0x2ull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], bytes[3]);
 	ptu_uint_eq(buffer[1], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
 
 	return ptu_passed();
 }
@@ -221,10 +315,16 @@ static struct ptunit_result read_from_truncated(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x2ull, 0x10ull);
 	ptu_ptr(sfix->section);
 
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
 	status = pt_section_read(sfix->section, buffer, 2, 0x1ull);
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], bytes[3]);
 	ptu_uint_eq(buffer[1], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
 
 	return ptu_passed();
 }
@@ -239,9 +339,15 @@ static struct ptunit_result read_nomem(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
 	status = pt_section_read(sfix->section, buffer, 1, 0x3ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
 
 	return ptu_passed();
 }
@@ -256,10 +362,79 @@ static struct ptunit_result read_overflow(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
 	status = pt_section_read(sfix->section, buffer, 1,
 				 0xffffffffffff0000ull);
 	ptu_int_eq(status, -pte_nomap);
 	ptu_uint_eq(buffer[0], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_nomap(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 }, buffer[] = { 0xcc };
+	int status;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	status = pt_section_read(sfix->section, buffer, 1, 0x0ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_unmap_map(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_read(sfix->section, buffer, 2, 0x0ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], bytes[1]);
+	ptu_uint_eq(buffer[1], bytes[2]);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	memset(buffer, 0xcc, sizeof(buffer));
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_read(sfix->section, buffer, 2, 0x0ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+	ptu_uint_eq(buffer[1], 0xcc);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_read(sfix->section, buffer, 2, 0x0ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], bytes[1]);
+	ptu_uint_eq(buffer[1], bytes[2]);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
 
 	return ptu_passed();
 }
@@ -316,12 +491,19 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, free_null, sfix);
 	ptu_run_f(suite, filename_null, sfix);
 	ptu_run_f(suite, size_null, sfix);
+	ptu_run_f(suite, map_null, sfix);
+	ptu_run_f(suite, unmap_null, sfix);
+	ptu_run_f(suite, map_twice, sfix);
+	ptu_run_f(suite, map_change, sfix);
+	ptu_run_f(suite, unmap_nomap, sfix);
 	ptu_run_f(suite, read, sfix);
 	ptu_run_f(suite, read_offset, sfix);
 	ptu_run_f(suite, read_truncated, sfix);
 	ptu_run_f(suite, read_from_truncated, sfix);
 	ptu_run_f(suite, read_nomem, sfix);
 	ptu_run_f(suite, read_overflow, sfix);
+	ptu_run_f(suite, read_nomap, sfix);
+	ptu_run_f(suite, read_unmap_map, sfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

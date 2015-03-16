@@ -33,7 +33,51 @@
 
 
 /* A section of contiguous memory loaded from a file. */
-struct pt_section;
+struct pt_section {
+	/* The name of the file. */
+	char *filename;
+
+	/* The offset into the file. */
+	uint64_t offset;
+
+	/* The (adjusted) size in bytes.  The size is truncated to match the
+	 * actual file size.
+	 */
+	uint64_t size;
+
+	/* A pointer to OS-specific file status for detecting changes.
+	 *
+	 * The status is initialized on first pt_section_map() and will be
+	 * left in the section until the section is destroyed.  This field
+	 * is owned by the OS-specific mmap-based section implementation.
+	 */
+	void *status;
+
+	/* A pointer to implementation-specific mapping information - NULL if
+	 * the section is currently not mapped.
+	 *
+	 * This field is set in pt_section_map() and owned by the mapping
+	 * implementation.
+	 */
+	void *mapping;
+
+	/* A pointer to the unmap function - NULL if the section is currently
+	 * not mapped.
+	 *
+	 * This field is set in pt_section_map() and owned by the mapping
+	 * implementation.
+	 */
+	int (*unmap)(struct pt_section *sec);
+
+	/* A pointer to the read function - NULL if the section is currently
+	 * not mapped.
+	 *
+	 * This field is set in pt_section_map() and owned by the mapping
+	 * implementation.
+	 */
+	int (*read)(const struct pt_section *sec, uint8_t *buffer,
+		    uint16_t size, uint64_t offset);
+};
 
 /* Create a section.
  *
@@ -44,6 +88,8 @@ struct pt_section;
  * truncated to the size of @file.
  *
  * If @offset lies beyond the end of @file, no section is created.
+ *
+ * The created section needs to be mapped before it can be read.
  *
  * Returns a new section on success, NULL otherwise.
  */
@@ -62,13 +108,55 @@ extern const char *pt_section_filename(const struct pt_section *section);
 /* Return the size of the section in bytes. */
 extern uint64_t pt_section_size(const struct pt_section *section);
 
+/* Create the OS-specific file status.
+ *
+ * On success, allocates a status object, provides a pointer to it in @pstatus
+ * and provides the file size in @psize.
+ *
+ * The status object will be free()'ed when its section is.
+ *
+ * This function is implemented in the OS-specific section implementation.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @pstatus, @psize, or @filename is NULL.
+ * Returns -pte_bad_image if @filename can't be opened.
+ * Returns -pte_nomem if the status object can't be allocated.
+ */
+extern int pt_section_mk_status(void **pstatus, uint64_t *psize,
+				const char *filename);
+
+/* Map a section.
+ *
+ * Maps @section into memory.
+ *
+ * This function is implemented in the OS-specific section implementation.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_internal if @section is mapped twice.
+ * Returns -pte_bad_image if @section changed or can't be opened.
+ * Returns -pte_nomem if @section can't be mapped into memory.
+ */
+extern int pt_section_map(struct pt_section *section);
+
+/* Unmap a section.
+ *
+ * Unmaps @section from memory.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_nomap if @section has not been mapped.
+ */
+extern int pt_section_unmap(struct pt_section *section);
+
 /* Read memory from a section.
  *
- * Reads at most @size bytes from @section at @offset into @buffer.
+ * Reads at most @size bytes from @section at @offset into @buffer.  @section
+ * must be mapped.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_invalid, if @section or @buffer are NULL.
- * Returns -pte_nomap, if @offset is beyond the end of the section.
+ * Returns -pte_invalid if @section or @buffer are NULL.
+ * Returns -pte_nomap if @offset is beyond the end of the section.
  */
 extern int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 			   uint16_t size, uint64_t offset);

@@ -28,6 +28,11 @@ include_directories(
   internal/include
 )
 
+set(LIBIPT_SECTION_FILES
+  src/pt_section.c
+  src/pt_section_file.c
+)
+
 set(LIBIPT_FILES
   src/pt_error.c
   src/pt_packet_decoder.c
@@ -50,19 +55,18 @@ set(LIBIPT_FILES
   src/pt_config.c
 )
 
-if (FEATURE_MMAP)
-  set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/pt_section_mmap.c)
-else (FEATURE_MMAP)
-  set(LIBIPT_FILES ${LIBIPT_FILES} src/pt_section_file.c)
-endif (FEATURE_MMAP)
-
 if (CMAKE_HOST_UNIX)
   # build position independent
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
+  include_directories(
+    internal/include/posix
+  )
+
   set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/init.c)
+  set(LIBIPT_SECTION_FILES ${LIBIPT_SECTION_FILES} src/posix/pt_section_posix.c)
 endif (CMAKE_HOST_UNIX)
 
 if (CMAKE_HOST_WIN32)
@@ -71,8 +75,16 @@ if (CMAKE_HOST_WIN32)
     #
     /Dpt_export=__declspec\(dllexport\)
   )
+
+  include_directories(
+    internal/include/windows
+  )
+
   set(LIBIPT_FILES ${LIBIPT_FILES} src/windows/init.c)
+  set(LIBIPT_SECTION_FILES ${LIBIPT_SECTION_FILES} src/windows/pt_section_windows.c)
 endif (CMAKE_HOST_WIN32)
+
+set(LIBIPT_FILES ${LIBIPT_FILES} ${LIBIPT_SECTION_FILES})
 
 add_library(libipt SHARED
   ${LIBIPT_FILES}
@@ -104,6 +116,7 @@ add_executable(ptunit-query
   src/pt_decoder_function.c
   src/pt_packet_decoder.c
   src/pt_config.c
+  ${LIBIPT_SECTION_FILES}
 )
 
 add_executable(ptunit-cpp
@@ -115,9 +128,9 @@ add_executable(ptunit-retstack
   src/pt_retstack.c
 )
 
-add_executable(ptunit-section_file
+add_executable(ptunit-section
   test/src/ptunit-section.c
-  src/pt_section_file.c
+  ${LIBIPT_SECTION_FILES}
 )
 
 add_executable(ptunit-image
@@ -191,7 +204,7 @@ target_link_libraries(ptunit-tnt_cache ptunit)
 target_link_libraries(ptunit-query ptunit)
 target_link_libraries(ptunit-cpp ptunit libipt)
 target_link_libraries(ptunit-retstack ptunit)
-target_link_libraries(ptunit-section_file ptunit)
+target_link_libraries(ptunit-section ptunit)
 target_link_libraries(ptunit-image ptunit)
 target_link_libraries(ptunit-ild ptunit)
 target_link_libraries(ptunit-cpu ptunit)
@@ -203,11 +216,3 @@ target_link_libraries(ptunit-packet ptunit)
 target_link_libraries(ptunit-sync ptunit)
 target_link_libraries(ptunit-fetch ptunit)
 target_link_libraries(ptunit-config ptunit)
-
-if (FEATURE_MMAP)
-  add_executable(ptunit-section_mmap
-    test/src/ptunit-section.c
-    src/posix/pt_section_mmap.c
-  )
-  target_link_libraries(ptunit-section_mmap ptunit)
-endif (FEATURE_MMAP)
