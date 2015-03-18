@@ -61,16 +61,19 @@ static struct pt_section_list *pt_mk_section_list(struct pt_section *section,
 	if (!list)
 		return NULL;
 
-	errcode = pt_section_get(section);
-	if (errcode < 0) {
-		free(list);
-		return NULL;
-	}
+	memset(list, 0, sizeof(*list));
 
-	list->next = NULL;
+	errcode = pt_section_get(section);
+	if (errcode < 0)
+		goto out_mem;
+
 	pt_msec_init(&list->section, section, asid, vaddr);
 
 	return list;
+
+out_mem:
+	free(list);
+	return NULL;
 }
 
 static void pt_section_list_free(struct pt_section_list *list)
@@ -78,7 +81,8 @@ static void pt_section_list_free(struct pt_section_list *list)
 	if (!list)
 		return;
 
-	pt_section_unmap(list->section.section);
+	if (list->mapped)
+		pt_section_unmap(list->section.section);
 	pt_section_put(list->section.section);
 	pt_msec_fini(&list->section);
 	free(list);
@@ -92,6 +96,7 @@ void pt_image_init(struct pt_image *image, const char *name)
 	memset(image, 0, sizeof(*image));
 
 	image->name = dupstr(name);
+	image->cache = 10;
 }
 
 void pt_image_fini(struct pt_image *image)
@@ -178,15 +183,9 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		return -pte_bad_image;
 	}
 
-	errcode = pt_section_map(section);
-	if (errcode < 0)
-		return errcode;
-
 	next = pt_mk_section_list(section, asid, vaddr);
-	if (!next) {
-		(void) pt_section_unmap(section);
+	if (!next)
 		return -pte_nomap;
-	}
 
 	*list = next;
 	return 0;
@@ -201,7 +200,7 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 		return -pte_internal;
 
 	for (list = &image->sections; *list; list = &((*list)->next)) {
-		const struct pt_mapped_section *msec;
+		struct pt_mapped_section *msec;
 		struct pt_section_list *trash;
 		int errcode;
 
@@ -216,9 +215,6 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 			continue;
 
 		if (msec->section == section && msec->vaddr == vaddr) {
-			if (image->cache == msec)
-				image->cache = NULL;
-
 			*list = trash->next;
 			pt_section_list_free(trash);
 
@@ -278,7 +274,7 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 
 	removed = 0;
 	for (list = &image->sections; *list;) {
-		const struct pt_mapped_section *msec;
+		struct pt_mapped_section *msec;
 		struct pt_section_list *trash;
 		const char *tname;
 
@@ -297,9 +293,6 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 		tname = pt_section_filename(msec->section);
 
 		if (tname && (strcmp(tname, filename) == 0)) {
-			if (image->cache == msec)
-				image->cache = NULL;
-
 			*list = trash->next;
 			pt_section_list_free(trash);
 
@@ -327,7 +320,7 @@ int pt_image_remove_by_asid(struct pt_image *image,
 
 	removed = 0;
 	for (list = &image->sections; *list;) {
-		const struct pt_mapped_section *msec;
+		struct pt_mapped_section *msec;
 		struct pt_section_list *trash;
 
 		trash = *list;
@@ -341,9 +334,6 @@ int pt_image_remove_by_asid(struct pt_image *image,
 			list = &trash->next;
 			continue;
 		}
-
-		if (image->cache == msec)
-			image->cache = NULL;
 
 		*list = trash->next;
 		pt_section_list_free(trash);
@@ -366,46 +356,119 @@ int pt_image_set_callback(struct pt_image *image,
 	return 0;
 }
 
-static int pt_image_read_from(struct pt_image *image,
-			      const struct pt_mapped_section *msec,
-			      uint8_t *buffer, uint16_t size,
-			      const struct pt_asid *asid, uint64_t addr)
+static int pt_image_prune_cache(struct pt_image *image)
 {
+	struct pt_section_list *list;
+	uint16_t cache, mapped;
 	int status;
 
 	if (!image)
 		return -pte_internal;
 
-	status = pt_msec_read(msec, buffer, size, asid, addr);
-	if (status >= 0)
-		image->cache = msec;
+	cache = image->cache;
+	status = 0;
+	mapped = 0;
+	for (list = image->sections; list; list = list->next) {
+		int errcode;
 
+		/* Let's traverse the entire list.  It isn't very long and
+		 * this allows us to fix up any previous unmap errors.
+		 */
+		if (!list->mapped)
+			continue;
+
+		mapped += 1;
+		if (mapped <= cache)
+			continue;
+
+		errcode = pt_section_unmap(list->section.section);
+		if (errcode < 0) {
+			status = errcode;
+			continue;
+		}
+
+		list->mapped = 0;
+		mapped -= 1;
+	}
+
+	image->mapped = mapped;
 	return status;
 }
 
 int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 		  const struct pt_asid *asid, uint64_t addr)
 {
-	struct pt_section_list *list;
+	struct pt_section_list **list, **start;
 	read_memory_callback_t *callback;
 	int status;
 
 	if (!image || !asid)
 		return -pte_internal;
 
-	status = pt_image_read_from(image, image->cache, buffer, size, asid,
-				    addr);
-	if (status >= 0)
-		return status;
-
-	for (list = image->sections; list; list = list->next) {
+	start = &image->sections;
+	for (list = start; *list;) {
 		struct pt_mapped_section *msec;
+		struct pt_section_list *elem;
+		struct pt_section *sec;
+		int mapped, errcode;
 
-		msec = &list->section;
-		status = pt_image_read_from(image, msec, buffer, size, asid,
-					    addr);
-		if (status >= 0)
-			return status;
+		elem = *list;
+		msec = &elem->section;
+		sec = msec->section;
+
+		mapped = elem->mapped;
+		if (!mapped) {
+			errcode = pt_section_map(sec);
+			if (errcode < 0)
+				return errcode;
+		}
+
+		status = pt_msec_read_mapped(msec, buffer, size, asid, addr);
+		if (status < 0) {
+			if (!mapped) {
+				errcode = pt_section_unmap(sec);
+				if (errcode < 0)
+					return errcode;
+			}
+
+			list = &elem->next;
+			continue;
+		}
+
+		/* Move the section to the front if it isn't already. */
+		if (list != start) {
+			*list = elem->next;
+			elem->next = *start;
+			*start = elem;
+		}
+
+		/* Keep the section mapped if it isn't already - provided we
+		 * do cache recently used sections.
+		 */
+		if (!mapped) {
+			uint16_t cache, already;
+
+			already = image->mapped;
+			cache = image->cache;
+			if (cache) {
+				elem->mapped = 1;
+
+				already += 1;
+				image->mapped = already;
+
+				if (cache < already) {
+					errcode = pt_image_prune_cache(image);
+					if (errcode < 0)
+						return errcode;
+				}
+			} else {
+				errcode = pt_section_unmap(sec);
+				if (errcode < 0)
+					return errcode;
+			}
+		}
+
+		return status;
 	}
 
 	callback = image->readmem.callback;

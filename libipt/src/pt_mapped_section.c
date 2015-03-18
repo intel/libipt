@@ -99,7 +99,33 @@ int pt_msec_matches_asid(const struct pt_mapped_section *msec,
 int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
 		 uint16_t size, const struct pt_asid *asid, uint64_t addr)
 {
-	int errcode;
+	struct pt_section *sec;
+	int errcode, status;
+
+	if (!msec)
+		return -pte_internal;
+
+	sec = msec->section;
+
+	errcode = pt_section_map(sec);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_msec_read_mapped(msec, buffer, size, asid, addr);
+
+	errcode = pt_section_unmap(sec);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
+}
+
+int pt_msec_read_mapped(const struct pt_mapped_section *msec, uint8_t *buffer,
+			uint16_t size, const struct pt_asid *asid,
+			uint64_t addr)
+{
+	struct pt_section *sec;
+	int errcode, status;
 
 	if (!msec || !asid)
 		return -pte_internal;
@@ -116,5 +142,9 @@ int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
 
 	addr -= msec->vaddr;
 
-	return pt_section_read(msec->section, buffer, size, addr);
+	sec = msec->section;
+
+	status = pt_section_read(sec, buffer, size, addr);
+
+	return status;
 }

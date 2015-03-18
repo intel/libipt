@@ -649,11 +649,9 @@ know the memory image for which Intel PT has been recorded.  This memory image
 is represented by a `pt_image` object.  If decoding failed due to an IP lying
 outside of the traced memory image, `pt_insn_next()` will return `-pte_nomap`.
 
-Use `pt_image_alloc()` to allocate and `pt_image_free()` to free an image.  The
-same image may be used with multiple decoders.  Note that all changes will be
-visible to all decoders.  Use this when using multiple decoders on the exact
-same image if you want to prepare the image in advance or if you want to switch
-between images.
+Use `pt_image_alloc()` to allocate and `pt_image_free()` to free an image.
+Images may not be shared.  Every decoder must use a different image.  Use this
+to prepare the image in advance or if you want to switch between images.
 
 Every decoder provides an empty default image that is used if no image is
 specified during allocation.  The default image is implicitly destroyed when the
@@ -668,9 +666,6 @@ In some cases, the memory image may change during the execution.  You can use
 the `pt_image_remove_by_filename()` function to remove previously added sections
 by their file name and `pt_image_remove_by_asid()` to remove all sections for an
 address-space.
-
-Sections may be added and removed at any time as long as no decoder that uses
-the modified image is running.
 
 In addition to adding sections, you can register a callback function for reading
 memory using `pt_image_set_callback()`.  The `context` parameter you pass
@@ -770,6 +765,5 @@ the intel-pt.h header file.
 ## Threading
 
 The decoder library API is not thread-safe.  Different threads may allocate and
-use different decoder objects at the same time.  Different decoders may use the
-same image object.  When changing the image, make sure that no decoder is
-running.
+use different decoder objects at the same time.  Different decoders must not use
+the same image object.

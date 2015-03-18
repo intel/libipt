@@ -51,6 +51,30 @@ uint64_t pt_section_size(const struct pt_section *section)
 	return section->size;
 }
 
+int pt_section_map(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+	if (section->mapping)
+		return -pte_internal;
+
+	section->mapping = section->status;
+	return 0;
+}
+
+int pt_section_unmap(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+	if (!section->mapping)
+		return -pte_internal;
+
+	section->mapping = NULL;
+	return 0;
+}
+
 int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 		    uint16_t size, uint64_t offset)
 {
@@ -293,7 +317,8 @@ static struct ptunit_result sfix_init(struct section_fixture *sfix)
 	for (i = 0; i < sfix->mapping.size; ++i)
 		sfix->mapping.content[i] = i;
 
-	sfix->section.mapping = &sfix->mapping;
+	sfix->section.status = &sfix->mapping;
+	sfix->section.mapping = NULL;
 
 	pt_asid_init(&sfix->asid);
 	sfix->asid.cr3 = 0x4200ull;

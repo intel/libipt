@@ -43,6 +43,9 @@ struct pt_section_list {
 
 	/* The mapped section. */
 	struct pt_mapped_section section;
+
+	/* A flag saying whether @section is already mapped. */
+	uint32_t mapped:1;
 };
 
 /* A traced image consisting of a collection of sections. */
@@ -53,9 +56,6 @@ struct pt_image {
 	/* The list of sections. */
 	struct pt_section_list *sections;
 
-	/* The last section that satisfied a read request. */
-	const struct pt_mapped_section *cache;
-
 	/* An optional read memory callback. */
 	struct {
 		/* The callback function. */
@@ -64,6 +64,12 @@ struct pt_image {
 		/* The callback context. */
 		void *context;
 	} readmem;
+
+	/* The cache size as number of to-keep-mapped sections. */
+	uint16_t cache;
+
+	/* The number of permanently mapped sections. */
+	uint16_t mapped;
 };
 
 /* Initialize an image with an optional @name. */

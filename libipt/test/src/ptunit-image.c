@@ -292,7 +292,6 @@ static struct ptunit_result init(void)
 	pt_image_init(&image, NULL);
 	ptu_null(image.name);
 	ptu_null(image.sections);
-	ptu_null(image.cache);
 	ptu_null((void *) (uintptr_t) image.readmem.callback);
 	ptu_null(image.readmem.context);
 
@@ -306,7 +305,6 @@ static struct ptunit_result init_name(struct image_fixture *ifix)
 	pt_image_init(&ifix->image, "image-name");
 	ptu_str_eq(ifix->image.name, "image-name");
 	ptu_null(ifix->image.sections);
-	ptu_null(ifix->image.cache);
 	ptu_null((void *) (uintptr_t) ifix->image.readmem.callback);
 	ptu_null(ifix->image.readmem.context);
 
@@ -335,7 +333,6 @@ static struct ptunit_result fini(void)
 	pt_image_init(&image, NULL);
 	errcode = pt_image_add(&image, &section, &asid, 0x0ull);
 	ptu_int_eq(errcode, 0);
-	ptu_int_eq(section.mcount, 1);
 
 	pt_image_fini(&image);
 	ptu_int_eq(section.ucount, 0);
@@ -934,6 +931,20 @@ struct ptunit_result dfix_fini(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+struct ptunit_result ifix_fini(struct image_fixture *ifix)
+{
+	int sec;
+
+	ptu_check(dfix_fini, ifix);
+
+	for (sec = 0; sec < 3; ++sec) {
+		ptu_int_eq(ifix->section[sec].ucount, 0);
+		ptu_int_eq(ifix->section[sec].mcount, 0);
+	}
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct image_fixture dfix, ifix, rfix;
@@ -945,11 +956,11 @@ int main(int argc, char **argv)
 
 	/* Ifix provides an empty image. */
 	ifix.init = ifix_init;
-	ifix.fini = dfix_fini;
+	ifix.fini = ifix_fini;
 
 	/* Rfix provides an image with two sections added. */
 	rfix.init = rfix_init;
-	rfix.fini = dfix_fini;
+	rfix.fini = ifix_fini;
 
 	suite = ptunit_mk_suite(argc, argv);
 
