@@ -31,6 +31,10 @@
 
 #include <stdint.h>
 
+#if defined(FEATURE_THREADS)
+#  include <threads.h>
+#endif /* defined(FEATURE_THREADS) */
+
 
 /* A section of contiguous memory loaded from a file. */
 struct pt_section {
@@ -77,6 +81,21 @@ struct pt_section {
 	 */
 	int (*read)(const struct pt_section *sec, uint8_t *buffer,
 		    uint16_t size, uint64_t offset);
+
+#if defined(FEATURE_THREADS)
+	/* A lock protecting this section.
+	 *
+	 * Most operations do not require the section to be locked.  All
+	 * actual locking should be handled by pt_section_* functions.
+	 */
+	mtx_t lock;
+#endif /* defined(FEATURE_THREADS) */
+
+	/* The number of current users.  The last user destroys the section. */
+	uint16_t ucount;
+
+	/* The number of current mappers.  The last unmaps the section. */
+	uint16_t mcount;
 };
 
 /* Create a section.
@@ -89,18 +108,53 @@ struct pt_section {
  *
  * If @offset lies beyond the end of @file, no section is created.
  *
- * The created section needs to be mapped before it can be read.
+ * The returned section is not mapped and starts with a user count of one.
  *
  * Returns a new section on success, NULL otherwise.
  */
 extern struct pt_section *pt_mk_section(const char *file, uint64_t offset,
 					uint64_t size);
 
-/* Free a section.
+/* Lock a section.
  *
- * The @section must have been allocated by pt_mk_section() or be NULL.
+ * Locks @section.  The section must not be locked.
+ *
+ * Returns a new section on success, NULL otherwise.
+ * Returns -pte_bad_lock on any locking error.
  */
-extern void pt_section_free(struct pt_section *section);
+int pt_section_lock(struct pt_section *section);
+
+/* Unlock a section.
+ *
+ * Unlocks @section.  The section must be locked.
+ *
+ * Returns a new section on success, NULL otherwise.
+ * Returns -pte_bad_lock on any locking error.
+ */
+int pt_section_unlock(struct pt_section *section);
+
+/* Add another user.
+ *
+ * Increments the user count of @section.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_internal if the user count would overflow.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_get(struct pt_section *section);
+
+/* Remove a user.
+ *
+ * Decrements the user count of @section.  Destroys the section if the
+ * count reaches zero.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_internal if the user count is already zero.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_put(struct pt_section *section);
 
 /* Return the filename of @section. */
 extern const char *pt_section_filename(const struct pt_section *section);
@@ -127,14 +181,16 @@ extern int pt_section_mk_status(void **pstatus, uint64_t *psize,
 
 /* Map a section.
  *
- * Maps @section into memory.
+ * Maps @section into memory.  Mappings are use-counted.  The number of
+ * pt_section_map() calls must match the number of pt_section_unmap()
+ * calls.
  *
  * This function is implemented in the OS-specific section implementation.
  *
  * Returns zero on success, a negative error code otherwise.
  * Returns -pte_internal if @section is NULL.
- * Returns -pte_internal if @section is mapped twice.
  * Returns -pte_bad_image if @section changed or can't be opened.
+ * Returns -pte_bad_lock on any locking error.
  * Returns -pte_nomem if @section can't be mapped into memory.
  */
 extern int pt_section_map(struct pt_section *section);
@@ -145,7 +201,8 @@ extern int pt_section_map(struct pt_section *section);
  *
  * Returns zero on success, a negative error code otherwise.
  * Returns -pte_internal if @section is NULL.
- * Returns -pte_nomap if @section has not been mapped.
+ * Returns -pte_bad_lock on any locking error.
+ * Returns -pte_internal if @section has not been mapped.
  */
 extern int pt_section_unmap(struct pt_section *section);
 

@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ptunit.h"
+#include "ptunit_threads.h"
 #include "ptunit_mktempname.h"
 
 #include "pt_section.h"
@@ -39,6 +39,9 @@
 
 /* A test fixture providing a temporary file and an initially NULL section. */
 struct section_fixture {
+	/* Threading support. */
+	struct ptunit_thrd_fixture thrd;
+
 	/* A temporary file name. */
 	char *name;
 
@@ -51,6 +54,16 @@ struct section_fixture {
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct section_fixture *);
 	struct ptunit_result (*fini)(struct section_fixture *);
+};
+
+enum {
+#if defined(FEATURE_THREADS)
+
+	num_threads	= 4,
+
+#endif /* defined(FEATURE_THREADS) */
+
+	num_work	= 0x4000
 };
 
 static struct ptunit_result sfix_write_aux(struct section_fixture *sfix,
@@ -68,7 +81,6 @@ static struct ptunit_result sfix_write_aux(struct section_fixture *sfix,
 
 #define sfix_write(sfix, buffer)				\
 	ptu_check(sfix_write_aux, sfix, buffer, sizeof(buffer))
-
 
 static struct ptunit_result create(struct section_fixture *sfix)
 {
@@ -126,13 +138,6 @@ static struct ptunit_result create_empty(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result free_null(struct section_fixture *sfix)
-{
-	pt_section_free(NULL);
-
-	return ptu_passed();
-}
-
 static struct ptunit_result filename_null(struct section_fixture *sfix)
 {
 	const char *name;
@@ -149,6 +154,46 @@ static struct ptunit_result size_null(struct section_fixture *sfix)
 
 	size = pt_section_size(NULL);
 	ptu_uint_eq(size, 0ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result get_null(struct section_fixture *sfix)
+{
+	int errcode;
+
+	errcode = pt_section_get(NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result get_overflow(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	sfix->section->ucount = UINT16_MAX;
+
+	errcode = pt_section_get(sfix->section);
+	ptu_int_eq(errcode, -pte_internal);
+
+	sfix->section->ucount = 1;
+
+	return ptu_passed();
+}
+
+static struct ptunit_result put_null(struct section_fixture *sfix)
+{
+	int errcode;
+
+	errcode = pt_section_put(NULL);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -173,28 +218,6 @@ static struct ptunit_result unmap_null(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result map_twice(struct section_fixture *sfix)
-{
-	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
-	int errcode;
-
-	sfix_write(sfix, bytes);
-
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
-	ptu_ptr(sfix->section);
-
-	errcode = pt_section_map(sfix->section);
-	ptu_int_eq(errcode, 0);
-
-	errcode = pt_section_map(sfix->section);
-	ptu_int_eq(errcode, -pte_internal);
-
-	errcode = pt_section_unmap(sfix->section);
-	ptu_int_eq(errcode, 0);
-
-	return ptu_passed();
-}
-
 static struct ptunit_result map_change(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
@@ -213,6 +236,28 @@ static struct ptunit_result map_change(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result map_put(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_put(sfix->section);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result unmap_nomap(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
@@ -225,6 +270,76 @@ static struct ptunit_result unmap_nomap(struct section_fixture *sfix)
 
 	errcode = pt_section_unmap(sfix->section);
 	ptu_int_eq(errcode, -pte_nomap);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result map_overflow(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	sfix->section->mcount = UINT16_MAX;
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, -pte_internal);
+
+	sfix->section->mcount = 0;
+
+	return ptu_passed();
+}
+
+static struct ptunit_result get_put(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_get(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_get(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_put(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_put(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result map_unmap(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
 
 	return ptu_passed();
 }
@@ -439,6 +554,79 @@ static struct ptunit_result read_unmap_map(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static int worker(void *arg)
+{
+	struct section_fixture *sfix;
+	int it, errcode;
+
+	sfix = arg;
+	if (!sfix)
+		return -pte_internal;
+
+	for (it = 0; it < num_work; ++it) {
+		uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+		int read;
+
+		errcode = pt_section_get(sfix->section);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_section_map(sfix->section);
+		if (errcode < 0)
+			goto out_put;
+
+		read = pt_section_read(sfix->section, buffer, 2, 0x0ull);
+		if (read < 0)
+			goto out_unmap;
+
+		errcode = -pte_invalid;
+		if ((read != 2) || (buffer[0] != 0x2) || (buffer[1] != 0x4))
+			goto out_unmap;
+
+		errcode = pt_section_unmap(sfix->section);
+		if (errcode < 0)
+			goto out_put;
+
+		errcode = pt_section_put(sfix->section);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return 0;
+
+out_unmap:
+	(void) pt_section_unmap(sfix->section);
+
+out_put:
+	(void) pt_section_put(sfix->section);
+	return errcode;
+}
+
+static struct ptunit_result stress(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+#if defined(FEATURE_THREADS)
+	{
+		int thrd;
+
+		for (thrd = 0; thrd < num_threads; ++thrd)
+			ptu_test(ptunit_thrd_create, &sfix->thrd, worker, sfix);
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	errcode = worker(sfix);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result sfix_init(struct section_fixture *sfix)
 {
 	sfix->section = NULL;
@@ -451,13 +639,22 @@ static struct ptunit_result sfix_init(struct section_fixture *sfix)
 	sfix->file = fopen(sfix->name, "wb");
 	ptu_ptr(sfix->file);
 
+	ptu_test(ptunit_thrd_init, &sfix->thrd);
+
 	return ptu_passed();
 }
 
 static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 {
+	int thrd;
+
+	ptu_test(ptunit_thrd_fini, &sfix->thrd);
+
+	for (thrd = 0; thrd < sfix->thrd.nthreads; ++thrd)
+		ptu_int_eq(sfix->thrd.result[thrd], 0);
+
 	if (sfix->section) {
-		pt_section_free(sfix->section);
+		pt_section_put(sfix->section);
 		sfix->section = NULL;
 	}
 
@@ -488,14 +685,19 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, create_bad_offset, sfix);
 	ptu_run_f(suite, create_truncated, sfix);
 	ptu_run_f(suite, create_empty, sfix);
-	ptu_run_f(suite, free_null, sfix);
 	ptu_run_f(suite, filename_null, sfix);
 	ptu_run_f(suite, size_null, sfix);
+	ptu_run_f(suite, get_null, sfix);
+	ptu_run_f(suite, get_overflow, sfix);
+	ptu_run_f(suite, put_null, sfix);
 	ptu_run_f(suite, map_null, sfix);
 	ptu_run_f(suite, unmap_null, sfix);
-	ptu_run_f(suite, map_twice, sfix);
 	ptu_run_f(suite, map_change, sfix);
+	ptu_run_f(suite, map_put, sfix);
 	ptu_run_f(suite, unmap_nomap, sfix);
+	ptu_run_f(suite, map_overflow, sfix);
+	ptu_run_f(suite, get_put, sfix);
+	ptu_run_f(suite, map_unmap, sfix);
 	ptu_run_f(suite, read, sfix);
 	ptu_run_f(suite, read_offset, sfix);
 	ptu_run_f(suite, read_truncated, sfix);
@@ -504,6 +706,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, read_overflow, sfix);
 	ptu_run_f(suite, read_nomap, sfix);
 	ptu_run_f(suite, read_unmap_map, sfix);
+	ptu_run_f(suite, stress, sfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

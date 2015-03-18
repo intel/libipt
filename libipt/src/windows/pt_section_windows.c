@@ -189,16 +189,39 @@ out_mh:
 int pt_section_map(struct pt_section *section)
 {
 	const char *filename;
+	uint16_t mcount;
 	HANDLE fh;
 	FILE *file;
 	int fd, errcode;
 
-	if (!section || section->mapping)
+	if (!section)
 		return -pte_internal;
 
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = section->mcount + 1;
+	if (mcount > 1) {
+		section->mcount = mcount;
+		return pt_section_unlock(section);
+	}
+
+	if (!mcount) {
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
+
+	if (section->mapping) {
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
+
 	filename = section->filename;
-	if (!filename)
-		return -pte_internal;
+	if (!filename) {
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
 
 	fh = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -211,8 +234,10 @@ int pt_section_map(struct pt_section *section)
 
 		fh = CreateFile(filename, GENERIC_READ, FILE_SHARE_WRITE, NULL,
 				OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (fh == INVALID_HANDLE_VALUE)
-			return -pte_bad_image;
+		if (fh == INVALID_HANDLE_VALUE) {
+			errcode = -pte_bad_image;
+			goto out_unlock;
+		}
 	}
 
 	fd = _open_osfhandle((intptr_t) fh, _O_RDONLY);
@@ -231,8 +256,10 @@ int pt_section_map(struct pt_section *section)
 	 * section is unmapped.
 	 */
 	errcode = pt_sec_windows_map(section, fd);
-	if (!errcode)
-		return 0;
+	if (!errcode) {
+		section->mcount = 1;
+		return pt_section_unlock(section);
+	}
 
 	/* Fall back to file based sections - report the original error
 	 * if we fail to convert the file descriptor.
@@ -243,18 +270,17 @@ int pt_section_map(struct pt_section *section)
 		goto out_fd;
 	}
 
-	errcode = pt_sec_file_map(section, file);
-	if (errcode < 0)
-		goto err_file;
-
 	/* We need to keep the file open on success.  It will be closed when
 	 * the section is unmapped.
 	 */
-	return 0;
+	errcode = pt_sec_file_map(section, file);
+	if (!errcode) {
+		section->mcount = 1;
+		return pt_section_unlock(section);
+	}
 
-err_file:
 	fclose(file);
-	return errcode;
+	goto out_unlock;
 
 out_fd:
 	_close(fd);
@@ -262,6 +288,9 @@ out_fd:
 
 out_fh:
 	CloseHandle(fh);
+
+out_unlock:
+	(void) pt_section_unlock(section);
 	return errcode;
 }
 

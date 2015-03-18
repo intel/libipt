@@ -82,6 +82,18 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 	section->status = status;
 	section->offset = offset;
 	section->size = size;
+	section->ucount = 1;
+
+#if defined(FEATURE_THREADS)
+
+	errcode = mtx_init(&section->lock, mtx_plain);
+	if (errcode != thrd_success) {
+		free(section->filename);
+		free(section);
+		goto out_status;
+	}
+
+#endif /* defined(FEATURE_THREADS) */
 
 	return section;
 
@@ -90,17 +102,109 @@ out_status:
 	return NULL;
 }
 
-void pt_section_free(struct pt_section *section)
+int pt_section_lock(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_lock(&section->lock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+int pt_section_unlock(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_unlock(&section->lock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+static void pt_section_free(struct pt_section *section)
 {
 	if (!section)
 		return;
 
-	if (section->mapping)
-		(void) pt_section_unmap(section);
+#if defined(FEATURE_THREADS)
+
+	mtx_destroy(&section->lock);
+
+#endif /* defined(FEATURE_THREADS) */
 
 	free(section->filename);
 	free(section->status);
 	free(section);
+}
+
+int pt_section_get(struct pt_section *section)
+{
+	uint16_t ucount;
+	int errcode;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	ucount = section->ucount + 1;
+	if (!ucount) {
+		(void) pt_section_unlock(section);
+		return -pte_internal;
+	}
+
+	section->ucount = ucount;
+
+	return pt_section_unlock(section);
+}
+
+int pt_section_put(struct pt_section *section)
+{
+	uint16_t ucount, mcount;
+	int errcode;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = section->mcount;
+	ucount = section->ucount;
+	if (ucount > 1) {
+		section->ucount = ucount - 1;
+		return pt_section_unlock(section);
+	}
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (!ucount || mcount)
+		return -pte_internal;
+
+	pt_section_free(section);
+	return 0;
 }
 
 const char *pt_section_filename(const struct pt_section *section)
@@ -121,13 +225,41 @@ uint64_t pt_section_size(const struct pt_section *section)
 
 int pt_section_unmap(struct pt_section *section)
 {
+	uint16_t mcount;
+	int errcode, status;
+
 	if (!section)
 		return -pte_internal;
 
-	if (!section->unmap)
-		return -pte_nomap;
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
 
-	return section->unmap(section);
+	mcount = section->mcount;
+
+	errcode = -pte_nomap;
+	if (!mcount)
+		goto out_unlock;
+
+	section->mcount = mcount -= 1;
+	if (mcount)
+		return pt_section_unlock(section);
+
+	errcode = -pte_internal;
+	if (!section->unmap)
+		goto out_unlock;
+
+	status = section->unmap(section);
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
+
+out_unlock:
+	(void) pt_section_unlock(section);
+	return errcode;
 }
 
 int pt_section_read(const struct pt_section *section, uint8_t *buffer,

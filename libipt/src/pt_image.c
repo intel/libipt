@@ -55,10 +55,17 @@ static struct pt_section_list *pt_mk_section_list(struct pt_section *section,
 						  uint64_t vaddr)
 {
 	struct pt_section_list *list;
+	int errcode;
 
 	list = malloc(sizeof(*list));
 	if (!list)
 		return NULL;
+
+	errcode = pt_section_get(section);
+	if (errcode < 0) {
+		free(list);
+		return NULL;
+	}
 
 	list->next = NULL;
 	pt_msec_init(&list->section, section, asid, vaddr);
@@ -72,7 +79,7 @@ static void pt_section_list_free(struct pt_section_list *list)
 		return;
 
 	pt_section_unmap(list->section.section);
-	pt_section_free(list->section.section);
+	pt_section_put(list->section.section);
 	pt_msec_fini(&list->section);
 	free(list);
 }
@@ -243,9 +250,14 @@ int pt_image_add_file(struct pt_image *image, const char *filename,
 
 	errcode = pt_image_add(image, section, &asid, vaddr);
 	if (errcode < 0) {
-		pt_section_free(section);
+		(void) pt_section_put(section);
 		return errcode;
 	}
+
+	/* The image list got its own reference; let's drop ours. */
+	errcode = pt_section_put(section);
+	if (errcode < 0)
+		return errcode;
 
 	return 0;
 }

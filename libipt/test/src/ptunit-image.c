@@ -52,12 +52,6 @@ struct ifix_status {
 	 */
 	int deleted;
 
-	/* Mapped indication:
-	 * - zero if not mapped
-	 * - non-zero if mapped.
-	 */
-	int mapped;
-
 	/* The test mapping to be used. */
 	struct ifix_mapping *mapping;
 };
@@ -68,18 +62,17 @@ static void pt_init_section(struct pt_section *section, char *filename,
 {
 	uint8_t i;
 
+	memset(section, 0, sizeof(*section));
+
+	section->filename = filename;
+	section->status = status;
 	section->size = mapping->size = sizeof(mapping->content);
 
 	for (i = 0; i < mapping->size; ++i)
 		mapping->content[i] = i;
 
 	status->deleted = 0;
-	status->mapped = 0;
 	status->mapping = mapping;
-
-	section->filename = filename;
-	section->status = status;
-	section->mapping = NULL;
 }
 
 const char *pt_section_filename(const struct pt_section *section)
@@ -105,33 +98,57 @@ struct pt_section *pt_mk_section(const char *file, uint64_t offset,
 	return NULL;
 }
 
-void pt_section_free(struct pt_section *section)
+int pt_section_get(struct pt_section *section)
 {
-	struct ifix_status *status;
+	if (!section)
+		return -pte_internal;
+
+	section->ucount += 1;
+	return 0;
+}
+
+int pt_section_put(struct pt_section *section)
+{
+	uint16_t ucount;
 
 	if (!section)
-		return;
+		return -pte_internal;
 
-	status = section->status;
+	ucount = section->ucount;
+	if (!ucount)
+		return -pte_internal;
 
-	status->deleted = 1;
+	ucount = --section->ucount;
+	if (!ucount) {
+		struct ifix_status *status;
+
+		status = section->status;
+		if (!status || status->deleted)
+			return -pte_internal;
+
+		status->deleted = 1;
+	}
+
+	return 0;
 }
 
 static int ifix_unmap(struct pt_section *section)
 {
-	struct ifix_status *status;
+	uint16_t mcount;
 
 	if (!section)
 		return -pte_internal;
 
-	status = section->status;
-	if (!status)
+	mcount = section->mcount;
+	if (!mcount)
 		return -pte_internal;
 
-	if (!status->mapped)
-		return -pte_nomap;
+	if (!section->mapping)
+		return -pte_internal;
 
-	status->mapped = 0;
+	mcount = --section->mcount;
+	if (!mcount)
+		section->mapping = NULL;
 
 	return 0;
 }
@@ -171,9 +188,14 @@ static int ifix_read(const struct pt_section *section, uint8_t *buffer,
 int pt_section_map(struct pt_section *section)
 {
 	struct ifix_status *status;
+	uint16_t mcount;
 
 	if (!section)
 		return -pte_internal;
+
+	mcount = section->mcount++;
+	if (mcount)
+		return 0;
 
 	if (section->mapping)
 		return -pte_internal;
@@ -182,14 +204,9 @@ int pt_section_map(struct pt_section *section)
 	if (!status)
 		return -pte_internal;
 
-	if (status->mapped)
-		return -pte_internal;
-
 	section->mapping = status->mapping;
 	section->unmap = ifix_unmap;
 	section->read = ifix_read;
-
-	status->mapped = 1;
 
 	return 0;
 }
@@ -318,11 +335,12 @@ static struct ptunit_result fini(void)
 	pt_image_init(&image, NULL);
 	errcode = pt_image_add(&image, &section, &asid, 0x0ull);
 	ptu_int_eq(errcode, 0);
-	ptu_int_eq(status.mapped, 1);
+	ptu_int_eq(section.mcount, 1);
 
 	pt_image_fini(&image);
+	ptu_int_eq(section.ucount, 0);
+	ptu_int_eq(section.mcount, 0);
 	ptu_int_eq(status.deleted, 1);
-	ptu_int_eq(status.mapped, 0);
 
 	return ptu_passed();
 }

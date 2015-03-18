@@ -149,48 +149,75 @@ out_map:
 int pt_section_map(struct pt_section *section)
 {
 	const char *filename;
+	uint16_t mcount;
 	FILE *file;
 	int fd, errcode;
 
-	if (!section || section->mapping)
+	if (!section)
 		return -pte_internal;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = section->mcount + 1;
+	if (mcount > 1) {
+		section->mcount = mcount;
+		return pt_section_unlock(section);
+	}
+
+	errcode = -pte_internal;
+	if (!mcount)
+		goto out_unlock;
+
+	if (section->mapping)
+		goto out_unlock;
 
 	filename = section->filename;
 	if (!filename)
-		return -pte_internal;
+		goto out_unlock;
 
+	errcode = -pte_bad_image;
 	fd = open(filename, O_RDONLY);
 	if (fd == -1)
-		return -pte_bad_image;
+		goto out_unlock;
 
 	errcode = check_file_status(section, fd);
 	if (errcode < 0)
-		goto out;
+		goto out_fd;
 
 	/* We close the file on success.  This does not unmap the section. */
 	errcode = pt_sec_posix_map(section, fd);
-	if (!errcode)
-		goto out;
+	if (!errcode) {
+		section->mcount = 1;
+		close(fd);
+		return pt_section_unlock(section);
+	}
 
 	/* Fall back to file based sections - report the original error
 	 * if we fail to convert the file descriptor.
 	 */
 	file = fdopen(fd, "rb");
 	if (!file)
-		goto out;
+		goto out_fd;
 
 	/* We need to keep the file open on success.  It will be closed when
 	 * the section is unmapped.
 	 */
 	errcode = pt_sec_file_map(section, file);
-	if (!errcode)
-		return 0;
+	if (!errcode) {
+		section->mcount = 1;
+		return pt_section_unlock(section);
+	}
 
 	fclose(file);
-	return errcode;
+	goto out_unlock;
 
-out:
+out_fd:
 	close(fd);
+
+out_unlock:
+	(void) pt_section_unlock(section);
 	return errcode;
 }
 
