@@ -31,9 +31,11 @@
 
 #include "pt_section.h"
 #include "pt_section_posix.h"
+#include "pt_section_file.h"
 
 #include "intel-pt.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -147,6 +149,7 @@ out_map:
 int pt_section_map(struct pt_section *section)
 {
 	const char *filename;
+	FILE *file;
 	int fd, errcode;
 
 	if (!section || section->mapping)
@@ -164,7 +167,27 @@ int pt_section_map(struct pt_section *section)
 	if (errcode < 0)
 		goto out;
 
+	/* We close the file on success.  This does not unmap the section. */
 	errcode = pt_sec_posix_map(section, fd);
+	if (!errcode)
+		goto out;
+
+	/* Fall back to file based sections - report the original error
+	 * if we fail to convert the file descriptor.
+	 */
+	file = fdopen(fd, "rb");
+	if (!file)
+		goto out;
+
+	/* We need to keep the file open on success.  It will be closed when
+	 * the section is unmapped.
+	 */
+	errcode = pt_sec_file_map(section, file);
+	if (!errcode)
+		return 0;
+
+	fclose(file);
+	return errcode;
 
 out:
 	close(fd);
