@@ -1295,6 +1295,19 @@ extern pt_export int pt_image_add_file(struct pt_image *image,
 				       const struct pt_asid *asid,
 				       uint64_t vaddr);
 
+/** Copy an image.
+ *
+ * Adds all sections from \@src to \@image.  Sections that would overlap with
+ * existing sections will be ignored.
+ *
+ * Returns the number of ignored images on success, a negative error code
+ * otherwise.
+ *
+ * Returns -pte_invalid if \@image or \@src is NULL.
+ */
+extern pt_export int pt_image_copy(struct pt_image *image,
+				   const struct pt_image *src);
+
 /** Remove all sections loaded from a file.
  *
  * Removes all sections loaded from \@filename from the address space \@asid.

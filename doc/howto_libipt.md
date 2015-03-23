@@ -660,7 +660,8 @@ this if you only use one decoder and one image.
 
 An image is a collection of contiguous, non-overlapping memory regions called
 `sections`.  Starting with an empty image, it may be populated with repeated
-calls to `pt_image_add_file()`, one for each section.
+calls to `pt_image_add_file()`, one for each section, or with a call to
+`pt_image_copy()` to add all sections from another image.
 
 In some cases, the memory image may change during the execution.  You can use
 the `pt_image_remove_by_filename()` function to remove previously added sections
@@ -766,4 +767,5 @@ the intel-pt.h header file.
 
 The decoder library API is not thread-safe.  Different threads may allocate and
 use different decoder objects at the same time.  Different decoders must not use
-the same image object.
+the same image object.  Use `pt_image_copy()` to give each decoder its own copy
+of a shared master image.

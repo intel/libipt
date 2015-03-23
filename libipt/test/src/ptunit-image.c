@@ -251,6 +251,9 @@ struct image_fixture {
 	/* The asids. */
 	struct pt_asid asid[3];
 
+	/* An initially empty image as destination for image copies. */
+	struct pt_image copy;
+
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct image_fixture *);
 	struct ptunit_result (*fini)(struct image_fixture *);
@@ -884,9 +887,88 @@ static struct ptunit_result remove_by_asid(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result copy_empty(struct image_fixture *ifix)
+{
+	struct pt_asid asid;
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status;
+
+	pt_asid_init(&asid);
+
+	status = pt_image_copy(&ifix->copy, &ifix->image);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->copy, buffer, sizeof(buffer), &asid,
+			       0x1000ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result copy(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_copy(&ifix->copy, &ifix->image);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->copy, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result copy_duplicate(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_add(&ifix->copy, &ifix->section[1], &ifix->asid[1],
+			      0x2000ull);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_copy(&ifix->copy, &ifix->image);
+	ptu_int_eq(status, 1);
+
+	status = pt_image_read(&ifix->copy, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result copy_self(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_copy(&ifix->image, &ifix->image);
+	ptu_int_eq(status, 2);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[1],
+			       0x2003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
 struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	pt_image_init(&ifix->image, NULL);
+	pt_image_init(&ifix->copy, NULL);
 
 	pt_init_section(&ifix->section[0], "file-0", &ifix->status[0],
 			&ifix->mapping[0]);
@@ -936,6 +1018,8 @@ struct ptunit_result ifix_fini(struct image_fixture *ifix)
 	int sec;
 
 	ptu_check(dfix_fini, ifix);
+
+	pt_image_fini(&ifix->copy);
 
 	for (sec = 0; sec < 3; ++sec) {
 		ptu_int_eq(ifix->section[sec].ucount, 0);
@@ -996,6 +1080,11 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, remove_none_by_filename, rfix);
 	ptu_run_f(suite, remove_all_by_filename, ifix);
 	ptu_run_f(suite, remove_by_asid, rfix);
+
+	ptu_run_f(suite, copy_empty, ifix);
+	ptu_run_f(suite, copy, rfix);
+	ptu_run_f(suite, copy_duplicate, rfix);
+	ptu_run_f(suite, copy_self, rfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

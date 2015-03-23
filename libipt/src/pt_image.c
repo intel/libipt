@@ -258,6 +258,28 @@ int pt_image_add_file(struct pt_image *image, const char *filename,
 	return 0;
 }
 
+int pt_image_copy(struct pt_image *image, const struct pt_image *src)
+{
+	struct pt_section_list *list;
+	int ignored;
+
+	if (!image || !src)
+		return -pte_invalid;
+
+	ignored = 0;
+	for (list = src->sections; list; list = list->next) {
+		int errcode;
+
+		errcode = pt_image_add(image, list->section.section,
+				       &list->section.asid,
+				       list->section.vaddr);
+		if (errcode < 0)
+			ignored += 1;
+	}
+
+	return ignored;
+}
+
 int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 				const struct pt_asid *uasid)
 {
