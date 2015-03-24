@@ -32,6 +32,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#if defined(FEATURE_THREADS)
+#  include <threads.h>
+#endif /* defined(FEATURE_THREADS) */
+
 struct pt_section;
 
 
@@ -42,6 +46,15 @@ struct pt_sec_file_mapping {
 
 	/* The begin and end of the section as offset into @file. */
 	long begin, end;
+
+#if defined(FEATURE_THREADS)
+	/* A lock protecting read access to this file.
+	 *
+	 * Since we need to first set the file position indication before
+	 * we can read, there's a race on the file position.
+	 */
+	mtx_t lock;
+#endif /* defined(FEATURE_THREADS) */
 };
 
 

@@ -32,7 +32,78 @@
 #include "intel-pt.h"
 
 #include <stdlib.h>
+#include <string.h>
 
+
+static int fmap_init(struct pt_sec_file_mapping *mapping)
+{
+	if (!mapping)
+		return -pte_internal;
+
+	memset(mapping, 0, sizeof(*mapping));
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_init(&mapping->lock, mtx_plain);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+static void fmap_fini(struct pt_sec_file_mapping *mapping)
+{
+	if (!mapping)
+		return;
+
+	fclose(mapping->file);
+
+#if defined(FEATURE_THREADS)
+
+	mtx_destroy(&mapping->lock);
+
+#endif /* defined(FEATURE_THREADS) */
+}
+
+static int fmap_lock(struct pt_sec_file_mapping *mapping)
+{
+	if (!mapping)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_lock(&mapping->lock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+static int fmap_unlock(struct pt_sec_file_mapping *mapping)
+{
+	if (!mapping)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_unlock(&mapping->lock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
 
 int pt_sec_file_map(struct pt_section *section, FILE *file)
 {
@@ -80,6 +151,12 @@ int pt_sec_file_map(struct pt_section *section, FILE *file)
 	if (!mapping)
 		return -pte_nomem;
 
+	errcode = fmap_init(mapping);
+	if (errcode < 0) {
+		free(mapping);
+		return errcode;
+	}
+
 	mapping->file = file;
 	mapping->begin = begin;
 	mapping->end = end;
@@ -107,7 +184,7 @@ int pt_sec_file_unmap(struct pt_section *section)
 	section->unmap = NULL;
 	section->read = NULL;
 
-	fclose(mapping->file);
+	fmap_fini(mapping);
 	free(mapping);
 
 	return 0;
@@ -149,10 +226,23 @@ int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 	if (fbegin < begin)
 		return -pte_nomap;
 
+	errcode = fmap_lock(mapping);
+	if (errcode < 0)
+		return errcode;
+
 	errcode = fseek(file, fbegin, SEEK_SET);
 	if (errcode)
-		return -pte_nomap;
+		goto out_unlock;
 
 	read = fread(buffer, 1, size, file);
+
+	errcode = fmap_unlock(mapping);
+	if (errcode < 0)
+		return errcode;
+
 	return (int) read;
+
+out_unlock:
+	(void) fmap_unlock(mapping);
+	return -pte_nomap;
 }
