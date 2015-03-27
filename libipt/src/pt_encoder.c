@@ -121,6 +121,14 @@ int pt_enc_get_offset(struct pt_encoder *encoder, uint64_t *offset)
 	return 0;
 }
 
+const struct pt_config *pt_enc_get_config(const struct pt_encoder *encoder)
+{
+	if (!encoder)
+		return NULL;
+
+	return &encoder->config;
+}
+
 /* Check the remaining space.
  *
  * Returns zero if there are at least \@size bytes of free space available in

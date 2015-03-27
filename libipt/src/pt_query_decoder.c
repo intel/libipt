@@ -370,6 +370,15 @@ int pt_qry_get_sync_offset(struct pt_query_decoder *decoder, uint64_t *offset)
 	return 0;
 }
 
+const struct pt_config *
+pt_qry_get_config(const struct pt_query_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return &decoder->config;
+}
+
 static int pt_qry_cache_tnt(struct pt_query_decoder *decoder)
 {
 	for (;;) {

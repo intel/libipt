@@ -210,6 +210,15 @@ int pt_insn_set_image(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
+const struct pt_config *
+pt_insn_get_config(const struct pt_insn_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return pt_qry_get_config(&decoder->query);
+}
+
 int pt_insn_time(struct pt_insn_decoder *decoder, uint64_t *time)
 {
 	if (!decoder || !time)

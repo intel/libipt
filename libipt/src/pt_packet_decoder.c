@@ -188,6 +188,15 @@ int pt_pkt_get_sync_offset(struct pt_packet_decoder *decoder, uint64_t *offset)
 	return 0;
 }
 
+const struct pt_config *
+pt_pkt_get_config(const struct pt_packet_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return &decoder->config;
+}
+
 int pt_pkt_next(struct pt_packet_decoder *decoder, struct pt_packet *packet)
 {
 	const struct pt_decoder_function *dfun;

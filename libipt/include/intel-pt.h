@@ -718,6 +718,13 @@ extern pt_export int pt_enc_sync_set(struct pt_encoder *encoder,
 extern pt_export int pt_enc_get_offset(struct pt_encoder *encoder,
 				       uint64_t *offset);
 
+/* Return a pointer to \@encoder's configuration.
+ *
+ * Returns a non-null pointer on success, NULL if \@encoder is NULL.
+ */
+extern pt_export const struct pt_config *
+pt_enc_get_config(const struct pt_encoder *encoder);
+
 /** Encode an Intel PT packet.
  *
  * Writes \@packet at \@encoder's current position in the Intel PT buffer and
@@ -819,6 +826,13 @@ extern pt_export int pt_pkt_get_offset(struct pt_packet_decoder *decoder,
  */
 extern pt_export int pt_pkt_get_sync_offset(struct pt_packet_decoder *decoder,
 					    uint64_t *offset);
+
+/* Return a pointer to \@decoder's configuration.
+ *
+ * Returns a non-null pointer on success, NULL if \@decoder is NULL.
+ */
+extern pt_export const struct pt_config *
+pt_pkt_get_config(const struct pt_packet_decoder *decoder);
 
 /** Decode the next packet and advance the decoder.
  *
@@ -1093,6 +1107,13 @@ extern pt_export int pt_qry_get_offset(struct pt_query_decoder *decoder,
  */
 extern pt_export int pt_qry_get_sync_offset(struct pt_query_decoder *decoder,
 					    uint64_t *offset);
+
+/* Return a pointer to \@decoder's configuration.
+ *
+ * Returns a non-null pointer on success, NULL if \@decoder is NULL.
+ */
+extern pt_export const struct pt_config *
+pt_qry_get_config(const struct pt_query_decoder *decoder);
 
 /** Query whether the next unconditional branch has been taken.
  *
@@ -1506,6 +1527,13 @@ pt_insn_get_image(struct pt_insn_decoder *decoder);
  */
 extern pt_export int pt_insn_set_image(struct pt_insn_decoder *decoder,
 				       struct pt_image *image);
+
+/* Return a pointer to \@decoder's configuration.
+ *
+ * Returns a non-null pointer on success, NULL if \@decoder is NULL.
+ */
+extern pt_export const struct pt_config *
+pt_insn_get_config(const struct pt_insn_decoder *decoder);
 
 /** Return the current time.
  *
