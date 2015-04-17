@@ -1033,14 +1033,34 @@ static int proceed(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
-int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
+static int insn_to_user(struct pt_insn *uinsn, size_t size,
+			const struct pt_insn *insn)
 {
+	if (!uinsn || !insn)
+		return -pte_internal;
+
+	/* Zero out any unknown bytes. */
+	if (sizeof(*insn) < size) {
+		memset(uinsn + sizeof(*insn), 0, size - sizeof(*insn));
+
+		size = sizeof(*insn);
+	}
+
+	memcpy(uinsn, insn, size);
+
+	return 0;
+}
+
+int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
+		 size_t size)
+{
+	struct pt_insn insn;
 	int errcode;
 
-	if (!insn || !decoder)
+	if (!uinsn || !decoder)
 		return -pte_invalid;
 
-	memset(insn, 0, sizeof(*insn));
+	memset(&insn, 0, sizeof(insn));
 
 	/* Report any errors we encountered. */
 	if (decoder->status < 0)
@@ -1062,7 +1082,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 	 */
 	decoder->event_may_change_ip = 1;
 
-	errcode = process_events_before(decoder, insn);
+	errcode = process_events_before(decoder, &insn);
 	if (errcode < 0)
 		goto err;
 
@@ -1081,7 +1101,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 		goto err;
 	}
 
-	errcode = decode_insn(insn, decoder);
+	errcode = decode_insn(&insn, decoder);
 	if (errcode < 0)
 		goto err;
 
@@ -1091,31 +1111,39 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *insn)
 	 */
 	decoder->event_may_change_ip = 0;
 
-	errcode = process_events_after(decoder, insn);
+	errcode = process_events_after(decoder, &insn);
 	if (errcode < 0)
 		goto err;
 
 	/* If event processing disabled tracing, we're done for this
 	 * iteration - we will process the re-enable event on the next.
+	 *
+	 * Otherwise, we determine the next instruction and peek ahead.
 	 */
-	if (!decoder->enabled)
-		return 0;
+	if (decoder->enabled) {
+		/* Determine the next IP. */
+		errcode = proceed(decoder);
+		if (errcode < 0)
+			goto err;
 
-	/* Determine the next IP. */
-	errcode = proceed(decoder);
-	if (errcode < 0)
-		goto err;
+		/* Peek event processing is based on the next instruction's
+		 * IP and is therefore independent of the relevance of @insn.
+		 */
+		errcode = process_events_peek(decoder, &insn);
+		if (errcode < 0)
+			goto err;
+	}
 
-	/* Peek event processing is based on the next instruction's IP
-	 * and is therefore independent of the relevance of @insn.
-	 */
-	errcode = process_events_peek(decoder, insn);
-	if (errcode < 0)
-		goto err;
-
-	return 0;
+	return insn_to_user(uinsn, size, &insn);
 
 err:
+	/* We provide the (incomplete) instruction also in case of errors.
+	 *
+	 * For decode or post-decode event-processing errors, the IP or
+	 * other fields are already valid and may help diagnose the error.
+	 */
+	(void) insn_to_user(uinsn, size, &insn);
+
 	decoder->status = errcode;
 	return errcode;
 }

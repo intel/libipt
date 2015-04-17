@@ -1572,6 +1572,8 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
  *
  * On success, provides the next instruction in execution order in \@insn.
  *
+ * The \@size argument must be set to sizeof(struct pt_insn).
+ *
  * Returns zero or a positive value on success, a negative error code otherwise.
  *
  * Returns -pte_bad_context if the decoder encountered an unexpected packet.
@@ -1584,6 +1586,6 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
  * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_insn_next(struct pt_insn_decoder *decoder,
-				  struct pt_insn *insn);
+				  struct pt_insn *insn, size_t size);
 
 #endif /* __INTEL_PT_H__ */
