@@ -1110,6 +1110,30 @@ static int proceed(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
+static int pt_insn_status(const struct pt_insn_decoder *decoder)
+{
+	int status, flags;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = decoder->status;
+	flags = 0;
+
+	/* We postpone any errors until the next query. */
+	if (status < 0)
+		return 0;
+
+	/* Forward end-of-trace indications.
+	 *
+	 * Postpone it as long as we're still processing events, though.
+	 */
+	if ((status & pts_eos) && !decoder->process_event)
+		flags |= pts_eos;
+
+	return flags;
+}
+
 static int insn_to_user(struct pt_insn *uinsn, size_t size,
 			const struct pt_insn *insn)
 {
@@ -1132,7 +1156,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		 size_t size)
 {
 	struct pt_insn insn;
-	int errcode;
+	int errcode, status;
 
 	if (!uinsn || !decoder)
 		return -pte_invalid;
@@ -1192,6 +1216,9 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	if (errcode < 0)
 		goto err;
 
+	/* We return the decoder status for this instruction. */
+	status = pt_insn_status(decoder);
+
 	/* If event processing disabled tracing, we're done for this
 	 * iteration - we will process the re-enable event on the next.
 	 *
@@ -1211,7 +1238,11 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 			goto err;
 	}
 
-	return insn_to_user(uinsn, size, &insn);
+	errcode = insn_to_user(uinsn, size, &insn);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
 
 err:
 	/* We provide the (incomplete) instruction also in case of errors.

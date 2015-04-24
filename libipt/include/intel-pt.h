@@ -1603,7 +1603,12 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
  *
  * The \@size argument must be set to sizeof(struct pt_insn).
  *
- * Returns zero or a positive value on success, a negative error code otherwise.
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
+ *
+ * Returns pts_eos to indicate the end of the trace stream.  Subsequent calls
+ * to pt_insn_next() will continue to return pts_eos until trace is required
+ * to determine the next instruction.
  *
  * Returns -pte_bad_context if the decoder encountered an unexpected packet.
  * Returns -pte_bad_opc if the decoder encountered unknown packets.
