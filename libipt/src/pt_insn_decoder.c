@@ -366,7 +366,8 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	/* Fill in as much as we can as early as we can so we have the
 	 * information available in case of errors.
 	 */
-	insn->speculative = decoder->speculative;
+	if (decoder->speculative)
+		insn->speculative = 1;
 	insn->mode = decoder->mode;
 	insn->ip = decoder->ip;
 
