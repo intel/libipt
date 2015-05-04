@@ -1723,8 +1723,7 @@ static struct ptunit_result ptu_dfix_init(struct ptu_decoder_fixture *dfix)
 
 	(void) memset(dfix->buffer, 0, sizeof(dfix->buffer));
 
-	errcode = pt_configure(config);
-	ptu_int_eq(errcode, 0);
+	pt_config_init(config);
 
 	config->begin = dfix->buffer;
 	config->end = dfix->buffer + sizeof(dfix->buffer);

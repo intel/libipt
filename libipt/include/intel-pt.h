@@ -31,6 +31,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 /* Intel(R) Processor Trace (Intel PT) decoder library.
@@ -473,19 +474,13 @@ struct pt_config {
 };
 
 
-/** Create an Intel PT decoder configuration for the current cpu.
- *
- * Collects information on the current system necessary for Intel PT decoding
- * and stores it into \@config.
- *
- * This function should be executed on the system on which Intel PT is
- * collected.
- *
- * Returns zero on success, a negative error code otherwise.
- *
- * Returns -pte_invalid if \@config is NULL.
- */
-extern pt_export int pt_configure(struct pt_config *config);
+/** Zero-initialize an Intel PT configuration. */
+static inline void pt_config_init(struct pt_config *config)
+{
+	memset(config, 0, sizeof(*config));
+
+	config->size = sizeof(*config);
+}
 
 /** Determine errata for a given cpu.
  *

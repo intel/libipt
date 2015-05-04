@@ -38,7 +38,7 @@ static struct ptunit_result init_packet_decoder(void)
 	struct pt_config config;
 	struct pt_packet_decoder *decoder;
 
-	pt_configure(&config);
+	pt_config_init(&config);
 	config.begin = buf;
 	config.end = buf + sizeof(buf);
 
@@ -55,7 +55,7 @@ static struct ptunit_result init_query_decoder(void)
 	struct pt_config config;
 	struct pt_query_decoder *query_decoder;
 
-	pt_configure(&config);
+	pt_config_init(&config);
 	config.begin = buf;
 	config.end = buf + sizeof(buf);
 
