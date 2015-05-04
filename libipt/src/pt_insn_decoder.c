@@ -58,9 +58,6 @@ int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
 	if (!decoder)
 		return -pte_internal;
 
-	if (!config)
-		return -pte_invalid;
-
 	errcode = pt_qry_decoder_init(&decoder->query, config);
 	if (errcode < 0)
 		return errcode;

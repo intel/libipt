@@ -27,30 +27,25 @@
  */
 
 #include "pt_encoder.h"
+#include "pt_config.h"
 
 #include <string.h>
 
 
 int pt_encoder_init(struct pt_encoder *encoder, const struct pt_config *config)
 {
-	uint8_t *begin, *end;
+	int errcode;
 
-	if (!encoder || !config)
+	if (!encoder)
 		return -pte_invalid;
-
-	if (config->size != sizeof(*config))
-		return -pte_bad_config;
-
-	begin = config->begin;
-	end = config->end;
-
-	if (!begin || !end || end < begin)
-		return -pte_bad_config;
 
 	memset(encoder, 0, sizeof(*encoder));
 
-	encoder->config = *config;
-	encoder->pos = begin;
+	errcode = pt_config_from_user(&encoder->config, config);
+	if (errcode < 0)
+		return errcode;
+
+	encoder->pos = encoder->config.begin;
 
 	return 0;
 }

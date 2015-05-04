@@ -31,6 +31,7 @@
 #include "pt_decoder_function.h"
 #include "pt_packet.h"
 #include "pt_packet_decoder.h"
+#include "pt_config.h"
 
 #include "intel-pt.h"
 
@@ -41,21 +42,16 @@
 int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 			const struct pt_config *config)
 {
-	if (!decoder || !config)
+	int errcode;
+
+	if (!decoder)
 		return -pte_invalid;
-
-	if (config->size != sizeof(*config))
-		return -pte_bad_config;
-
-	if (!config->begin || !config->end)
-		return -pte_bad_config;
-
-	if (config->end < config->begin)
-		return -pte_bad_config;
 
 	memset(decoder, 0, sizeof(*decoder));
 
-	decoder->config = *config;
+	errcode = pt_config_from_user(&decoder->config, config);
+	if (errcode < 0)
+		return errcode;
 
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);

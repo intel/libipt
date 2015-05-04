@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Intel Corporation
+ * Copyright (c) 2015, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,70 +28,17 @@
 
 #include "intel-pt.h"
 
-#include <string.h>
-#include <stddef.h>
 
-
-int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
-{
-	if (!errata || !cpu)
-		return -pte_invalid;
-
-	memset(errata, 0, sizeof(*errata));
-
-	/* We don't know about others. */
-	if (cpu->vendor != pcv_intel)
-		return 0;
-
-	switch (cpu->family) {
-	case 0x6:
-		switch (cpu->model) {
-		case 0x3d:
-			errata->bdm70 = 1;
-			errata->bdm64 = 1;
-			break;
-		}
-		break;
-	}
-
-	return 0;
-}
-
-int pt_config_from_user(struct pt_config *config,
-			const struct pt_config *uconfig)
-{
-	uint8_t *begin, *end;
-	size_t size;
-
-	if (!config)
-		return -pte_internal;
-
-	if (!uconfig)
-		return -pte_invalid;
-
-	size = uconfig->size;
-	if (size < offsetof(struct pt_config, decode))
-		return -pte_bad_config;
-
-	begin = uconfig->begin;
-	end = uconfig->end;
-
-	if (!begin || !end || end < begin)
-		return -pte_bad_config;
-
-	/* Ignore fields in the user's configuration we don't know; zero out
-	 * fields the user didn't know about.
-	 */
-	if (sizeof(*config) <= size)
-		size = sizeof(*config);
-	else
-		memset(((uint8_t *) config) + size, 0, sizeof(*config) - size);
-
-	/* Copy (portions of) the user's configuration. */
-	memcpy(config, uconfig, size);
-
-	/* We copied user's size - fix it. */
-	config->size = size;
-
-	return 0;
-}
+/* Read the configuration provided by a library user and zero-initialize
+ * missing fields.
+ *
+ * We keep the user's size value if it is smaller than sizeof(*@config) to
+ * allow decoders to detect missing configuration bits.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @config is NULL.
+ * Returns -pte_invalid if @uconfig is NULL.
+ * Returns -pte_bad_config if @config is too small to be useful.
+ */
+extern int pt_config_from_user(struct pt_config *config,
+			       const struct pt_config *uconfig);
