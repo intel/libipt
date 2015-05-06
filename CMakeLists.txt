@@ -53,12 +53,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_COLOR_MAKEFILE   OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(FEATURE_MMAP "" CACHE BOOL OFF)
+option(FEATURE_MMAP "Use mmap() instead of file operations." OFF)
 if (FEATURE_MMAP)
   add_definitions(-DFEATURE_MMAP)
 endif (FEATURE_MMAP)
 
-set(DEVBUILD "" CACHE BOOL OFF)
+option(DEVBUILD "Enable compiler warnings and turn them into errors." OFF)
 
 include_directories(
   include
@@ -154,7 +154,7 @@ if (CMAKE_HOST_UNIX)
     )
   endif (CMAKE_C_COMPILER_ID MATCHES "Clang")
 
-  set(GCOV "" CACHE BOOL OFF)
+  option(GCOV "Compile for GNU code coverage analysis." OFF)
 
   if (GCOV)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs")
