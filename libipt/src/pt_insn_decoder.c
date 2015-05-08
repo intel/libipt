@@ -1254,7 +1254,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 
 	errcode = insn_to_user(uinsn, size, &insn);
 	if (errcode < 0)
-		return errcode;
+		goto err_log;
 
 	return status;
 
@@ -1266,6 +1266,7 @@ err:
 	 */
 	(void) insn_to_user(uinsn, size, &insn);
 
+err_log:
 	decoder->status = errcode;
 	return errcode;
 }
