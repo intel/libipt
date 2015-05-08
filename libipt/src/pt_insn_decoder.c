@@ -1110,6 +1110,25 @@ static int proceed(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
+static int pt_insn_peek(struct pt_insn_decoder *decoder, struct pt_insn *insn)
+{
+	int errcode;
+
+	/* Determine the next IP. */
+	errcode = proceed(decoder);
+	if (errcode < 0)
+		return errcode;
+
+	/* Peek event processing is based on the next instruction's
+	 * IP and is therefore independent of the relevance of @insn.
+	 */
+	errcode = process_events_peek(decoder, insn);
+	if (errcode < 0)
+		return errcode;
+
+	return 0;
+}
+
 static int pt_insn_status(const struct pt_insn_decoder *decoder)
 {
 	int status, flags;
@@ -1223,19 +1242,14 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 * iteration - we will process the re-enable event on the next.
 	 *
 	 * Otherwise, we determine the next instruction and peek ahead.
+	 *
+	 * This may indicate an event already in this instruction.  Any error
+	 * will be logged for the next iteration.
 	 */
 	if (decoder->enabled) {
-		/* Determine the next IP. */
-		errcode = proceed(decoder);
+		errcode = pt_insn_peek(decoder, &insn);
 		if (errcode < 0)
-			goto err;
-
-		/* Peek event processing is based on the next instruction's
-		 * IP and is therefore independent of the relevance of @insn.
-		 */
-		errcode = process_events_peek(decoder, &insn);
-		if (errcode < 0)
-			goto err;
+			decoder->status = errcode;
 	}
 
 	errcode = insn_to_user(uinsn, size, &insn);
