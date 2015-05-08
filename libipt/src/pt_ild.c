@@ -915,10 +915,14 @@ pti_ild_init (void)
 PTI_DLL_EXPORT pti_bool_t
 pti_instruction_length_decode (pti_ild_t * ild)
 {
-  /*FIXME: could remove this. rely on user memset. */
-  ild->iclass = PTI_INST_INVALID;
   ild->u.i = 0;
-  ild->direct_target = 0;
+  ild->imm1_bytes = 0;
+  ild->imm2_bytes = 0;
+  ild->disp_bytes = 0;
+  ild->nominal_opcode_pos = 0;
+  ild->modrm_byte = 0;
+  ild->map = PTI_MAP_INVALID;
+
   decode (ild);
   return ild->u.s.error == 0;
 }
@@ -930,6 +934,7 @@ pti_instruction_decode (pti_ild_t * ild)
   pti_uint8_t map = pti_get_map (ild);
 
   /*FIXME: finish pti_instruction_decode, validate prefixes or absense of. */
+  ild->iclass = PTI_INST_INVALID;
 
   if (ild->map > PTI_MAP_1)
     return 0;                   /* uninteresting */

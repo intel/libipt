@@ -423,8 +423,6 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 
 	/* Decode the instruction. */
 	ild = &decoder->ild;
-	memset(ild, 0, sizeof(*ild));
-
 	ild->itext = insn->raw;
 	ild->max_bytes = size;
 	ild->mode = mode;
@@ -485,8 +483,6 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 				     &decoder->asid, at);
 		if (size < 0)
 			return 0;
-
-		memset(&ild, 0, sizeof(ild));
 
 		ild.itext = raw;
 		ild.max_bytes = size;

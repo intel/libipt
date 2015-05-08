@@ -140,21 +140,20 @@ typedef struct
     } s;
     pti_uint32_t i;
   } u;
+  pti_uint8_t imm1_bytes;       /* # of bytes in 1st immediate */
+  pti_uint8_t imm2_bytes;       /* # of bytes in 2nd immediate */
+  pti_uint8_t disp_bytes;       /* # of displacement bytes */
+  pti_uint8_t nominal_opcode_pos;
+  pti_uint8_t modrm_byte;
+  pti_uint8_t map;     /* 5b but valid values=  0,1,2,3 could be in bit union */
   pti_uint8_t rex;              /* 0b0100wrxb */
   pti_uint8_t c5byte1;
   pti_uint8_t c4byte1;
   pti_uint8_t c4byte2;
-  pti_uint8_t map;     /* 5b but valid values=  0,1,2,3 could be in bit union */
   pti_uint8_t nominal_opcode;
-  pti_uint8_t modrm_byte;
   pti_uint8_t sib_byte;
-  pti_uint8_t nominal_opcode_pos;
-  pti_uint8_t imm1_bytes;       /* # of bytes in 1st immediate */
-  pti_uint8_t imm2_bytes;       /* # of bytes in 2nd immediate */
   pti_uint8_t disp_pos;
-  pti_uint8_t disp_bytes;       /* # of displacement bytes */
   /* not including imm_pos, could or could derive from disp_pos + disp_bytes */
-
 } pti_ild_t;
 
 PTI_INLINE void
