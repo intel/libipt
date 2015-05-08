@@ -575,7 +575,6 @@ modrm_dec (pti_ild_t * ild)
     return;
   if (has_modrm == PTI_MODRM_UNDEF)     /*FIXME: what to do about these? */
     return;
-  ild->has_modrm = (pti_uint8_t) has_modrm;
   if (ild->length >= ild->max_bytes)
     {
       /* really >= here because we have not eaten the byte yet */

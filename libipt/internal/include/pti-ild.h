@@ -146,7 +146,6 @@ typedef struct
   pti_uint8_t c4byte2;
   pti_uint8_t map;     /* 5b but valid values=  0,1,2,3 could be in bit union */
   pti_uint8_t nominal_opcode;
-  pti_uint8_t has_modrm;        /* opaque see pti-enums.h */
   pti_uint8_t modrm_byte;
   pti_uint8_t sib_byte;
   pti_uint8_t nominal_opcode_pos;
