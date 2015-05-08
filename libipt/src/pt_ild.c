@@ -321,7 +321,6 @@ prefix_rex_dec (pti_ild_t * ild)
     }
 out:
   ild->length = length;
-  ild->nprefixes = (pti_uint8_t) nprefixes;
   ild->rex = (pti_uint8_t) rex;
   if (length >= max_bytes)
     {
