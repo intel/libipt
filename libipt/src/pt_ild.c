@@ -284,17 +284,8 @@ prefix_rex_dec (pti_ild_t * ild)
         case 0x3E:
         case 0x26:
         case 0x36:
-          if (mode_64b (ild) == 0)
-            ild->seg = b;
-          /* ignore possible REX prefix encountered earlier */
-          rex = 0;
-
-          break;
         case 0x64:
         case 0x65:
-          /* for 64b mode we are ignoring non valid segment prefixes 
-             only FS=0x64 and GS=0x64 are valid for 64b mode */
-          ild->seg = b;
           /* ignore possible REX prefix encountered earlier */
           rex = 0;
           break;

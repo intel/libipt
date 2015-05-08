@@ -140,7 +140,6 @@ typedef struct
     } s;
     pti_uint32_t i;
   } u;
-  pti_uint8_t seg;
   pti_uint8_t nprefixes;
   pti_uint8_t rex;              /* 0b0100wrxb */
   pti_uint8_t c5byte1;
