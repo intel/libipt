@@ -72,27 +72,6 @@ static struct ptunit_result ffix_fini(struct fetch_fixture *ffix)
 }
 
 
-static struct ptunit_result flags(void)
-{
-	ptu_int_eq(pt_decode_unknown.flags, pdff_unknown);
-	ptu_int_eq(pt_decode_pad.flags, 0);
-	ptu_int_eq(pt_decode_psb.flags, 0);
-	ptu_int_eq(pt_decode_tip.flags, pdff_tip);
-	ptu_int_eq(pt_decode_tnt_8.flags, pdff_tnt);
-	ptu_int_eq(pt_decode_tnt_64.flags, pdff_tnt);
-	ptu_int_eq(pt_decode_tip_pge.flags, pdff_event);
-	ptu_int_eq(pt_decode_tip_pgd.flags, pdff_event);
-	ptu_int_eq(pt_decode_fup.flags, pdff_fup);
-	ptu_int_eq(pt_decode_pip.flags, pdff_event);
-	ptu_int_eq(pt_decode_ovf.flags, pdff_psbend);
-	ptu_int_eq(pt_decode_mode.flags, pdff_event);
-	ptu_int_eq(pt_decode_psbend.flags, pdff_psbend);
-	ptu_int_eq(pt_decode_tsc.flags, 0);
-	ptu_int_eq(pt_decode_cbr.flags, 0);
-
-	return ptu_passed();
-}
-
 static struct ptunit_result fetch_null(struct fetch_fixture *ffix)
 {
 	const struct pt_decoder_function *dfun;
@@ -229,8 +208,6 @@ int main(int argc, char **argv)
 	ffix.fini = ffix_fini;
 
 	suite = ptunit_mk_suite(argc, argv);
-
-	ptu_run(suite, flags);
 
 	ptu_run_f(suite, fetch_null, ffix);
 	ptu_run_f(suite, fetch_empty, ffix);
