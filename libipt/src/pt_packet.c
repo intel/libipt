@@ -458,3 +458,86 @@ int pt_pkt_read_mnt(struct pt_packet_mnt *packet, const uint8_t *pos,
 
 	return ptps_mnt;
 }
+
+int pt_pkt_read_exstop(struct pt_packet_exstop *packet, const uint8_t *pos,
+		       const struct pt_config *config)
+{
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_exstop)
+		return -pte_eos;
+
+	packet->ip = pos[1] & pt_pl_exstop_ip_mask ? 1 : 0;
+
+	return ptps_exstop;
+}
+
+int pt_pkt_read_mwait(struct pt_packet_mwait *packet, const uint8_t *pos,
+		      const struct pt_config *config)
+{
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_mwait)
+		return -pte_eos;
+
+	packet->hints = (uint32_t) pt_pkt_read_value(pos + pt_opcs_mwait,
+						     pt_pl_mwait_hints_size);
+	packet->ext = (uint32_t) pt_pkt_read_value(pos + pt_opcs_mwait +
+						   pt_pl_mwait_hints_size,
+						   pt_pl_mwait_ext_size);
+	return ptps_mwait;
+}
+
+int pt_pkt_read_pwre(struct pt_packet_pwre *packet, const uint8_t *pos,
+		     const struct pt_config *config)
+{
+	uint64_t payload;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_pwre)
+		return -pte_eos;
+
+	payload = pt_pkt_read_value(pos + pt_opcs_pwre, pt_pl_pwre_size);
+
+	memset(packet, 0, sizeof(*packet));
+	packet->state = (uint8_t) ((payload & pt_pl_pwre_state_mask) >>
+				   pt_pl_pwre_state_shr);
+	packet->sub_state = (uint8_t) ((payload & pt_pl_pwre_sub_state_mask) >>
+				       pt_pl_pwre_sub_state_shr);
+	if (payload & pt_pl_pwre_hw_mask)
+		packet->hw = 1;
+
+	return ptps_pwre;
+}
+
+int pt_pkt_read_pwrx(struct pt_packet_pwrx *packet, const uint8_t *pos,
+		     const struct pt_config *config)
+{
+	uint64_t payload;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_pwrx)
+		return -pte_eos;
+
+	payload = pt_pkt_read_value(pos + pt_opcs_pwrx, pt_pl_pwrx_size);
+
+	memset(packet, 0, sizeof(*packet));
+	packet->last = (uint8_t) ((payload & pt_pl_pwrx_last_mask) >>
+				  pt_pl_pwrx_last_shr);
+	packet->deepest = (uint8_t) ((payload & pt_pl_pwrx_deepest_mask) >>
+				     pt_pl_pwrx_deepest_shr);
+	if (payload & pt_pl_pwrx_wr_int)
+		packet->interrupt = 1;
+	if (payload & pt_pl_pwrx_wr_store)
+		packet->store = 1;
+	if (payload & pt_pl_pwrx_wr_hw)
+		packet->autonomous = 1;
+
+	return ptps_pwrx;
+}

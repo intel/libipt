@@ -184,6 +184,43 @@ The rest will be silently ignored.
 Value is the 8-byte packet payload represented as 64-bit little-endian number.
 
 
+#### exstop
+
+    @pt exstop([ip])
+
+If ip is specified, the IP bit in the packet opcode is set, it is clear
+otherwise.
+
+
+#### mwait
+
+    @pt mwait(hints, ext)
+
+Hints is the 4-byte mwait hints argument in eax.  Ext is the 4-byte extensions
+argument in ecx.
+
+
+#### pwre
+
+    @pt pwre(c-state[, hw])
+
+C-state is a thread C-state with optional sub C-state in the format
+`c<state>[.<sub>]` where both `<state>` and `<sub>` are decimal integer values
+between 0 and 15.  If the sub C-state is not specified, it defaults to c0.
+
+If hw is specified, the C-state entry was initiated by hardware.
+
+
+#### pwrx
+
+    @pt pwrx(wr: last, deepest)
+
+Wr is the wake reason.  It must be `int`, `st`, or `hw`.
+
+Last and deepest are the last and deepest achieved core C-state in the format
+`c<state>` where `<state>` is a decimal integer value between 0 and 15.
+
+
 #### .exp
 
 	@pt .exp([extra])

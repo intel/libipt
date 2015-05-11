@@ -180,6 +180,34 @@ const struct pt_decoder_function pt_decode_mnt = {
 	/* .flags =  */ pdff_pad
 };
 
+const struct pt_decoder_function pt_decode_exstop = {
+	/* .packet = */ pt_pkt_decode_exstop,
+	/* .decode = */ NULL,
+	/* .header = */ NULL,
+	/* .flags =  */ pdff_event
+};
+
+const struct pt_decoder_function pt_decode_mwait = {
+	/* .packet = */ pt_pkt_decode_mwait,
+	/* .decode = */ NULL,
+	/* .header = */ NULL,
+	/* .flags =  */ pdff_event
+};
+
+const struct pt_decoder_function pt_decode_pwre = {
+	/* .packet = */ pt_pkt_decode_pwre,
+	/* .decode = */ NULL,
+	/* .header = */ NULL,
+	/* .flags =  */ pdff_event
+};
+
+const struct pt_decoder_function pt_decode_pwrx = {
+	/* .packet = */ pt_pkt_decode_pwrx,
+	/* .decode = */ NULL,
+	/* .header = */ NULL,
+	/* .flags =  */ pdff_event
+};
+
 
 int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		const struct pt_config *config)
@@ -299,6 +327,23 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 
 		case pt_ext_vmcs:
 			*dfun = &pt_decode_vmcs;
+			return 0;
+
+		case pt_ext_exstop:
+		case pt_ext_exstop_ip:
+			*dfun = &pt_decode_exstop;
+			return 0;
+
+		case pt_ext_mwait:
+			*dfun = &pt_decode_mwait;
+			return 0;
+
+		case pt_ext_pwre:
+			*dfun = &pt_decode_pwre;
+			return 0;
+
+		case pt_ext_pwrx:
+			*dfun = &pt_decode_pwrx;
 			return 0;
 
 		case pt_ext_ext2:

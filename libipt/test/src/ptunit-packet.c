@@ -393,6 +393,51 @@ static struct ptunit_result mnt(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result exstop(struct packet_fixture *pfix, int ip)
+{
+	pfix->packet[0].type = ppt_exstop;
+	pfix->packet[0].payload.exstop.ip = ip ? 1 : 0;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mwait(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_mwait;
+	pfix->packet[0].payload.mwait.hints = 0xc;
+	pfix->packet[0].payload.mwait.ext = 0x1;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result pwre(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_pwre;
+	pfix->packet[0].payload.pwre.state = 0x0;
+	pfix->packet[0].payload.pwre.sub_state = 0x3;
+	pfix->packet[0].payload.pwre.hw = 1;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result pwrx(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_pwrx;
+	pfix->packet[0].payload.pwrx.last = 0x3;
+	pfix->packet[0].payload.pwrx.deepest = 0xa;
+	pfix->packet[0].payload.pwrx.store = 1;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -546,6 +591,11 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, cyc, pfix);
 	ptu_run_f(suite, vmcs, pfix);
 	ptu_run_f(suite, mnt, pfix);
+	ptu_run_fp(suite, exstop, pfix, 0);
+	ptu_run_fp(suite, exstop, pfix, 1);
+	ptu_run_f(suite, mwait, pfix);
+	ptu_run_f(suite, pwre, pfix);
+	ptu_run_f(suite, pwrx, pfix);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -564,6 +614,10 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff_mode, pfix, pt_mol_tsx);
 	ptu_run_fp(suite, cutoff, pfix, ppt_vmcs);
 	ptu_run_fp(suite, cutoff, pfix, ppt_mnt);
+	ptu_run_fp(suite, cutoff, pfix, ppt_exstop);
+	ptu_run_fp(suite, cutoff, pfix, ppt_mwait);
+	ptu_run_fp(suite, cutoff, pfix, ppt_pwre);
+	ptu_run_fp(suite, cutoff, pfix, ppt_pwrx);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

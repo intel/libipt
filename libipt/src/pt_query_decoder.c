@@ -1903,8 +1903,22 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 
 		case ppt_pad:
 		case ppt_mnt:
+		case ppt_pwre:
+		case ppt_pwrx:
 			/* Ignore this packet. */
 			break;
+
+		case ppt_exstop:
+			/* We may skip a stand-alone EXSTOP. */
+			if (!packet.payload.exstop.ip)
+				break;
+
+			/* Fall through. */
+		case ppt_mwait:
+			/* To skip this packet, we'd need to take care of the
+			 * FUP it binds to.  This is getting complicated.
+			 */
+			return 0;
 
 		case ppt_tsc:
 			/* Keep track of time. */

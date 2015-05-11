@@ -62,6 +62,9 @@ const char *errstr[] = {
 	"unknown directive",
 	"missing directive",
 
+	"unexpected sub C-state",
+	"invalid C-state",
+
 	"pt library error",
 
 	"run failed",

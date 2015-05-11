@@ -75,6 +75,14 @@ bits 64
 ; @pt p42: mnt(0x2a2242e5d4c3b2a1)
 ; @pt p43: tip(6: 0x00cccccccccc4000)
 ; @pt p44: tip(4: 0xffffffff4000)
+; @pt p45: exstop()
+; @pt p46: exstop(ip)
+; @pt p47: mwait(0xb, 0x1)
+; @pt p48: pwre(c0.0)
+; @pt p49: pwre(c0.0, hw)
+; @pt p50: pwrx(int: c1, c6)
+; @pt p51: pwrx(st: c1, c6)
+; @pt p52: pwrx(hw: c1, c6)
 
 ; @pt .exp(ptdump)
 ;%0p01  psbend
@@ -121,3 +129,11 @@ bits 64
 ;%0p42  mnt        2a2242e5d4c3b2a1
 ;%0p43  tip        6: 00cccccccccc4000
 ;%0p44  tip        4: ????ffffffff4000
+;%0p45  exstop
+;%0p46  exstop     ip
+;%0p47  mwait      0000000b, 00000001
+;%0p48  pwre       c0.0
+;%0p49  pwre       c0.0, hw
+;%0p50  pwrx       int: c1, c6
+;%0p51  pwrx       st: c1, c6
+;%0p52  pwrx       hw: c1, c6

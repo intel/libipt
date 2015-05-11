@@ -624,3 +624,79 @@ int pt_pkt_decode_mnt(struct pt_packet_decoder *decoder,
 
 	return size;
 }
+
+int pt_pkt_decode_exstop(struct pt_packet_decoder *decoder,
+			 struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_exstop(&packet->payload.exstop, decoder->pos,
+				  &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_exstop;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
+int pt_pkt_decode_mwait(struct pt_packet_decoder *decoder,
+			struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_mwait(&packet->payload.mwait, decoder->pos,
+				 &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_mwait;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
+int pt_pkt_decode_pwre(struct pt_packet_decoder *decoder,
+		       struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_pwre(&packet->payload.pwre, decoder->pos,
+				&decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_pwre;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
+int pt_pkt_decode_pwrx(struct pt_packet_decoder *decoder,
+		       struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_pwrx(&packet->payload.pwrx, decoder->pos,
+				&decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_pwrx;
+	packet->size = (uint8_t) size;
+
+	return size;
+}

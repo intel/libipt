@@ -215,6 +215,19 @@ static struct ptunit_result fetch_mode_tsx(struct fetch_fixture *ffix)
 	return ptu_passed();
 }
 
+static struct ptunit_result fetch_exstop_ip(struct fetch_fixture *ffix)
+{
+	struct pt_packet packet;
+
+	memset(&packet, 0, sizeof(packet));
+	packet.type = ppt_exstop;
+	packet.payload.exstop.ip = 1;
+
+	ptu_test(fetch_packet, ffix, &packet, &pt_decode_exstop);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct fetch_fixture ffix;
@@ -250,10 +263,15 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, fetch_type, ffix, ppt_stop, &pt_decode_stop);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_vmcs, &pt_decode_vmcs);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_mnt, &pt_decode_mnt);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_exstop, &pt_decode_exstop);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_mwait, &pt_decode_mwait);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_pwre, &pt_decode_pwre);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_pwrx, &pt_decode_pwrx);
 
 	ptu_run_f(suite, fetch_tnt_8, ffix);
 	ptu_run_f(suite, fetch_mode_exec, ffix);
 	ptu_run_f(suite, fetch_mode_tsx, ffix);
+	ptu_run_f(suite, fetch_exstop_ip, ffix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
@@ -591,6 +609,38 @@ int pt_pkt_decode_mnt(struct pt_packet_decoder *d, struct pt_packet *p)
 int pt_qry_decode_mnt(struct pt_query_decoder *d)
 {
 	(void) d;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_exstop(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_mwait(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_pwre(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_pwrx(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
 
 	return -pte_internal;
 }

@@ -44,6 +44,10 @@ struct pt_packet_mtc;
 struct pt_packet_cyc;
 struct pt_packet_vmcs;
 struct pt_packet_mnt;
+struct pt_packet_exstop;
+struct pt_packet_mwait;
+struct pt_packet_pwre;
+struct pt_packet_pwrx;
 
 
 /* Read the payload of an Intel PT packet.
@@ -91,5 +95,14 @@ extern int pt_pkt_read_vmcs(struct pt_packet_vmcs *packet, const uint8_t *pos,
 			    const struct pt_config *config);
 extern int pt_pkt_read_mnt(struct pt_packet_mnt *packet, const uint8_t *pos,
 			   const struct pt_config *config);
+extern int pt_pkt_read_exstop(struct pt_packet_exstop *packet,
+			      const uint8_t *pos,
+			      const struct pt_config *config);
+extern int pt_pkt_read_mwait(struct pt_packet_mwait *packet, const uint8_t *pos,
+			     const struct pt_config *config);
+extern int pt_pkt_read_pwre(struct pt_packet_pwre *packet, const uint8_t *pos,
+			    const struct pt_config *config);
+extern int pt_pkt_read_pwrx(struct pt_packet_pwrx *packet, const uint8_t *pos,
+			    const struct pt_config *config);
 
 #endif /* PT_PACKET_H */

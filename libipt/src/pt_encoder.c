@@ -561,6 +561,94 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		encoder->pos = pos;
 		return (int) (pos - begin);
 
+	case ppt_exstop: {
+		uint8_t ext;
+
+		errcode = pt_reserve(encoder, ptps_exstop);
+		if (errcode < 0)
+			return errcode;
+
+		ext = packet->payload.exstop.ip ?
+			pt_ext_exstop_ip : pt_ext_exstop;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = ext;
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
+	case ppt_mwait:
+		errcode = pt_reserve(encoder, ptps_mwait);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_mwait;
+		pos = pt_encode_int(pos, packet->payload.mwait.hints,
+				    pt_pl_mwait_hints_size);
+		pos = pt_encode_int(pos, packet->payload.mwait.ext,
+				    pt_pl_mwait_ext_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+
+	case ppt_pwre: {
+		uint64_t payload;
+
+		errcode = pt_reserve(encoder, ptps_pwre);
+		if (errcode < 0)
+			return errcode;
+
+		payload = 0ull;
+		payload |= ((uint64_t) packet->payload.pwre.state <<
+			    pt_pl_pwre_state_shr) &
+			(uint64_t) pt_pl_pwre_state_mask;
+		payload |= ((uint64_t) packet->payload.pwre.sub_state <<
+			    pt_pl_pwre_sub_state_shr) &
+			(uint64_t) pt_pl_pwre_sub_state_mask;
+
+		if (packet->payload.pwre.hw)
+			payload |= (uint64_t) pt_pl_pwre_hw_mask;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_pwre;
+		pos = pt_encode_int(pos, payload, pt_pl_pwre_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
+	case ppt_pwrx: {
+		uint64_t payload;
+
+		errcode = pt_reserve(encoder, ptps_pwrx);
+		if (errcode < 0)
+			return errcode;
+
+		payload = 0ull;
+		payload |= ((uint64_t) packet->payload.pwrx.last <<
+			    pt_pl_pwrx_last_shr) &
+			(uint64_t) pt_pl_pwrx_last_mask;
+		payload |= ((uint64_t) packet->payload.pwrx.deepest <<
+			    pt_pl_pwrx_deepest_shr) &
+			(uint64_t) pt_pl_pwrx_deepest_mask;
+
+		if (packet->payload.pwrx.interrupt)
+			payload |= (uint64_t) pt_pl_pwrx_wr_int;
+		if (packet->payload.pwrx.store)
+			payload |= (uint64_t) pt_pl_pwrx_wr_store;
+		if (packet->payload.pwrx.autonomous)
+			payload |= (uint64_t) pt_pl_pwrx_wr_hw;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_pwrx;
+		pos = pt_encode_int(pos, payload, pt_pl_pwrx_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;

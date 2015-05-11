@@ -144,6 +144,11 @@ enum pt_ext_code {
 	pt_ext_stop		= 0x83,
 	pt_ext_vmcs		= 0xc8,
 	pt_ext_ext2		= 0xc3,
+	pt_ext_exstop		= 0x62,
+	pt_ext_exstop_ip	= 0xe2,
+	pt_ext_mwait		= 0xc2,
+	pt_ext_pwre		= 0x22,
+	pt_ext_pwrx		= 0xa2,
 
 	pt_ext_bad		= 0x04
 };
@@ -177,7 +182,10 @@ enum pt_opcode_mask {
 	pt_opm_cyc_bits         = 0xf8,
 	pt_opm_cyc_shr          = 3,
 	pt_opm_cycx_ext         = 0x01,
-	pt_opm_cycx_shr         = 1
+	pt_opm_cycx_shr         = 1,
+
+	/* The bit mask for the IP bit in the exstop packet. */
+	pt_opm_exstop_ip	= 0x80
 };
 
 /** The size of the various opcodes in bytes. */
@@ -201,7 +209,11 @@ enum pt_opcode_size {
 	pt_opcs_tma		= 2,
 	pt_opcs_stop		= 2,
 	pt_opcs_vmcs		= 2,
-	pt_opcs_mnt		= 3
+	pt_opcs_mnt		= 3,
+	pt_opcs_exstop		= 2,
+	pt_opcs_mwait		= 2,
+	pt_opcs_pwre		= 2,
+	pt_opcs_pwrx		= 2
 };
 
 /** The psb magic payload.
@@ -311,7 +323,77 @@ enum pt_payload {
 	pt_pl_vmcs_shl		= 12,
 
 	/* The size of a MNT packet's payload in bytes. */
-	pt_pl_mnt_size		= 8
+	pt_pl_mnt_size		= 8,
+
+	/* The bit-mask for the IP bit in the EXSTOP opcode extension. */
+	pt_pl_exstop_ip_mask	= 0x80,
+
+	/* The size of the hints field in the MWAIT payload in bytes. */
+	pt_pl_mwait_hints_size	= 4,
+
+	/* The size of the extensions field in the MWAIT payload in bytes. */
+	pt_pl_mwait_ext_size	= 4,
+
+	/* The size of the MWAIT payload in bytes. */
+	pt_pl_mwait_size	= pt_pl_mwait_hints_size + pt_pl_mwait_ext_size,
+
+	/* The size of the PWRE payload in bytes. */
+	pt_pl_pwre_size		= 2,
+
+	/* The bit-mask for the h/w bit in the PWRE payload. */
+	pt_pl_pwre_hw_mask	= 0x8,
+
+	/* The bit-mask for the resolved thread sub C-state in the PWRE
+	 * payload.
+	 */
+	pt_pl_pwre_sub_state_mask	= 0xf00,
+
+	/* The shift right value for the resolved thread sub C-state in the
+	 * PWRE payload.
+	 */
+	pt_pl_pwre_sub_state_shr	= 8,
+
+	/* The bit-mask for the resolved thread C-state in the PWRE payload. */
+	pt_pl_pwre_state_mask	= 0xf000,
+
+	/* The shift right value for the resolved thread C-state in the
+	 * PWRE payload.
+	 */
+	pt_pl_pwre_state_shr	= 12,
+
+	/* The size of the PWRX payload in bytes. */
+	pt_pl_pwrx_size		= 5,
+
+	/* The bit-mask for the deepest core C-state in the PWRX payload. */
+	pt_pl_pwrx_deepest_mask	= 0xf,
+
+	/* The shift right value for the deepest core C-state in the PWRX
+	 * payload.
+	 */
+	pt_pl_pwrx_deepest_shr	= 0,
+
+	/* The bit-mask for the last core C-state in the PWRX payload. */
+	pt_pl_pwrx_last_mask	= 0xf0,
+
+	/* The shift right value for the last core C-state in the PWRX
+	 * payload.
+	 */
+	pt_pl_pwrx_last_shr	= 4,
+
+	/* The bit-mask for the wake reason in the PWRX payload. */
+	pt_pl_pwrx_wr_mask	= 0xf00,
+
+	/* The shift right value for the wake reason in the PWRX payload. */
+	pt_pl_pwrx_wr_shr	= 8,
+
+	/* The bit-mask for the interrupt wake reason in the PWRX payload. */
+	pt_pl_pwrx_wr_int	= 0x100,
+
+	/* The bit-mask for the store wake reason in the PWRX payload. */
+	pt_pl_pwrx_wr_store	= 0x400,
+
+	/* The bit-mask for the autonomous wake reason in the PWRX payload. */
+	pt_pl_pwrx_wr_hw	= 0x800
 };
 
 /** Mode packet masks. */
@@ -402,7 +484,11 @@ enum pt_packet_size {
 	ptps_tma		= pt_opcs_tma + pt_pl_tma_size,
 	ptps_stop		= pt_opcs_stop,
 	ptps_vmcs		= pt_opcs_vmcs + pt_pl_vmcs_size,
-	ptps_mnt		= pt_opcs_mnt + pt_pl_mnt_size
+	ptps_mnt		= pt_opcs_mnt + pt_pl_mnt_size,
+	ptps_exstop		= pt_opcs_exstop,
+	ptps_mwait		= pt_opcs_mwait + pt_pl_mwait_size,
+	ptps_pwre		= pt_opcs_pwre + pt_pl_pwre_size,
+	ptps_pwrx		= pt_opcs_pwrx + pt_pl_pwrx_size
 };
 
 
@@ -729,6 +815,10 @@ enum pt_packet_type {
 	ppt_cbr			= ppt_ext | pt_ext_cbr,
 	ppt_tma			= ppt_ext | pt_ext_tma,
 	ppt_vmcs		= ppt_ext | pt_ext_vmcs,
+	ppt_exstop		= ppt_ext | pt_ext_exstop,
+	ppt_mwait		= ppt_ext | pt_ext_mwait,
+	ppt_pwre		= ppt_ext | pt_ext_pwre,
+	ppt_pwrx		= ppt_ext | pt_ext_pwrx,
 
 	/* 3-byte header packets. */
 	ppt_mnt			= ppt_ext2 | pt_ext2_mnt,
@@ -884,6 +974,58 @@ struct pt_packet_mnt {
 	uint64_t payload;
 };
 
+/** A EXSTOP packet. */
+struct pt_packet_exstop {
+	/** A flag specifying the binding of the packet:
+	 *
+	 *   set:    binds to the next FUP.
+	 *   clear:  standalone.
+	 */
+	uint32_t ip:1;
+};
+
+/** A MWAIT packet. */
+struct pt_packet_mwait {
+	/** The MWAIT hints (EAX). */
+	uint32_t hints;
+
+	/** The MWAIT extensions (ECX). */
+	uint32_t ext;
+};
+
+/** A PWRE packet. */
+struct pt_packet_pwre {
+	/** The resolved thread C-state. */
+	uint8_t state;
+
+	/** The resolved thread sub C-state. */
+	uint8_t sub_state;
+
+	/** A flag indicating whether the C-state entry was initiated by h/w. */
+	uint32_t hw:1;
+};
+
+/** A PWRX packet. */
+struct pt_packet_pwrx {
+	/** The core C-state at the time of the wake. */
+	uint8_t last;
+
+	/** The deepest core C-state achieved during sleep. */
+	uint8_t deepest;
+
+	/** The wake reason:
+	 *
+	 * - due to external interrupt received.
+	 */
+	uint32_t interrupt:1;
+
+	/** - due to store to monitored address. */
+	uint32_t store:1;
+
+	/** - due to h/w autonomous condition such as HDC. */
+	uint32_t autonomous:1;
+};
+
 /** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
 	/** Pointer to the raw packet bytes. */
@@ -940,6 +1082,18 @@ struct pt_packet {
 
 		/** Packet: mnt. */
 		struct pt_packet_mnt mnt;
+
+		/** Packet: exstop. */
+		struct pt_packet_exstop exstop;
+
+		/** Packet: mwait. */
+		struct pt_packet_mwait mwait;
+
+		/** Packet: pwre. */
+		struct pt_packet_pwre pwre;
+
+		/** Packet: pwrx. */
+		struct pt_packet_pwrx pwrx;
 
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;

@@ -456,6 +456,88 @@ error:
 	return -err_file_open;
 }
 
+static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
+{
+	char *endptr;
+	unsigned long i;
+
+	if (bug_on(!hints || !ext))
+		return -err_internal;
+
+	payload = strtok(payload, ",");
+	if (!payload || *payload == '\0')
+		return -err_parse_no_args;
+
+	i = strtoul(payload, &endptr, 0);
+	if (payload == endptr || *endptr != '\0')
+		return -err_parse_int;
+
+	if (UINT32_MAX < i)
+		return -err_parse_int_too_big;
+
+	*hints = (uint32_t)i;
+
+	payload = strtok(NULL, " ,");
+	if (!payload)
+		return -err_parse_no_args;
+
+	i = strtoul(payload, &endptr, 0);
+	if (payload == endptr || *endptr != '\0')
+		return -err_parse_int;
+
+	if (UINT32_MAX < i)
+		return -err_parse_int_too_big;
+
+	*ext = (uint32_t)i;
+
+	/* no more tokens left.  */
+	payload = strtok(NULL, " ");
+	if (payload)
+		return -err_parse_trailing_tokens;
+
+	return 0;
+}
+
+static int parse_c_state(uint8_t *state, uint8_t *sub_state, const char *input)
+{
+	unsigned int maj, min;
+	int matches;
+
+	if (!input)
+		return -err_parse_no_args;
+
+	maj = 0;
+	min = 0;
+	matches = sscanf(input, " c%u.%u", &maj, &min);
+	switch (matches) {
+	case 0:
+		return -err_parse_no_args;
+
+	case 2:
+		if (!sub_state)
+			return -err_parse_c_state_sub;
+
+		if (0xf <= min)
+			return -err_parse_c_state_invalid;
+
+		/* Fall through. */
+	case 1:
+		if (!state)
+			return -err_internal;
+
+		if (0xf <= maj)
+			return -err_parse_c_state_invalid;
+
+		break;
+	}
+
+	*state = (uint8_t) ((maj - 1) & 0xf);
+	if (sub_state)
+		*sub_state = (uint8_t) ((min - 1) & 0xf);
+
+	return 0;
+}
+
 /* Processes the current directive.
  * If the encoder returns an error, a message including current file and
  * line number together with the pt error string is printed on stderr.
@@ -742,6 +824,91 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 			goto error;
 		}
 		packet.type = ppt_mnt;
+	} else if (strcmp(directive, "exstop") == 0) {
+		packet.type = ppt_exstop;
+		memset(&packet.payload.exstop, 0,
+		       sizeof(packet.payload.exstop));
+
+		if (strcmp(payload, "ip") == 0)
+			packet.payload.exstop.ip = 1;
+		else if (*payload) {
+			yasm_print_err(p->y, "exstop: parsing failed",
+				       -err_parse_trailing_tokens);
+			goto error;
+		}
+	} else if (strcmp(directive, "mwait") == 0) {
+		errcode = parse_mwait(&packet.payload.mwait.hints,
+				      &packet.payload.mwait.ext, payload);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "mwait: parsing failed", errcode);
+			goto error;
+		}
+
+		packet.type = ppt_mwait;
+	} else if (strcmp(directive, "pwre") == 0) {
+		char *token;
+
+		packet.type = ppt_pwre;
+		memset(&packet.payload.pwre, 0, sizeof(packet.payload.pwre));
+
+		token = strtok(payload, " , ");
+		errcode = parse_c_state(&packet.payload.pwre.state,
+					&packet.payload.pwre.sub_state, token);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "pwre: bad C-state", errcode);
+			goto error;
+		}
+
+		token = strtok(NULL, " ,");
+		if (token) {
+			if (strcmp(token, "hw") == 0)
+				packet.payload.pwre.hw = 1;
+			else {
+				yasm_print_err(p->y, "pwre: parsing failed",
+					       -err_parse_trailing_tokens);
+				goto error;
+			}
+		}
+	} else if (strcmp(directive, "pwrx") == 0) {
+		char *token;
+
+		packet.type = ppt_pwrx;
+		memset(&packet.payload.pwrx, 0, sizeof(packet.payload.pwrx));
+
+		token = strtok(payload, ":");
+		if (!token) {
+			yasm_print_err(p->y, "pwrx: parsing failed",
+				       -err_parse_no_args);
+			goto error;
+		}
+
+		if (strcmp(token, "int") == 0)
+			packet.payload.pwrx.interrupt = 1;
+		else if (strcmp(token, "st") == 0)
+			packet.payload.pwrx.store = 1;
+		else if (strcmp(token, "hw") == 0)
+			packet.payload.pwrx.autonomous = 1;
+		else {
+			yasm_print_err(p->y, "pwrx: bad wake reason",
+				       -err_parse);
+			goto error;
+		}
+
+		token = strtok(NULL, " ,");
+		errcode = parse_c_state(&packet.payload.pwrx.last, NULL, token);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "pwrx: bad last C-state", errcode);
+			goto error;
+		}
+
+		token = strtok(NULL, " ,");
+		errcode = parse_c_state(&packet.payload.pwrx.deepest, NULL,
+					token);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "pwrx: bad deepest C-state",
+				       errcode);
+			goto error;
+		}
 	} else {
 		errcode = yasm_print_err(p->y, "invalid syntax",
 					 -err_parse_unknown_directive);

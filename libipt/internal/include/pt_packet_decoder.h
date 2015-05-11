@@ -83,5 +83,9 @@ extern int pt_pkt_decode_cyc(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_stop(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_vmcs(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_mnt(struct pt_packet_decoder *, struct pt_packet *);
+extern int pt_pkt_decode_exstop(struct pt_packet_decoder *, struct pt_packet *);
+extern int pt_pkt_decode_mwait(struct pt_packet_decoder *, struct pt_packet *);
+extern int pt_pkt_decode_pwre(struct pt_packet_decoder *, struct pt_packet *);
+extern int pt_pkt_decode_pwrx(struct pt_packet_decoder *, struct pt_packet *);
 
 #endif /* PT_PACKET_DECODER_H */

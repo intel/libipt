@@ -956,6 +956,35 @@ static const char *print_exec_mode(const struct pt_packet_mode_exec *packet,
 	return "invalid";
 }
 
+static const char *print_pwrx_wr(const struct pt_packet_pwrx *packet)
+{
+	const char *wr;
+
+	if (!packet)
+		return "err";
+
+	wr = NULL;
+	if (packet->interrupt)
+		wr = "int";
+
+	if (packet->store) {
+		if (wr)
+			return NULL;
+		wr = " st";
+	}
+
+	if (packet->autonomous) {
+		if (wr)
+			return NULL;
+		wr = " hw";
+	}
+
+	if (!wr)
+		wr = "bad";
+
+	return wr;
+}
+
 static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 			const struct pt_packet *packet,
 			struct ptdump_tracking *tracking,
@@ -1189,6 +1218,41 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%" PRIx64,
 			    packet->payload.mnt.payload);
 		return 0;
+
+	case ppt_exstop:
+		print_field(buffer->opcode, "exstop");
+		print_field(buffer->payload.standard, "%s",
+			    packet->payload.exstop.ip ? "ip" : "");
+		return 0;
+
+	case ppt_mwait:
+		print_field(buffer->opcode, "mwait");
+		print_field(buffer->payload.standard, "%08x, %08x",
+			    packet->payload.mwait.hints,
+			    packet->payload.mwait.ext);
+		return 0;
+
+	case ppt_pwre:
+		print_field(buffer->opcode, "pwre");
+		print_field(buffer->payload.standard, "c%u.%u%s",
+			    (packet->payload.pwre.state + 1) & 0xf,
+			    (packet->payload.pwre.sub_state + 1) & 0xf,
+			    packet->payload.pwre.hw ? ", hw" : "");
+		return 0;
+
+	case ppt_pwrx: {
+		const char *wr;
+
+		wr = print_pwrx_wr(&packet->payload.pwrx);
+		if (!wr)
+			wr = "bad";
+
+		print_field(buffer->opcode, "pwrx");
+		print_field(buffer->payload.standard, "%s: c%u, c%u", wr,
+			    (packet->payload.pwrx.last + 1) & 0xf,
+			    (packet->payload.pwrx.deepest + 1) & 0xf);
+		return 0;
+	}
 	}
 
 	return diag("unknown packet", offset, -pte_bad_opc);
