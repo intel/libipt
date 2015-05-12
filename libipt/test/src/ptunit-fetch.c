@@ -620,11 +620,23 @@ int pt_pkt_decode_exstop(struct pt_packet_decoder *d, struct pt_packet *p)
 
 	return -pte_internal;
 }
+int pt_qry_decode_exstop(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
 
 int pt_pkt_decode_mwait(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	(void) d;
 	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_mwait(struct pt_query_decoder *d)
+{
+	(void) d;
 
 	return -pte_internal;
 }
@@ -636,11 +648,23 @@ int pt_pkt_decode_pwre(struct pt_packet_decoder *d, struct pt_packet *p)
 
 	return -pte_internal;
 }
+int pt_qry_decode_pwre(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
 
 int pt_pkt_decode_pwrx(struct pt_packet_decoder *d, struct pt_packet *p)
 {
 	(void) d;
 	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_pwrx(struct pt_query_decoder *d)
+{
+	(void) d;
 
 	return -pte_internal;
 }

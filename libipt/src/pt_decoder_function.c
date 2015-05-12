@@ -182,28 +182,28 @@ const struct pt_decoder_function pt_decode_mnt = {
 
 const struct pt_decoder_function pt_decode_exstop = {
 	/* .packet = */ pt_pkt_decode_exstop,
-	/* .decode = */ NULL,
+	/* .decode = */ pt_qry_decode_exstop,
 	/* .header = */ NULL,
 	/* .flags =  */ pdff_event
 };
 
 const struct pt_decoder_function pt_decode_mwait = {
 	/* .packet = */ pt_pkt_decode_mwait,
-	/* .decode = */ NULL,
+	/* .decode = */ pt_qry_decode_mwait,
 	/* .header = */ NULL,
 	/* .flags =  */ pdff_event
 };
 
 const struct pt_decoder_function pt_decode_pwre = {
 	/* .packet = */ pt_pkt_decode_pwre,
-	/* .decode = */ NULL,
+	/* .decode = */ pt_qry_decode_pwre,
 	/* .header = */ NULL,
 	/* .flags =  */ pdff_event
 };
 
 const struct pt_decoder_function pt_decode_pwrx = {
 	/* .packet = */ pt_pkt_decode_pwrx,
-	/* .decode = */ NULL,
+	/* .decode = */ pt_qry_decode_pwrx,
 	/* .header = */ NULL,
 	/* .flags =  */ pdff_event
 };

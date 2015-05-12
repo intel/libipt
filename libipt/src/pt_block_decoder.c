@@ -1809,6 +1809,34 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 			block->stopped = 1;
 			break;
+
+		case ptev_exstop:
+			if (!ev->ip_suppressed && decoder->enabled) {
+				ip = ev->variant.exstop.ip;
+
+				status = pt_blk_proceed_to_ip(decoder, block,
+							      &insn, &iext, ip);
+				if (status <= 0)
+					return status;
+			}
+
+			return 0;
+
+		case ptev_mwait:
+			if (!ev->ip_suppressed && decoder->enabled) {
+				ip = ev->variant.mwait.ip;
+
+				status = pt_blk_proceed_to_ip(decoder, block,
+							      &insn, &iext, ip);
+				if (status <= 0)
+					return status;
+			}
+
+			return 0;
+
+		case ptev_pwre:
+		case ptev_pwrx:
+			return 0;
 		}
 
 		/* We should have processed the event.  If we have not, we might
@@ -3071,6 +3099,24 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			block->stopped = 1;
 
 			continue;
+
+		case ptev_exstop:
+			if (!ev->ip_suppressed && decoder->enabled &&
+			    decoder->ip != ev->variant.exstop.ip)
+				break;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_mwait:
+			if (!ev->ip_suppressed && decoder->enabled &&
+			    decoder->ip != ev->variant.mwait.ip)
+				break;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_pwre:
+		case ptev_pwrx:
+			return pt_blk_status(decoder, pts_event_pending);
 		}
 
 		/* If we fall out of the switch, we're done. */
@@ -3229,6 +3275,27 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (status < 0)
 			return status;
 
+		break;
+
+	case ptev_exstop:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.exstop.ip)
+			return -pte_bad_query;
+
+		decoder->process_event = 0;
+		break;
+
+	case ptev_mwait:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.mwait.ip)
+			return -pte_bad_query;
+
+		decoder->process_event = 0;
+		break;
+
+	case ptev_pwre:
+	case ptev_pwrx:
+		decoder->process_event = 0;
 		break;
 	}
 

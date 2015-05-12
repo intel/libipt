@@ -175,7 +175,19 @@ enum pt_event_type {
 	ptev_vmcs,
 
 	/* An asynchronous vmcs event. */
-	ptev_async_vmcs
+	ptev_async_vmcs,
+
+	/* Execution has stopped. */
+	ptev_exstop,
+
+	/* An MWAIT operation completed. */
+	ptev_mwait,
+
+	/* A power state was entered. */
+	ptev_pwre,
+
+	/* A power state was exited. */
+	ptev_pwrx
 };
 ~~~
 

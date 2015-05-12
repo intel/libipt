@@ -1416,6 +1416,19 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 				decoder->consume_packet = 1;
 
 			break;
+
+		case ptev_exstop:
+			pt_qry_add_event_ip(ev, &ev->variant.exstop.ip,
+					    decoder);
+
+			decoder->consume_packet = 1;
+			break;
+
+		case ptev_mwait:
+			pt_qry_add_event_ip(ev, &ev->variant.mwait.ip, decoder);
+
+			decoder->consume_packet = 1;
+			break;
 		}
 
 		/* Publish the event. */
@@ -2513,5 +2526,118 @@ int pt_qry_decode_mnt(struct pt_query_decoder *decoder)
 {
 	decoder->pos += ptps_mnt;
 
+	return 0;
+}
+
+int pt_qry_decode_exstop(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_exstop packet;
+	struct pt_event *event;
+	int size;
+
+	size = pt_pkt_read_exstop(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	if (packet.ip) {
+		event = pt_evq_enqueue(&decoder->evq, evb_fup);
+		if (!event)
+			return -pte_internal;
+
+		event->type = ptev_exstop;
+	} else {
+		event = pt_evq_standalone(&decoder->evq);
+		if (!event)
+			return -pte_internal;
+
+		event->type = ptev_exstop;
+
+		event->ip_suppressed = 1;
+		event->variant.exstop.ip = 0ull;
+
+		decoder->event = event;
+	}
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_mwait(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_mwait packet;
+	struct pt_event *event;
+	int size;
+
+	size = pt_pkt_read_mwait(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	event = pt_evq_enqueue(&decoder->evq, evb_fup);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_mwait;
+	event->variant.mwait.hints = packet.hints;
+	event->variant.mwait.ext = packet.ext;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_pwre(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_pwre packet;
+	struct pt_event *event;
+	int size;
+
+	size = pt_pkt_read_pwre(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	event = pt_evq_standalone(&decoder->evq);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_pwre;
+	event->variant.pwre.state = packet.state;
+	event->variant.pwre.sub_state = packet.sub_state;
+
+	if (packet.hw)
+		event->variant.pwre.hw = 1;
+
+	decoder->event = event;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_pwrx(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_pwrx packet;
+	struct pt_event *event;
+	int size;
+
+	size = pt_pkt_read_pwrx(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	event = pt_evq_standalone(&decoder->evq);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_pwrx;
+	event->variant.pwrx.last = packet.last;
+	event->variant.pwrx.deepest = packet.deepest;
+
+	if (packet.interrupt)
+		event->variant.pwrx.interrupt = 1;
+	if (packet.store)
+		event->variant.pwrx.store = 1;
+	if (packet.autonomous)
+		event->variant.pwrx.autonomous = 1;
+
+	decoder->event = event;
+
+	decoder->pos += size;
 	return 0;
 }

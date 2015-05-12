@@ -1332,7 +1332,19 @@ enum pt_event_type {
 	ptev_vmcs,
 
 	/* An asynchronous vmcs event. */
-	ptev_async_vmcs
+	ptev_async_vmcs,
+
+	/* Execution has stopped. */
+	ptev_exstop,
+
+	/* An MWAIT operation completed. */
+	ptev_mwait,
+
+	/* A power state was entered. */
+	ptev_pwre,
+
+	/* A power state was exited. */
+	ptev_pwrx
 };
 
 /** An event. */
@@ -1524,6 +1536,72 @@ struct pt_event {
 			 * will always succeed this async vmcs event.
 			 */
 		} async_vmcs;
+
+		/** Event: execution stopped. */
+		struct {
+			/** The address at which execution has stopped.  This is
+			 * the last instruction that did not complete.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} exstop;
+
+		/** Event: mwait. */
+		struct {
+			/** The address of the instruction causing the mwait.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+
+			/** The mwait hints (eax).
+			 *
+			 * Reserved bits are undefined.
+			 */
+			uint32_t hints;
+
+			/** The mwait extensions (ecx).
+			 *
+			 * Reserved bits are undefined.
+			 */
+			uint32_t ext;
+		} mwait;
+
+		/** Event: power state entry. */
+		struct {
+			/** The resolved thread C-state. */
+			uint8_t state;
+
+			/** The resolved thread sub C-state. */
+			uint8_t sub_state;
+
+			/** A flag indicating whether the C-state entry was
+			 * initiated by h/w.
+			 */
+			uint32_t hw:1;
+		} pwre;
+
+		/** Event: power state exit. */
+		struct {
+			/** The core C-state at the time of the wake. */
+			uint8_t last;
+
+			/** The deepest core C-state achieved during sleep. */
+			uint8_t deepest;
+
+			/** The wake reason:
+			 *
+			 * - due to external interrupt received.
+			 */
+			uint32_t interrupt:1;
+
+			/** - due to store to monitored address. */
+			uint32_t store:1;
+
+			/** - due to h/w autonomous condition such as HDC. */
+			uint32_t autonomous:1;
+		} pwrx;
 	} variant;
 };
 

@@ -804,6 +804,35 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		 * started.
 		 */
 		return process_stop_event(decoder, NULL);
+
+	case ptev_exstop:
+		/* We should have indicated this event at the current location
+		 * after the last instruction or the last decoder
+		 * synchronization.
+		 */
+		if (ev->ip_suppressed ||
+		    decoder->ip == ev->variant.exstop.ip)
+			return -pte_bad_query;
+
+		return 0;
+
+	case ptev_mwait:
+		/* We should have indicated this event at the current location
+		 * after the last instruction or the last decoder
+		 * synchronization.
+		 */
+		if (ev->ip_suppressed ||
+		    decoder->ip == ev->variant.mwait.ip)
+			return -pte_bad_query;
+
+		return 0;
+
+	case ptev_pwre:
+	case ptev_pwrx:
+		/* We should have indicated this event after the last
+		 * instruction or the last decoder synchronization.
+		 */
+		return -pte_bad_query;
 	}
 
 	/* Diagnose an unknown event. */
@@ -921,6 +950,10 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		case ptev_async_branch:
 		case ptev_exec_mode:
 		case ptev_tsx:
+		case ptev_exstop:
+		case ptev_mwait:
+		case ptev_pwre:
+		case ptev_pwrx:
 			break;
 
 		case ptev_disabled:
@@ -1341,6 +1374,24 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 
 			decoder->process_event = 0;
 			continue;
+
+		case ptev_exstop:
+			if (!ev->ip_suppressed && decoder->enabled &&
+			    decoder->ip != ev->variant.exstop.ip)
+				break;
+
+			return pt_insn_status(decoder, pts_event_pending);
+
+		case ptev_mwait:
+			if (!ev->ip_suppressed && decoder->enabled &&
+			    decoder->ip != ev->variant.mwait.ip)
+				break;
+
+			return pt_insn_status(decoder, pts_event_pending);
+
+		case ptev_pwre:
+		case ptev_pwrx:
+			return pt_insn_status(decoder, pts_event_pending);
 		}
 
 		/* If we fall out of the switch, we're done. */
@@ -1701,6 +1752,24 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 			return status;
 		}
 
+		break;
+
+	case ptev_exstop:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.exstop.ip)
+			return -pte_bad_query;
+
+		break;
+
+	case ptev_mwait:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.mwait.ip)
+			return -pte_bad_query;
+
+		break;
+
+	case ptev_pwre:
+	case ptev_pwrx:
 		break;
 	}
 

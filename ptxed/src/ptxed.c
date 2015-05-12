@@ -947,6 +947,46 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.async_vmcs.ip);
 		break;
+
+	case ptev_exstop:
+		printf("exstop");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.exstop.ip);
+		break;
+
+	case ptev_mwait:
+		printf("mwait %" PRIx32 " %" PRIx32,
+		       event->variant.mwait.hints, event->variant.mwait.ext);
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.mwait.ip);
+		break;
+
+	case ptev_pwre:
+		printf("pwre c%u.%u", (event->variant.pwre.state + 1) & 0xf,
+		       (event->variant.pwre.sub_state + 1) & 0xf);
+
+		if (event->variant.pwre.hw)
+			printf(" hw");
+		break;
+
+
+	case ptev_pwrx:
+		printf("pwrx ");
+
+		if (event->variant.pwrx.interrupt)
+			printf("int: ");
+
+		if (event->variant.pwrx.store)
+			printf("st: ");
+
+		if (event->variant.pwrx.autonomous)
+			printf("hw: ");
+
+		printf("c%u (c%u)", (event->variant.pwrx.last + 1) & 0xf,
+		       (event->variant.pwrx.deepest + 1) & 0xf);
+		break;
 	}
 
 	printf("]\n");

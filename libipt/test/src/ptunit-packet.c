@@ -793,3 +793,27 @@ int pt_qry_decode_mnt(struct pt_query_decoder *d)
 
 	return -pte_internal;
 }
+int pt_qry_decode_exstop(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_mwait(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_pwre(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_pwrx(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
