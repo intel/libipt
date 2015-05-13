@@ -467,7 +467,7 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 	return 1;
 }
 
-static int event_pending(struct pt_insn_decoder *decoder)
+static inline int event_pending(struct pt_insn_decoder *decoder)
 {
 	int status;
 
@@ -1153,8 +1153,8 @@ static int pt_insn_status(const struct pt_insn_decoder *decoder)
 	return flags;
 }
 
-static int insn_to_user(struct pt_insn *uinsn, size_t size,
-			const struct pt_insn *insn)
+static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
+			       const struct pt_insn *insn)
 {
 	if (!uinsn || !insn)
 		return -pte_internal;
