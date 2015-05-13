@@ -1159,6 +1159,9 @@ static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 	if (!uinsn || !insn)
 		return -pte_internal;
 
+	if (uinsn == insn)
+		return 0;
+
 	/* Zero out any unknown bytes. */
 	if (sizeof(*insn) < size) {
 		memset(uinsn + sizeof(*insn), 0, size - sizeof(*insn));
@@ -1174,13 +1177,16 @@ static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		 size_t size)
 {
-	struct pt_insn insn;
+	struct pt_insn insn, *pinsn;
 	int errcode, status;
 
 	if (!uinsn || !decoder)
 		return -pte_invalid;
 
-	memset(&insn, 0, sizeof(insn));
+	pinsn = size == sizeof(insn) ? uinsn : &insn;
+
+	/* Zero-initialize the instruction in case of error returns. */
+	memset(pinsn, 0, sizeof(*pinsn));
 
 	/* Report any errors we encountered. */
 	if (decoder->status < 0)
@@ -1202,7 +1208,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 */
 	decoder->event_may_change_ip = 1;
 
-	errcode = process_events_before(decoder, &insn);
+	errcode = process_events_before(decoder, pinsn);
 	if (errcode < 0)
 		goto err;
 
@@ -1221,7 +1227,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		goto err;
 	}
 
-	errcode = decode_insn(&insn, decoder);
+	errcode = decode_insn(pinsn, decoder);
 	if (errcode < 0)
 		goto err;
 
@@ -1231,7 +1237,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 */
 	decoder->event_may_change_ip = 0;
 
-	errcode = process_events_after(decoder, &insn);
+	errcode = process_events_after(decoder, pinsn);
 	if (errcode < 0)
 		goto err;
 
@@ -1247,12 +1253,12 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 * will be logged for the next iteration.
 	 */
 	if (decoder->enabled) {
-		errcode = pt_insn_peek(decoder, &insn);
+		errcode = pt_insn_peek(decoder, pinsn);
 		if (errcode < 0)
 			decoder->status = errcode;
 	}
 
-	errcode = insn_to_user(uinsn, size, &insn);
+	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
 		goto err_log;
 
@@ -1264,7 +1270,7 @@ err:
 	 * For decode or post-decode event-processing errors, the IP or
 	 * other fields are already valid and may help diagnose the error.
 	 */
-	(void) insn_to_user(uinsn, size, &insn);
+	(void) insn_to_user(uinsn, size, pinsn);
 
 err_log:
 	decoder->status = errcode;
