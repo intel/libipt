@@ -650,6 +650,19 @@ int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder, uint32_t *cbr)
 	return pt_time_query_cbr(cbr, &decoder->time);
 }
 
+static void pt_qry_add_event_time(struct pt_event *event,
+				  const struct pt_query_decoder *decoder)
+{
+	int errcode;
+
+	if (!event || !decoder)
+		return;
+
+	errcode = pt_time_query_tsc(&event->tsc, &decoder->time);
+	if (errcode >= 0)
+		event->has_tsc = 1;
+}
+
 int pt_qry_decode_unknown(struct pt_query_decoder *decoder)
 {
 	struct pt_packet packet;
@@ -893,6 +906,8 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 		ev->type = ptev_enabled;
 		ev->variant.enabled.ip = ip;
 
+		pt_qry_add_event_time(ev, decoder);
+
 		/* Discard any cached TNT bits.
 		 *
 		 * They should have been consumed at the corresponding disable
@@ -998,6 +1013,7 @@ int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 			return -pte_internal;
 		ev->type = ptev_disabled;
 		pt_qry_add_event_ip(ev, &ev->variant.disabled.ip, decoder);
+		pt_qry_add_event_time(ev, decoder);
 	}
 
 	/* Publish the event. */
@@ -1179,6 +1195,8 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 
 		ev->type = ptev_async_branch;
 		ev->variant.async_branch.from = ip;
+
+		pt_qry_add_event_time(ev, decoder);
 	}
 
 	return pt_qry_consume_fup(decoder, size);
@@ -1205,6 +1223,8 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 		event->type = ptev_paging;
 		event->variant.paging.cr3 = packet.cr3;
 
+		pt_qry_add_event_time(event, decoder);
+
 		decoder->event = event;
 	} else {
 		event = pt_evq_enqueue(&decoder->evq, evb_tip);
@@ -1213,6 +1233,8 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 
 		event->type = ptev_async_paging;
 		event->variant.async_paging.cr3 = packet.cr3;
+
+		pt_qry_add_event_time(event, decoder);
 	}
 
 	decoder->pos += size;
@@ -1294,6 +1316,8 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 		break;
 	}
 
+	pt_qry_add_event_time(ev, decoder);
+
 	/* Publish the event. */
 	decoder->event = ev;
 
@@ -1304,6 +1328,7 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
+	struct pt_time time;
 	int status, enabled;
 	enum pt_event_binding evb;
 
@@ -1315,17 +1340,19 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 	if (status)
 		return 0;
 
-	/* Reset the decoder state - but preserve trace enabling.
+	/* Reset the decoder state - but preserve trace enabling and timing.
 	 *
 	 * We don't know how many packets we lost so any queued events or unused
 	 * TNT bits will likely be wrong.
 	 */
 	enabled = decoder->enabled;
+	time = decoder->time;
 
 	pt_qry_reset(decoder);
 
 	if (enabled)
 		decoder->enabled = 1;
+	decoder->time = time;
 
 	/* OVF binds to FUP as long as tracing is enabled.
 	 * It binds to TIP.PGE when tracing is disabled.
@@ -1343,6 +1370,8 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 
 	ev->type = ptev_overflow;
 
+	pt_qry_add_event_time(ev, decoder);
+
 	decoder->pos += ptps_ovf;
 	return 0;
 }
@@ -1359,6 +1388,8 @@ static int pt_qry_decode_mode_exec(struct pt_query_decoder *decoder,
 
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = pt_get_exec_mode(packet);
+
+	pt_qry_add_event_time(event, decoder);
 
 	return 0;
 }
@@ -1390,6 +1421,8 @@ static int pt_qry_decode_mode_tsx(struct pt_query_decoder *decoder,
 	event->type = ptev_tsx;
 	event->variant.tsx.speculative = packet->intx;
 	event->variant.tsx.aborted = packet->abrt;
+
+	pt_qry_add_event_time(event, decoder);
 
 	return 0;
 }

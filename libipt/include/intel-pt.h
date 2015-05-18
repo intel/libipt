@@ -921,6 +921,18 @@ struct pt_event {
 	/** A flag indicating that the event is for status update. */
 	uint32_t status_update:1;
 
+	/** A flag indicating that the event has timing information. */
+	uint32_t has_tsc:1;
+
+	/** The time stamp count of the event.
+	 *
+	 * This field is only valid if \@has_tsc is set.
+	 */
+	uint64_t tsc;
+
+	/* Reserved space for future extensions. */
+	uint64_t reserved[3];
+
 	/** Event specific data. */
 	union {
 		/** Event: enabled. */
