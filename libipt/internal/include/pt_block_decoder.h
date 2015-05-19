@@ -73,6 +73,13 @@ struct pt_block_decoder {
 	/* The Intel(R) Processor Trace query decoder. */
 	struct pt_query_decoder query;
 
+	/* The configuration flags.
+	 *
+	 * Those are our flags set by the user.  In @query.config.flags, we set
+	 * the flags we need for the query decoder.
+	 */
+	struct pt_conf_flags flags;
+
 	/* The default image. */
 	struct pt_image default_image;
 

@@ -131,6 +131,9 @@ struct pt_config {
 	 * CBR packets.
 	 */
 	uint8_t nom_freq;
+
+	/** A collection of decoder-specific flags. */
+	struct pt_conf_flags flags;
 };
 ~~~
 
@@ -269,6 +272,9 @@ nom_freq
 
     If the field is non-zero, the time tracking algorithm will additionally be
     able to calibrate at Core:Bus Ratio (CBR) packets.
+
+flags
+:   A collection of decoder-specific configuration flags.
 
 
 # RETURN VALUE

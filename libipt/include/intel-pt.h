@@ -580,6 +580,15 @@ struct pt_errata {
 	uint32_t reserved[15];
 };
 
+/** A collection of decoder-specific configuration flags. */
+struct pt_conf_flags {
+	/** The decoder variant. */
+	union {
+		/* Reserve a few bytes for future extensions. */
+		uint32_t reserved[4];
+	} variant;
+};
+
 /** An unknown packet. */
 struct pt_packet_unknown;
 
@@ -647,6 +656,9 @@ struct pt_config {
 	 * packets.
 	 */
 	uint8_t nom_freq;
+
+	/** A collection of decoder-specific flags. */
+	struct pt_conf_flags flags;
 };
 
 

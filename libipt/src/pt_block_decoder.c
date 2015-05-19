@@ -32,6 +32,7 @@
 #include "pt_image.h"
 #include "pt_insn.h"
 #include "pt_ild.h"
+#include "pt_config.h"
 
 #include "intel-pt.h"
 
@@ -151,15 +152,41 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	pt_asid_init(&decoder->asid);
 }
 
-int pt_blk_decoder_init(struct pt_block_decoder *decoder,
-			const struct pt_config *config)
+/* Initialize the query decoder flags based on our flags. */
+
+static int pt_blk_init_qry_flags(struct pt_conf_flags *qflags,
+				 const struct pt_conf_flags *flags)
 {
+	if (!qflags || !flags)
+		return -pte_internal;
+
+	memset(qflags, 0, sizeof(*qflags));
+
+	return 0;
+}
+
+int pt_blk_decoder_init(struct pt_block_decoder *decoder,
+			const struct pt_config *uconfig)
+{
+	struct pt_config config;
 	int errcode;
 
 	if (!decoder)
 		return -pte_internal;
 
-	errcode = pt_qry_decoder_init(&decoder->query, config);
+	errcode = pt_config_from_user(&config, uconfig);
+	if (errcode < 0)
+		return errcode;
+
+	/* The user supplied decoder flags. */
+	decoder->flags = config.flags;
+
+	/* Set the flags we need for the query decoder we use. */
+	errcode = pt_blk_init_qry_flags(&config.flags, &decoder->flags);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_qry_decoder_init(&decoder->query, &config);
 	if (errcode < 0)
 		return errcode;
 
