@@ -93,6 +93,14 @@ enum pt_status_flag {
 };
 ~~~
 
+The *pts_event_pending* flag indicates that one or more events are pending.  Use
+**pt_insn_event**(3) to process pending events before calling
+**pt_insn_next**(3).
+
+The *pt_eos* flag indicates that the information contained in the Intel PT
+stream has been consumed.  Calls to **pt_insn_next**() will provide instructions
+as long as the instruction's address can be determined without trace.
+
 
 # ERRORS
 
@@ -123,15 +131,15 @@ decode errors:
 ~~~{.c}
 int foo(struct pt_insn_decoder *decoder) {
 	for (;;) {
-		int errcode;
+		int status;
 
-		errcode = pt_insn_sync_forward(decoder);
-		if (errcode < 0)
-			return errcode;
+		status = pt_insn_sync_forward(decoder);
+		if (status < 0)
+			return status;
 
 		do {
-			errcode = decode(decoder);
-		} while (errcode >= 0);
+			status = decode(decoder, status);
+		} while (status >= 0);
 	}
 }
 ~~~
@@ -142,4 +150,4 @@ int foo(struct pt_insn_decoder *decoder) {
 **pt_insn_alloc_decoder**(3), **pt_insn_free_decoder**(3),
 **pt_insn_get_offset**(3), **pt_insn_get_sync_offset**(3),
 **pt_insn_get_config**(3), **pt_insn_time**(3), **pt_insn_core_bus_ratio**(3),
-**pt_insn_next**(3)
+**pt_insn_next**(3), **pt_insn_event**(3)

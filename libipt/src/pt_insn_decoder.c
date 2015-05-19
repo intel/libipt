@@ -61,15 +61,14 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	pt_asid_init(&decoder->asid);
 }
 
-static int pt_insn_status(const struct pt_insn_decoder *decoder)
+static int pt_insn_status(const struct pt_insn_decoder *decoder, int flags)
 {
-	int status, flags;
+	int status;
 
 	if (!decoder)
 		return -pte_internal;
 
 	status = decoder->status;
-	flags = 0;
 
 	/* Forward end-of-trace indications.
 	 *
@@ -981,7 +980,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		break;
 	}
 
-	return pt_insn_status(decoder);
+	return pt_insn_status(decoder, 0);
 }
 
 enum {
@@ -1040,6 +1039,39 @@ static int handle_erratum_bdm64(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
+/* Check whether a peek TSX event should be postponed.
+ *
+ * This involves handling erratum BDM64.
+ *
+ * Returns a positive integer if the event is to be postponed.
+ * Returns zero if the event should be processed.
+ * Returns a negative error code otherwise.
+ */
+static inline int pt_insn_postpone_peek_tsx(struct pt_insn_decoder *decoder,
+					    const struct pt_insn *insn,
+					    const struct pt_insn_ext *iext,
+					    const struct pt_event *ev)
+{
+	int status;
+
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	if (ev->ip_suppressed)
+		return 0;
+
+	if (insn && iext && decoder->query.config.errata.bdm64) {
+		status = handle_erratum_bdm64(decoder, ev, insn, iext);
+		if (status < 0)
+			return status;
+	}
+
+	if (decoder->ip != ev->variant.tsx.ip)
+		return 1;
+
+	return 0;
+}
+
 static int process_events_peek(struct pt_insn_decoder *decoder,
 			       struct pt_insn *insn,
 			       const struct pt_insn_ext *iext)
@@ -1088,6 +1120,13 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 				}
 			}
 
+			/* Turn the insn flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 */
+			if (!insn)
+				return pt_insn_status(decoder,
+						      pts_event_pending);
+
 			status = process_async_disabled_event(decoder, insn);
 			if (status <= 0) {
 				if (status < 0)
@@ -1100,19 +1139,26 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			continue;
 
 		case ptev_tsx:
-			if (insn && iext &&
-			    decoder->query.config.errata.bdm64) {
-				int errcode;
+			status = pt_insn_postpone_peek_tsx(decoder, insn, iext,
+							   ev);
+			if (status != 0) {
+				if (status < 0)
+					return status;
 
-				errcode = handle_erratum_bdm64(decoder, ev,
-							       insn, iext);
-				if (errcode < 0)
-					return errcode;
+				break;
 			}
 
-			if (!ev->ip_suppressed &&
-			    ev->variant.tsx.ip != decoder->ip)
-				break;
+			/* Turn the insn flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 *
+			 * We do not indicate TSX events that are marked as
+			 * status updates or while tracing is disabled.  There
+			 * can be a real lot of them and it seems kind of
+			 * pointless to tell the user about them.
+			 */
+			if (!insn && !ev->status_update && decoder->enabled)
+				return pt_insn_status(decoder,
+						      pts_event_pending);
 
 			status = process_tsx_event(decoder, insn);
 			if (status <= 0) {
@@ -1126,11 +1172,16 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			continue;
 
 		case ptev_async_branch:
-			/* We indicate the interrupt in the preceding
-			 * instruction.
-			 */
 			if (ev->variant.async_branch.from != decoder->ip)
 				break;
+
+			/* Turn the insn flag indication into a user event if we
+			 * encounter this event in the user event flow or if we
+			 * already indicated a previous async branch event.
+			 */
+			if (!insn || insn->interrupted)
+				return pt_insn_status(decoder,
+						      pts_event_pending);
 
 			status = process_async_branch_event(decoder);
 			if (status <= 0) {
@@ -1140,9 +1191,12 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 				break;
 			}
 
+			/* We indicate the interrupt in the preceding
+			 * instruction.
+			 */
+			insn->interrupted = 1;
+
 			decoder->process_event = 0;
-			if (insn)
-				insn->interrupted = 1;
 			continue;
 
 		case ptev_exec_mode:
@@ -1212,6 +1266,13 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			continue;
 
 		case ptev_stop:
+			/* Turn the insn flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 */
+			if (!insn)
+				return pt_insn_status(decoder,
+						      pts_event_pending);
+
 			status = process_stop_event(decoder, insn);
 			if (status <= 0) {
 				if (status < 0)
@@ -1228,7 +1289,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		break;
 	}
 
-	return pt_insn_status(decoder);
+	return pt_insn_status(decoder, 0);
 }
 
 static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
@@ -1471,4 +1532,99 @@ err:
 	(void) insn_to_user(uinsn, size, pinsn);
 
 	return errcode;
+}
+
+int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
+		  size_t size)
+{
+	const struct pt_event *ev;
+	int status;
+
+	if (!decoder || !uevent)
+		return -pte_invalid;
+
+	/* We must currently process an event. */
+	if (!decoder->process_event)
+		return -pte_bad_query;
+
+	ev = &decoder->event;
+	switch (ev->type) {
+	default:
+		/* This is not a user event.
+		 *
+		 * We either indicated it wrongly or the user called
+		 * pt_insn_event() without a pts_event_pending indication.
+		 */
+		return -pte_bad_query;
+
+	case ptev_async_disabled:
+		if (decoder->ip != ev->variant.async_disabled.at)
+			return -pte_bad_query;
+
+		status = process_async_disabled_event(decoder, NULL);
+		if (status <= 0) {
+			if (!status)
+				status = -pte_internal;
+
+			return status;
+		}
+
+		break;
+
+	case ptev_async_branch:
+		if (decoder->ip != ev->variant.async_branch.from)
+			return -pte_bad_query;
+
+		status = process_async_branch_event(decoder);
+		if (status <= 0) {
+			if (!status)
+				status = -pte_internal;
+
+			return status;
+		}
+
+		break;
+
+	case ptev_tsx:
+		if (decoder->ip != ev->variant.tsx.ip)
+			return -pte_bad_query;
+
+		status = process_tsx_event(decoder, NULL);
+		if (status <= 0) {
+			if (!status)
+				status = -pte_internal;
+
+			return status;
+		}
+
+		break;
+
+	case ptev_stop:
+		status = process_stop_event(decoder, NULL);
+		if (status <= 0) {
+			if (!status)
+				status = -pte_internal;
+
+			return status;
+		}
+
+		break;
+	}
+
+	/* Copy the event to the user.  Make sure we're not writing beyond the
+	 * memory provided by the user.
+	 *
+	 * We might truncate details of an event but only for those events the
+	 * user can't know about, anyway.
+	 */
+	if (sizeof(*ev) < size)
+		size = sizeof(*ev);
+
+	memcpy(uevent, ev, size);
+
+	/* This completes processing of the current event. */
+	decoder->process_event = 0;
+
+	/* Indicate further events. */
+	return process_events_peek(decoder, NULL, NULL);
 }

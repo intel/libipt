@@ -768,20 +768,24 @@ example:
 
 ~~~{.c}
     struct pt_insn_decoder *decoder;
-    int errcode;
+    int status;
 
     for (;;) {
         struct pt_insn insn;
 
-        errcode = pt_insn_next(decoder, &insn, sizeof(insn));
+        status = pt_insn_next(decoder, &insn, sizeof(insn));
 
         if (insn.iclass != ptic_error)
             <process instruction>(&insn);
 
-        if (errcode < 0)
+        if (status < 0)
             break;
+
+        ...
     }
 ~~~
+
+Note that the example ignores non-error status returns.
 
 For each instruction, you get its IP, its size in bytes, the raw memory, an
 identifier for the image section that contained it, the current execution mode,
@@ -801,6 +805,100 @@ the intel-pt.h header file.
 
 Beware that `pt_insn_next()` may indicate errors that occur after the returned
 instruction.  The returned instruction is valid if its `iclass` field is set.
+
+
+#### Events
+
+The instruction flow decoder uses an event system similar to the query
+decoder's.  Pending events are indicated by the `pts_event_pending` flag in the
+status flag bit-vector returned from `pt_insn_sync_<where>()`, `pt_insn_next()`
+and `pt_insn_event()`.
+
+When the `pts_event_pending` flag is set on return from `pt_insn_next()`, use
+repeated calls to `pt_insn_event()` to drain all queued events.  Then switch
+back to calling `pt_insn_next()` to resume with instruction flow decode as
+shown in the following example:
+
+~~~{.c}
+    struct pt_insn_decoder *decoder;
+    int status;
+
+    for (;;) {
+        struct pt_insn insn;
+
+        status = pt_insn_next(decoder, &insn, sizeof(insn));
+        if (status < 0)
+            break;
+
+        <process instruction>(&insn);
+
+        while (status & pts_event) {
+            struct pt_event event;
+
+            status = pt_insn_event(decoder, &event, sizeof(event));
+            if (status < 0)
+                <handle error>(status);
+
+            <process event>(&event);
+        }
+    }
+~~~
+
+
+#### The Instruction Flow Decode Loop
+
+If we put all of the above examples together, we end up with a decode loop as
+shown below:
+
+~~~{.c}
+    int handle_events(struct pt_insn_decoder *decoder, int status)
+    {
+        while (status & pts_event) {
+            struct pt_event event;
+
+            status = pt_insn_event(decoder, &event, sizeof(event));
+            if (status < 0)
+                break;
+
+            <process event>(&event);
+        }
+
+        return status;
+    }
+
+    int decode(struct pt_insn_decoder *decoder)
+    {
+        int status;
+
+        for (;;) {
+            status = pt_insn_sync_forward(decoder);
+            if (status < 0)
+                break;
+
+            for (;;) {
+                struct pt_insn insn;
+
+                status = handle_events(decoder, status);
+                if (status < 0)
+                    break;
+
+                status = pt_insn_next(decoder, &insn, sizeof(insn));
+
+                if (insn.iclass != ptic_error)
+                    <process instruction>(&insn);
+
+                if (status < 0)
+                    break;
+            }
+
+            <handle error>(status);
+        }
+
+        <handle error>(status);
+
+        return status;
+    }
+~~~
 
 
 ## The Block Layer
