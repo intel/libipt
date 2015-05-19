@@ -161,6 +161,13 @@ static struct ptunit_result from_user_big(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result size(void)
+{
+	ptu_uint_eq(sizeof(struct pt_errata), 16 * 4);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -173,6 +180,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, from_user);
 	ptu_run(suite, from_user_small);
 	ptu_run(suite, from_user_big);
+	ptu_run(suite, size);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

@@ -435,6 +435,9 @@ struct pt_errata {
 	 * packet produced by the abort.
 	 */
 	uint32_t bdm64:1;
+
+	/* Reserve a few bytes for the future. */
+	uint32_t reserved[15];
 };
 
 /** An unknown packet. */
