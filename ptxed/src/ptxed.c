@@ -98,6 +98,12 @@ struct ptxed_options {
 
 	/* Perform checks. */
 	uint32_t check:1;
+
+	/* Print the time stamp of events. */
+	uint32_t print_event_time:1;
+
+	/* Print the ip of events. */
+	uint32_t print_event_ip:1;
 };
 
 /* A collection of flags selecting which stats to collect/print. */
@@ -168,6 +174,8 @@ static void help(const char *name)
 	printf("  --time                               print the current timestamp.\n");
 	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
 	printf("  --check                              perform checks (expensive).\n");
+	printf("  --event:time                         print the tsc for events if available.\n");
+	printf("  --event:ip                           print the ip of events if available.\n");
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
@@ -802,6 +810,148 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		printf("[stopped]\n");
 }
 
+static const char *print_exec_mode(enum pt_exec_mode mode)
+{
+	switch (mode) {
+	case ptem_unknown:
+		return "<unknown>";
+
+	case ptem_16bit:
+		return "16-bit";
+
+	case ptem_32bit:
+		return "32-bit";
+
+	case ptem_64bit:
+		return "64-bit";
+	}
+
+	return "<invalid>";
+}
+
+static void print_event(const struct pt_event *event,
+			const struct ptxed_options *options, uint64_t offset)
+{
+	if (!event || !options) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	printf("[");
+
+	if (options->print_offset)
+		printf("%016" PRIx64 "  ", offset);
+
+	if (options->print_event_time && event->has_tsc)
+		printf("%016" PRIx64 "  ", event->tsc);
+
+	switch (event->type) {
+	case ptev_enabled:
+		printf("%s", event->variant.enabled.resumed ? "resumed" :
+		       "enabled");
+
+		if (options->print_event_ip)
+			printf(", ip: %016" PRIx64, event->variant.enabled.ip);
+		break;
+
+	case ptev_disabled:
+		printf("disabled");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.disabled.ip);
+		break;
+
+	case ptev_async_disabled:
+		printf("disabled");
+
+		if (options->print_event_ip) {
+			printf(", at: %016" PRIx64,
+			       event->variant.async_disabled.at);
+
+			if (!event->ip_suppressed)
+				printf(", ip: %016" PRIx64,
+				       event->variant.async_disabled.ip);
+		}
+		break;
+
+	case ptev_async_branch:
+		printf("interrupt");
+
+		if (options->print_event_ip) {
+			printf(", from: %016" PRIx64,
+			       event->variant.async_branch.from);
+
+			if (!event->ip_suppressed)
+				printf(", to: %016" PRIx64,
+				       event->variant.async_branch.to);
+		}
+		break;
+
+	case ptev_paging:
+		printf("paging, cr3: %016" PRIx64 "%s",
+		       event->variant.paging.cr3,
+		       event->variant.paging.non_root ? ", nr" : "");
+		break;
+
+	case ptev_async_paging:
+		printf("paging, cr3: %016" PRIx64 "%s",
+		       event->variant.async_paging.cr3,
+		       event->variant.async_paging.non_root ? ", nr" : "");
+
+		if (options->print_event_ip)
+			printf(", ip: %016" PRIx64,
+			       event->variant.async_paging.ip);
+		break;
+
+	case ptev_overflow:
+		printf("overflow");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.overflow.ip);
+		break;
+
+	case ptev_exec_mode:
+		printf("exec mode: %s",
+		       print_exec_mode(event->variant.exec_mode.mode));
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.exec_mode.ip);
+		break;
+
+	case ptev_tsx:
+		if (event->variant.tsx.aborted)
+			printf("aborted");
+		else if (event->variant.tsx.speculative)
+			printf("begin transaction");
+		else
+			printf("committed");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.tsx.ip);
+		break;
+
+	case ptev_stop:
+		printf("stopped");
+		break;
+
+	case ptev_vmcs:
+		printf("vmcs, base: %016" PRIx64, event->variant.vmcs.base);
+		break;
+
+	case ptev_async_vmcs:
+		printf("vmcs, base: %016" PRIx64,
+		       event->variant.async_vmcs.base);
+
+		if (options->print_event_ip)
+			printf(", ip: %016" PRIx64,
+			       event->variant.async_vmcs.ip);
+		break;
+	}
+
+	printf("]\n");
+}
+
 static void diagnose_insn(const char *errtype, struct pt_insn_decoder *decoder,
 			  struct pt_insn *insn, int errcode)
 {
@@ -817,6 +967,35 @@ static void diagnose_insn(const char *errtype, struct pt_insn_decoder *decoder,
 	} else
 		printf("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos,
 		       insn->ip, errtype, pt_errstr(pt_errcode(errcode)));
+}
+
+static int drain_events_insn(struct pt_insn_decoder *decoder, int status,
+			     const struct ptxed_options *options)
+{
+	if (!options)
+		return -pte_internal;
+
+	while (status & pts_event_pending) {
+		struct pt_event event;
+		uint64_t offset;
+		int errcode;
+
+		offset = 0ull;
+		if (options->print_offset) {
+			errcode = pt_insn_get_offset(decoder, &offset);
+			if (errcode < 0)
+				return errcode;
+		}
+
+		status = pt_insn_event(decoder, &event, sizeof(event));
+		if (status < 0)
+			return status;
+
+		if (!options->quiet && !event.status_update)
+			print_event(&event, options, offset);
+	}
+
+	return status;
 }
 
 static void decode_insn(struct pt_insn_decoder *decoder,
@@ -838,19 +1017,20 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 	time = 0ull;
 	for (;;) {
 		struct pt_insn insn;
-		int errcode;
+		int status;
 
 		/* Initialize the IP - we use it for error reporting. */
 		insn.ip = 0ull;
 
-		errcode = pt_insn_sync_forward(decoder);
-		if (errcode < 0) {
+		status = pt_insn_sync_forward(decoder);
+		if (status < 0) {
 			uint64_t new_sync;
+			int errcode;
 
-			if (errcode == -pte_eos)
+			if (status == -pte_eos)
 				break;
 
-			diagnose_insn("sync error", decoder, &insn, errcode);
+			diagnose_insn("sync error", decoder, &insn, status);
 
 			/* Let's see if we made any progress.  If we haven't,
 			 * we likely never will.  Bail out.
@@ -867,21 +1047,38 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 		}
 
 		for (;;) {
+			status = drain_events_insn(decoder, status, options);
+			if (status < 0)
+				break;
+
+			if (status & pts_eos) {
+				if (!(status & pts_ip_suppressed) &&
+				    !options->quiet)
+					printf("[end of trace]\n");
+
+				status = -pte_eos;
+				break;
+			}
+
 			if (options->print_offset || options->check) {
+				int errcode;
+
 				errcode = pt_insn_get_offset(decoder, &offset);
 				if (errcode < 0)
 					break;
 			}
 
 			if (options->print_time) {
+				int errcode;
+
 				errcode = pt_insn_time(decoder, &time, NULL,
 						       NULL);
 				if (errcode < 0)
 					break;
 			}
 
-			errcode = pt_insn_next(decoder, &insn, sizeof(insn));
-			if (errcode < 0) {
+			status = pt_insn_next(decoder, &insn, sizeof(insn));
+			if (status < 0) {
 				/* Even in case of errors, we may have succeeded
 				 * in decoding the current instruction.
 				 */
@@ -906,25 +1103,17 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 
 			if (options->check)
 				check_insn(&insn, offset);
-
-			if (errcode & pts_eos) {
-				if (!insn.disabled && !options->quiet)
-					printf("[end of trace]\n");
-
-				errcode = -pte_eos;
-				break;
-			}
 		}
 
 		/* We shouldn't break out of the loop without an error. */
-		if (!errcode)
-			errcode = -pte_internal;
+		if (!status)
+			status = -pte_internal;
 
 		/* We're done when we reach the end of the trace stream. */
-		if (errcode == -pte_eos)
+		if (status == -pte_eos)
 			break;
 
-		diagnose_insn("error", decoder, &insn, errcode);
+		diagnose_insn("error", decoder, &insn, status);
 	}
 }
 
@@ -1252,6 +1441,35 @@ static void check_block(const struct pt_block *block,
 		check_insn_iclass(xed_decoded_inst_inst(&inst), &insn, offset);
 }
 
+static int drain_events_block(struct pt_block_decoder *decoder, int status,
+			      const struct ptxed_options *options)
+{
+	if (!options)
+		return -pte_internal;
+
+	while (status & pts_event_pending) {
+		struct pt_event event;
+		uint64_t offset;
+		int errcode;
+
+		offset = 0ull;
+		if (options->print_offset) {
+			errcode = pt_blk_get_offset(decoder, &offset);
+			if (errcode < 0)
+				return errcode;
+		}
+
+		status = pt_blk_event(decoder, &event, sizeof(event));
+		if (status < 0)
+			return status;
+
+		if (!options->quiet && !event.status_update)
+			print_event(&event, options, offset);
+	}
+
+	return status;
+}
+
 static void decode_block(struct pt_block_decoder *decoder,
 			 struct pt_image_section_cache *iscache,
 			 const struct ptxed_options *options,
@@ -1269,20 +1487,21 @@ static void decode_block(struct pt_block_decoder *decoder,
 	time = 0ull;
 	for (;;) {
 		struct pt_block block;
-		int errcode;
+		int status;
 
 		/* Initialize IP and ninsn - we use it for error reporting. */
 		block.ip = 0ull;
 		block.ninsn = 0u;
 
-		errcode = pt_blk_sync_forward(decoder);
-		if (errcode < 0) {
+		status = pt_blk_sync_forward(decoder);
+		if (status < 0) {
 			uint64_t new_sync;
+			int errcode;
 
-			if (errcode == -pte_eos)
+			if (status == -pte_eos)
 				break;
 
-			diagnose_block("sync error", errcode, &block, decoder,
+			diagnose_block("sync error", status, &block, decoder,
 				       iscache);
 
 			/* Let's see if we made any progress.  If we haven't,
@@ -1300,21 +1519,38 @@ static void decode_block(struct pt_block_decoder *decoder,
 		}
 
 		for (;;) {
+			status = drain_events_block(decoder, status, options);
+			if (status < 0)
+				break;
+
+			if (status & pts_eos) {
+				if (!(status & pts_ip_suppressed) &&
+				    !options->quiet)
+					printf("[end of trace]\n");
+
+				status = -pte_eos;
+				break;
+			}
+
 			if (options->print_offset || options->check) {
+				int errcode;
+
 				errcode = pt_blk_get_offset(decoder, &offset);
 				if (errcode < 0)
 					break;
 			}
 
 			if (options->print_time) {
+				int errcode;
+
 				errcode = pt_blk_time(decoder, &time, NULL,
 						      NULL);
 				if (errcode < 0)
 					break;
 			}
 
-			errcode = pt_blk_next(decoder, &block, sizeof(block));
-			if (errcode < 0) {
+			status = pt_blk_next(decoder, &block, sizeof(block));
+			if (status < 0) {
 				/* Even in case of errors, we may have succeeded
 				 * in decoding some instructions.
 				 */
@@ -1348,25 +1584,17 @@ static void decode_block(struct pt_block_decoder *decoder,
 
 			if (options->check)
 				check_block(&block, iscache, offset);
-
-			if (errcode & pts_eos) {
-				if (!block.disabled && !options->quiet)
-					printf("[end of trace]\n");
-
-				errcode = -pte_eos;
-				break;
-			}
 		}
 
 		/* We shouldn't break out of the loop without an error. */
-		if (!errcode)
-			errcode = -pte_internal;
+		if (!status)
+			status = -pte_internal;
 
 		/* We're done when we reach the end of the trace stream. */
-		if (errcode == -pte_eos)
+		if (status == -pte_eos)
 			break;
 
-		diagnose_block("error", errcode, &block, decoder, iscache);
+		diagnose_block("error", status, &block, decoder, iscache);
 	}
 }
 
@@ -1649,6 +1877,17 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--raw-insn") == 0) {
 			options.print_raw_insn = 1;
+
+			continue;
+		}
+		if (strcmp(arg, "--event:time") == 0) {
+			options.print_event_time = 1;
+
+			continue;
+		}
+		if (strcmp(arg, "--event:ip") == 0) {
+			options.print_event_ip = 1;
+
 			continue;
 		}
 		if (strcmp(arg, "--check") == 0) {

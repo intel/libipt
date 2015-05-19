@@ -43,6 +43,9 @@ l1:     nop
 l2:     hlt
 
 ; @pt .exp(ptxed)
+;[disabled]
+;[stopped]
+
 
 ; @pt .exp(ptdump)
 ;%0p1  psb

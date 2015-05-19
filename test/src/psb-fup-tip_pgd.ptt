@@ -42,6 +42,7 @@ l2:     nop
 
 
 ; @pt .exp(ptxed)
+;[disabled]
 
 
 ; @pt .exp(ptdump)
