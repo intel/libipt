@@ -186,6 +186,14 @@ int pt_insn_get_offset(struct pt_insn_decoder *decoder, uint64_t *offset)
 	return pt_qry_get_offset(&decoder->query, offset);
 }
 
+int pt_insn_get_sync_offset(struct pt_insn_decoder *decoder, uint64_t *offset)
+{
+	if (!decoder)
+		return -pte_invalid;
+
+	return pt_qry_get_sync_offset(&decoder->query, offset);
+}
+
 struct pt_image *pt_insn_get_image(struct pt_insn_decoder *decoder)
 {
 	if (!decoder)

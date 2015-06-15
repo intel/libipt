@@ -1548,6 +1548,18 @@ extern pt_export int pt_insn_sync_set(struct pt_insn_decoder *decoder,
 extern pt_export int pt_insn_get_offset(struct pt_insn_decoder *decoder,
 					uint64_t *offset);
 
+/** Get the position of the last synchronization point.
+ *
+ * Fills the last synchronization position into \@offset.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
+ */
+extern pt_export int pt_insn_get_sync_offset(struct pt_insn_decoder *decoder,
+					     uint64_t *offset);
+
 /** Get the traced image.
  *
  * The returned image may be modified as long as no decoder that uses this
