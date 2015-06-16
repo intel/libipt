@@ -604,7 +604,7 @@ static int process_async_branch_event(struct pt_insn_decoder *decoder,
 {
 	struct pt_event *ev;
 
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
 
 	ev = &decoder->event;
@@ -631,7 +631,7 @@ static int process_paging_event(struct pt_insn_decoder *decoder,
 {
 	struct pt_event *ev;
 
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
 
 	ev = &decoder->event;
@@ -677,7 +677,7 @@ static int process_exec_mode_event(struct pt_insn_decoder *decoder,
 	enum pt_exec_mode mode;
 	struct pt_event *ev;
 
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
 
 	ev = &decoder->event;
