@@ -2848,7 +2848,6 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 		switch (ev->type) {
 		case ptev_enabled:
 		case ptev_disabled:
-		case ptev_overflow:
 			break;
 
 		case ptev_async_disabled:
@@ -2938,6 +2937,23 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 				break;
 
 			status = pt_blk_apply_vmcs(decoder, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_overflow:
+			if (!ev->ip_suppressed)
+				break;
+
+			/* Turn the block flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 */
+			if (!block)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+
+			status = pt_blk_apply_overflow(decoder, ev);
 			if (status < 0)
 				return status;
 
@@ -3126,6 +3142,16 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 			return -pte_bad_query;
 
 		status = pt_blk_apply_async_branch(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_overflow:
+		if (!ev->ip_suppressed)
+			return -pte_bad_query;
+
+		status = pt_blk_apply_overflow(decoder, ev);
 		if (status < 0)
 			return status;
 

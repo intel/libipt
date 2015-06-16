@@ -509,7 +509,7 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 {
 	struct pt_event *ev;
 
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
 
 	ev = &decoder->event;
@@ -518,9 +518,40 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 	if (ev->status_update)
 		return -pte_bad_context;
 
-	/* Delay processing of the event if we can't change the IP. */
-	if (!decoder->event_may_change_ip)
-		return 0;
+	/* If the IP is suppressed, the overflow resolved while tracing was
+	 * disabled.  Otherwise it resolved while tracing was enabled.
+	 */
+	if (ev->ip_suppressed) {
+		/* Indicate the overflow.  Since tracing is disabled, the
+		 * instruction will not be returned until tracing is re-enabled
+		 * again.
+		 */
+		if (insn)
+			insn->resynced = 1;
+
+		/* Tracing is disabled.  It doesn't make sense to preserve the
+		 * previous IP.  This will just be misleading.  Even if tracing
+		 * had been disabled before, as well, we might have missed the
+		 * re-enable in the overflow.
+		 */
+		decoder->enabled = 0;
+		decoder->ip = 0ull;
+	} else {
+		/* Delay processing of the event if we can't change the IP. */
+		if (!decoder->event_may_change_ip)
+			return 0;
+
+		if (!insn)
+			return -pte_internal;
+
+		insn->resynced = 1;
+
+		/* Tracing is enabled and we're at the IP at which the overflow
+		 * resolved.
+		 */
+		decoder->ip = ev->variant.overflow.ip;
+		decoder->enabled = 1;
+	}
 
 	/* We don't know the TSX state.  Let's assume we execute normally.
 	 *
@@ -529,29 +560,6 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 	 * instruction.
 	 */
 	decoder->speculative = 0;
-
-	/* Disable tracing if we don't have an IP. */
-	if (ev->ip_suppressed) {
-		/* Indicate the overflow in case tracing was enabled before.
-		 *
-		 * If tracing was disabled, we're not really resyncing.
-		 */
-		if (decoder->enabled) {
-			decoder->enabled = 0;
-
-			/* We mark the instruction as resynced.  It won't be
-			 * returned unless we enable tracing again, in which
-			 * case this is the labeling we want.
-			 */
-			insn->resynced = 1;
-		}
-	} else {
-		/* Jump to the IP at which the overflow was resolved. */
-		decoder->ip = ev->variant.overflow.ip;
-		decoder->enabled = 1;
-
-		insn->resynced = 1;
-	}
 
 	return 1;
 }
@@ -1102,7 +1110,6 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		ev = &decoder->event;
 		switch (ev->type) {
 		case ptev_enabled:
-		case ptev_overflow:
 		case ptev_disabled:
 		case ptev_paging:
 		case ptev_vmcs:
@@ -1203,6 +1210,28 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			 * instruction.
 			 */
 			insn->interrupted = 1;
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_overflow:
+			if (!ev->ip_suppressed)
+				break;
+
+			/* Turn the insn flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 */
+			if (!insn)
+				return pt_insn_status(decoder,
+						      pts_event_pending);
+
+			status = process_overflow_event(decoder, insn);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
 
 			decoder->process_event = 0;
 			continue;
@@ -1584,6 +1613,20 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 			return -pte_bad_query;
 
 		status = process_async_branch_event(decoder);
+		if (status <= 0) {
+			if (!status)
+				status = -pte_internal;
+
+			return status;
+		}
+
+		break;
+
+	case ptev_overflow:
+		if (!ev->ip_suppressed)
+			return -pte_bad_query;
+
+		status = process_overflow_event(decoder, NULL);
 		if (status <= 0) {
 			if (!status)
 				status = -pte_internal;
