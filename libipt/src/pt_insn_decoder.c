@@ -106,6 +106,21 @@ void pt_insn_free_decoder(struct pt_insn_decoder *decoder)
 	free(decoder);
 }
 
+static int pt_insn_start(struct pt_insn_decoder *decoder, int status)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	decoder->status = status;
+	if (status < 0)
+		return status;
+
+	if (!(status & pts_ip_suppressed))
+		decoder->enabled = 1;
+
+	return 0;
+}
+
 int pt_insn_sync_forward(struct pt_insn_decoder *decoder)
 {
 	int status;
@@ -116,18 +131,8 @@ int pt_insn_sync_forward(struct pt_insn_decoder *decoder)
 	pt_insn_reset(decoder);
 
 	status = pt_qry_sync_forward(&decoder->query, &decoder->ip);
-	if (status < 0)
-		goto out;
 
-	if (!(status & pts_ip_suppressed))
-		decoder->enabled = 1;
-
-out:
-	decoder->status = status;
-	if (status < 0)
-		return status;
-
-	return 0;
+	return pt_insn_start(decoder, status);
 }
 
 int pt_insn_sync_backward(struct pt_insn_decoder *decoder)
@@ -140,18 +145,8 @@ int pt_insn_sync_backward(struct pt_insn_decoder *decoder)
 	pt_insn_reset(decoder);
 
 	status = pt_qry_sync_backward(&decoder->query, &decoder->ip);
-	if (status < 0)
-		goto out;
 
-	if (!(status & pts_ip_suppressed))
-		decoder->enabled = 1;
-
-out:
-	decoder->status = status;
-	if (status < 0)
-		return status;
-
-	return 0;
+	return pt_insn_start(decoder, status);
 }
 
 int pt_insn_sync_set(struct pt_insn_decoder *decoder, uint64_t offset)
@@ -164,18 +159,8 @@ int pt_insn_sync_set(struct pt_insn_decoder *decoder, uint64_t offset)
 	pt_insn_reset(decoder);
 
 	status = pt_qry_sync_set(&decoder->query, &decoder->ip, offset);
-	if (status < 0)
-		goto out;
 
-	if (!(status & pts_ip_suppressed))
-		decoder->enabled = 1;
-
-out:
-	decoder->status = status;
-	if (status < 0)
-		return status;
-
-	return 0;
+	return pt_insn_start(decoder, status);
 }
 
 int pt_insn_get_offset(struct pt_insn_decoder *decoder, uint64_t *offset)
