@@ -856,6 +856,8 @@ pt_pkt_get_config(const struct pt_packet_decoder *decoder);
  * adjusts the \@decoder's position by the number of bytes the packet had
  * consumed.
  *
+ * The \@size argument must be set to sizeof(struct pt_packet).
+ *
  * Returns the number of bytes consumed on success, a negative error code
  * otherwise.
  *
@@ -865,7 +867,7 @@ pt_pkt_get_config(const struct pt_packet_decoder *decoder);
  * Returns -pte_nosync if \@decoder is out of sync.
  */
 extern pt_export int pt_pkt_next(struct pt_packet_decoder *decoder,
-				 struct pt_packet *packet);
+				 struct pt_packet *packet, size_t size);
 
 
 

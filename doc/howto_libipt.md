@@ -390,7 +390,7 @@ to `pt_pkt_next()` as shown in the following example:
     for (;;) {
         struct pt_packet packet;
 
-        errcode = pt_pkt_next(decoder, &packet);
+        errcode = pt_pkt_next(decoder, &packet, sizeof(packet));
         if (errcode < 0)
             break;
 

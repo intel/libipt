@@ -1034,7 +1034,7 @@ static int scan_for_erratum_bdm70(struct pt_packet_decoder *decoder)
 		struct pt_packet packet;
 		int errcode;
 
-		errcode = pt_pkt_next(decoder, &packet);
+		errcode = pt_pkt_next(decoder, &packet, sizeof(packet));
 		if (errcode < 0) {
 			/* Running out of packets is not an error. */
 			if (errcode == -pte_eos)

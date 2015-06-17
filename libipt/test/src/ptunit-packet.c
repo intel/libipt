@@ -147,7 +147,8 @@ static struct ptunit_result pfix_test(struct packet_fixture *pfix)
 
 	pfix->packet[0].size = (uint8_t) size;
 
-	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
 	ptu_int_gt(size, 0);
 
 	return ptu_pkt_eq(&pfix->packet[0], &pfix->packet[1]);
@@ -170,7 +171,8 @@ static struct ptunit_result unknown(struct packet_fixture *pfix, int exp)
 	pfix->buffer[0] = pt_opc_bad;
 	pfix->unknown = exp;
 
-	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
 	ptu_int_eq(size, pfix->unknown);
 
 	if (size >= 0) {
@@ -192,7 +194,8 @@ static struct ptunit_result unknown_ext(struct packet_fixture *pfix, int exp)
 	pfix->buffer[1] = pt_ext_bad;
 	pfix->unknown = exp;
 
-	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
 	ptu_int_eq(size, pfix->unknown);
 
 	if (size >= 0) {
@@ -312,7 +315,8 @@ static struct ptunit_result cutoff(struct packet_fixture *pfix,
 
 	pfix->decoder.config.end = pfix->encoder.pos - 1;
 
-	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
 	ptu_int_eq(size, -pte_eos);
 
 	return ptu_passed();
@@ -331,7 +335,8 @@ static struct ptunit_result cutoff_ip(struct packet_fixture *pfix,
 
 	pfix->decoder.config.end = pfix->encoder.pos - 1;
 
-	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
 	ptu_int_eq(size, -pte_eos);
 
 	return ptu_passed();
@@ -350,7 +355,8 @@ static struct ptunit_result cutoff_mode(struct packet_fixture *pfix,
 
 	pfix->decoder.config.end = pfix->encoder.pos - 1;
 
-	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1]);
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
 	ptu_int_eq(size, -pte_eos);
 
 	return ptu_passed();

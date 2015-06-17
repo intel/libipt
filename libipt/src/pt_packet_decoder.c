@@ -197,13 +197,38 @@ pt_pkt_get_config(const struct pt_packet_decoder *decoder)
 	return &decoder->config;
 }
 
-int pt_pkt_next(struct pt_packet_decoder *decoder, struct pt_packet *packet)
+static inline int pkt_to_user(struct pt_packet *upkt, size_t size,
+			      const struct pt_packet *pkt)
+{
+	if (!upkt || !pkt)
+		return -pte_internal;
+
+	if (upkt == pkt)
+		return 0;
+
+	/* Zero out any unknown bytes. */
+	if (sizeof(*pkt) < size) {
+		memset(upkt + sizeof(*pkt), 0, size - sizeof(*pkt));
+
+		size = sizeof(*pkt);
+	}
+
+	memcpy(upkt, pkt, size);
+
+	return 0;
+}
+
+int pt_pkt_next(struct pt_packet_decoder *decoder, struct pt_packet *packet,
+		size_t psize)
 {
 	const struct pt_decoder_function *dfun;
+	struct pt_packet pkt, *ppkt;
 	int errcode, size;
 
 	if (!packet || !decoder)
 		return -pte_invalid;
+
+	ppkt = psize == sizeof(pkt) ? packet : &pkt;
 
 	errcode = pt_df_fetch(&dfun, decoder->pos, &decoder->config);
 	if (errcode < 0)
@@ -215,9 +240,13 @@ int pt_pkt_next(struct pt_packet_decoder *decoder, struct pt_packet *packet)
 	if (!dfun->packet)
 		return -pte_internal;
 
-	size = dfun->packet(decoder, packet);
+	size = dfun->packet(decoder, ppkt);
 	if (size < 0)
 		return size;
+
+	errcode = pkt_to_user(packet, psize, ppkt);
+	if (errcode < 0)
+		return errcode;
 
 	decoder->pos += size;
 
