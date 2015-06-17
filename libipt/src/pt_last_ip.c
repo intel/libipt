@@ -108,6 +108,19 @@ int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
 		last_ip->have_ip = 1;
 		last_ip->suppressed = 0;
 		return 0;
+
+	case pt_ipc_update_48:
+		last_ip->ip = (last_ip->ip & ~0xffffffffffffull)
+			| (packet->ip & 0xffffffffffffull);
+		last_ip->have_ip = 1;
+		last_ip->suppressed = 0;
+		return 0;
+
+	case pt_ipc_full:
+		last_ip->ip = packet->ip;
+		last_ip->have_ip = 1;
+		last_ip->suppressed = 0;
+		return 0;
 	}
 
 	return -pte_bad_packet;

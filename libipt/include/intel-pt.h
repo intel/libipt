@@ -261,8 +261,14 @@ enum pt_payload {
 	/* The size of an IP packet's payload with update-32 compression. */
 	pt_pl_ip_upd32_size	= 4,
 
+	/* The size of an IP packet's payload with update-48 compression. */
+	pt_pl_ip_upd48_size	= 6,
+
 	/* The size of an IP packet's payload with sext-48 compression. */
 	pt_pl_ip_sext48_size	= 6,
+
+	/* The size of an IP packet's payload with full-ip compression. */
+	pt_pl_ip_full_size	= 8,
 
 	/* Byte locations, sizes, and masks for processing TMA packets. */
 	pt_pl_tma_size		= 5,
@@ -336,7 +342,13 @@ enum pt_ip_compression {
 	pt_ipc_update_32	= 0x02,
 
 	/* Payload: 48 bits.  Sign extend to full address. */
-	pt_ipc_sext_48		= 0x03
+	pt_ipc_sext_48		= 0x03,
+
+	/* Payload: 48 bits.  Update last IP. */
+	pt_ipc_update_48	= 0x04,
+
+	/* Payload: 64 bits.  Full address. */
+	pt_ipc_full		= 0x06
 };
 
 /** The size of the various packets in bytes. */
@@ -355,19 +367,27 @@ enum pt_packet_size {
 	ptps_tip_supp		= pt_opcs_tip,
 	ptps_tip_upd16		= pt_opcs_tip + pt_pl_ip_upd16_size,
 	ptps_tip_upd32		= pt_opcs_tip + pt_pl_ip_upd32_size,
+	ptps_tip_upd48		= pt_opcs_tip + pt_pl_ip_upd48_size,
 	ptps_tip_sext48		= pt_opcs_tip + pt_pl_ip_sext48_size,
+	ptps_tip_full		= pt_opcs_tip + pt_pl_ip_full_size,
 	ptps_tip_pge_supp	= pt_opcs_tip_pge,
 	ptps_tip_pge_upd16	= pt_opcs_tip_pge + pt_pl_ip_upd16_size,
 	ptps_tip_pge_upd32	= pt_opcs_tip_pge + pt_pl_ip_upd32_size,
+	ptps_tip_pge_upd48	= pt_opcs_tip_pge + pt_pl_ip_upd48_size,
 	ptps_tip_pge_sext48	= pt_opcs_tip_pge + pt_pl_ip_sext48_size,
+	ptps_tip_pge_full	= pt_opcs_tip_pge + pt_pl_ip_full_size,
 	ptps_tip_pgd_supp	= pt_opcs_tip_pgd,
 	ptps_tip_pgd_upd16	= pt_opcs_tip_pgd + pt_pl_ip_upd16_size,
 	ptps_tip_pgd_upd32	= pt_opcs_tip_pgd + pt_pl_ip_upd32_size,
+	ptps_tip_pgd_upd48	= pt_opcs_tip_pgd + pt_pl_ip_upd48_size,
 	ptps_tip_pgd_sext48	= pt_opcs_tip_pgd + pt_pl_ip_sext48_size,
+	ptps_tip_pgd_full	= pt_opcs_tip_pgd + pt_pl_ip_full_size,
 	ptps_fup_supp		= pt_opcs_fup,
 	ptps_fup_upd16		= pt_opcs_fup + pt_pl_ip_upd16_size,
 	ptps_fup_upd32		= pt_opcs_fup + pt_pl_ip_upd32_size,
+	ptps_fup_upd48		= pt_opcs_fup + pt_pl_ip_upd48_size,
 	ptps_fup_sext48		= pt_opcs_fup + pt_pl_ip_sext48_size,
+	ptps_fup_full		= pt_opcs_fup + pt_pl_ip_full_size,
 	ptps_tma		= pt_opcs_tma + pt_pl_tma_size,
 	ptps_stop		= pt_opcs_stop,
 	ptps_vmcs		= pt_opcs_vmcs + pt_pl_vmcs_size,

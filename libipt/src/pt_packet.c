@@ -108,6 +108,29 @@ int pt_pkt_read_psb(const uint8_t *pos, const struct pt_config *config)
 	return ptps_psb;
 }
 
+static int pt_pkt_ip_size(enum pt_ip_compression ipc)
+{
+	switch (ipc) {
+	case pt_ipc_suppressed:
+		return 0;
+
+	case pt_ipc_update_16:
+		return 2;
+
+	case pt_ipc_update_32:
+		return 4;
+
+	case pt_ipc_update_48:
+	case pt_ipc_sext_48:
+		return 6;
+
+	case pt_ipc_full:
+		return 8;
+	}
+
+	return -pte_internal;
+}
+
 int pt_pkt_read_ip(struct pt_packet_ip *packet, const uint8_t *pos,
 		   const struct pt_config *config)
 {
@@ -121,24 +144,9 @@ int pt_pkt_read_ip(struct pt_packet_ip *packet, const uint8_t *pos,
 	ipc = (*pos++ >> pt_opm_ipc_shr) & pt_opm_ipc_shr_mask;
 
 	ip = 0ull;
-	ipsize = 0;
-	switch (ipc) {
-	case pt_ipc_suppressed:
-		ipsize = 0;
-		break;
-
-	case pt_ipc_update_16:
-		ipsize = 2;
-		break;
-
-	case pt_ipc_update_32:
-		ipsize = 4;
-		break;
-
-	case pt_ipc_sext_48:
-		ipsize = 6;
-		break;
-	}
+	ipsize = pt_pkt_ip_size((enum pt_ip_compression) ipc);
+	if (ipsize < 0)
+		return ipsize;
 
 	if (config->end < pos + ipsize)
 		return -pte_eos;

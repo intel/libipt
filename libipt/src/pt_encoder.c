@@ -163,9 +163,6 @@ static int pt_reserve(const struct pt_encoder *encoder, unsigned int size)
 static int pt_ipc_size(enum pt_ip_compression ipc)
 {
 	switch (ipc) {
-	default:
-		return -pte_invalid;
-
 	case pt_ipc_suppressed:
 		return 0;
 
@@ -175,9 +172,17 @@ static int pt_ipc_size(enum pt_ip_compression ipc)
 	case pt_ipc_update_32:
 		return pt_pl_ip_upd32_size;
 
+	case pt_ipc_update_48:
+		return pt_pl_ip_upd48_size;
+
 	case pt_ipc_sext_48:
 		return pt_pl_ip_sext48_size;
+
+	case pt_ipc_full:
+		return pt_pl_ip_full_size;
 	}
+
+	return -pte_invalid;
 }
 
 /* Encode an integer value.
