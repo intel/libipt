@@ -45,6 +45,7 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
+	decoder->event_may_change_ip = 1;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -1196,12 +1197,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 *
 	 * This is necessary to attribute events to the correct instruction.
 	 */
-
-	/* As long as we have not decoded the instruction, it is OK to change
-	 * the IP - as would, for example, an enabled event.
-	 */
-	decoder->event_may_change_ip = 1;
-
 	errcode = process_events_before(decoder, pinsn);
 	if (errcode < 0)
 		goto err;
@@ -1255,6 +1250,9 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
 		goto err_log;
+
+	/* We're done with this instruction.  Now we may change the IP again. */
+	decoder->event_may_change_ip = 1;
 
 	return status;
 
