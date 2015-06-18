@@ -71,6 +71,8 @@ int pt_time_update_tsc(struct pt_time *time,
 		       const struct pt_packet_tsc *packet,
 		       const struct pt_config *config)
 {
+	(void) config;
+
 	if (!time || !packet)
 		return -pte_internal;
 
@@ -84,6 +86,8 @@ int pt_time_update_cbr(struct pt_time *time,
 		       const struct pt_packet_cbr *packet,
 		       const struct pt_config *config)
 {
+	(void) config;
+
 	if (!time || !packet)
 		return -pte_internal;
 

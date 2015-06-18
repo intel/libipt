@@ -52,6 +52,8 @@ int pt_encoder_init(struct pt_encoder *encoder, const struct pt_config *config)
 
 void pt_encoder_fini(struct pt_encoder *encoder)
 {
+	(void) encoder;
+
 	/* Nothing to do. */
 }
 

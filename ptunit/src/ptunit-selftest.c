@@ -306,11 +306,15 @@ static struct ptunit_result fixture_param(struct fixture *pfix, uint8_t *rep)
 
 static struct ptunit_result frun_pass(struct fixture *pfix)
 {
+	(void) pfix;
+
 	return ptu_passed();
 }
 
 static struct ptunit_result frun_skip(struct fixture *pfix)
 {
+	(void) pfix;
+
 	return ptu_skipped();
 }
 
@@ -323,6 +327,8 @@ static struct ptunit_result frun_fail(struct fixture *pfix)
 
 static struct ptunit_result frun_die(struct fixture *pfix)
 {
+	(void) pfix;
+
 	*((volatile int *) NULL) = 0;
 
 	return ptu_skipped();

@@ -138,7 +138,7 @@ static struct ptunit_result create_empty(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result filename_null(struct section_fixture *sfix)
+static struct ptunit_result filename_null(void)
 {
 	const char *name;
 
@@ -148,7 +148,7 @@ static struct ptunit_result filename_null(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result size_null(struct section_fixture *sfix)
+static struct ptunit_result size_null(void)
 {
 	uint64_t size;
 
@@ -158,11 +158,41 @@ static struct ptunit_result size_null(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result get_null(struct section_fixture *sfix)
+static struct ptunit_result get_null(void)
 {
 	int errcode;
 
 	errcode = pt_section_get(NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result put_null(void)
+{
+	int errcode;
+
+	errcode = pt_section_put(NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result map_null(void)
+{
+	int errcode;
+
+	errcode = pt_section_map(NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result unmap_null(void)
+{
+	int errcode;
+
+	errcode = pt_section_unmap(NULL);
 	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
@@ -184,36 +214,6 @@ static struct ptunit_result get_overflow(struct section_fixture *sfix)
 	ptu_int_eq(errcode, -pte_internal);
 
 	sfix->section->ucount = 1;
-
-	return ptu_passed();
-}
-
-static struct ptunit_result put_null(struct section_fixture *sfix)
-{
-	int errcode;
-
-	errcode = pt_section_put(NULL);
-	ptu_int_eq(errcode, -pte_internal);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result map_null(struct section_fixture *sfix)
-{
-	int errcode;
-
-	errcode = pt_section_map(NULL);
-	ptu_int_eq(errcode, -pte_internal);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result unmap_null(struct section_fixture *sfix)
-{
-	int errcode;
-
-	errcode = pt_section_unmap(NULL);
-	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -685,13 +685,15 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, create_bad_offset, sfix);
 	ptu_run_f(suite, create_truncated, sfix);
 	ptu_run_f(suite, create_empty, sfix);
-	ptu_run_f(suite, filename_null, sfix);
-	ptu_run_f(suite, size_null, sfix);
-	ptu_run_f(suite, get_null, sfix);
+
+	ptu_run(suite, filename_null);
+	ptu_run(suite, size_null);
+	ptu_run(suite, get_null);
+	ptu_run(suite, put_null);
+	ptu_run(suite, map_null);
+	ptu_run(suite, unmap_null);
+
 	ptu_run_f(suite, get_overflow, sfix);
-	ptu_run_f(suite, put_null, sfix);
-	ptu_run_f(suite, map_null, sfix);
-	ptu_run_f(suite, unmap_null, sfix);
 	ptu_run_f(suite, map_change, sfix);
 	ptu_run_f(suite, map_put, sfix);
 	ptu_run_f(suite, unmap_nomap, sfix);

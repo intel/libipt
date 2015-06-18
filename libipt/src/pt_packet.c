@@ -193,6 +193,8 @@ int pt_pkt_read_tnt_8(struct pt_packet_tnt *packet, const uint8_t *pos,
 {
 	int errcode;
 
+	(void) config;
+
 	if (!pos)
 		return -pte_internal;
 

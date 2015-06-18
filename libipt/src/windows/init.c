@@ -33,6 +33,9 @@
 
 BOOLEAN WINAPI DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved)
 {
+	(void) handle;
+	(void) reserved;
+
 	switch (reason) {
 	case DLL_PROCESS_ATTACH:
 		/* Initialize the Intel(R) Processor Trace instruction

@@ -81,6 +81,8 @@ struct pt_query_decoder *pt_qry_alloc_decoder(const struct pt_config *config)
 
 void pt_qry_decoder_fini(struct pt_query_decoder *decoder)
 {
+	(void) decoder;
+
 	/* Nothing to do. */
 }
 

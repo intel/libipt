@@ -94,6 +94,10 @@ uint64_t pt_section_size(const struct pt_section *section)
 struct pt_section *pt_mk_section(const char *file, uint64_t offset,
 				 uint64_t size)
 {
+	(void) file;
+	(void) offset;
+	(void) size;
+
 	/* This function is not used by our tests. */
 	return NULL;
 }
@@ -266,6 +270,8 @@ static int image_readmem_callback(uint8_t *buffer, size_t size,
 {
 	const uint8_t *memory;
 	size_t idx;
+
+	(void) asid;
 
 	if (!buffer)
 		return -pte_invalid;

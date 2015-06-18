@@ -79,6 +79,8 @@ int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
 			 const struct pt_packet_ip *packet,
 			 const struct pt_config *config)
 {
+	(void) config;
+
 	if (!last_ip || !packet)
 		return -pte_invalid;
 

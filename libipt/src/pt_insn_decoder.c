@@ -600,8 +600,7 @@ static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
 	return errcode;
 }
 
-static int process_async_branch_event(struct pt_insn_decoder *decoder,
-				      struct pt_insn *insn)
+static int process_async_branch_event(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -627,8 +626,7 @@ static int process_async_branch_event(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
-static int process_paging_event(struct pt_insn_decoder *decoder,
-				struct pt_insn *insn)
+static int process_paging_event(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -672,8 +670,7 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
-static int process_exec_mode_event(struct pt_insn_decoder *decoder,
-				   struct pt_insn *insn)
+static int process_exec_mode_event(struct pt_insn_decoder *decoder)
 {
 	enum pt_exec_mode mode;
 	struct pt_event *ev;
@@ -733,7 +730,7 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 
 	case ptev_async_branch:
 		if (ev->variant.async_branch.from == decoder->ip)
-			return process_async_branch_event(decoder, insn);
+			return process_async_branch_event(decoder);
 
 		return 0;
 
@@ -752,7 +749,7 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 	case ptev_async_paging:
 		if (ev->ip_suppressed ||
 		    ev->variant.async_paging.ip == decoder->ip)
-			return process_paging_event(decoder, insn);
+			return process_paging_event(decoder);
 
 		return 0;
 
@@ -761,7 +758,7 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 
 	case ptev_paging:
 		if (!decoder->enabled)
-			return process_paging_event(decoder, insn);
+			return process_paging_event(decoder);
 
 		return 0;
 
@@ -771,7 +768,7 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 	case ptev_exec_mode:
 		if (ev->ip_suppressed ||
 		    ev->variant.exec_mode.ip == decoder->ip)
-			return process_exec_mode_event(decoder, insn);
+			return process_exec_mode_event(decoder);
 
 		return 0;
 
@@ -864,7 +861,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 
 	case ptev_paging:
 		if (pt_insn_changes_cr3(&decoder->ild))
-			return process_paging_event(decoder, insn);
+			return process_paging_event(decoder);
 
 		return 0;
 	}
@@ -970,7 +967,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		 */
 		if (ev->ip_suppressed ||
 		    ev->variant.exec_mode.ip == decoder->ip)
-			return process_exec_mode_event(decoder, insn);
+			return process_exec_mode_event(decoder);
 
 		return 0;
 
@@ -982,7 +979,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		 */
 		if (ev->ip_suppressed ||
 		    ev->variant.async_paging.ip == decoder->ip)
-			return process_paging_event(decoder, insn);
+			return process_paging_event(decoder);
 
 		return 0;
 

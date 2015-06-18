@@ -77,6 +77,8 @@ struct pt_packet_decoder *pt_pkt_alloc_decoder(const struct pt_config *config)
 
 void pt_pkt_decoder_fini(struct pt_packet_decoder *decoder)
 {
+	(void) decoder;
+
 	/* Nothing to do. */
 }
 
@@ -271,6 +273,8 @@ int pt_pkt_decode_unknown(struct pt_packet_decoder *decoder,
 int pt_pkt_decode_pad(struct pt_packet_decoder *decoder,
 		      struct pt_packet *packet)
 {
+	(void) decoder;
+
 	if (!packet)
 		return -pte_internal;
 
@@ -434,6 +438,8 @@ int pt_pkt_decode_pip(struct pt_packet_decoder *decoder,
 int pt_pkt_decode_ovf(struct pt_packet_decoder *decoder,
 		      struct pt_packet *packet)
 {
+	(void) decoder;
+
 	if (!packet)
 		return -pte_internal;
 
@@ -465,6 +471,8 @@ int pt_pkt_decode_mode(struct pt_packet_decoder *decoder,
 int pt_pkt_decode_psbend(struct pt_packet_decoder *decoder,
 			 struct pt_packet *packet)
 {
+	(void) decoder;
+
 	if (!packet)
 		return -pte_internal;
 

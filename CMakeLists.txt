@@ -109,32 +109,16 @@ if (CMAKE_HOST_WIN32)
   if (CMAKE_C_COMPILER_ID MATCHES "MSVC")
     # prevent complaints on:
     # - do {} while(0) constructs
-    # - unreferenced function parameters
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4100")
-
-  elseif (CMAKE_C_COMPILER_ID MATCHES "Intel")
-    # prevent complaints on:
-    # - unreferenced function parameters
-    #
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd869")
 
   endif (CMAKE_C_COMPILER_ID MATCHES "MSVC")
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     # prevent complaints on:
     # - do {} while(0) constructs
-    # - unreferenced function parameters
     #
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100")
-
-  elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    # prevent complaints on:
-    # - unreferenced function parameters
-    #
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd869")
 
   endif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 
@@ -202,11 +186,6 @@ if (CMAKE_HOST_UNIX)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
   endif (DEVBUILD)
-
-  # allow functions to ignore parameters
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-parameter")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
 
 endif (CMAKE_HOST_UNIX)
 
