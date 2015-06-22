@@ -547,7 +547,7 @@ opcode_dec (pti_ild_t * ild)
           ild->length = length + 1;     /*eat the second 0F */
         }
       else
-        {                       /* map 2 (simple two byte opcodes) */
+        {                       /* map 1 (simple two byte opcodes) */
           length++;             /* eat the 2nd  opcode byte */
           ild->nominal_opcode = m;
           ild->nominal_opcode_pos = (pti_uint8_t) length;

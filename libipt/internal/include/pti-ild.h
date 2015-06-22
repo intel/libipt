@@ -89,11 +89,11 @@ typedef enum
 } pti_machine_mode_enum_t;
 typedef enum
 {
-  PTI_MAP_0,                    /* may have modrm */
-  PTI_MAP_1,                    /* may have modrm */
-  PTI_MAP_2,                    /* has modrm */
-  PTI_MAP_3,                    /* has modrm */
-  PTI_MAP_AMD3DNOW,             /* has modrm */
+  PTI_MAP_0,          /* 1-byte opcodes.           may have modrm */
+  PTI_MAP_1,          /* 2-byte opcodes (0x0f).    may have modrm */
+  PTI_MAP_2,          /* 3-byte opcodes (0x0f38).  has modrm */
+  PTI_MAP_3,          /* 3-byte opcodes (0x0f3a).  has modrm */
+  PTI_MAP_AMD3DNOW,   /* 3d-now opcodes (0x0f0f).  has modrm */
   PTI_MAP_INVALID
 } pti_map_enum_t;
 
