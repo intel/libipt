@@ -646,6 +646,46 @@ static struct ptunit_result evex_cutoff(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result ptwrite_r32(void)
+{
+	uint8_t insn[] = { 0xf3, 0x0f, 0xae, 0xe7 };
+
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_PTWRITE);
+	ptu_classify_s(insn, ptem_32bit, PTI_INST_PTWRITE);
+	ptu_classify_s(insn, ptem_16bit, PTI_INST_PTWRITE);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result ptwrite_m32(void)
+{
+	uint8_t insn[] = { 0xf3, 0x0f, 0xae, 0x67, 0xcc };
+
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_PTWRITE);
+	ptu_classify_s(insn, ptem_32bit, PTI_INST_PTWRITE);
+	ptu_classify_s(insn, ptem_16bit, PTI_INST_PTWRITE);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result ptwrite_r64(void)
+{
+	uint8_t insn[] = { 0xf3, 0x48, 0x0f, 0xae, 0xe7 };
+
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_PTWRITE);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result ptwrite_m64(void)
+{
+	uint8_t insn[] = { 0xf3, 0x48, 0x0f, 0xae, 0x67, 0xcc };
+
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_PTWRITE);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -710,6 +750,10 @@ int main(int argc, char **argv)
 	ptu_run(suite, vpshufb);
 	ptu_run(suite, bound);
 	ptu_run(suite, evex_cutoff);
+	ptu_run(suite, ptwrite_r32);
+	ptu_run(suite, ptwrite_m32);
+	ptu_run(suite, ptwrite_r64);
+	ptu_run(suite, ptwrite_m64);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

@@ -79,6 +79,8 @@ typedef enum {
 	PTI_INST_VMCALL,
 	PTI_INST_VMPTRLD,
 
+	PTI_INST_PTWRITE,
+
 	PTI_INST_LAST
 } pti_inst_enum_t;
 
