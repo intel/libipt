@@ -909,6 +909,48 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 				       errcode);
 			goto error;
 		}
+	} else if (strcmp(directive, "ptw") == 0) {
+		char *token;
+
+		packet.type = ppt_ptw;
+		memset(&packet.payload.ptw, 0, sizeof(packet.payload.ptw));
+
+		token = strtok(payload, ":");
+		if (!token) {
+			yasm_print_err(p->y, "ptw: parsing failed",
+				       -err_parse_no_args);
+			goto error;
+		}
+
+		errcode = str_to_uint8(token, &packet.payload.ptw.plc, 0);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "ptw: bad payload size", errcode);
+			goto error;
+		}
+
+		token = strtok(NULL, ", ");
+		if (!token) {
+			yasm_print_err(p->y, "ptw: no payload",
+				       -err_parse_no_args);
+			goto error;
+		}
+
+		errcode = str_to_uint64(token, &packet.payload.ptw.payload, 0);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "ptw: bad payload", errcode);
+			goto error;
+		}
+
+		token = strtok(NULL, " ");
+		if (token) {
+			if (strcmp(token, "ip") != 0) {
+				yasm_print_err(p->y, "ptw: parse error",
+					       -err_parse_trailing_tokens);
+				goto error;
+			}
+
+			packet.payload.ptw.ip = 1;
+		}
 	} else {
 		errcode = yasm_print_err(p->y, "invalid syntax",
 					 -err_parse_unknown_directive);

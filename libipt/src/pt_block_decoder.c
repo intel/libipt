@@ -151,6 +151,7 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
+	decoder->pending_ptwrite = 0;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -1071,6 +1072,30 @@ static int pt_blk_apply_stop(struct pt_block_decoder *decoder,
 	return 0;
 }
 
+/* Apply a ptwrite event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_apply_ptwrite(struct pt_block_decoder *decoder,
+				const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* The event must be pending. */
+	if (!decoder->pending_ptwrite)
+		return -pte_internal;
+
+	decoder->pending_ptwrite = 0;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
 /* Proceed to the next IP using trace.
  *
  * We failed to proceed without trace.  This ends the current block.  Now use
@@ -1507,6 +1532,97 @@ static int pt_blk_proceed_to_exec_mode(struct pt_block_decoder *decoder,
 					       ev->variant.exec_mode.ip);
 }
 
+/* Proceed to the event location for a ptwrite event.
+ *
+ * We have a ptwrite event pending.  Proceed to the event location and indicate
+ * whether we were able to reach it.
+ *
+ * In case of the event binding to a ptwrite instruction, we pass beyond that
+ * instruction and update the event to provide the instruction's IP.
+ *
+ * In the case of the event binding to an IP provided in the event, we move
+ * beyond the instruction at that IP.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_ptwrite(struct pt_block_decoder *decoder,
+				     struct pt_block *block,
+				     struct pt_event *ev)
+{
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+	int status;
+
+	if (!decoder || !block || !ev)
+		return -pte_internal;
+
+	/* If tracing is disabled, we don't really care whether we have an IP.
+	 *
+	 * Events are reported in order and all we can say with respect to the
+	 * instruction that caused the event is that it wasn't traced.  The user
+	 * may be able to make sense out of the event IP.
+	 */
+	if (!decoder->enabled)
+		return 1;
+
+	/* If we don't have an IP, the event binds to the next PTWRITE
+	 * instruction.
+	 *
+	 * If we have an IP it still binds to the next PTWRITE instruction but
+	 * now the IP tells us where that instruction is.  This makes most sense
+	 * when tracing is disabled and we don't have any other means of finding
+	 * the PTWRITE instruction.  We nevertheless distinguish the two cases,
+	 * here.
+	 *
+	 * In both cases, we move beyond the PTWRITE instruction, so it will be
+	 * the last instruction in the current block and @decoder->ip will point
+	 * to the instruction following it.
+	 */
+	if (ev->ip_suppressed) {
+		status = pt_blk_proceed_to_insn(decoder, block, &insn, &iext,
+						pt_insn_is_ptwrite);
+		if (status <= 0)
+			return status;
+
+		/* We now know the IP of the PTWRITE instruction corresponding
+		 * to this event.  Fill it in to make it more convenient for the
+		 * user to process the event.
+		 */
+		ev->variant.ptwrite.ip = insn.ip;
+		ev->ip_suppressed = 0;
+	} else {
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.ptwrite.ip);
+		if (status <= 0)
+			return status;
+
+		/* We reached the PTWRITE instruction and @decoder->ip points to
+		 * it; @insn/@iext still contain the preceding instruction.
+		 *
+		 * Proceed beyond the PTWRITE to account for it.  Note that we
+		 * may still overflow the block, which would cause us to
+		 * postpone both instruction and event to the next block.
+		 */
+		status = pt_blk_proceed_one_insn(decoder, block, &insn, &iext);
+		if (status <= 0)
+			return status;
+	}
+
+	/* We decoded the PTWRITE instruction into @insn/@iext; @decoder->ip
+	 * still points to it.
+	 *
+	 * Determine the next IP - this shouldn't require trace.
+	 */
+	status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+	if (status < 0)
+		return status;
+
+	/* We accounted for the PTWRITE instruction in @block. */
+	return 1;
+}
+
 /* Try to work around erratum SKD022.
  *
  * If we get an asynchronous disable on VMLAUNCH or VMRESUME, the FUP that
@@ -1837,6 +1953,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 		case ptev_pwre:
 		case ptev_pwrx:
+			return 0;
+
+		case ptev_ptwrite:
+			status = pt_blk_proceed_to_ptwrite(decoder, block, ev);
+			if (status <= 0)
+				return status;
+
+			/* We pend the event to be delivered to the user when
+			 * processing trailing events later on.
+			 */
+			decoder->pending_ptwrite = 1;
+
 			return 0;
 		}
 
@@ -3119,6 +3247,30 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 		case ptev_pwre:
 		case ptev_pwrx:
 			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_ptwrite:
+			/* The event is reported after the corresponding PTWRITE
+			 * instruction.
+			 *
+			 * We set @decoder->pending_ptwrite when we proceed past
+			 * that instruction in pt_blk_proceed_event() and clear
+			 * it again in pt_blk_apply_ptwrite() when we actually
+			 * process the event.
+			 *
+			 * Any subsequent ptwrite event binds to a different
+			 * instruction and must wait until the next iteration -
+			 * as long as tracing is enabled.
+			 *
+			 * When tracing is disabled, we forward all ptwrite
+			 * events immediately to the user.
+			 */
+			if (!decoder->enabled)
+				decoder->pending_ptwrite = 1;
+
+			if (!decoder->pending_ptwrite)
+				break;
+
+			return pt_blk_status(decoder, pts_event_pending);
 		}
 
 		/* If we fall out of the switch, we're done. */
@@ -3298,6 +3450,16 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	case ptev_pwre:
 	case ptev_pwrx:
 		decoder->process_event = 0;
+		break;
+
+	case ptev_ptwrite:
+		if (!decoder->pending_ptwrite)
+			return -pte_bad_query;
+
+		status = pt_blk_apply_ptwrite(decoder, ev);
+		if (status < 0)
+			return status;
+
 		break;
 	}
 

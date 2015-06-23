@@ -649,6 +649,34 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		return (int) (pos - begin);
 	}
 
+	case ppt_ptw: {
+		uint8_t plc, ext;
+		int size;
+
+		plc = packet->payload.ptw.plc;
+
+		size = pt_ptw_size(plc);
+		if (size < 0)
+			return size;
+
+		errcode = pt_reserve(encoder, pt_opcs_ptw + size);
+		if (errcode < 0)
+			return errcode;
+
+		ext = pt_ext_ptw;
+		ext |= plc << pt_opm_ptw_pb_shr;
+
+		if (packet->payload.ptw.ip)
+			ext |= (uint8_t) pt_opm_ptw_ip;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = ext;
+		pos = pt_encode_int(pos, packet->payload.ptw.payload, size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;

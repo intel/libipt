@@ -48,6 +48,7 @@ struct pt_packet_exstop;
 struct pt_packet_mwait;
 struct pt_packet_pwre;
 struct pt_packet_pwrx;
+struct pt_packet_ptw;
 
 
 /* Read the payload of an Intel PT packet.
@@ -104,5 +105,7 @@ extern int pt_pkt_read_pwre(struct pt_packet_pwre *packet, const uint8_t *pos,
 			    const struct pt_config *config);
 extern int pt_pkt_read_pwrx(struct pt_packet_pwrx *packet, const uint8_t *pos,
 			    const struct pt_config *config);
+extern int pt_pkt_read_ptw(struct pt_packet_ptw *packet, const uint8_t *pos,
+			   const struct pt_config *config);
 
 #endif /* PT_PACKET_H */

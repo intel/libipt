@@ -700,3 +700,22 @@ int pt_pkt_decode_pwrx(struct pt_packet_decoder *decoder,
 
 	return size;
 }
+
+int pt_pkt_decode_ptw(struct pt_packet_decoder *decoder,
+		      struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_ptw(&packet->payload.ptw, decoder->pos,
+			       &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_ptw;
+	packet->size = (uint8_t) size;
+
+	return size;
+}

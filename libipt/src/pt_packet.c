@@ -541,3 +541,32 @@ int pt_pkt_read_pwrx(struct pt_packet_pwrx *packet, const uint8_t *pos,
 
 	return ptps_pwrx;
 }
+
+int pt_pkt_read_ptw(struct pt_packet_ptw *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	uint8_t opc, plc;
+	int size;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	/* Skip the ext opcode. */
+	pos++;
+
+	opc = *pos++;
+	plc = (opc >> pt_opm_ptw_pb_shr) & pt_opm_ptw_pb_shr_mask;
+
+	size = pt_ptw_size(plc);
+	if (size < 0)
+		return size;
+
+	if (config->end < pos + size)
+		return -pte_eos;
+
+	packet->payload = pt_pkt_read_value(pos, size);
+	packet->plc = plc;
+	packet->ip = opc & pt_opm_ptw_ip ? 1 : 0;
+
+	return pt_opcs_ptw + size;
+}

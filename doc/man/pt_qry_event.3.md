@@ -187,7 +187,10 @@ enum pt_event_type {
 	ptev_pwre,
 
 	/* A power state was exited. */
-	ptev_pwrx
+	ptev_pwrx,
+
+	/* A PTWRITE event. */
+	ptev_ptwrite
 };
 ~~~
 

@@ -267,6 +267,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, fetch_type, ffix, ppt_mwait, &pt_decode_mwait);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_pwre, &pt_decode_pwre);
 	ptu_run_fp(suite, fetch_type, ffix, ppt_pwrx, &pt_decode_pwrx);
+	ptu_run_fp(suite, fetch_type, ffix, ppt_ptw, &pt_decode_ptw);
 
 	ptu_run_f(suite, fetch_tnt_8, ffix);
 	ptu_run_f(suite, fetch_mode_exec, ffix);
@@ -663,6 +664,20 @@ int pt_pkt_decode_pwrx(struct pt_packet_decoder *d, struct pt_packet *p)
 	return -pte_internal;
 }
 int pt_qry_decode_pwrx(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+
+int pt_pkt_decode_ptw(struct pt_packet_decoder *d, struct pt_packet *p)
+{
+	(void) d;
+	(void) p;
+
+	return -pte_internal;
+}
+int pt_qry_decode_ptw(struct pt_query_decoder *d)
 {
 	(void) d;
 

@@ -126,6 +126,9 @@ struct pt_block_decoder {
 
 	/* - instructions are executed speculatively. */
 	uint32_t speculative:1;
+
+	/* - a ptwrite event is pending to be delivered to the user. */
+	uint32_t pending_ptwrite:1;
 };
 
 

@@ -119,6 +119,7 @@ extern int pt_qry_decode_exstop(struct pt_query_decoder *);
 extern int pt_qry_decode_mwait(struct pt_query_decoder *);
 extern int pt_qry_decode_pwre(struct pt_query_decoder *);
 extern int pt_qry_decode_pwrx(struct pt_query_decoder *);
+extern int pt_qry_decode_ptw(struct pt_query_decoder *);
 
 /* Decoder functions (header context). */
 extern int pt_qry_header_fup(struct pt_query_decoder *);

@@ -1253,6 +1253,15 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 			    (packet->payload.pwrx.deepest + 1) & 0xf);
 		return 0;
 	}
+
+	case ppt_ptw:
+		print_field(buffer->opcode, "ptw");
+		print_field(buffer->payload.standard, "%x: %" PRIx64 "%s",
+			    packet->payload.ptw.plc,
+			    packet->payload.ptw.payload,
+			    packet->payload.ptw.ip ? ", ip" : "");
+
+		return 0;
 	}
 
 	return diag("unknown packet", offset, -pte_bad_opc);

@@ -991,6 +991,13 @@ static void print_event(const struct pt_event *event,
 		printf("c%u (c%u)", (event->variant.pwrx.last + 1) & 0xf,
 		       (event->variant.pwrx.deepest + 1) & 0xf);
 		break;
+
+	case ptev_ptwrite:
+		printf("ptwrite: %" PRIx64, event->variant.ptwrite.payload);
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.ptwrite.ip);
+		break;
 	}
 
 	printf("]\n");

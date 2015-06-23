@@ -1429,6 +1429,13 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 
 			decoder->consume_packet = 1;
 			break;
+
+		case ptev_ptwrite:
+			pt_qry_add_event_ip(ev, &ev->variant.ptwrite.ip,
+					    decoder);
+
+			decoder->consume_packet = 1;
+			break;
 		}
 
 		/* Publish the event. */
@@ -1928,6 +1935,16 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 
 			/* Fall through. */
 		case ppt_mwait:
+			/* To skip this packet, we'd need to take care of the
+			 * FUP it binds to.  This is getting complicated.
+			 */
+			return 0;
+
+		case ppt_ptw:
+			/* We may skip a stand-alone PTW. */
+			if (!packet.payload.ptw.ip)
+				break;
+
 			/* To skip this packet, we'd need to take care of the
 			 * FUP it binds to.  This is getting complicated.
 			 */
@@ -2637,6 +2654,42 @@ int pt_qry_decode_pwrx(struct pt_query_decoder *decoder)
 		event->variant.pwrx.autonomous = 1;
 
 	decoder->event = event;
+
+	decoder->pos += size;
+	return 0;
+}
+
+int pt_qry_decode_ptw(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_ptw packet;
+	struct pt_event *event;
+	int size, pls;
+
+	size = pt_pkt_read_ptw(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	pls = pt_ptw_size(packet.plc);
+	if (pls < 0)
+		return pls;
+
+	if (packet.ip) {
+		event = pt_evq_enqueue(&decoder->evq, evb_fup);
+		if (!event)
+			return -pte_internal;
+	} else {
+		event = pt_evq_standalone(&decoder->evq);
+		if (!event)
+			return -pte_internal;
+
+		event->ip_suppressed = 1;
+
+		decoder->event = event;
+	}
+
+	event->type = ptev_ptwrite;
+	event->variant.ptwrite.size = (uint8_t) pls;
+	event->variant.ptwrite.payload = packet.payload;
 
 	decoder->pos += size;
 	return 0;

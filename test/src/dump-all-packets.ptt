@@ -83,6 +83,8 @@ bits 64
 ; @pt p50: pwrx(int: c1, c6)
 ; @pt p51: pwrx(st: c1, c6)
 ; @pt p52: pwrx(hw: c1, c6)
+; @pt p53: ptw(0: 0x90abcdef, ip)
+; @pt p54: ptw(1: 0x1234567890abcdef)
 
 ; @pt .exp(ptdump)
 ;%0p01  psbend
@@ -137,3 +139,5 @@ bits 64
 ;%0p50  pwrx       int: c1, c6
 ;%0p51  pwrx       st: c1, c6
 ;%0p52  pwrx       hw: c1, c6
+;%0p53  ptw        0: 90abcdef, ip
+;%0p54  ptw        1: 1234567890abcdef

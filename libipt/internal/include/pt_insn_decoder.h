@@ -102,6 +102,9 @@ struct pt_insn_decoder {
 
 	/* - a vmcs event has been bound to the current instruction. */
 	uint32_t vmcs_event_bound:1;
+
+	/* - a ptwrite event has been bound to the current instruction. */
+	uint32_t ptwrite_event_bound:1;
 };
 
 

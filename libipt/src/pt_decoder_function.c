@@ -208,6 +208,13 @@ const struct pt_decoder_function pt_decode_pwrx = {
 	/* .flags =  */ pdff_event
 };
 
+const struct pt_decoder_function pt_decode_ptw = {
+	/* .packet = */ pt_pkt_decode_ptw,
+	/* .decode = */ pt_qry_decode_ptw,
+	/* .header = */ NULL,
+	/* .flags =  */ pdff_event
+};
+
 
 int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		const struct pt_config *config)
@@ -290,6 +297,12 @@ int pt_df_fetch(const struct pt_decoder_function **dfun, const uint8_t *pos,
 		ext = *pos++;
 		switch (ext) {
 		default:
+			/* Check opcodes that require masking. */
+			if ((ext & pt_opm_ptw) == pt_ext_ptw) {
+				*dfun = &pt_decode_ptw;
+				return 0;
+			}
+
 			*dfun = &pt_decode_unknown;
 			return 0;
 

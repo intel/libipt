@@ -438,6 +438,30 @@ static struct ptunit_result pwrx(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result ptw(struct packet_fixture *pfix, uint8_t plc,
+				int ip)
+{
+	uint64_t pl, mask;
+	int size;
+
+	size = pt_ptw_size(plc);
+	ptu_int_gt(size, 0);
+
+	pl = 0x1234567890abcdefull;
+
+	ptu_uint_le((size_t) size, sizeof(mask));
+	mask = ~0ull >> ((sizeof(mask) - (size_t) size) * 8);
+
+	pfix->packet[0].type = ppt_ptw;
+	pfix->packet[0].payload.ptw.payload = pl & mask;
+	pfix->packet[0].payload.ptw.plc = plc;
+	pfix->packet[0].payload.ptw.ip = ip ? 1 : 0;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -596,6 +620,8 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, mwait, pfix);
 	ptu_run_f(suite, pwre, pfix);
 	ptu_run_f(suite, pwrx, pfix);
+	ptu_run_fp(suite, ptw, pfix, 0, 1);
+	ptu_run_fp(suite, ptw, pfix, 1, 0);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -618,6 +644,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff, pfix, ppt_mwait);
 	ptu_run_fp(suite, cutoff, pfix, ppt_pwre);
 	ptu_run_fp(suite, cutoff, pfix, ppt_pwrx);
+	ptu_run_fp(suite, cutoff, pfix, ppt_ptw);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
@@ -812,6 +839,12 @@ int pt_qry_decode_pwre(struct pt_query_decoder *d)
 	return -pte_internal;
 }
 int pt_qry_decode_pwrx(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
+int pt_qry_decode_ptw(struct pt_query_decoder *d)
 {
 	(void) d;
 

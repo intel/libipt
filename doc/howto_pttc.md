@@ -221,6 +221,15 @@ Last and deepest are the last and deepest achieved core C-state in the format
 `c<state>` where `<state>` is a decimal integer value between 0 and 15.
 
 
+#### ptw
+
+    @pt ptw(size: payload[, ip])
+
+Size is the payload size; it must be 0 or 1.  Payload is the unsigned integer
+payload.  If ip is specified, the IP bit in the packet opcode is set, it is
+clear otherwise.
+
+
 #### .exp
 
 	@pt .exp([extra])

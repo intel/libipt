@@ -149,6 +149,7 @@ enum pt_ext_code {
 	pt_ext_mwait		= 0xc2,
 	pt_ext_pwre		= 0x22,
 	pt_ext_pwrx		= 0xa2,
+	pt_ext_ptw		= 0x12,
 
 	pt_ext_bad		= 0x04
 };
@@ -185,7 +186,20 @@ enum pt_opcode_mask {
 	pt_opm_cycx_shr         = 1,
 
 	/* The bit mask for the IP bit in the exstop packet. */
-	pt_opm_exstop_ip	= 0x80
+	pt_opm_exstop_ip	= 0x80,
+
+	/* The PTW opcode. */
+	pt_opm_ptw		= 0x1f,
+
+	/* The bit mask for the IP bit in the ptw packet. */
+	pt_opm_ptw_ip		= 0x80,
+
+	/* The bit mask and shr value for the payload bytes field in ptw. */
+	pt_opm_ptw_pb		= 0x60,
+	pt_opm_ptw_pb_shr	= 5,
+
+	/* The bit mask for the payload bytes field in ptw after shifting. */
+	pt_opm_ptw_pb_shr_mask	= 0x3
 };
 
 /** The size of the various opcodes in bytes. */
@@ -213,7 +227,8 @@ enum pt_opcode_size {
 	pt_opcs_exstop		= 2,
 	pt_opcs_mwait		= 2,
 	pt_opcs_pwre		= 2,
-	pt_opcs_pwrx		= 2
+	pt_opcs_pwrx		= 2,
+	pt_opcs_ptw		= 2
 };
 
 /** The psb magic payload.
@@ -488,7 +503,9 @@ enum pt_packet_size {
 	ptps_exstop		= pt_opcs_exstop,
 	ptps_mwait		= pt_opcs_mwait + pt_pl_mwait_size,
 	ptps_pwre		= pt_opcs_pwre + pt_pl_pwre_size,
-	ptps_pwrx		= pt_opcs_pwrx + pt_pl_pwrx_size
+	ptps_pwrx		= pt_opcs_pwrx + pt_pl_pwrx_size,
+	ptps_ptw_32		= pt_opcs_ptw + 4,
+	ptps_ptw_64		= pt_opcs_ptw + 8
 };
 
 
@@ -819,6 +836,7 @@ enum pt_packet_type {
 	ppt_mwait		= ppt_ext | pt_ext_mwait,
 	ppt_pwre		= ppt_ext | pt_ext_pwre,
 	ppt_pwrx		= ppt_ext | pt_ext_pwrx,
+	ppt_ptw			= ppt_ext | pt_ext_ptw,
 
 	/* 3-byte header packets. */
 	ppt_mnt			= ppt_ext2 | pt_ext2_mnt,
@@ -1026,6 +1044,37 @@ struct pt_packet_pwrx {
 	uint32_t autonomous:1;
 };
 
+/** A PTW packet. */
+struct pt_packet_ptw {
+	/** The raw payload. */
+	uint64_t payload;
+
+	/** The payload size as encoded in the packet. */
+	uint8_t plc;
+
+	/** A flag saying whether a FUP is following PTW that provides
+	 * the IP of the corresponding PTWRITE instruction.
+	 */
+	uint32_t ip:1;
+};
+
+static inline int pt_ptw_size(uint8_t plc)
+{
+	switch (plc) {
+	case 0:
+		return 4;
+
+	case 1:
+		return 8;
+
+	case 2:
+	case 3:
+		return -pte_bad_packet;
+	}
+
+	return -pte_internal;
+}
+
 /** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
 	/** Pointer to the raw packet bytes. */
@@ -1094,6 +1143,9 @@ struct pt_packet {
 
 		/** Packet: pwrx. */
 		struct pt_packet_pwrx pwrx;
+
+		/** Packet: ptw. */
+		struct pt_packet_ptw ptw;
 
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;
@@ -1344,7 +1396,10 @@ enum pt_event_type {
 	ptev_pwre,
 
 	/* A power state was exited. */
-	ptev_pwrx
+	ptev_pwrx,
+
+	/* A PTWRITE event. */
+	ptev_ptwrite
 };
 
 /** An event. */
@@ -1602,6 +1657,24 @@ struct pt_event {
 			/** - due to h/w autonomous condition such as HDC. */
 			uint32_t autonomous:1;
 		} pwrx;
+
+		/** Event: ptwrite. */
+		struct {
+			/** The address of the ptwrite instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 *
+			 * In this case, the address is obvious from the
+			 * disassembly.
+			 */
+			uint64_t ip;
+
+			/** The size of the below \@payload in bytes. */
+			uint8_t size;
+
+			/** The ptwrite payload. */
+			uint64_t payload;
+		} ptwrite;
 	} variant;
 };
 
