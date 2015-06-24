@@ -1258,48 +1258,20 @@ int pt_qry_header_pip(struct pt_query_decoder *decoder)
 	if (!event)
 		return -pte_nomem;
 
-	event->type = ptev_paging;
-	event->variant.paging.cr3 = packet.cr3;
+	event->type = ptev_async_paging;
+	event->variant.async_paging.cr3 = packet.cr3;
 
 	decoder->pos += size;
-	return 0;
-}
-
-static int pt_qry_prepare_psb_event(struct pt_event *ev)
-{
-	if (!ev)
-		return -pte_internal;
-
-	/* Turn paging events into async paging events since the IP is not
-	 * obvious from the code.
-	 */
-	if (ev->type == ptev_paging) {
-		uint64_t cr3;
-
-		cr3 = ev->variant.paging.cr3;
-
-		ev->type = ptev_async_paging;
-		ev->variant.async_paging.cr3 = cr3;
-	}
-
-	/* Mark the event as status update. */
-	ev->status_update = 1;
-
 	return 0;
 }
 
 static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
-	int errcode;
 
 	ev = pt_evq_dequeue(&decoder->evq, evb_psbend);
 	if (!ev)
 		return 0;
-
-	errcode = pt_qry_prepare_psb_event(ev);
-	if (errcode < 0)
-		return errcode;
 
 	switch (ev->type) {
 	default:
@@ -1319,6 +1291,9 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 	}
 
 	pt_qry_add_event_time(ev, decoder);
+
+	/* PSB+ events are status updates. */
+	ev->status_update = 1;
 
 	/* Publish the event. */
 	decoder->event = ev;
