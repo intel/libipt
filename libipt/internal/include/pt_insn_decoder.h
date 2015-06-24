@@ -89,6 +89,9 @@ struct pt_insn_decoder {
 
 	/* - instructions are executed speculatively. */
 	uint32_t speculative:1;
+
+	/* - a paging event has been bound to the current instruction. */
+	uint32_t paging_event_bound:1;
 };
 
 

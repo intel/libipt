@@ -860,8 +860,13 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_paging:
-		if (pt_insn_changes_cr3(&decoder->ild))
+		if (pt_insn_changes_cr3(&decoder->ild) &&
+		    !decoder->paging_event_bound) {
+			/* Each instruction only binds to one paging event. */
+			decoder->paging_event_bound = 1;
+
 			return process_paging_event(decoder);
+		}
 
 		return 0;
 	}
@@ -872,34 +877,35 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 static int process_events_after(struct pt_insn_decoder *decoder,
 				struct pt_insn *insn)
 {
+	int pending, processed, errcode;
+
 	if (!decoder || !insn)
 		return -pte_internal;
 
+	pending = event_pending(decoder);
+	if (pending <= 0)
+		return pending;
+
+	decoder->paging_event_bound = 0;
+
 	for (;;) {
-		int pending, processed, errcode;
-
-		pending = event_pending(decoder);
-		if (pending < 0)
-			return pending;
-
-		if (!pending)
-			break;
-
 		processed = process_one_event_after(decoder, insn);
 		if (processed < 0)
 			return processed;
 
 		if (!processed)
-			break;
+			return 0;
 
 		decoder->process_event = 0;
 
 		errcode = process_events_before(decoder, insn);
 		if (errcode < 0)
 			return errcode;
-	}
 
-	return 0;
+		pending = event_pending(decoder);
+		if (pending <= 0)
+			return pending;
+	}
 }
 
 static int process_one_event_peek(struct pt_insn_decoder *decoder,
