@@ -1725,6 +1725,43 @@ int pt_qry_decode_mtc(struct pt_query_decoder *decoder)
 	return 0;
 }
 
+static int check_erratum_skd007(struct pt_query_decoder *decoder,
+				const struct pt_packet_cyc *packet, int size)
+{
+	const uint8_t *pos;
+	uint16_t payload;
+
+	if (!decoder || !packet || size < 0)
+		return -pte_internal;
+
+	/* It must be a 2-byte CYC. */
+	if (size != 2)
+		return 0;
+
+	payload = (uint16_t) packet->value;
+
+	/* The 2nd byte of the CYC payload must look like an ext opcode. */
+	if ((payload & ~0x1f) != 0x20)
+		return 0;
+
+	/* Skip this CYC packet. */
+	pos = decoder->pos + size;
+	if (decoder->config.end <= pos)
+		return 0;
+
+	/* See if we got a second CYC that looks like an OVF ext opcode. */
+	if (*pos != pt_ext_ovf)
+		return 0;
+
+	/* We shouldn't get back-to-back CYCs unless they are sent when the
+	 * counter wraps around.  In this case, we'd expect a full payload.
+	 *
+	 * Since we got two non-full CYC packets, we assume the erratum hit.
+	 */
+
+	return 1;
+}
+
 int pt_qry_decode_cyc(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_cyc packet;
@@ -1732,11 +1769,28 @@ int pt_qry_decode_cyc(struct pt_query_decoder *decoder)
 	uint64_t fcr;
 	int size, errcode;
 
-	size = pt_pkt_read_cyc(&packet, decoder->pos, &decoder->config);
+	config = &decoder->config;
+
+	size = pt_pkt_read_cyc(&packet, decoder->pos, config);
 	if (size < 0)
 		return size;
 
-	config = &decoder->config;
+	if (config->errata.skd007) {
+		errcode = check_erratum_skd007(decoder, &packet, size);
+		if (errcode < 0)
+			return errcode;
+
+		/* If the erratum hits, we ignore the partial CYC and instead
+		 * process the OVF following/overlapping it.
+		 */
+		if (errcode) {
+			/* We skip the first byte of the CYC, which brings us
+			 * to the beginning of the OVF packet.
+			 */
+			decoder->pos += 1;
+			return 0;
+		}
+	}
 
 	/* We ignore configuration errors.  They will result in imprecise
 	 * calibration which will result in imprecise cycle-accurate timing.
