@@ -820,6 +820,73 @@ static int process_vmcs_event(struct pt_insn_decoder *decoder)
 	return 1;
 }
 
+static int check_erratum_skd022(struct pt_insn_decoder *decoder)
+{
+	pti_bool_t status;
+	pti_ild_t ild;
+	uint8_t raw[pt_max_insn_size];
+	int size;
+
+	if (!decoder)
+		return -pte_internal;
+
+	size = pt_image_read(decoder->image, raw, sizeof(raw),
+			     &decoder->asid, decoder->ip);
+	if (size < 0)
+		return 0;
+
+	memset(&ild, 0, sizeof(ild));
+
+	ild.mode = translate_mode(decoder->mode);
+	if (PTI_MODE_LAST <= ild.mode)
+		return -pte_bad_insn;
+
+	ild.max_bytes = size;
+	ild.itext = raw;
+	ild.runtime_address = decoder->ip;
+
+	status = pti_instruction_length_decode(&ild);
+	if (!status)
+		return 0;
+
+	(void) pti_instruction_decode(&ild);
+
+	switch (ild.iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_VMLAUNCH:
+	case PTI_INST_VMRESUME:
+		return 1;
+	}
+}
+
+static inline int handle_erratum_skd022(struct pt_insn_decoder *decoder)
+{
+	struct pt_event *ev;
+	uint64_t ip;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = check_erratum_skd022(decoder);
+	if (errcode <= 0)
+		return errcode;
+
+	/* We turn the async disable into a sync disable.  It will be processed
+	 * after decoding the instruction.
+	 */
+	ev = &decoder->event;
+
+	ip = ev->variant.async_disabled.ip;
+
+	ev->type = ptev_disabled;
+	ev->variant.disabled.ip = ip;
+
+	return 1;
+}
+
 static int process_one_event_before(struct pt_insn_decoder *decoder,
 				    struct pt_insn *insn)
 {
@@ -846,8 +913,20 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		 * This is to catch the case where we disable tracing before
 		 * we actually started.
 		 */
-		if (ev->variant.async_disabled.at == decoder->ip)
+		if (ev->variant.async_disabled.at == decoder->ip) {
+			if (decoder->query.config.errata.skd022) {
+				int errcode;
+
+				errcode = handle_erratum_skd022(decoder);
+				if (errcode < 0)
+					return errcode;
+
+				if (errcode)
+					return 0;
+			}
+
 			return process_async_disabled_event(decoder, insn);
+		}
 
 		return 0;
 
@@ -1055,8 +1134,20 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 	ev = &decoder->event;
 	switch (ev->type) {
 	case ptev_async_disabled:
-		if (ev->variant.async_disabled.at == decoder->ip)
+		if (ev->variant.async_disabled.at == decoder->ip) {
+			if (decoder->query.config.errata.skd022) {
+				int errcode;
+
+				errcode = handle_erratum_skd022(decoder);
+				if (errcode < 0)
+					return errcode;
+
+				if (errcode)
+					return 0;
+			}
+
 			return process_async_disabled_event(decoder, insn);
+		}
 
 		return 0;
 

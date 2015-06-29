@@ -535,6 +535,16 @@ struct pt_errata {
 	 */
 	uint32_t skd007:1;
 
+	/** SKD022: VM Entry That Clears TraceEn May Generate a FUP.
+	 *
+	 * If VM entry clears Intel(R) PT (Intel Processor Trace)
+	 * IA32_RTIT_CTL.TraceEn (MSR 570H, bit 0) while PacketEn is 1 then a
+	 * FUP (Flow Update Packet) will precede the TIP.PGD (Target IP Packet,
+	 * Packet Generation Disable).  VM entry can clear TraceEn if the
+	 * VM-entry MSR-load area includes an entry for the IA32_RTIT_CTL MSR.
+	 */
+	uint32_t skd022:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
