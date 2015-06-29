@@ -526,6 +526,15 @@ struct pt_errata {
 	 */
 	uint32_t bdm64:1;
 
+	/** SKD007: Intel(R) PT Buffer Overflow May Result in Incorrect Packets.
+	 *
+	 * Under complex micro-architectural conditions, an Intel PT (Processor
+	 * Trace) OVF (Overflow) packet may be issued after the first byte of a
+	 * multi-byte CYC (Cycle Count) packet, instead of any remaining bytes
+	 * of the CYC.
+	 */
+	uint32_t skd007:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
