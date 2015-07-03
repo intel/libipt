@@ -30,6 +30,7 @@
 #include "pt_decoder_function.h"
 #include "pt_packet.h"
 #include "pt_sync.h"
+#include "pt_config.h"
 
 #include <string.h>
 
@@ -37,22 +38,16 @@
 int pt_pkt_decoder_init(struct pt_packet_decoder *decoder,
 			const struct pt_config *config)
 {
-	const uint8_t *begin, *end;
+	int errcode;
 
 	if (!decoder || !config)
 		return -pte_invalid;
 
-	if (config->size != sizeof(*config))
-		return -pte_bad_config;
-
-	begin = config->begin;
-	end = config->end;
-
-	if (!begin || end < begin)
-		return -pte_bad_config;
-
 	memset(decoder, 0, sizeof(*decoder));
-	decoder->config = *config;
+
+	errcode = pt_config_from_user(&decoder->config, config);
+	if (errcode < 0)
+		return errcode;
 
 	return 0;
 }
