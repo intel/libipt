@@ -417,22 +417,38 @@ static int pt_image_prune_cache(struct pt_image *image)
 	return status;
 }
 
-int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
-		  const struct pt_asid *asid, uint64_t addr)
+static int pt_image_read_callback(struct pt_image *image, uint8_t *buffer,
+				  uint16_t size, const struct pt_asid *asid,
+				  uint64_t addr)
 {
-	struct pt_section_list **list, **start;
 	read_memory_callback_t *callback;
-	int status;
 
-	if (!image || !asid)
+	if (!image)
+		return -pte_internal;
+
+	callback = image->readmem.callback;
+	if (!callback)
+		return -pte_nomap;
+
+	return callback(buffer, size, asid, addr, image->readmem.context);
+}
+
+static int pt_image_read_cold(struct pt_image *image,
+			      struct pt_section_list **list,
+			      uint8_t *buffer, uint16_t size,
+			      const struct pt_asid *asid, uint64_t addr)
+{
+	struct pt_section_list **start;
+
+	if (!image || !list)
 		return -pte_internal;
 
 	start = &image->sections;
-	for (list = start; *list;) {
+	while (*list) {
 		struct pt_mapped_section *msec;
 		struct pt_section_list *elem;
 		struct pt_section *sec;
-		int mapped, errcode;
+		int mapped, errcode, status;
 
 		elem = *list;
 		msec = &elem->section;
@@ -493,10 +509,44 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 		return status;
 	}
 
-	callback = image->readmem.callback;
-	if (callback)
-		return callback(buffer, size, asid, addr,
-				image->readmem.context);
+	return pt_image_read_callback(image, buffer, size, asid, addr);
+}
 
-	return -pte_nomap;
+int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
+		  const struct pt_asid *asid, uint64_t addr)
+{
+	struct pt_section_list **list, **start;
+
+	if (!image || !asid)
+		return -pte_internal;
+
+	start = &image->sections;
+	for (list = start; *list;) {
+		struct pt_mapped_section *msec;
+		struct pt_section_list *elem;
+		int status;
+
+		elem = *list;
+		msec = &elem->section;
+
+		if (!elem->mapped)
+			break;
+
+		status = pt_msec_read_mapped(msec, buffer, size, asid, addr);
+		if (status < 0) {
+			list = &elem->next;
+			continue;
+		}
+
+		/* Move the section to the front if it isn't already. */
+		if (list != start) {
+			*list = elem->next;
+			elem->next = *start;
+			*start = elem;
+		}
+
+		return status;
+	}
+
+	return pt_image_read_cold(image, list, buffer, size, asid, addr);
 }
