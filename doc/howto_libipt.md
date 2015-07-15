@@ -746,10 +746,12 @@ example:
         struct pt_insn insn;
 
         errcode = pt_insn_next(decoder, &insn);
+
+        if (insn.iclass != ptic_error)
+            <process instruction>(&insn);
+
         if (errcode < 0)
             break;
-
-        <process instruction>(&insn);
     }
 ~~~
 
@@ -763,6 +765,9 @@ You also get some information about events that occured either before or after
 executing the instruction like enable or disable tracing.  For detailed
 information about instructions, see `enum pt_insn_class` and `struct pt_insn` in
 the intel-pt.h header file.
+
+Beware that `pt_insn_next()` may indicate errors that occur after the returned
+instruction.  The returned instruction is valid if its `iclass` field is set.
 
 
 ## Parallel Decode

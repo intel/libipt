@@ -112,9 +112,10 @@ static int pt_insn_start(struct pt_insn_decoder *decoder, int status)
 	if (!decoder)
 		return -pte_internal;
 
-	decoder->status = status;
 	if (status < 0)
 		return status;
+
+	decoder->status = status;
 
 	if (!(status & pts_ip_suppressed))
 		decoder->enabled = 1;
@@ -483,9 +484,6 @@ static inline int event_pending(struct pt_insn_decoder *decoder)
 		return 1;
 
 	status = decoder->status;
-	if (status < 0)
-		return status;
-
 	if (!(status & pts_event_pending))
 		return 0;
 
@@ -1315,31 +1313,12 @@ static int proceed(struct pt_insn_decoder *decoder)
 		if (status < 0)
 			return status;
 
+		decoder->status = status;
+
 		/* We do need an IP to proceed. */
 		if (status & pts_ip_suppressed)
 			return -pte_noip;
-
-		decoder->status = status;
 	}
-
-	return 0;
-}
-
-static int pt_insn_peek(struct pt_insn_decoder *decoder, struct pt_insn *insn)
-{
-	int errcode;
-
-	/* Determine the next IP. */
-	errcode = proceed(decoder);
-	if (errcode < 0)
-		return errcode;
-
-	/* Peek event processing is based on the next instruction's
-	 * IP and is therefore independent of the relevance of @insn.
-	 */
-	errcode = process_events_peek(decoder, insn);
-	if (errcode < 0)
-		return errcode;
 
 	return 0;
 }
@@ -1353,10 +1332,6 @@ static int pt_insn_status(const struct pt_insn_decoder *decoder)
 
 	status = decoder->status;
 	flags = 0;
-
-	/* We postpone any errors until the next query. */
-	if (status < 0)
-		return 0;
 
 	/* Forward end-of-trace indications.
 	 *
@@ -1402,10 +1377,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 
 	/* Zero-initialize the instruction in case of error returns. */
 	memset(pinsn, 0, sizeof(*pinsn));
-
-	/* Report any errors we encountered. */
-	if (decoder->status < 0)
-		return decoder->status;
 
 	/* We process events three times:
 	 * - once based on the current IP.
@@ -1458,18 +1429,23 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 *
 	 * Otherwise, we determine the next instruction and peek ahead.
 	 *
-	 * This may indicate an event already in this instruction.  Any error
-	 * will be logged for the next iteration.
+	 * This may indicate an event already in this instruction.
 	 */
 	if (decoder->enabled) {
-		errcode = pt_insn_peek(decoder, pinsn);
+		/* Proceed errors are signaled one instruction too early. */
+		errcode = proceed(decoder);
 		if (errcode < 0)
-			decoder->status = errcode;
+			goto err;
+
+		/* Peek errors are ignored.  We will run into them again
+		 * in the next iteration.
+		 */
+		(void) process_events_peek(decoder, pinsn);
 	}
 
 	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
-		goto err_log;
+		return errcode;
 
 	/* We're done with this instruction.  Now we may change the IP again. */
 	decoder->event_may_change_ip = 1;
@@ -1484,7 +1460,5 @@ err:
 	 */
 	(void) insn_to_user(uinsn, size, pinsn);
 
-err_log:
-	decoder->status = errcode;
 	return errcode;
 }

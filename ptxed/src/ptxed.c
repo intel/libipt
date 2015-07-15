@@ -507,8 +507,19 @@ static void decode(struct pt_insn_decoder *decoder,
 			}
 
 			errcode = pt_insn_next(decoder, &insn, sizeof(insn));
-			if (errcode < 0)
+			if (errcode < 0) {
+				/* Even in case of errors, we may have succeeded
+				 * in decoding the current instruction.
+				 */
+				if (insn.iclass != ptic_error) {
+					if (!options->quiet)
+						print_insn(&insn, &xed, options,
+							   offset);
+					if (stats)
+						stats->insn += 1;
+				}
 				break;
+			}
 
 			if (!options->quiet)
 				print_insn(&insn, &xed, options, offset);

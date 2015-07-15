@@ -72,7 +72,11 @@ struct pt_insn_decoder {
 	/* The current execution mode. */
 	enum pt_exec_mode mode;
 
-	/* The status of the last decoder query. */
+	/* The status of the last successful decoder query.
+	 *
+	 * Errors are reported directly; the status is always a non-negative
+	 * pt_status_flag bit-vector.
+	 */
 	int status;
 
 	/* A collection of flags defining how to proceed flow reconstruction:
