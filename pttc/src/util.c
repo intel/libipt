@@ -73,6 +73,63 @@ int str_to_uint64(const char *str, uint64_t *val, int base)
 	return 0;
 }
 
+int str_to_uint32(const char *str, uint32_t *val, int base)
+{
+	uint64_t x;
+	int errcode;
+
+	if (!str || !val)
+		return -err_internal;
+
+	errcode = str_to_uint64(str, &x, base);
+	if (errcode < 0)
+		return errcode;
+
+	if (UINT32_MAX < x)
+		return -err_parse_int_too_big;
+
+	*val = (uint32_t) x;
+	return 0;
+}
+
+int str_to_uint16(const char *str, uint16_t *val, int base)
+{
+	uint64_t x;
+	int errcode;
+
+	if (!str || !val)
+		return -err_internal;
+
+	errcode = str_to_uint64(str, &x, base);
+	if (errcode < 0)
+		return errcode;
+
+	if (UINT16_MAX < x)
+		return -err_parse_int_too_big;
+
+	*val = (uint16_t) x;
+	return 0;
+}
+
+int str_to_uint8(const char *str, uint8_t *val, int base)
+{
+	uint64_t x;
+	int errcode;
+
+	if (!str || !val)
+		return -err_internal;
+
+	errcode = str_to_uint64(str, &x, base);
+	if (errcode < 0)
+		return errcode;
+
+	if (UINT8_MAX < x)
+		return -err_parse_int_too_big;
+
+	*val = (uint8_t) x;
+	return 0;
+}
+
 int do_bug_on(int cond, const char *condstr, const char *file, int line)
 {
 	if (cond)

@@ -40,14 +40,17 @@
  */
 extern char *duplicate_str(const char *s);
 
-/* Converts the string @str into an usigned 64-bit value @val using base @base.
+/* Converts the string @str into an usigned x-bit value @val using base @base.
  *
  * Returns 0 on success; a negative enum errcode otherwise.
  * Returns -err_internal if either @str or @val is NULL.
  * Returns -err_parse_int if there was a general parsing error.
- * Returns -err_parse_int_too_big if parsed value wouldn't fit into an uint64_t.
+ * Returns -err_parse_int_too_big if parsed value wouldn't fit into x bit.
  */
 extern int str_to_uint64(const char *str, uint64_t *val, int base);
+extern int str_to_uint32(const char *str, uint32_t *val, int base);
+extern int str_to_uint16(const char *str, uint16_t *val, int base);
+extern int str_to_uint8(const char *str, uint8_t *val, int base);
 
 /* Executes @file and passes @argv as command-line arguments.
  * The last element in @argv must be NULL.

@@ -1010,10 +1010,9 @@ int parse_uint64(uint64_t *x, char *payload)
 	return 0;
 }
 
-int parse_uint8(uint8_t *x, char *payload)
+int parse_uint32(uint32_t *x, char *payload)
 {
-	char *endptr;
-	long int i;
+	int errcode;
 
 	if (bug_on(!x))
 		return -err_internal;
@@ -1022,22 +1021,16 @@ int parse_uint8(uint8_t *x, char *payload)
 	if (!payload)
 		return -err_parse_no_args;
 
-	i = strtol(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
-
-	if (i > 0xff)
-		return -err_parse_int_too_big;
-
-	*x = (uint8_t)i;
+	errcode = str_to_uint32(payload, x, 0);
+	if (errcode < 0)
+		return errcode;
 
 	return 0;
 }
 
 int parse_uint16(uint16_t *x, char *payload)
 {
-	char *endptr;
-	long int i;
+	int errcode;
 
 	if (bug_on(!x))
 		return -err_internal;
@@ -1046,22 +1039,16 @@ int parse_uint16(uint16_t *x, char *payload)
 	if (!payload)
 		return -err_parse_no_args;
 
-	i = strtol(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
-
-	if (i > 0xffffl)
-		return -err_parse_int_too_big;
-
-	*x = (uint16_t)i;
+	errcode = str_to_uint16(payload, x, 0);
+	if (errcode < 0)
+		return errcode;
 
 	return 0;
 }
 
-int parse_uint32(uint32_t *x, char *payload)
+int parse_uint8(uint8_t *x, char *payload)
 {
-	char *endptr;
-	long long int i;
+	int errcode;
 
 	if (bug_on(!x))
 		return -err_internal;
@@ -1070,14 +1057,9 @@ int parse_uint32(uint32_t *x, char *payload)
 	if (!payload)
 		return -err_parse_no_args;
 
-	i = strtoll(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
-
-	if (i > 0xffffffffll)
-		return -err_parse_int_too_big;
-
-	*x = (uint32_t)i;
+	errcode = str_to_uint8(payload, x, 0);
+	if (errcode < 0)
+		return errcode;
 
 	return 0;
 }
