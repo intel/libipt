@@ -38,9 +38,8 @@ are contained in the source tree:
   * *pttc*      A packet encoder example.
 
 
-For detailed information about Intel PT, please refer to chapter 11 of the Intel
-Architecture Instruction Set Extensions Programming Reference at
-http://www.intel.com/products/processor/manuals/.
+For detailed information about Intel PT, please refer to chapter 36 of the Intel
+Software Developer's Manual at http://www.intel.com/sdm.
 
 
 ## Introduction
