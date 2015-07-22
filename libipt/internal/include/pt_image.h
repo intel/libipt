@@ -77,15 +77,13 @@ extern void pt_image_init(struct pt_image *image, const char *name);
 
 /* Finalize an image.
  *
- * This removes and frees all sections and frees the name.
+ * This removes all sections and frees the name.
  */
 extern void pt_image_fini(struct pt_image *image);
 
 /* Add a section to an image.
  *
  * Add @section to @image at @vaddr in @asid if @section fits without overlap.
- *
- * Successfully added sections will be freed when they are removed.
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.
@@ -95,8 +93,6 @@ extern int pt_image_add(struct pt_image *image, struct pt_section *section,
 			const struct pt_asid *asid, uint64_t vaddr);
 
 /* Remove a section from an image.
- *
- * Removes and frees @section mapped at @vaddr in @asid from @image.
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.
