@@ -41,6 +41,17 @@ find project-specific options for enabling optional features, optional
 components, or optional build variants.
 
 
+### Optional Components
+
+By default, only the decoder library is built.  Other components can be enabled
+by setting the respective cmake variable to ON.
+
+The following optional components are availble:
+
+    PTUNIT             A simple unit test framework.
+                       A collection of unit tests for libipt.
+
+
 ### Optional Features
 
 Features are enabled by setting the respective FEATURE_<name> cmake variable.

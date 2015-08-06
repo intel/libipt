@@ -65,6 +65,7 @@ if (FEATURE_THREADS)
 endif (FEATURE_THREADS)
 
 option(DEVBUILD "Enable compiler warnings and turn them into errors." OFF)
+option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 
 include_directories(
   include
@@ -191,4 +192,7 @@ if (CMAKE_HOST_UNIX)
 endif (CMAKE_HOST_UNIX)
 
 add_subdirectory(libipt)
-add_subdirectory(ptunit)
+
+if (PTUNIT)
+  add_subdirectory(ptunit)
+endif (PTUNIT)
