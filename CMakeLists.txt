@@ -166,11 +166,6 @@ if (CMAKE_HOST_UNIX)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 
-  # track dependencies
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -MMD")
-
   if (DEVBUILD)
     # compiler warnings
     #
