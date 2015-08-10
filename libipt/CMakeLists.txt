@@ -56,11 +56,6 @@ set(LIBIPT_FILES
 )
 
 if (CMAKE_HOST_UNIX)
-  # build position independent
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-
   include_directories(
     internal/include/posix
   )
