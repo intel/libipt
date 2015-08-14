@@ -384,6 +384,15 @@ static struct ptunit_result vmptrld(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result jrcxz(void)
+{
+	pti_uint8_t insn[] = { 0xe3, 0x00 };
+
+	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_JrCXZ);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -420,6 +429,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, vmresume);
 	ptu_run(suite, vmcall);
 	ptu_run(suite, vmptrld);
+	ptu_run(suite, jrcxz);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

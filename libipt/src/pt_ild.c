@@ -1103,9 +1103,10 @@ pti_instruction_decode (pti_ild_t * ild)
     case 0xE3:                 /* JRCXZ */
       if (map == PTI_MAP_0)
         {
-          ild->iclass = PTI_INST_MOV_CR3;
+          ild->iclass = PTI_INST_JrCXZ;
           ild->u.s.branch = 1;
           ild->u.s.branch_direct = 1;
+          ild->u.s.cond = 1;
           set_branch_target (ild);
           return 1;
         }
