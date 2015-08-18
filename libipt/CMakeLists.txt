@@ -85,7 +85,20 @@ add_library(libipt SHARED
   ${LIBIPT_FILES}
 )
 
-set_target_properties(libipt PROPERTIES PREFIX "")
+set_target_properties(libipt PROPERTIES
+  PREFIX ""
+  PUBLIC_HEADER include/intel-pt.h
+  VERSION   ${PT_VERSION}
+  SOVERSION ${PT_VERSION_MAJOR}
+)
+
+install(TARGETS libipt
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
 
 add_executable(ptunit-last_ip
   test/src/ptunit-last_ip.c
