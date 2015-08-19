@@ -32,6 +32,7 @@
 ;        includes FUP and MODE.Exec packets.
 ;
 ;   cpu 6/61
+;   cpu 6/78
 ;   cpu 6/94
 ;
 ; Variant: sync at an earlier PSB.

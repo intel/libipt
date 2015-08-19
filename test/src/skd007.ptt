@@ -31,6 +31,7 @@
 ;         multi-byte CYC (Cycle Count) packet, instead of any remaining bytes
 ;         of the CYC.
 ;
+;   cpu 6/78
 ;   cpu 6/94
 ;
 
