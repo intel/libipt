@@ -51,6 +51,12 @@ The following optional components are availble:
     PTUNIT             A simple unit test framework.
                        A collection of unit tests for libipt.
 
+    PTDUMP             A packet dumper example.
+
+    PTXED              A trace disassembler example.
+
+    PTTC               A trace test generator.
+
 
 ### Optional Features
 
@@ -59,7 +65,13 @@ This causes the FEATURE_<name> pre-processor macro to be defined and may also
 cause additional source files to be compiled and additional libraries to be
 linked.
 
-The following features are supported:
+Features are enabled globally and will be used by all components that support
+the feature.  The following features are supported:
+
+    FEATURE_ELF         Support for the ELF object format.
+
+                        This feature requires the elf.h header.
+
 
     FEATURE_THREADS     Support some amount of multi-threading.
 
@@ -96,6 +108,20 @@ build.
                         Defaults to the empty string.
 
 
+### Dependencies
+
+In order to build ptxed, the location of the XED library and the XED header
+files must be specified.
+
+    XED_INCLUDE         Path to the directory containing the XED header files.
+
+    XED_LIBDIR          Path to the directory containing the XED library.
+
+
+When using XED from a PIN distribution, the respective directories are located
+in `extras/xed2-<arch>/`.
+
+
 ## Building on Linux``*`` and OS X``*``
 
 We recommend out-of-tree builds.  Start by creating the destination directory
@@ -112,7 +138,9 @@ arguments, cmake uses default values.
     $ cmake /path/to/src
 
 
-To change the configuration use:
+If you have not passed values for XED_INCLUDE or XED_LIBDIR, you need to
+configure them now if you want to build ptxed.  You may also use this command to
+change the configuration at any time later on.
 
     $ make edit_cache
 
@@ -149,7 +177,8 @@ the
 button and select the builder you want to use.
 
 Cmake will now populate the remainder of the window with configuration options.
-After completing the configuration, press the
+Please make sure to specify at least XED_INCLUDE and XED_LIBDIR if you want to
+build ptxed.  After completing the configuration, press the
 
     Generate
 

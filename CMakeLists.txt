@@ -65,6 +65,10 @@ if (FEATURE_THREADS)
 endif (FEATURE_THREADS)
 
 option(DEVBUILD "Enable compiler warnings and turn them into errors." OFF)
+
+option(PTDUMP "Enable ptdump, a packet dumper")
+option(PTXED  "Enable ptxed, an instruction flow dumper")
+option(PTTC   "Enable pttc, a test compiler")
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 
 include_directories(
@@ -90,6 +94,10 @@ if (CMAKE_HOST_WIN32)
     # cl spells strtoull _strtoui64
     #
     /Dstrtoull=_strtoui64
+
+    # cl forgot to declare snprintf
+    #
+    /Dsnprintf=_snprintf_c
 
     # avoid annoying warnings about unsecure standard functions
     #
@@ -193,6 +201,15 @@ endif (CMAKE_HOST_UNIX)
 
 add_subdirectory(libipt)
 
+if (PTDUMP)
+  add_subdirectory(ptdump)
+endif (PTDUMP)
+if (PTXED)
+  add_subdirectory(ptxed)
+endif (PTXED)
+if (PTTC)
+  add_subdirectory(pttc)
+endif (PTTC)
 if (PTUNIT)
   add_subdirectory(ptunit)
 endif (PTUNIT)
