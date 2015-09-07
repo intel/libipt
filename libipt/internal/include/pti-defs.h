@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(_PTI_DEFS_H_)
-#define _PTI_DEFS_H_
+#if !defined(PTI_DEFS_H)
+#define PTI_DEFS_H
 
 
 #if defined(__FreeBSD__)

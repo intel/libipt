@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_IMAGE_H__
-#define __PT_IMAGE_H__
+#ifndef PT_IMAGE_H
+#define PT_IMAGE_H
 
 #include "pt_mapped_section.h"
 
@@ -117,4 +117,4 @@ extern int pt_image_read(struct pt_image *image, uint8_t *buffer,
 			 uint16_t size, const struct pt_asid *asid,
 			 uint64_t addr);
 
-#endif /* __PT_IMAGE_H__ */
+#endif /* PT_IMAGE_H */

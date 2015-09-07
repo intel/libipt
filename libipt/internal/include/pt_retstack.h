@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_RETSTACK_H__
-#define __PT_RETSTACK_H__
+#ifndef PT_RETSTACK_H
+#define PT_RETSTACK_H
 
 #include <stdint.h>
 
@@ -84,4 +84,4 @@ extern int pt_retstack_pop(struct pt_retstack *retstack, uint64_t *ip);
  */
 extern int pt_retstack_push(struct pt_retstack *retstack, uint64_t ip);
 
-#endif /* __PT_RETSTACK_H__ */
+#endif /* PT_RETSTACK_H */

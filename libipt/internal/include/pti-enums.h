@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(_PTI_ENUMS_H_)
-#define _PTI_ENUMS_H_
+#if !defined(PTI_ENUMS_H)
+#define PTI_ENUMS_H
 
 
 #define PTI_MODRM_FALSE       0

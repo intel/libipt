@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PTUNIT_THREADS_H__
-#define __PTUNIT_THREADS_H__
+#ifndef PTUNIT_THREADS_H
+#define PTUNIT_THREADS_H
 
 #include "ptunit.h"
 
@@ -155,4 +155,4 @@ ptunit_thrd_unlock(struct ptunit_thrd_fixture *tfix)
 	return ptu_passed();
 }
 
-#endif /* __PTUNIT_THREADS_H__ */
+#endif /* PTUNIT_THREADS_H */

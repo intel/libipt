@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_SECTION_FILE_H__
-#define __PT_SECTION_FILE_H__
+#ifndef PT_SECTION_FILE_H
+#define PT_SECTION_FILE_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -91,4 +91,4 @@ extern int pt_sec_file_unmap(struct pt_section *section);
 extern int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 			    uint16_t size, uint64_t offset);
 
-#endif /* __PT_SECTION_FILE_H__ */
+#endif /* PT_SECTION_FILE_H */

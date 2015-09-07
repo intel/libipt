@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_PACKET_H__
-#define __PT_PACKET_H__
+#ifndef PT_PACKET_H
+#define PT_PACKET_H
 
 #include <stdint.h>
 
@@ -92,4 +92,4 @@ extern int pt_pkt_read_vmcs(struct pt_packet_vmcs *packet, const uint8_t *pos,
 extern int pt_pkt_read_mnt(struct pt_packet_mnt *packet, const uint8_t *pos,
 			   const struct pt_config *config);
 
-#endif /* __PT_PACKET_H__ */
+#endif /* PT_PACKET_H */

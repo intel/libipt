@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_MAPPED_SECTION_H__
-#define __PT_MAPPED_SECTION_H__
+#ifndef PT_MAPPED_SECTION_H
+#define PT_MAPPED_SECTION_H
 
 #include "intel-pt.h"
 
@@ -103,4 +103,4 @@ extern int pt_msec_read_mapped(const struct pt_mapped_section *msec,
 			       uint8_t *buffer, uint16_t size,
 			       const struct pt_asid *asid, uint64_t addr);
 
-#endif /* __PT_MAPPED_SECTION_H__ */
+#endif /* PT_MAPPED_SECTION_H */

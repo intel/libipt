@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_PACKET_DECODER_H__
-#define __PT_PACKET_DECODER_H__
+#ifndef PT_PACKET_DECODER_H
+#define PT_PACKET_DECODER_H
 
 #include "intel-pt.h"
 
@@ -84,4 +84,4 @@ extern int pt_pkt_decode_stop(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_vmcs(struct pt_packet_decoder *, struct pt_packet *);
 extern int pt_pkt_decode_mnt(struct pt_packet_decoder *, struct pt_packet *);
 
-#endif /* __PT_PACKET_DECODER_H__ */
+#endif /* PT_PACKET_DECODER_H */

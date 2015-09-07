@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_ASID_H__
-#define __PT_ASID_H__
+#ifndef PT_ASID_H
+#define PT_ASID_H
 
 struct pt_asid;
 
@@ -58,4 +58,4 @@ extern int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user);
  */
 extern int pt_asid_match(const struct pt_asid *lhs, const struct pt_asid *rhs);
 
-#endif /* __PT_ASID_H__ */
+#endif /* PT_ASID_H */

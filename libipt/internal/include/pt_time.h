@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_TIME_H__
-#define __PT_TIME_H__
+#ifndef PT_TIME_H
+#define PT_TIME_H
 
 #include <stdint.h>
 
@@ -232,4 +232,4 @@ extern int pt_tcal_update_cyc(struct pt_time_cal *,
 			      const struct pt_packet_cyc *,
 			      const struct pt_config *);
 
-#endif /* __PT_TIME_H__ */
+#endif /* PT_TIME_H */

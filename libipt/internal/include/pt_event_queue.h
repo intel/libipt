@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_EVENT_QUEUE_H__
-#define __PT_EVENT_QUEUE_H__
+#ifndef PT_EVENT_QUEUE_H
+#define PT_EVENT_QUEUE_H
 
 #include "intel-pt.h"
 
@@ -140,4 +140,4 @@ extern struct pt_event *pt_evq_find(struct pt_event_queue *evq,
 				    enum pt_event_binding evb,
 				    enum pt_event_type evt);
 
-#endif /* __PT_EVENT_QUEUE_H__ */
+#endif /* PT_EVENT_QUEUE_H */

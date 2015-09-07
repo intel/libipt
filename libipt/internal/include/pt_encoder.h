@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_ENCODER_H__
-#define __PT_ENCODER_H__
+#ifndef PT_ENCODER_H
+#define PT_ENCODER_H
 
 #include "intel-pt.h"
 
@@ -122,4 +122,4 @@ extern int pt_encode_vmcs(struct pt_encoder *, uint64_t);
 /* Encode a Maintenance (mnt) packet. */
 extern int pt_encode_mnt(struct pt_encoder *, uint64_t);
 
-#endif /* __PT_ENCODER_H__ */
+#endif /* PT_ENCODER_H */

@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PTUNIT_MKTEMPNAME_H__
-#define __PTUNIT_MKTEMPNAME_H__
+#ifndef PTUNIT_MKTEMPNAME_H
+#define PTUNIT_MKTEMPNAME_H
 
 /* Create a name for a temporary file.
  *
@@ -37,4 +37,4 @@
  */
 extern char *mktempname(void);
 
-#endif /* __PTUNIT_MKTEMPNAME_H__ */
+#endif /* PTUNIT_MKTEMPNAME_H */

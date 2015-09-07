@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_SECTION_POSIX_H__
-#define __PT_SECTION_POSIX_H__
+#ifndef PT_SECTION_POSIX_H
+#define PT_SECTION_POSIX_H
 
 #include <stdint.h>
 #include <sys/stat.h>
@@ -85,4 +85,4 @@ extern int pt_sec_posix_unmap(struct pt_section *section);
 extern int pt_sec_posix_read(const struct pt_section *section, uint8_t *buffer,
 			     uint16_t size, uint64_t offset);
 
-#endif /* __PT_SECTION_POSIX_H__ */
+#endif /* PT_SECTION_POSIX_H */

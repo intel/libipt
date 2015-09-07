@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_CPUID_H__
-#define __PT_CPUID_H__
+#ifndef PT_CPUID_H
+#define PT_CPUID_H
 
 #include <inttypes.h>
 
@@ -37,4 +37,4 @@
 extern void pt_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx,
 		     uint32_t *ecx, uint32_t *edx);
 
-#endif /* __PT_CPUID_H__ */
+#endif /* PT_CPUID_H */

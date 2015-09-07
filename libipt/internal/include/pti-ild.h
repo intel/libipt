@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(_PTI_ILD_H_)
-#define _PTI_ILD_H_
+#if !defined(PTI_ILD_H)
+#define PTI_ILD_H
 
 
 #include "pti-defs.h"

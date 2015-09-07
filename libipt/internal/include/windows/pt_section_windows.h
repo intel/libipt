@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_SECTION_WINDOWS_H__
-#define __PT_SECTION_WINDOWS_H__
+#ifndef PT_SECTION_WINDOWS_H
+#define PT_SECTION_WINDOWS_H
 
 #include <windows.h>
 #include <sys/types.h>
@@ -96,4 +96,4 @@ extern int pt_sec_windows_read(const struct pt_section *section,
 			       uint8_t *buffer, uint16_t size,
 			       uint64_t offset);
 
-#endif /* __PT_SECTION_WINDOWS_H__ */
+#endif /* PT_SECTION_WINDOWS_H */

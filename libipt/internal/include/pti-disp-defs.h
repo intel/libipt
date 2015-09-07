@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(_PTI_DISP_DEFS_H_)
-#define _PTI_DISP_DEFS_H_
+#if !defined(PTI_DISP_DEFS_H)
+#define PTI_DISP_DEFS_H
 
 #define PTI_DISP_NONE                                 0
 #define PTI_PRESERVE_DEFAULT                          1

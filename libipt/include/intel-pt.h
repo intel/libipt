@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __INTEL_PT_H__
-#define __INTEL_PT_H__
+#ifndef INTEL_PT_H
+#define INTEL_PT_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -1948,4 +1948,4 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
 extern pt_export int pt_insn_next(struct pt_insn_decoder *decoder,
 				  struct pt_insn *insn, size_t size);
 
-#endif /* __INTEL_PT_H__ */
+#endif /* INTEL_PT_H */

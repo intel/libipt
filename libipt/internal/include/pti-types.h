@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(_PTI_TYPES_H_)
-#define _PTI_TYPES_H_
+#if !defined(PTI_TYPES_H)
+#define PTI_TYPES_H
 
 
 #if defined(__GNUC__) || defined(__ICC)

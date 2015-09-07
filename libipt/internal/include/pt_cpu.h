@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_CPU_H__
-#define __PT_CPU_H__
+#ifndef PT_CPU_H
+#define PT_CPU_H
 
 struct pt_cpu;
 
@@ -51,4 +51,4 @@ extern int pt_cpu_parse(struct pt_cpu *cpu, const char *s);
  */
 extern int pt_cpu_read(struct pt_cpu *cpu);
 
-#endif /* __PT_CPU_H__ */
+#endif /* PT_CPU_H */

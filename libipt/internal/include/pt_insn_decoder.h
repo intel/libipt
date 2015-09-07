@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_INSN_DECODER_H__
-#define __PT_INSN_DECODER_H__
+#ifndef PT_INSN_DECODER_H
+#define PT_INSN_DECODER_H
 
 #include "pt_query_decoder.h"
 #include "pt_image.h"
@@ -110,4 +110,4 @@ extern int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
 /* Finalize an instruction flow decoder. */
 extern void pt_insn_decoder_fini(struct pt_insn_decoder *decoder);
 
-#endif /* __PT_INSN_DECODER_H__ */
+#endif /* PT_INSN_DECODER_H */
