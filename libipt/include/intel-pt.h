@@ -33,6 +33,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /* Intel(R) Processor Trace (Intel PT) decoder library.
  *
@@ -1947,5 +1951,9 @@ extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
  */
 extern pt_export int pt_insn_next(struct pt_insn_decoder *decoder,
 				  struct pt_insn *insn, size_t size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* INTEL_PT_H */
