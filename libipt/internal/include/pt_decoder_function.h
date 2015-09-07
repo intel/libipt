@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_DECODER_FUNCTION_H__
-#define __PT_DECODER_FUNCTION_H__
+#ifndef PT_DECODER_FUNCTION_H
+#define PT_DECODER_FUNCTION_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -122,4 +122,4 @@ extern const struct pt_decoder_function pt_decode_stop;
 extern const struct pt_decoder_function pt_decode_vmcs;
 extern const struct pt_decoder_function pt_decode_mnt;
 
-#endif /* __PT_DECODER_FUNCTION_H__ */
+#endif /* PT_DECODER_FUNCTION_H */

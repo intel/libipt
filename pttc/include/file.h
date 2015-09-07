@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __FILE_H__
-#define __FILE_H__
+#ifndef FILE_H
+#define FILE_H
 
 #include <stddef.h>
 
@@ -140,4 +140,4 @@ extern int fl_getline(struct file_list *fl, char *dest, size_t destlen,
 extern int fl_gettext(struct file_list *fl, const struct text **t,
 		      const char *filename);
 
-#endif /* __FILE_H__ */
+#endif /* FILE_H */

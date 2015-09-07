@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(_PTI_IMM_DEFS_H_)
-#define _PTI_IMM_DEFS_H_
+#if !defined(PTI_IMM_DEFS_H)
+#define PTI_IMM_DEFS_H
 
 #define PTI_IMM_NONE                                  0
 #define PTI_0_IMM_WIDTH_CONST_l2                      1

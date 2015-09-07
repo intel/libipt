@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LOAD_ELF_H__
-#define __LOAD_ELF_H__
+#ifndef LOAD_ELF_H
+#define LOAD_ELF_H
 
 #include <stdint.h>
 
@@ -57,4 +57,4 @@ struct pt_image;
 extern int load_elf(struct pt_image *image, const char *file,
 		    uint64_t base, const char *prog, int verbose);
 
-#endif /* __LOAD_ELF_H__ */
+#endif /* LOAD_ELF_H */

@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __UTIL_H__
-#define __UTIL_H__
+#ifndef UTIL_H
+#define UTIL_H
 
 #include <stdint.h>
 
@@ -112,4 +112,4 @@ extern int l_append(struct label *l, const char *name, uint64_t addr);
  */
 extern int l_lookup(const struct label *l, uint64_t *addr, const char *name);
 
-#endif /* __UTIL_H__ */
+#endif /* UTIL_H */

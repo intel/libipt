@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PARSE_H__
-#define __PARSE_H__
+#ifndef PARSE_H
+#define PARSE_H
 
 #include "yasm.h"
 
@@ -165,4 +165,4 @@ extern int parse_uint32(uint32_t *x, char *payload);
  */
 extern int parse_tma(uint16_t *ctc, uint16_t *fc, char *payload);
 
-#endif /* __PARSE_H__ */
+#endif /* PARSE_H */

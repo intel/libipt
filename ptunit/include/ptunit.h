@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PTUNIT_H__
-#define __PTUNIT_H__
+#ifndef PTUNIT_H
+#define PTUNIT_H
 
 #include <stdint.h>
 #include <string.h>
@@ -201,12 +201,12 @@ extern struct ptunit_result ptunit_mk_failed_signed_int(const char *expr,
 
 #define ptunit_int_cmp(A, E, C)						\
 	do {								\
-		int64_t __a = (A), __e = (E);				\
+		int64_t a = (A), e = (E);				\
 									\
-		if (!(__a C __e))					\
+		if (!(a C e))						\
 			return ptunit_mk_failed_signed_int(#A #C #E, #C, \
 							   ptu_here(),	\
-							   __a, __e);	\
+							   a, e);	\
 	} while (0)
 
 
@@ -219,12 +219,12 @@ extern struct ptunit_result ptunit_mk_failed_unsigned_int(const char *expr,
 
 #define ptunit_uint_cmp(A, E, C)					\
 	do {								\
-		uint64_t __a = (A), __e = (E);				\
+		uint64_t a = (A), e = (E);				\
 									\
-		if (!(__a C __e))					\
+		if (!(a C e))						\
 			return ptunit_mk_failed_unsigned_int(#A #C #E, #C, \
 							     ptu_here(), \
-							     __a, __e);	\
+							     a, e);	\
 	} while (0)
 
 
@@ -237,12 +237,12 @@ extern struct ptunit_result ptunit_mk_failed_pointer(const char *expr,
 
 #define ptunit_ptr_cmp(A, E, C)						\
 	do {								\
-		const void *__a = (A), *__e = (E);			\
+		const void *a = (A), *e = (E);				\
 									\
-		if (!(__a C __e))					\
+		if (!(a C e))						\
 			return ptunit_mk_failed_pointer(#A #C #E, #C,	\
 							ptu_here(),	\
-							__a, __e);	\
+							a, e);		\
 	} while (0)
 
 
@@ -255,15 +255,15 @@ extern struct ptunit_result ptunit_mk_failed_str(const char *expr,
 
 #define ptunit_str_cmp(A, E, C)						\
 	do {								\
-		const char *__a = (A), *__e = (E);			\
+		const char *a = (A), *e = (E);				\
 									\
 		ptunit_ptr_cmp(A, NULL, !=);				\
 		ptunit_ptr_cmp(E, NULL, !=);				\
 									\
-		if (!(strcmp(__a, __e) C 0))				\
+		if (!(strcmp(a, e) C 0))				\
 			return ptunit_mk_failed_str(#A "~"#C #E, "~"#C,	\
 						    ptu_here(),		\
-						    __a, __e);		\
+						    a, e);		\
 	} while (0)
 
 
@@ -271,11 +271,11 @@ extern struct ptunit_result ptunit_mk_failed_str(const char *expr,
 
 #define ptunit_subtest(T, ...)				\
 	do {						\
-		struct ptunit_result __result;		\
+		struct ptunit_result result;		\
 							\
-		__result = (T)(__VA_ARGS__);		\
-		if (__result.type != ptur_passed)	\
-			return __result;		\
+		result = (T)(__VA_ARGS__);		\
+		if (result.type != ptur_passed)		\
+			return result;			\
 	} while (0)
 
 
@@ -283,12 +283,12 @@ extern struct ptunit_result ptunit_mk_failed_str(const char *expr,
 
 #define ptunit_check(T, ...)					\
 	do {							\
-		struct ptunit_result __result;			\
+		struct ptunit_result result;			\
 								\
-		__result = (T)(__VA_ARGS__);			\
-		if (__result.type != ptur_passed) {		\
-			__result.failed.where = ptu_here();	\
-			return __result;			\
+		result = (T)(__VA_ARGS__);			\
+		if (result.type != ptur_passed) {		\
+			result.failed.where = ptu_here();	\
+			return result;				\
 		}						\
 	} while (0)
 
@@ -315,13 +315,13 @@ extern void ptunit_report(const struct ptunit_suite *);
 
 #define ptunit_run(S, T)				\
 	do {						\
-		struct ptunit_test __test;		\
+		struct ptunit_test test;		\
 							\
-		__test = ptunit_mk_test(#T, NULL);	\
-		__test.result = (T)();			\
+		test = ptunit_mk_test(#T, NULL);	\
+		test.result = (T)();			\
 							\
-		ptunit_log_test(S, &__test);		\
-		ptunit_fini_test(&__test);		\
+		ptunit_log_test(S, &test);		\
+		ptunit_fini_test(&test);		\
 	} while (0)
 
 
@@ -329,13 +329,13 @@ extern void ptunit_report(const struct ptunit_suite *);
 
 #define ptunit_run_p(S, T, ...)					\
 	do {							\
-		struct ptunit_test __test;			\
+		struct ptunit_test test;			\
 								\
-		__test = ptunit_mk_test(#T, #__VA_ARGS__);	\
-		__test.result = (T)(__VA_ARGS__);		\
+		test = ptunit_mk_test(#T, #__VA_ARGS__);	\
+		test.result = (T)(__VA_ARGS__);			\
 								\
-		ptunit_log_test(S, &__test);			\
-		ptunit_fini_test(&__test);			\
+		ptunit_log_test(S, &test);			\
+		ptunit_fini_test(&test);			\
 	} while (0)
 
 
@@ -346,18 +346,18 @@ extern void ptunit_report(const struct ptunit_suite *);
 
 #define ptunit_frun(R, T, F, ...)				\
 	do {							\
-		struct ptunit_result *__pr = &(R);		\
+		struct ptunit_result *pr = &(R);		\
 								\
-		__pr->type = ptur_passed;			\
+		pr->type = ptur_passed;				\
 		if ((F)->init)					\
-			*__pr = (F)->init(F);			\
+			*pr = (F)->init(F);			\
 								\
-		if (__pr->type == ptur_passed)			\
-			*__pr = (T)(__VA_ARGS__);		\
+		if (pr->type == ptur_passed)			\
+			*pr = (T)(__VA_ARGS__);			\
 								\
 		if ((F)->fini) {				\
-			if (__pr->type == ptur_passed)		\
-				*__pr = (F)->fini(F);		\
+			if (pr->type == ptur_passed)		\
+				*pr = (F)->fini(F);		\
 			else					\
 				(void) (F)->fini(F);		\
 		}						\
@@ -368,14 +368,14 @@ extern void ptunit_report(const struct ptunit_suite *);
 
 #define ptunit_run_f(S, T, F)					\
 	do {							\
-		struct ptunit_test __test;			\
+		struct ptunit_test test;			\
 								\
-		__test = ptunit_mk_test(#T, #F);		\
+		test = ptunit_mk_test(#T, #F);			\
 								\
-		ptunit_frun(__test.result, T, &(F), &(F));	\
+		ptunit_frun(test.result, T, &(F), &(F));	\
 								\
-		ptunit_log_test(S, &__test);			\
-		ptunit_fini_test(&__test);			\
+		ptunit_log_test(S, &test);			\
+		ptunit_fini_test(&test);			\
 	} while (0)
 
 
@@ -383,14 +383,14 @@ extern void ptunit_report(const struct ptunit_suite *);
 
 #define ptunit_run_fp(S, T, F, ...)					\
 	do {								\
-		struct ptunit_test __test;				\
+		struct ptunit_test test;				\
 									\
-		__test = ptunit_mk_test(#T, #F ", " #__VA_ARGS__);	\
+		test = ptunit_mk_test(#T, #F ", " #__VA_ARGS__);	\
 									\
-		ptunit_frun(__test.result, T, &(F), &(F), __VA_ARGS__);	\
+		ptunit_frun(test.result, T, &(F), &(F), __VA_ARGS__);	\
 									\
-		ptunit_log_test(S, &__test);				\
-		ptunit_fini_test(&__test);				\
+		ptunit_log_test(S, &test);				\
+		ptunit_fini_test(&test);				\
 	} while (0)
 
 
@@ -450,4 +450,4 @@ extern void ptunit_report(const struct ptunit_suite *);
 /* Run a single parameterized unit test with fixture. */
 #define ptu_run_fp(S, T, F, ...) ptunit_run_fp(&(S), T, F, __VA_ARGS__)
 
-#endif /* __PTUNIT_H__ */
+#endif /* PTUNIT_H */

@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_SYNC_H__
-#define __PT_SYNC_H__
+#ifndef PT_SYNC_H
+#define PT_SYNC_H
 
 #include <stdint.h>
 
@@ -68,4 +68,4 @@ extern int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
 extern int pt_sync_set(const uint8_t **sync, const uint8_t *pos,
 		       const struct pt_config *config);
 
-#endif /* __PT_SYNC_H__ */
+#endif /* PT_SYNC_H */

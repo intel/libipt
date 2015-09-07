@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_LAST_IP_H__
-#define __PT_LAST_IP_H__
+#ifndef PT_LAST_IP_H
+#define PT_LAST_IP_H
 
 #include <stdint.h>
 
@@ -76,4 +76,4 @@ extern int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
 				const struct pt_packet_ip *packet,
 				const struct pt_config *config);
 
-#endif /* __PT_LAST_IP_H__ */
+#endif /* PT_LAST_IP_H */

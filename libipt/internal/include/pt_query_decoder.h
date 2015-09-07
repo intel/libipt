@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_QUERY_DECODER_H__
-#define __PT_QUERY_DECODER_H__
+#ifndef PT_QUERY_DECODER_H
+#define PT_QUERY_DECODER_H
 
 #include "pt_last_ip.h"
 #include "pt_tnt_cache.h"
@@ -122,4 +122,4 @@ extern int pt_qry_header_pip(struct pt_query_decoder *);
 extern int pt_qry_header_mode(struct pt_query_decoder *);
 extern int pt_qry_header_vmcs(struct pt_query_decoder *);
 
-#endif /* __PT_QUERY_DECODER_H__ */
+#endif /* PT_QUERY_DECODER_H */

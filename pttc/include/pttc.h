@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PTTC_H__
-#define __PTTC_H__
+#ifndef PTTC_H
+#define PTTC_H
 
 #include "intel-pt.h"
 
@@ -46,4 +46,4 @@ struct pttc_options {
  */
 extern int pttc_main(const struct pttc_options *options);
 
-#endif /* __PTTC_H__ */
+#endif /* PTTC_H */

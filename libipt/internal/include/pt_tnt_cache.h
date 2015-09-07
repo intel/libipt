@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PT_TNT_CACHE_H__
-#define __PT_TNT_CACHE_H__
+#ifndef PT_TNT_CACHE_H
+#define PT_TNT_CACHE_H
 
 #include <stdint.h>
 
@@ -85,4 +85,4 @@ extern int pt_tnt_cache_update_tnt(struct pt_tnt_cache *cache,
 				   const struct pt_packet_tnt *packet,
 				   const struct pt_config *config);
 
-#endif /* __PT_TNT_CACHE_H__ */
+#endif /* PT_TNT_CACHE_H */

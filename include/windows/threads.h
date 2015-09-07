@@ -32,8 +32,8 @@
  * soon go away.
  */
 
-#ifndef __THREADS_H__
-#define __THREADS_H__
+#ifndef THREADS_H
+#define THREADS_H
 
 #include "windows.h"
 
@@ -236,4 +236,4 @@ static inline int cnd_wait(cnd_t *cnd, mtx_t *mtx)
 	return thrd_success;
 }
 
-#endif /* __THREADS_H__ */
+#endif /* THREADS_H */

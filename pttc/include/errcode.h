@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __ERRCODE_H__
-#define __ERRCODE_H__
+#ifndef ERRCODE_H
+#define ERRCODE_H
 
 /* Error codes.  */
 enum errcode {
@@ -92,4 +92,4 @@ enum errcode {
  */
 extern const char *errstr[];
 
-#endif /* __ERRCODE_H__ */
+#endif /* ERRCODE_H */

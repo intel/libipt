@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __YASM_H__
-#define __YASM_H__
+#ifndef YASM_H
+#define YASM_H
 
 #include "file.h"
 #include "util.h"
@@ -231,4 +231,4 @@ extern int yasm_next_line(struct yasm *y, char *dest, size_t destlen);
  */
 extern int yasm_print_err(const struct yasm *y, const char *s, int errcode);
 
-#endif /* __YASM_H__ */
+#endif /* YASM_H */
