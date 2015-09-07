@@ -26,11 +26,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-extern "C" {
 #include "ptunit.h"
 
 #include "intel-pt.h"
-}
+
 
 static struct ptunit_result init_packet_decoder(void)
 {

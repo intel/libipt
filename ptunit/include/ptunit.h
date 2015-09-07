@@ -32,6 +32,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /* A source location for reporting unit test fails. */
 struct ptunit_srcloc {
@@ -449,5 +453,9 @@ extern void ptunit_report(const struct ptunit_suite *);
 
 /* Run a single parameterized unit test with fixture. */
 #define ptu_run_fp(S, T, F, ...) ptunit_run_fp(&(S), T, F, __VA_ARGS__)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PTUNIT_H */
