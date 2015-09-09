@@ -74,8 +74,13 @@ option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 include_directories(
   include
   libipt/include
-  ptunit/include
 )
+
+if (PTUNIT)
+  include_directories(
+    ptunit/include
+  )
+endif (PTUNIT)
 
 if (CMAKE_HOST_WIN32)
   include_directories(
