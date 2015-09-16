@@ -35,6 +35,9 @@
 ;        abort.
 ;
 ;   cpu 6/61
+;   cpu 6/71
+;   cpu 6/79
+;   cpu 6/86
 ;
 ; Variant: indirect branch.
 ;

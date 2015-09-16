@@ -47,6 +47,9 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 	case 0x6:
 		switch (cpu->model) {
 		case 0x3d:
+		case 0x47:
+		case 0x4f:
+		case 0x56:
 			errata->bdm70 = 1;
 			errata->bdm64 = 1;
 			break;

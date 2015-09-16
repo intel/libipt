@@ -35,6 +35,9 @@
 ;        abort.
 ;
 ;   cpu 6/61
+;   cpu 6/71
+;   cpu 6/79
+;   cpu 6/86
 ;
 ; Variant: conditional branch followed by an indirect call to tell us that
 ;          we're on the wrong track.
