@@ -66,22 +66,9 @@ add_executable(ptxed
   ${PTXED_FILES}
 )
 target_link_libraries(ptxed libipt)
-
-if (CMAKE_HOST_UNIX)
-  target_link_libraries(ptxed
-    # XED is spelled libxed on linux
-    #
-    xed
-  )
-endif (CMAKE_HOST_UNIX)
+target_link_libraries(ptxed xed)
 
 if (CMAKE_HOST_WIN32)
-  target_link_libraries(ptxed
-    # XED is spelled libxed on windows
-    #
-    libxed
-  )
-
   # suppress warnings from XED header files
   #
   #   w4127: conditional expression is constant
@@ -89,12 +76,5 @@ if (CMAKE_HOST_WIN32)
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4244")
-
-  # use static libs just like libxed
-  #
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MT")
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
-  set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /MT")
-  set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} /MT")
 
 endif (CMAKE_HOST_WIN32)

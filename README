@@ -53,9 +53,9 @@ We use cmake for building.
 Other packages you need for some of the above optional components.
 
   xed           The Intel x86 instruction encoder and decoder.
-                http://www.pintool.org - version 2.14-71313
+                http://www.intel.com/software/xed
 
-                This is needed to build and run the trace disassembler example.
+                This is needed to build and run ptxed.
 
   yasm          The Yasm Modular Assembler
                 http://github.com/yasm
