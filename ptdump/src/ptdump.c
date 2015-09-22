@@ -79,6 +79,9 @@ struct ptdump_options {
 
 	/* Don't show timing packets. */
 	uint32_t no_timing:1;
+
+	/* Don't show CYC packets and ignore them when tracking time. */
+	uint32_t no_cyc:1;
 };
 
 struct ptdump_buffer {
@@ -167,6 +170,7 @@ static int help(const char *name)
 		"  --quiet                   don't print anything but errors.\n"
 		"  --no-pad                  don't show PAD packets.\n"
 		"  --no-timing               don't show timing packets.\n"
+		"  --no-cyc                  don't show CYC packets and ignore them when tracking time.\n"
 		"  --no-offset               don't show the offset as the first column.\n"
 		"  --raw                     show raw packet bytes.\n"
 		"  --lastip                  show last IP updates on packets with IP payloads.\n"
@@ -1092,11 +1096,12 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%" PRIx64,
 			    packet->payload.cyc.value);
 
-		if (options->show_time || options->show_tcal)
+		if ((options->show_time || options->show_tcal) &&
+		    !options->no_cyc)
 			track_cyc(buffer, tracking, offset,
 				  &packet->payload.cyc, options, config);
 
-		if (options->no_timing)
+		if (options->no_timing || options->no_cyc)
 			buffer->skip = 1;
 
 		return 0;
@@ -1260,6 +1265,8 @@ int main(int argc, char *argv[])
 			options.no_pad = 1;
 		else if (strcmp(argv[idx], "--no-timing") == 0)
 			options.no_timing = 1;
+		else if (strcmp(argv[idx], "--no-cyc") == 0)
+			options.no_cyc = 1;
 		else if (strcmp(argv[idx], "--no-offset") == 0)
 			options.show_offset = 0;
 		else if (strcmp(argv[idx], "--raw") == 0)
