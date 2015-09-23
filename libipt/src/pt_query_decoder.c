@@ -39,6 +39,48 @@
 #include <stddef.h>
 
 
+/* Find a FUP in a PSB+ header.
+ *
+ * The packet @decoder must be synchronized onto the trace stream at the
+ * beginning or somewhere inside a PSB+ header.
+ *
+ * It uses @packet to hold trace packets during its search.  If the search is
+ * successful, @packet will contain the first (and hopefully only) FUP packet in
+ * this PSB+.  Otherwise, @packet may contain anything.
+ *
+ * Returns one if a FUP packet is found (@packet will contain it).
+ * Returns zero if no FUP packet is found (@packet is undefined).
+ * Returns a negative error code otherwise.
+ */
+static int pt_qry_find_header_fup(struct pt_packet *packet,
+				  struct pt_packet_decoder *decoder)
+{
+	if (!packet || !decoder)
+		return -pte_internal;
+
+	for (;;) {
+		int errcode;
+
+		errcode = pt_pkt_next(decoder, packet, sizeof(*packet));
+		if (errcode < 0)
+			return errcode;
+
+		switch (packet->type) {
+		default:
+			/* Ignore the packet. */
+			break;
+
+		case ppt_psbend:
+			/* There's no FUP in here. */
+			return 0;
+
+		case ppt_fup:
+			/* Found it. */
+			return 1;
+		}
+	}
+}
+
 int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 			const struct pt_config *config)
 {
@@ -1533,6 +1575,392 @@ static int pt_qry_read_ahead_while(struct pt_query_decoder *decoder,
 	}
 }
 
+/* Recover from SKD010.
+ *
+ * Creates and publishes an overflow event at @packet's IP payload.
+ *
+ * Further updates @decoder as follows:
+ *
+ *   - set time tracking to @time and @tcal
+ *   - set the position to @offset
+ *   - set ip to @packet's IP payload
+ *   - set tracing to be enabled
+ *
+ * Returns 1 on success, a negative error code otherwise.
+ */
+static int skd010_recover(struct pt_query_decoder *decoder,
+			  const struct pt_packet_ip *packet,
+			  const struct pt_time_cal *tcal,
+			  const struct pt_time *time, uint64_t offset)
+{
+	struct pt_last_ip ip;
+	struct pt_event *ev;
+	int errcode;
+
+	if (!decoder || !packet || !tcal || !time)
+		return -pte_internal;
+
+	/* We use the decoder's IP.  It should be newly initialized. */
+	ip = decoder->ip;
+
+	/* Extract the IP payload from the packet. */
+	errcode = pt_last_ip_update_ip(&ip, packet, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	/* Synthesize the overflow event. */
+	ev = pt_evq_standalone(&decoder->evq);
+	if (!ev)
+		return -pte_internal;
+
+	ev->type = ptev_overflow;
+
+	/* We do need a full IP. */
+	errcode = pt_last_ip_query(&ev->variant.overflow.ip, &ip);
+	if (errcode < 0)
+		return -pte_bad_context;
+
+	/* We continue decoding at the given offset. */
+	decoder->pos = decoder->config.begin + offset;
+
+	/* Tracing is enabled. */
+	decoder->enabled = 1;
+	decoder->ip = ip;
+
+	decoder->time = *time;
+	decoder->tcal = *tcal;
+
+	/* After updating the decoder's time, we can fill in the event
+	 * timestamp.
+	 */
+	pt_qry_add_event_time(ev, decoder);
+
+	/* Publish the event. */
+	decoder->event = ev;
+	return 1;
+}
+
+/* Scan ahead for a packet at which to resume after an overflow.
+ *
+ * This function is called after an OVF without a corresponding FUP.  This
+ * normally means that the overflow resolved while tracing was disabled.
+ *
+ * With erratum SKD010 it might also mean that the FUP (or TIP.PGE) was dropped.
+ * The overflow thus resolved while tracing was enabled (or tracing was enabled
+ * after the overflow resolved).  Search for an indication whether tracing is
+ * enabled or disabled by scanning upcoming packets.
+ *
+ * If we can confirm that tracing is disabled, the erratum does not apply and we
+ * can continue normally.
+ *
+ * If we can confirm that tracing is enabled, the erratum applies and we try to
+ * recover by synchronizing at a later packet and a different IP.  If we can't
+ * recover, pretend the erratum didn't apply so we run into the error later.
+ * Since this assumes that tracing is disabled, no harm should be done, i.e. no
+ * bad trace should be generated.
+ *
+ * Returns a positive value if the overflow is handled.
+ * Returns zero if the overflow is not yet handled.
+ * Returns a negative error code otherwise.
+ */
+static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
+				      struct pt_query_decoder *decoder)
+{
+	struct pt_time_cal tcal;
+	struct pt_time time;
+	struct {
+		struct pt_time_cal tcal;
+		struct pt_time time;
+		uint64_t offset;
+	} mode_tsx;
+	int errcode;
+
+	/* Keep track of time as we skip packets. */
+	time = decoder->time;
+	tcal = decoder->tcal;
+
+	/* Keep track of a potential recovery point at MODE.TSX. */
+	memset(&mode_tsx, 0, sizeof(mode_tsx));
+
+	for (;;) {
+		struct pt_packet packet;
+		uint64_t offset;
+
+		errcode = pt_pkt_get_offset(pkt, &offset);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_pkt_next(pkt, &packet, sizeof(packet));
+		if (errcode < 0) {
+			/* Let's assume the trace is correct if we run out
+			 * of packets.
+			 */
+			if (errcode == -pte_eos)
+				errcode = 0;
+
+			return errcode;
+		}
+
+		switch (packet.type) {
+		case ppt_tip_pge:
+			/* Everything is fine.  There is nothing to do. */
+			return 0;
+
+		case ppt_tip_pgd:
+			/* This is a clear indication that the erratum
+			 * apllies.
+			 *
+			 * We synchronize after the disable.
+			 */
+
+			decoder->time = time;
+			decoder->tcal = tcal;
+			decoder->pos = decoder->config.begin + offset
+				+ packet.size;
+
+			/* Even though the erratum applies, tracing is disabled
+			 * at the time we're able to resync.  We can use the
+			 * normal code path.
+			 */
+			return 0;
+
+		case ppt_tnt_8:
+		case ppt_tnt_64:
+			/* This is a clear indication that the erratum
+			 * apllies.
+			 *
+			 * Yet, we can't recover from it as we wouldn't know how
+			 * many TNT bits will have been used when we eventually
+			 * find an IP packet at which to resume tracing.
+			 */
+			return 0;
+
+		case ppt_pip:
+		case ppt_vmcs:
+			/* We could track those changes and synthesize extra
+			 * events after the overflow event when recovering from
+			 * the erratum.  This requires infrastructure that we
+			 * don't currently have, though, so we're not going to
+			 * do it.
+			 *
+			 * Instead, we ignore those changes.  We already don't
+			 * know how many other changes were lost in the
+			 * overflow.
+			 */
+			break;
+
+		case ppt_mode:
+			switch (packet.payload.mode.leaf) {
+			case pt_mol_exec:
+				/* A MODE.EXEC packet binds to TIP, i.e.
+				 *
+				 *   TIP.PGE:  everything is fine
+				 *   TIP:      the erratum applies
+				 *
+				 * In the TIP.PGE case, we may just follow the
+				 * normal code flow.
+				 *
+				 * In the TIP case, we'd be able to re-sync at
+				 * the TIP IP but have to skip packets up to and
+				 * including the TIP.
+				 *
+				 * We'd need to synthesize the MODE.EXEC event
+				 * after the overflow event when recovering at
+				 * the TIP.  We lack the infrastructure for this
+				 * - it's getting too complicated.
+				 *
+				 * Instead, we ignore the execution mode change;
+				 * we already don't know how many more such
+				 * changes were lost in the overflow.
+				 */
+				break;
+
+			case pt_mol_tsx:
+				/* A MODE.TSX packet may be standalone or bind
+				 * to FUP.
+				 *
+				 * If this is the second MODE.TSX, we're sure
+				 * that tracing is disabled and everything is
+				 * fine.
+				 */
+				if (mode_tsx.offset)
+					return 0;
+
+				/* If we find the FUP this packet binds to, we
+				 * may recover at the FUP IP and restart
+				 * processing packets from here.  Remember the
+				 * current state.
+				 */
+				mode_tsx.offset = offset;
+				mode_tsx.time = time;
+				mode_tsx.tcal = tcal;
+
+				break;
+			}
+
+			break;
+
+		case ppt_fup:
+			/* This is a pretty good indication that tracing
+			 * is indeed enabled and the erratum applies.
+			 */
+
+			/* If we got a MODE.TSX packet before, we synchronize at
+			 * the FUP IP but continue decoding packets starting
+			 * from the MODE.TSX.
+			 */
+			if (mode_tsx.offset)
+				return skd010_recover(decoder,
+						      &packet.payload.ip,
+						      &mode_tsx.tcal,
+						      &mode_tsx.time,
+						      mode_tsx.offset);
+
+			/* Without a preceding MODE.TSX, this FUP is the start
+			 * of an async branch or disable.  We synchronize at the
+			 * FUP IP and continue decoding packets from here.
+			 */
+			return skd010_recover(decoder, &packet.payload.ip,
+					      &tcal, &time, offset);
+
+		case ppt_tip:
+			/* We syhchronize at the TIP IP and continue decoding
+			 * packets after the TIP packet.
+			 */
+			return skd010_recover(decoder, &packet.payload.ip,
+					      &tcal, &time,
+					      offset + packet.size);
+
+		case ppt_psb:
+			/* We reached a synchronization point.  Tracing is
+			 * enabled if and only if the PSB+ contains a FUP.
+			 */
+			errcode = pt_qry_find_header_fup(&packet, pkt);
+			if (errcode < 0) {
+				/* If we ran out of packets, we can't tell.
+				 * Let's assume the trace is correct.
+				 */
+				if (errcode == -pte_eos)
+					errcode = 0;
+
+				return errcode;
+			}
+
+			/* If there is no FUP, tracing is disabled and
+			 * everything is fine.
+			 */
+			if (!errcode)
+				return 0;
+
+			/* We should have a FUP. */
+			if (packet.type != ppt_fup)
+				return -pte_internal;
+
+			/* Otherwise, we may synchronize at the FUP IP and
+			 * continue decoding packets at the PSB.
+			 */
+			return skd010_recover(decoder, &packet.payload.ip,
+					      &tcal, &time, offset);
+
+		case ppt_psbend:
+			/* We shouldn't see this. */
+			return -pte_bad_context;
+
+		case ppt_ovf:
+		case ppt_stop:
+			/* It doesn't matter if it had been enabled or disabled
+			 * before.  We may resume normally.
+			 */
+			return 0;
+
+		case ppt_unknown:
+		case ppt_invalid:
+			/* We can't skip this packet. */
+			return 0;
+
+		case ppt_pad:
+		case ppt_mnt:
+			/* Ignore this packet. */
+			break;
+
+		case ppt_tsc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_tsc(&time, &tcal,
+						   &packet.payload.tsc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_cbr:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_cbr(&time, &tcal,
+						   &packet.payload.cbr,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_tma:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_tma(&time, &tcal,
+						   &packet.payload.tma,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_mtc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_mtc(&time, &tcal,
+						   &packet.payload.mtc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_cyc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_cyc(&time, &tcal,
+						   &packet.payload.cyc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+		}
+	}
+}
+
+static int pt_qry_handle_skd010(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_decoder pkt;
+	uint64_t offset;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_qry_get_offset(decoder, &offset);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_sync_set(&pkt, offset);
+	if (errcode >= 0)
+		errcode = skd010_scan_for_ovf_resume(&pkt, decoder);
+
+	pt_pkt_decoder_fini(&pkt);
+	return errcode;
+}
+
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
 	const struct pt_decoder_function *dfun;
@@ -1591,6 +2019,23 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		/* We set tracing to disabled in pt_qry_reset(); fix it. */
 		decoder->enabled = 1;
 	} else {
+		/* Check for erratum SKD010.
+		 *
+		 * The FUP may have been dropped.  If we can figure out that
+		 * tracing is enabled and hence the FUP is missing, we resume
+		 * at a later packet and a different IP.
+		 */
+		if (decoder->config.errata.skd010) {
+			int errcode;
+
+			errcode = pt_qry_handle_skd010(decoder);
+			if (errcode < 0)
+				return errcode;
+
+			if (errcode)
+				return 0;
+		}
+
 		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;

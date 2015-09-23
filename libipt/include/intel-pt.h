@@ -549,6 +549,16 @@ struct pt_errata {
 	 */
 	uint32_t skd022:1;
 
+	/** SKD010: Intel(R) PT FUP May be Dropped After OVF.
+	 *
+	 * Same as: SKD014.
+	 *
+	 * Some Intel PT (Intel Processor Trace) OVF (Overflow) packets may not
+	 * be followed by a FUP (Flow Update Packet) or TIP.PGE (Target IP
+	 * Packet, Packet Generation Enable).
+	 */
+	uint32_t skd010:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
