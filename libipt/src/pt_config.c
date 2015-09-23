@@ -59,6 +59,7 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			errata->bdm70 = 1;
 			errata->skd007 = 1;
 			errata->skd022 = 1;
+			errata->skd010 = 1;
 			break;
 		}
 		break;
