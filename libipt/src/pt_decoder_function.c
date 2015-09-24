@@ -177,7 +177,7 @@ const struct pt_decoder_function pt_decode_mnt = {
 	/* .packet = */ pt_pkt_decode_mnt,
 	/* .decode = */ pt_qry_decode_mnt,
 	/* .header = */ pt_qry_decode_mnt,
-	/* .flags =  */ 0
+	/* .flags =  */ pdff_pad
 };
 
 
