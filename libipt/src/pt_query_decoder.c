@@ -2184,6 +2184,148 @@ static int pt_qry_handle_skd010(struct pt_query_decoder *decoder)
 	return errcode;
 }
 
+/* Scan ahead for an indication that tracing is disabled.
+ *
+ * Returns one if tracing is clearly disabled.
+ * Returns zero if tracing is enabled or if we can't tell.
+ * Returns a negative error code otherwise.
+ */
+static int apl12_tracing_appears_disabled(struct pt_packet_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	for (;;) {
+		struct pt_packet packet;
+		int errcode;
+
+		errcode = pt_pkt_next(decoder, &packet, sizeof(packet));
+		if (errcode < 0) {
+			/* Running out of packets is not an error. */
+			if (errcode == -pte_eos)
+				errcode = 0;
+
+			return errcode;
+		}
+
+		switch (packet.type) {
+		default:
+			/* Skip other packets. */
+			break;
+
+		case ppt_tip_pge:
+			/* Tracing gets enabled - it must have been disabled. */
+			return 1;
+
+		case ppt_tnt_8:
+		case ppt_tnt_64:
+		case ppt_tip:
+		case ppt_tip_pgd:
+			/* Those packets are only generated when tracing is
+			 * enabled.  We're done.
+			 */
+			return 0;
+
+		case ppt_psb:
+			/* We reached a synchronization point.  Tracing is
+			 * enabled if and only if the PSB+ contains a FUP.
+			 */
+			errcode = pt_qry_find_header_fup(&packet, decoder);
+			if (errcode < 0) {
+				/* If we ran out of packets, we can't tell. */
+				if (errcode == -pte_eos)
+					errcode = 0;
+
+				return errcode;
+			}
+
+			/* If we found a FUP, tracing is enabled. */
+			if (errcode)
+				return 0;
+
+			return 1;
+
+		case ppt_psbend:
+			/* We shouldn't see this. */
+			return -pte_bad_context;
+		}
+	}
+}
+
+/* Handle erratum APL12.
+ *
+ * This function is called when a FUP packet is found after an OVF.  This
+ * normally indicates that the overflow resolved while tracing is enabled.
+ *
+ * Due to erratum APL12, the overflow may have resolved while tracing is
+ * disabled, yet still generate a FUP.
+ *
+ * We scan ahead for an indication whether tracing is actually disabled.  If we
+ * find one, the erratum applies and we skip the FUP packet.  We handle the
+ * erratum completely in this function.  There's no reason to indicate to our
+ * caller whether the erratum applied.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_qry_handle_apl12(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_decoder pkt;
+	struct pt_packet packet;
+	uint64_t offset;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_qry_get_offset(decoder, &offset);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_sync_set(&pkt, offset);
+	if (errcode < 0)
+		goto err_pkt;
+
+	errcode = pt_pkt_next(&pkt, &packet, sizeof(packet));
+	if (errcode < 0) {
+		/* Running out of packets is not an error. */
+		if (errcode == -pte_eos)
+			errcode = 0;
+
+		goto err_pkt;
+	}
+
+	/* We must have a FUP packet. */
+	if (packet.type != ppt_fup) {
+		errcode = -pte_internal;
+		goto err_pkt;
+	}
+
+	errcode = apl12_tracing_appears_disabled(&pkt);
+	if (errcode < 0)
+		goto err_pkt;
+
+	pt_pkt_decoder_fini(&pkt);
+
+	/* We're done if we didn't find anything. */
+	if (!errcode)
+		return 0;
+
+	/* We found an indication that tracing is not enabled.  The erratum
+	 * applies.  Ignore the FUP.
+	 */
+	decoder->pos += packet.size;
+
+	return pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
+
+err_pkt:
+	pt_pkt_decoder_fini(&pkt);
+	return errcode;
+}
+
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
 	const struct pt_decoder_function *dfun;
@@ -2233,6 +2375,15 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		dfun = decoder->next;
 		if (!dfun)
 			return -pte_internal;
+	}
+
+	/* Check for erratum APL12. */
+	if (decoder->config.errata.apl12 && dfun && (dfun->flags & pdff_fup)) {
+		errcode = pt_qry_handle_apl12(decoder);
+		if (errcode < 0)
+			return errcode;
+
+		dfun = decoder->next;
 	}
 
 	if (dfun && (dfun->flags & pdff_fup)) {
