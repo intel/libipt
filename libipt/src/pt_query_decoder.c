@@ -2284,6 +2284,265 @@ static int pt_qry_handle_skd010(struct pt_query_decoder *decoder)
 	return errcode;
 }
 
+/* Scan ahead for an indication whether tracing is enabled or disabled.
+ *
+ * Returns zero if tracing is clearly disabled.
+ * Returns a positive integer if tracing is enabled or if we can't tell.
+ * Returns a negative error code otherwise.
+ */
+static int apl12_tracing_is_disabled(struct pt_packet_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	for (;;) {
+		struct pt_packet packet;
+		int status;
+
+		status = pt_pkt_next(decoder, &packet, sizeof(packet));
+		if (status < 0) {
+			/* Running out of packets is not an error. */
+			if (status == -pte_eos)
+				status = 1;
+
+			return status;
+		}
+
+		switch (packet.type) {
+		default:
+			/* Skip other packets. */
+			break;
+
+		case ppt_stop:
+			/* Tracing is disabled before a stop. */
+			return 0;
+
+		case ppt_tip_pge:
+			/* Tracing gets enabled - it must have been disabled. */
+			return 0;
+
+		case ppt_tnt_8:
+		case ppt_tnt_64:
+		case ppt_tip:
+		case ppt_tip_pgd:
+			/* Those packets are only generated when tracing is
+			 * enabled.  We're done.
+			 */
+			return 1;
+
+		case ppt_psb:
+			/* We reached a synchronization point.  Tracing is
+			 * enabled if and only if the PSB+ contains a FUP.
+			 */
+			status = pt_qry_find_header_fup(&packet, decoder);
+
+			/* If we ran out of packets, we can't tell. */
+			if (status == -pte_eos)
+				status = 1;
+
+			return status;
+
+		case ppt_psbend:
+			/* We shouldn't see this. */
+			return -pte_bad_context;
+
+		case ppt_ovf:
+			/* It doesn't matter - we run into the next overflow. */
+			return 1;
+
+		case ppt_unknown:
+		case ppt_invalid:
+			/* We can't skip this packet. */
+			return 1;
+		}
+	}
+}
+
+/* Apply workaround for erratum APL12.
+ *
+ * We resume from @offset (relative to @decoder->pos) with tracing disabled.  On
+ * our way to the resume location we process packets to update our state.
+ *
+ * Any event will be dropped.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int apl12_resume_disabled(struct pt_query_decoder *decoder,
+				 struct pt_packet_decoder *pkt,
+				 unsigned int offset)
+{
+	uint64_t begin, end;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_qry_get_offset(decoder, &begin);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_sync_set(pkt, begin);
+	if (errcode < 0)
+		return errcode;
+
+	end = begin + offset;
+	for (;;) {
+		struct pt_packet packet;
+		uint64_t next;
+
+		errcode = pt_pkt_next(pkt, &packet, sizeof(packet));
+		if (errcode < 0) {
+			/* Running out of packets is not an error. */
+			if (errcode == -pte_eos)
+				errcode = 0;
+
+			return errcode;
+		}
+
+		/* The offset is the start of the next packet. */
+		errcode = pt_pkt_get_offset(pkt, &next);
+		if (errcode < 0)
+			return errcode;
+
+		/* We're done when we reach @offset.
+		 *
+		 * The current @packet will be the FUP after which we started
+		 * our search.  We skip it.
+		 *
+		 * Check that we're not accidentally proceeding past @offset.
+		 */
+		if (end <= next) {
+			if (end < next)
+				return -pte_internal;
+
+			break;
+		}
+
+		switch (packet.type) {
+		default:
+			/* Skip other packets. */
+			break;
+
+		case ppt_mode:
+		case ppt_pip:
+		case ppt_vmcs:
+			/* We should not encounter those.
+			 *
+			 * We should not encounter a lot of packets but those
+			 * are state-relevant; let's check them explicitly.
+			 */
+			return -pte_internal;
+
+		case ppt_tsc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_tsc(&decoder->time,
+						   &decoder->tcal,
+						   &packet.payload.tsc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_cbr:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_cbr(&decoder->time,
+						   &decoder->tcal,
+						   &packet.payload.cbr,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_tma:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_tma(&decoder->time,
+						   &decoder->tcal,
+						   &packet.payload.tma,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_mtc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_mtc(&decoder->time,
+						   &decoder->tcal,
+						   &packet.payload.mtc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_cyc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_cyc(&decoder->time,
+						   &decoder->tcal,
+						   &packet.payload.cyc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+		}
+	}
+
+	decoder->pos += offset;
+
+	return pt_qry_event_ovf_disabled(decoder);
+}
+
+/* Handle erratum APL12.
+ *
+ * This function is called when a FUP is found after an OVF.  The @offset
+ * argument gives the relative offset from @decoder->pos to after the FUP.
+ *
+ * A FUP after OVF normally indicates that the overflow resolved while tracing
+ * is enabled.  Due to erratum APL12, however, the overflow may have resolved
+ * while tracing is disabled and still generate a FUP.
+ *
+ * We scan ahead for an indication whether tracing is actually disabled.  If we
+ * find one, the erratum applies and we proceed from after the FUP packet.
+ *
+ * This will drop any CBR or MTC events.  We will update @decoder's timing state
+ * on CBR but drop the event.
+ *
+ * Returns zero if the erratum was handled.
+ * Returns a positive integer if the erratum was not handled.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_qry_handle_apl12(struct pt_query_decoder *decoder,
+			       unsigned int offset)
+{
+	struct pt_packet_decoder pkt;
+	uint64_t here;
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = pt_qry_get_offset(decoder, &here);
+	if (status < 0)
+		return status;
+
+	status = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (status < 0)
+		return status;
+
+	status = pt_pkt_sync_set(&pkt, here + offset);
+	if (status >= 0) {
+		status = apl12_tracing_is_disabled(&pkt);
+		if (!status)
+			status = apl12_resume_disabled(decoder, &pkt, offset);
+	}
+
+	pt_pkt_decoder_fini(&pkt);
+	return status;
+}
+
 static int pt_pkt_find_ovf_fup(struct pt_packet_decoder *decoder)
 {
 	for (;;) {
@@ -2444,8 +2703,21 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 			return offset;
 
 		return pt_qry_event_ovf_disabled(decoder);
-	} else
+	} else {
+		/* Check for erratum APL12.
+		 *
+		 * We may get an extra FUP even though the overflow resolved
+		 * with tracing disabled.
+		 */
+		if (decoder->config.errata.apl12) {
+			status = pt_qry_handle_apl12(decoder,
+						     (unsigned int) offset);
+			if (status <= 0)
+				return status;
+		}
+
 		return pt_qry_event_ovf_enabled(decoder);
+	}
 }
 
 static int pt_qry_decode_mode_exec(struct pt_query_decoder *decoder,
