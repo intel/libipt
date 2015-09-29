@@ -53,6 +53,7 @@ include(GNUInstallDirs)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(MAN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/man)
 
 set(CMAKE_COLOR_MAKEFILE   OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -64,6 +65,7 @@ endif (FEATURE_THREADS)
 
 option(DEVBUILD "Enable compiler warnings and turn them into errors." OFF)
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
+option(MAN "Enable man pages (requires pandoc)." OFF)
 
 include_directories(
   include
@@ -199,3 +201,6 @@ add_subdirectory(libipt)
 if (PTUNIT)
   add_subdirectory(ptunit)
 endif (PTUNIT)
+if (MAN)
+  add_subdirectory(doc/man)
+endif (MAN)

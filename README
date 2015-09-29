@@ -21,6 +21,8 @@ Contents
   doc           A document describing the build
                 A document describing the usage of the decoder library
 
+  doc/man       Man pages for the encoder/decoder library
+
 
 Dependencies
 ------------
@@ -29,3 +31,11 @@ We use cmake for building.
 
   cmake         The cross-platform open-source build system.
                 http://www.cmake.org
+
+
+Other packages you need for some of the above optional components.
+
+  pandoc        A universal document converter
+                http://pandoc.org
+
+                This is needed for man pages.
