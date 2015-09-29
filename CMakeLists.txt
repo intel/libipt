@@ -53,6 +53,7 @@ include(GNUInstallDirs)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(MAN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/man)
 
 set(CMAKE_COLOR_MAKEFILE   OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -70,6 +71,7 @@ option(PTDUMP "Enable ptdump, a packet dumper")
 option(PTXED  "Enable ptxed, an instruction flow dumper")
 option(PTTC   "Enable pttc, a test compiler")
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
+option(MAN "Enable man pages (requires pandoc)." OFF)
 
 # PTT tests require all the optional tools and use a bash script as test driver
 #
@@ -232,3 +234,6 @@ endif (PTUNIT)
 if (PTT)
   add_subdirectory(test)
 endif (PTT)
+if (MAN)
+  add_subdirectory(doc/man)
+endif (MAN)

@@ -40,6 +40,8 @@ Optional Contents and Samples
                 A document describing the usage of the decoder library
                 A document describing pttc
 
+  doc/man       Man pages for the encoder/decoder library
+
 
 Dependencies
 ------------
@@ -61,3 +63,8 @@ Other packages you need for some of the above optional components.
                 http://github.com/yasm
 
                 This is needed to run pttc.
+
+  pandoc        A universal document converter
+                http://pandoc.org
+
+                This is needed for man pages.
