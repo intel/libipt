@@ -1002,8 +1002,6 @@ extern pt_export void pt_pkt_free_decoder(struct pt_packet_decoder *decoder);
  *
  * Returns zero or a positive value on success, a negative error code otherwise.
  *
- * Returns -pte_bad_opc if an unknown packet is encountered.
- * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_eos if no further synchronization point is found.
  * Returns -pte_invalid if \@decoder is NULL.
  */
