@@ -143,7 +143,7 @@ int pt_pkt_sync_set(struct pt_packet_decoder *decoder, uint64_t offset)
 	pos = begin + offset;
 
 	if (end < pos || pos < begin)
-		return -pte_invalid;
+		return -pte_eos;
 
 	decoder->sync = pos;
 	decoder->pos = pos;
