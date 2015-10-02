@@ -128,7 +128,7 @@ static int pt_pkt_ip_size(enum pt_ip_compression ipc)
 		return 8;
 	}
 
-	return -pte_internal;
+	return -pte_bad_packet;
 }
 
 int pt_pkt_read_ip(struct pt_packet_ip *packet, const uint8_t *pos,
