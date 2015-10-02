@@ -106,9 +106,10 @@ int pt_enc_get_offset(struct pt_encoder *encoder, uint64_t *offset)
 	if (!encoder || !offset)
 		return -pte_invalid;
 
+	/* The encoder is synchronized at all times. */
 	raw = encoder->pos;
 	if (!raw)
-		return -pte_nosync;
+		return -pte_internal;
 
 	begin = encoder->config.begin;
 	if (!begin)
@@ -133,7 +134,7 @@ const struct pt_config *pt_enc_get_config(const struct pt_encoder *encoder)
  *
  * Returns -pte_eos if not enough space is available.
  * Returns -pte_internal if \@encoder is NULL.
- * Returns -pte_nosync if \@encoder is not synchronized.
+ * Returns -pte_internal if \@encoder is not synchronized.
  */
 static int pt_reserve(const struct pt_encoder *encoder, unsigned int size)
 {
@@ -142,9 +143,10 @@ static int pt_reserve(const struct pt_encoder *encoder, unsigned int size)
 	if (!encoder)
 		return -pte_internal;
 
+	/* The encoder is synchronized at all times. */
 	pos = encoder->pos;
 	if (!pos)
-		return -pte_nosync;
+		return -pte_internal;
 
 	begin = encoder->config.begin;
 	end = encoder->config.end;

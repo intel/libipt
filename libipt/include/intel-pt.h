@@ -936,7 +936,6 @@ extern pt_export int pt_enc_sync_set(struct pt_encoder *encoder,
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_invalid if \@encoder or \@offset is NULL.
- * Returns -pte_nosync if \@encoder is out of sync.
  */
 extern pt_export int pt_enc_get_offset(struct pt_encoder *encoder,
 				       uint64_t *offset);
@@ -965,7 +964,6 @@ pt_enc_get_config(const struct pt_encoder *encoder);
  * Returns -pte_bad_packet if \@packet's payload is invalid.
  * Returns -pte_eos if \@encoder reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@encoder or \@packet is NULL.
- * Returns -pte_nosync if \@encoder is out of sync.
  */
 extern pt_export int pt_enc_next(struct pt_encoder *encoder,
 				 const struct pt_packet *packet);
