@@ -1067,6 +1067,7 @@ pt_pkt_get_config(const struct pt_packet_decoder *decoder);
  * otherwise.
  *
  * Returns -pte_bad_opc if the packet is unknown.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
  * Returns -pte_eos if \@decoder reached the end of the Intel PT buffer.
  * Returns -pte_invalid if \@decoder or \@packet is NULL.
  * Returns -pte_nosync if \@decoder is out of sync.
