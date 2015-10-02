@@ -1081,13 +1081,13 @@ extern pt_export int pt_pkt_next(struct pt_packet_decoder *decoder,
 
 /** Decoder status flags. */
 enum pt_status_flag {
-	/* There is an event pending. */
+	/** There is an event pending. */
 	pts_event_pending	= 1 << 0,
 
-	/* The destination address has been suppressed due to CPL filtering. */
+	/** The address has been suppressed. */
 	pts_ip_suppressed	= 1 << 1,
 
-	/* There is no more trace data available. */
+	/** There is no more trace data available. */
 	pts_eos			= 1 << 2
 };
 
