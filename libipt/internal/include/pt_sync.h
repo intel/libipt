@@ -61,7 +61,7 @@ extern int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
  *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_invalid if @pos is outside of @config's trace buffer.
+ * Returns -pte_eos if @pos is outside of @config's trace buffer.
  * Returns -pte_internal if @sync, @pos, or @config is NULL.
  * Returns -pte_bad_packet if there is no PSB at @pos.
  */

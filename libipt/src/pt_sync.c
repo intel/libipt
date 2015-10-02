@@ -139,7 +139,7 @@ int pt_sync_set(const uint8_t **sync, const uint8_t *pos,
 	end = config->end;
 
 	if (!pt_sync_within_bounds(pos, begin, end))
-		return -pte_invalid;
+		return -pte_eos;
 
 	if (end < pos + 2)
 		return -pte_eos;
