@@ -500,27 +500,37 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_suppressed, 0x0ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_update_16, 0x42ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_update_32, 0x4200ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_update_48, 0x4200ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_sext_48, 0x42ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_full, 0x42ull);
 
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_suppressed, 0x0ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_update_16, 0x42ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_update_32, 0x4200ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_update_48, 0x4200ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_sext_48, 0x42ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip, pt_ipc_full, 0x42ull);
 
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pge, pt_ipc_suppressed, 0x0ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pge, pt_ipc_update_16, 0x42ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pge, pt_ipc_update_32, 0x4200ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip_pge, pt_ipc_update_48, 0x4200ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pge, pt_ipc_sext_48, 0x42ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip_pge, pt_ipc_full, 0x42ull);
 
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pgd, pt_ipc_suppressed, 0x0ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pgd, pt_ipc_update_16, 0x42ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pgd, pt_ipc_update_32, 0x4200ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip_pgd, pt_ipc_update_48, 0x4200ull);
 	ptu_run_fp(suite, ip, pfix, ppt_tip_pgd, pt_ipc_sext_48, 0x42ull);
+	ptu_run_fp(suite, ip, pfix, ppt_tip_pgd, pt_ipc_full, 0x42ull);
 
 	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_suppressed, 0x0ull);
 	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_update_16, 0x42ull);
 	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_update_32, 0x4200ull);
+	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_update_48, 0x4200ull);
 	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_sext_48, 0x42ull);
+	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_full, 0x42ull);
 
 	ptu_run_fp(suite, mode_exec, pfix, ptem_16bit);
 	ptu_run_fp(suite, mode_exec, pfix, ptem_32bit);
