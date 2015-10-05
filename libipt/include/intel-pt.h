@@ -1510,6 +1510,7 @@ extern pt_export int pt_qry_time(struct pt_query_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_invalid if \@decoder or \@cbr is NULL.
+ * Returns -pte_no_cbr if there has not been a CBR packet.
  */
 extern pt_export int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder,
 					   uint32_t *cbr);
@@ -1920,6 +1921,7 @@ extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  *
  * Returns -pte_invalid if \@decoder or \@cbr is NULL.
+ * Returns -pte_no_cbr if there has not been a CBR packet.
  */
 extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
 					    uint32_t *cbr);
