@@ -1136,7 +1136,7 @@ struct pt_event {
 	/** The type of the event. */
 	enum pt_event_type type;
 
-	/** A flag indicating that the event IP had been suppressed. */
+	/** A flag indicating that the event IP has been suppressed. */
 	uint32_t ip_suppressed:1;
 
 	/** A flag indicating that the event is for status update. */
@@ -1175,8 +1175,7 @@ struct pt_event {
 			/** The destination of the first branch inside a
 			 * filtered area.
 			 *
-			 * This field is not valid, if pts_ip_suppressed is
-			 * returned from the query function.
+			 * This field is not valid if \@ip_suppressed is set.
 			 */
 			uint64_t ip;
 
@@ -1195,8 +1194,7 @@ struct pt_event {
 			/** The destination of the first branch inside a
 			 * filtered area.
 			 *
-			 * This field is not valid, if pts_ip_suppressed is
-			 * returned from the query function.
+			 * This field is not valid if \@ip_suppressed is set.
 			 */
 			uint64_t ip;
 		} async_disabled;
@@ -1208,8 +1206,7 @@ struct pt_event {
 
 			/** The branch destination address.
 			 *
-			 * This field is not valid, if pts_ip_suppressed is
-			 * returned from the query function.
+			 * This field is not valid if \@ip_suppressed is set.
 			 */
 			uint64_t to;
 		} async_branch;
@@ -1277,8 +1274,7 @@ struct pt_event {
 		struct {
 			/** The address at which the event is effective.
 			 *
-			 * This field is not valid, if pts_ip_suppressed is
-			 * returned from the query function.
+			 * This field is not valid if \@ip_suppressed is set.
 			 */
 			uint64_t ip;
 
