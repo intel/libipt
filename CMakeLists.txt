@@ -71,6 +71,17 @@ option(PTXED  "Enable ptxed, an instruction flow dumper")
 option(PTTC   "Enable pttc, a test compiler")
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 
+# PTT tests require all the optional tools and use a bash script as test driver
+#
+set(PTT OFF)
+if (CMAKE_HOST_UNIX AND PTDUMP AND PTXED AND PTTC)
+  set(PTT ON)
+endif ()
+
+if (PTUNIT OR PTT)
+  ENABLE_TESTING()
+endif()
+
 include_directories(
   include
   libipt/include
@@ -218,3 +229,6 @@ endif (PTTC)
 if (PTUNIT)
   add_subdirectory(ptunit)
 endif (PTUNIT)
+if (PTT)
+  add_subdirectory(test)
+endif (PTT)
