@@ -845,10 +845,13 @@ struct pt_packet_unknown {
 
 /** An Intel PT packet. */
 struct pt_packet {
-	/** Type of the packet, used to indicate which sub-struct to use. */
+	/** The type of the packet.
+	 *
+	 * This also determines the \@payload field.
+	 */
 	enum pt_packet_type type;
 
-	/** Size of the packet, including opcode and payload. */
+	/** The size of the packet including opcode and payload. */
 	uint8_t size;
 
 	/** Packet specific data. */
