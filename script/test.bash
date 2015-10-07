@@ -64,13 +64,23 @@ options:
   -h            this text
   -v            print commands as they are executed
   -c cpu[,cpu]  comma-separated list of cpu's for the tests (see pttc -h, for valid values)
+  -f            exit with 1 if any of the tests failed
+  -l            only list .diff files
+  -g            specify the pttc command (default: pttc)
+  -d            specify the ptdump command (default: ptdump)
+  -x            specify the ptxed command (default: ptxed)
 
   <pttfile>     annotated yasm file ending in .ptt
 EOF
 }
 
+pttc_cmd=pttc
+ptdump_cmd=ptdump
+ptxed_cmd=ptxed
+exit_fails=0
+list=0
 verbose=0
-while getopts "hvc:" option; do
+while getopts "hvc:flg:d:x:" option; do
 	case $option in
 	h)
 		usage
@@ -81,6 +91,21 @@ while getopts "hvc:" option; do
 		;;
 	c)
 		cpus=`echo $OPTARG | sed "s/,/ /g"`
+		;;
+	f)
+		exit_fails=1
+		;;
+	l)
+		list=1
+		;;
+	g)
+		pttc_cmd=$OPTARG
+		;;
+	d)
+		ptdump_cmd=$OPTARG
+		;;
+	x)
+		ptxed_cmd=$OPTARG
 		;;
 	\?)
 		exit 1
@@ -96,7 +121,7 @@ if [[ $# == 0 ]]; then
 fi
 
 # check if all the tools are in PATH
-check_tools pttc yasm ptxed ptdump || exit 1
+check_tools $pttc_cmd yasm $ptxed_cmd $ptdump_cmd || exit 1
 
 # the exit status
 status=0
@@ -123,14 +148,14 @@ run-ptt-test() {
 
 
 	# execute pttc
-	exps=`run pttc $cpu $ptt`
+	exps=`run $pttc_cmd $cpu $ptt`
 	ret=$?
 	if [[ $ret != 0 ]]; then
-		echo "$ptt: pttc failed with $ret" >&2
+		echo "$ptt: $pttc_cmd failed with $ret" >&2
 		status=1
 		continue
 	elif [[ -z $exps ]]; then
-		echo "$ptt: pttc did not produce any .exp file" >&2
+		echo "$ptt: $pttc_cmd did not produce any .exp file" >&2
 		status=1
 		continue
 	fi
@@ -152,11 +177,11 @@ run-ptt-test() {
 				status=1
 				continue
 			fi
-			run ptxed $cpu --pt $pt --raw $bin:$addr --no-inst > $out
+			run $ptxed_cmd $cpu --pt $pt --raw $bin:$addr --no-inst > $out
 			;;
 		ptdump)
 			local opts=`ptt-ptdump-opts $ptt`
-			run ptdump $cpu $opts $pt > $out
+			run $ptdump_cmd $cpu $opts $pt > $out
 			;;
 		*)
 			echo "$ptt: unknown tool $tool"
@@ -167,7 +192,15 @@ run-ptt-test() {
 		if run diff -ub $exp $out > $diff; then
 			run rm $diff
 		else
-			echo $diff
+			if [[ $exit_fails != 0 ]]; then
+				status=1
+			fi
+
+			if [[ $list != 0 ]]; then
+				echo $diff
+			else
+				cat $diff
+			fi
 		fi
 	done
 }
