@@ -130,6 +130,10 @@ ptt-ptdump-opts() {
 	sed -n 's/[ \t]*;[ \t]*opt:ptdump[ \t][ \t]*\(.*\)[ \t]*/\1/p' "$1"
 }
 
+ptt-ptxed-opts() {
+	sed -n 's/[ \t]*;[ \t]*opt:ptxed[ \t][ \t]*\(.*\)[ \t]*/\1/p' "$1"
+}
+
 run-ptt-test() {
 	info "\n# run-ptt-test $@"
 
@@ -177,7 +181,8 @@ run-ptt-test() {
 				status=1
 				continue
 			fi
-			run $ptxed_cmd $cpu --pt $pt --raw $bin:$addr --no-inst > $out
+			local opts=`ptt-ptxed-opts $ptt`
+			run $ptxed_cmd $cpu $opts --pt $pt --raw $bin:$addr --no-inst > $out
 			;;
 		ptdump)
 			local opts=`ptt-ptdump-opts $ptt`
