@@ -57,7 +57,7 @@ struct pt_insn_decoder {
 	struct pt_retstack retstack;
 
 	/* The Intel(R) Processor Trace instruction (length) decoder. */
-	pti_ild_t ild;
+	struct pt_ild ild;
 
 	/* The current IP. */
 	uint64_t ip;

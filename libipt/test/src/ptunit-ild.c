@@ -49,7 +49,7 @@ static const uint64_t pti_addr = 0xffccffccffccull;
  * Does not check whether the classification is correct.
  * This is left to the calling test.
  */
-static struct ptunit_result ptunit_ild_decode(pti_ild_t *ild,
+static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
 					      pti_bool_t interest,
 					      pti_uint32_t size)
 {
@@ -69,7 +69,7 @@ static struct ptunit_result ptunit_ild_decode(pti_ild_t *ild,
  *
  * We can't use a fixture since we don't know the instruction size upfront.
  */
-static void ptunit_ild_init(pti_ild_t *ild, pti_uint8_t *insn,
+static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
 			    pti_uint32_t size,
 			    pti_machine_mode_enum_t mode)
 {
@@ -85,7 +85,7 @@ static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
 					      pti_uint32_t size,
 					      pti_machine_mode_enum_t mode)
 {
-	pti_ild_t ild;
+	struct pt_ild ild;
 
 	ptunit_ild_init(&ild, insn, size, mode);
 	ptu_test(ptunit_ild_decode, &ild, pti_boring, size);
@@ -99,7 +99,7 @@ static struct ptunit_result ptunit_ild_classify(pti_uint8_t *insn,
 						pti_machine_mode_enum_t mode,
 						pti_inst_enum_t iclass)
 {
-	pti_ild_t ild;
+	struct pt_ild ild;
 
 	ptunit_ild_init(&ild, insn, size, mode);
 	ptu_test(ptunit_ild_decode, &ild, pti_interesting, size);

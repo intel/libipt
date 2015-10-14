@@ -92,7 +92,7 @@ typedef enum {
 	PTI_MAP_INVALID
 } pti_map_enum_t;
 
-typedef struct {
+struct pt_ild {
 	/* inputs */
 	pti_uint64_t runtime_address;
 	pti_uint8_t const *itext;
@@ -154,9 +154,9 @@ typedef struct {
 	pti_uint8_t sib_byte;
 	pti_uint8_t disp_pos;
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
-} pti_ild_t;
+};
 
-static inline void pti_set_map(pti_ild_t *ild, pti_map_enum_t mape)
+static inline void pti_set_map(struct pt_ild *ild, pti_map_enum_t mape)
 {
 	if (mape > PTI_MAP_INVALID) {
 		ild->u.s.error = 1;
@@ -166,27 +166,27 @@ static inline void pti_set_map(pti_ild_t *ild, pti_map_enum_t mape)
 	ild->map = (pti_uint8_t) mape;
 }
 
-static inline pti_map_enum_t pti_get_map(pti_ild_t *ild)
+static inline pti_map_enum_t pti_get_map(struct pt_ild *ild)
 {
 	return (pti_map_enum_t) ild->map;
 }
 
-static inline pti_uint_t pti_get_sib_base(pti_ild_t *ild)
+static inline pti_uint_t pti_get_sib_base(struct pt_ild *ild)
 {
 	return ild->sib_byte & 7;
 }
 
-static inline pti_uint_t pti_get_modrm_mod(pti_ild_t *ild)
+static inline pti_uint_t pti_get_modrm_mod(struct pt_ild *ild)
 {
 	return ild->modrm_byte >> 6;
 }
 
-static inline pti_uint_t pti_get_modrm_reg(pti_ild_t *ild)
+static inline pti_uint_t pti_get_modrm_reg(struct pt_ild *ild)
 {
 	return (ild->modrm_byte >> 3) & 7;
 }
 
-static inline pti_uint_t pti_get_modrm_rm(pti_ild_t *ild)
+static inline pti_uint_t pti_get_modrm_rm(struct pt_ild *ild)
 {
 	return ild->modrm_byte & 7;
 }
@@ -203,9 +203,9 @@ extern void pti_ild_init(void);
    to decode the instruction. (That might be because
    the instruction encoding implied >= 16B and that is an an invalid
    instruction.) */
-extern pti_bool_t pti_instruction_length_decode(pti_ild_t *ild);
+extern pti_bool_t pti_instruction_length_decode(struct pt_ild *ild);
 
 /* returns 1 if an interesting instruction was encountered. */
-extern pti_bool_t pti_instruction_decode(pti_ild_t *ild);
+extern pti_bool_t pti_instruction_decode(struct pt_ild *ild);
 
 #endif

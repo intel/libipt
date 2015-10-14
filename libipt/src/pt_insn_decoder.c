@@ -227,7 +227,7 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 	return pt_qry_core_bus_ratio(&decoder->query, cbr);
 }
 
-static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
+static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
 {
 	if (!ild || ild->u.s.error)
 		return ptic_error;
@@ -247,7 +247,7 @@ static enum pt_insn_class pt_insn_classify(const pti_ild_t *ild)
 	return ild->u.s.branch_far ? ptic_far_jump : ptic_jump;
 }
 
-static int pt_insn_changes_cpl(const pti_ild_t *ild)
+static int pt_insn_changes_cpl(const struct pt_ild *ild)
 {
 	if (!ild)
 		return 0;
@@ -269,7 +269,7 @@ static int pt_insn_changes_cpl(const pti_ild_t *ild)
 	}
 }
 
-static int pt_insn_changes_cr3(const pti_ild_t *ild)
+static int pt_insn_changes_cr3(const struct pt_ild *ild)
 {
 	if (!ild)
 		return 0;
@@ -283,7 +283,7 @@ static int pt_insn_changes_cr3(const pti_ild_t *ild)
 	}
 }
 
-static int pt_insn_is_far_branch(const pti_ild_t *ild)
+static int pt_insn_is_far_branch(const struct pt_ild *ild)
 {
 	if (!ild)
 		return 0;
@@ -291,7 +291,7 @@ static int pt_insn_is_far_branch(const pti_ild_t *ild)
 	return ild->u.s.branch_far;
 }
 
-static int pt_insn_binds_to_pip(const pti_ild_t *ild)
+static int pt_insn_binds_to_pip(const struct pt_ild *ild)
 {
 	if (!ild)
 		return 0;
@@ -309,7 +309,7 @@ static int pt_insn_binds_to_pip(const pti_ild_t *ild)
 	return pt_insn_is_far_branch(ild);
 }
 
-static int pt_insn_binds_to_vmcs(const pti_ild_t *ild)
+static int pt_insn_binds_to_vmcs(const struct pt_ild *ild)
 {
 	if (!ild)
 		return 0;
@@ -337,7 +337,7 @@ static int pt_insn_binds_to_vmcs(const pti_ild_t *ild)
  * Returns -pte_bad_insn if @ild has not been decoded correctly.
  * Returns -pte_invalid if @ild is NULL.
  */
-static int pt_insn_next_ip(uint64_t *ip, const pti_ild_t *ild)
+static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
 {
 	if (!ild)
 		return -pte_invalid;
@@ -395,7 +395,7 @@ static pti_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 {
 	static pti_machine_mode_enum_t mode;
-	pti_ild_t *ild;
+	struct pt_ild *ild;
 	pti_bool_t status, relevant;
 	int size;
 
@@ -469,7 +469,7 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 	at = decoder->ip;
 	while (at != ip) {
 		pti_bool_t status;
-		pti_ild_t ild;
+		struct pt_ild ild;
 		uint8_t raw[pt_max_insn_size];
 		int size, errcode;
 
@@ -618,7 +618,7 @@ static int process_async_disabled_event(struct pt_insn_decoder *decoder,
 
 static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
 				       struct pt_insn *insn,
-				       const pti_ild_t *ild)
+				       const struct pt_ild *ild)
 {
 	int errcode, iperr;
 
@@ -819,7 +819,7 @@ static int process_vmcs_event(struct pt_insn_decoder *decoder)
 static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 {
 	pti_bool_t status;
-	pti_ild_t ild;
+	struct pt_ild ild;
 	uint8_t raw[pt_max_insn_size];
 	int size;
 
@@ -1024,7 +1024,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 				   struct pt_insn *insn)
 {
 	struct pt_event *ev;
-	const pti_ild_t *ild;
+	const struct pt_ild *ild;
 
 	if (!decoder)
 		return -pte_internal;
@@ -1268,7 +1268,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 
 static int proceed(struct pt_insn_decoder *decoder)
 {
-	const pti_ild_t *ild;
+	const struct pt_ild *ild;
 
 	if (!decoder)
 		return -pte_internal;
