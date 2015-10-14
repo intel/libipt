@@ -29,41 +29,9 @@
 #if !defined(PTI_DEFS_H)
 #define PTI_DEFS_H
 
-
-#if defined(__FreeBSD__)
-#define PTI_BSD
-#endif
-#if defined(__linux__)
-#define PTI_LINUX
-#endif
-#if defined(_MSC_VER)
-#define PTI_WINDOWS
-#endif
-#if defined(__APPLE__)
-#define PTI_MAC
-#endif
-
-#if defined(_WIN32) && defined(_MSC_VER)
-#if _MSC_VER == 1200
-#define PTI_MSVC6 1
-#endif
-#endif
-
 #if defined(__GNUC__)
-#define PTI_INLINE static inline
 #define PTI_NORETURN __attribute__ ((noreturn))
-#if __GNUC__ == 2
-#define PTI_NOINLINE
 #else
-#define PTI_NOINLINE __attribute__ ((noinline))
-#endif
-#else
-#define PTI_INLINE static __inline
-#if defined(PTI_MSVC6)
-#define PTI_NOINLINE
-#else
-#define PTI_NOINLINE __declspec(noinline)
-#endif
 #define PTI_NORETURN __declspec(noreturn)
 #endif
 
