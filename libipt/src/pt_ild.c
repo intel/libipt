@@ -27,7 +27,6 @@
  */
 
 #include "pti-ild.h"
-#include "pti-enums.h"
 
 #include <string.h>
 
@@ -472,6 +471,7 @@ static void opcode_dec(struct pt_ild *ild)
 	}
 }
 
+#include "pti-modrm-defs.h"
 #include "pti-modrm.h"
 #include "pti-disp-defs.h"
 #include "pti-disp.h"
