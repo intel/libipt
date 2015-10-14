@@ -156,7 +156,7 @@ typedef struct
   /* not including imm_pos, could or could derive from disp_pos + disp_bytes */
 } pti_ild_t;
 
-PTI_INLINE void
+static inline void
 pti_set_map (pti_ild_t * ild, pti_map_enum_t mape)
 {
   if (mape > PTI_MAP_INVALID) {
@@ -167,31 +167,31 @@ pti_set_map (pti_ild_t * ild, pti_map_enum_t mape)
   ild->map = (pti_uint8_t) mape;
 }
 
-PTI_INLINE pti_map_enum_t
+static inline pti_map_enum_t
 pti_get_map (pti_ild_t * ild)
 {
   return (pti_map_enum_t) ild->map;
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 pti_get_sib_base (pti_ild_t * ild)
 {
   return ild->sib_byte & 7;
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 pti_get_modrm_mod (pti_ild_t * ild)
 {
   return ild->modrm_byte >> 6;
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 pti_get_modrm_reg (pti_ild_t * ild)
 {
   return (ild->modrm_byte >> 3) & 7;
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 pti_get_modrm_rm (pti_ild_t * ild)
 {
   return ild->modrm_byte & 7;

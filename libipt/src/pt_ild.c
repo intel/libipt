@@ -33,7 +33,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-PTI_INLINE PTI_NORETURN void
+static inline PTI_NORETURN void
 pti_abort ()
 {
   /* this would be be a programming error. */
@@ -130,44 +130,44 @@ init_has_sib_table (void)
 
 /* SOME ACCESSORS */
 
-PTI_INLINE pti_uint8_t
+static inline pti_uint8_t
 get_byte (pti_ild_t * ild, pti_uint_t i)
 {
   return ild->itext[i];
 }
 
-PTI_INLINE pti_uint8_t const *
+static inline pti_uint8_t const *
 get_byte_ptr (pti_ild_t * ild, pti_uint_t i)
 {
   return ild->itext + i;
 }
 
-PTI_INLINE pti_bool_t
+static inline pti_bool_t
 mode_64b (pti_ild_t * ild)
 {
   return ild->mode == PTI_MODE_64;
 }
 
-PTI_INLINE pti_bool_t
+static inline pti_bool_t
 mode_32b (pti_ild_t * ild)
 {
   return ild->mode == PTI_MODE_32;
 }
 
-PTI_INLINE pti_bool_t
+static inline pti_bool_t
 bits_match (pti_uint8_t x, pti_uint8_t mask, pti_uint8_t target)
 {
   return (x & mask) == target;
 }
 
-PTI_INLINE void
+static inline void
 set_error (pti_ild_t * ild)
 {
   ild->u.s.error = 1;
 }
 
 /* accessors for REX.R/VEX R  */
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 pti_get_rex_vex_r (pti_ild_t * ild)
 {
   if (ild->u.s.vexc5)
@@ -179,7 +179,7 @@ pti_get_rex_vex_r (pti_ild_t * ild)
   return 0;
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 pti_get_rex_vex_w (pti_ild_t * ild)
 {
   if (ild->u.s.vexc5)
@@ -191,7 +191,7 @@ pti_get_rex_vex_w (pti_ild_t * ild)
   return 0;
 }
 
-PTI_INLINE
+static inline
   pti_machine_mode_enum_t pti_get_nominal_eosz_non64 (pti_ild_t * ild)
 {
   if (mode_32b (ild))
@@ -205,7 +205,7 @@ PTI_INLINE
   return PTI_MODE_16;
 }
 
-PTI_INLINE pti_machine_mode_enum_t
+static inline pti_machine_mode_enum_t
 pti_get_nominal_eosz (pti_ild_t * ild)
 {
   if (mode_64b (ild))
@@ -219,7 +219,7 @@ pti_get_nominal_eosz (pti_ild_t * ild)
   return pti_get_nominal_eosz_non64 (ild);
 }
 
-PTI_INLINE pti_machine_mode_enum_t
+static inline pti_machine_mode_enum_t
 pti_get_nominal_eosz_df64 (pti_ild_t * ild)
 {
   if (mode_64b (ild))
@@ -235,7 +235,7 @@ pti_get_nominal_eosz_df64 (pti_ild_t * ild)
   return pti_get_nominal_eosz_non64 (ild);
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 resolve_z (pti_machine_mode_enum_t eosz)
 {
   static const pti_uint_t bytes[] = { 2, 4, 4 };
@@ -244,7 +244,7 @@ resolve_z (pti_machine_mode_enum_t eosz)
   pti_abort ();
 }
 
-PTI_INLINE pti_uint_t
+static inline pti_uint_t
 resolve_v (pti_machine_mode_enum_t eosz)
 {
   static const pti_uint_t bytes[] = { 2, 4, 8 };
@@ -861,19 +861,19 @@ decode (pti_ild_t * ild)
   imm_dec (ild);
 }
 
-PTI_INLINE pti_int64_t
+static inline pti_int64_t
 sign_extend_bq (pti_int8_t x)
 {
   return x;
 }
 
-PTI_INLINE pti_int64_t
+static inline pti_int64_t
 sign_extend_wq (pti_int16_t x)
 {
   return x;
 }
 
-PTI_INLINE pti_int64_t
+static inline pti_int64_t
 sign_extend_dq (pti_int32_t x)
 {
   return x;
