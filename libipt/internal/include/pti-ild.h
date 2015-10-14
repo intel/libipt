@@ -29,8 +29,6 @@
 #if !defined(PTI_ILD_H)
 #define PTI_ILD_H
 
-#include "pti-types.h"
-
 #include "intel-pt.h"
 
 typedef enum {
@@ -89,65 +87,65 @@ typedef enum {
 
 struct pt_ild {
 	/* inputs */
-	pti_uint64_t runtime_address;
-	pti_uint8_t const *itext;
-	pti_uint8_t max_bytes;	/*1..15 bytes  */
+	uint64_t runtime_address;
+	uint8_t const *itext;
+	uint8_t max_bytes;	/*1..15 bytes  */
 	enum pt_exec_mode mode;
 
 	/* outputs */
-	pti_uint8_t length;	/* bytes */
+	uint8_t length;	/* bytes */
 	pti_inst_enum_t iclass;
-	pti_uint64_t direct_target;	/* if direct_indirect = 1 */
+	uint64_t direct_target;	/* if direct_indirect = 1 */
 	union {
 		struct {
 			/* all the errors come from not having enough bytes. */
-			pti_uint32_t error:1;
-			pti_uint32_t branch:1;	/* direct or indirect */
+			uint32_t error:1;
+			uint32_t branch:1;	/* direct or indirect */
 
 			/* direct jmp, direct call or rel/direct branch sets
 			 * branch_direct = 1.
 			 *
 			 * 1=direct, 0=indirect
 			 */
-			pti_uint32_t branch_direct:1;
+			uint32_t branch_direct:1;
 
 			/* this includes other transfers like SYSENTER,
 			 * SYSEXIT, and IRET.
 			 *
 			 * 1=far, 0=near
 			 */
-			pti_uint32_t branch_far:1;
+			uint32_t branch_far:1;
 
-			pti_uint32_t ret:1;
-			pti_uint32_t call:1;
-			pti_uint32_t cond:1;
+			uint32_t ret:1;
+			uint32_t call:1;
+			uint32_t cond:1;
 			/* internal fields */
-			pti_uint32_t osz:1;
-			pti_uint32_t asz:1;
-			pti_uint32_t lock:1;
-			pti_uint32_t f3:1;
-			pti_uint32_t f2:1;
-			pti_uint32_t last_f2f3:2;	/* 2 or 3 */
-			pti_uint32_t vexc5:1;
-			pti_uint32_t vexc4:1;
-			pti_uint32_t sib:1;
+			uint32_t osz:1;
+			uint32_t asz:1;
+			uint32_t lock:1;
+			uint32_t f3:1;
+			uint32_t f2:1;
+			uint32_t last_f2f3:2;	/* 2 or 3 */
+			uint32_t vexc5:1;
+			uint32_t vexc4:1;
+			uint32_t sib:1;
 		} s;
-		pti_uint32_t i;
+		uint32_t i;
 	} u;
-	pti_uint8_t imm1_bytes;	/* # of bytes in 1st immediate */
-	pti_uint8_t imm2_bytes;	/* # of bytes in 2nd immediate */
-	pti_uint8_t disp_bytes;	/* # of displacement bytes */
-	pti_uint8_t nominal_opcode_pos;
-	pti_uint8_t modrm_byte;
+	uint8_t imm1_bytes;	/* # of bytes in 1st immediate */
+	uint8_t imm2_bytes;	/* # of bytes in 2nd immediate */
+	uint8_t disp_bytes;	/* # of displacement bytes */
+	uint8_t nominal_opcode_pos;
+	uint8_t modrm_byte;
 	/* 5b but valid values=  0,1,2,3 could be in bit union */
-	pti_uint8_t map;
-	pti_uint8_t rex;	/* 0b0100wrxb */
-	pti_uint8_t c5byte1;
-	pti_uint8_t c4byte1;
-	pti_uint8_t c4byte2;
-	pti_uint8_t nominal_opcode;
-	pti_uint8_t sib_byte;
-	pti_uint8_t disp_pos;
+	uint8_t map;
+	uint8_t rex;	/* 0b0100wrxb */
+	uint8_t c5byte1;
+	uint8_t c4byte1;
+	uint8_t c4byte2;
+	uint8_t nominal_opcode;
+	uint8_t sib_byte;
+	uint8_t disp_pos;
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
 };
 
@@ -158,7 +156,7 @@ static inline void pti_set_map(struct pt_ild *ild, pti_map_enum_t mape)
 		mape = PTI_MAP_INVALID;
 	}
 
-	ild->map = (pti_uint8_t) mape;
+	ild->map = (uint8_t) mape;
 }
 
 static inline pti_map_enum_t pti_get_map(struct pt_ild *ild)
@@ -166,22 +164,22 @@ static inline pti_map_enum_t pti_get_map(struct pt_ild *ild)
 	return (pti_map_enum_t) ild->map;
 }
 
-static inline pti_uint_t pti_get_sib_base(struct pt_ild *ild)
+static inline uint8_t pti_get_sib_base(struct pt_ild *ild)
 {
 	return ild->sib_byte & 7;
 }
 
-static inline pti_uint_t pti_get_modrm_mod(struct pt_ild *ild)
+static inline uint8_t pti_get_modrm_mod(struct pt_ild *ild)
 {
 	return ild->modrm_byte >> 6;
 }
 
-static inline pti_uint_t pti_get_modrm_reg(struct pt_ild *ild)
+static inline uint8_t pti_get_modrm_reg(struct pt_ild *ild)
 {
 	return (ild->modrm_byte >> 3) & 7;
 }
 
-static inline pti_uint_t pti_get_modrm_rm(struct pt_ild *ild)
+static inline uint8_t pti_get_modrm_rm(struct pt_ild *ild)
 {
 	return ild->modrm_byte & 7;
 }
@@ -198,9 +196,9 @@ extern void pti_ild_init(void);
    to decode the instruction. (That might be because
    the instruction encoding implied >= 16B and that is an an invalid
    instruction.) */
-extern pti_bool_t pti_instruction_length_decode(struct pt_ild *ild);
+extern int pti_instruction_length_decode(struct pt_ild *ild);
 
 /* returns 1 if an interesting instruction was encountered. */
-extern pti_bool_t pti_instruction_decode(struct pt_ild *ild);
+extern int pti_instruction_decode(struct pt_ild *ild);
 
 #endif

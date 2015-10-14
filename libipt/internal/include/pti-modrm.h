@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static pti_uint8_t has_modrm_map_0x0[256] = {
+static uint8_t has_modrm_map_0x0[256] = {
 /*opcode 0x0*/ PTI_MODRM_TRUE,
 /*opcode 0x1*/ PTI_MODRM_TRUE,
 /*opcode 0x2*/ PTI_MODRM_TRUE,
@@ -284,7 +284,7 @@ static pti_uint8_t has_modrm_map_0x0[256] = {
 /*opcode 0xfe*/ PTI_MODRM_TRUE,
 /*opcode 0xff*/ PTI_MODRM_TRUE,
 };
-static pti_uint8_t has_modrm_map_0x0F[256] = {
+static uint8_t has_modrm_map_0x0F[256] = {
 /*opcode 0x0*/ PTI_MODRM_TRUE,
 /*opcode 0x1*/ PTI_MODRM_TRUE,
 /*opcode 0x2*/ PTI_MODRM_TRUE,

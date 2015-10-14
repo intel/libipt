@@ -377,7 +377,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 {
 	enum pt_exec_mode mode;
 	struct pt_ild *ild;
-	pti_bool_t status, relevant;
+	int status, relevant;
 	int size;
 
 	if (!insn || !decoder)
@@ -452,7 +452,7 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 	ild.runtime_address = decoder->ip;
 
 	while (ild.runtime_address != ip) {
-		pti_bool_t status;
+		int status;
 		int size, errcode;
 
 		if (!steps--)
@@ -797,7 +797,7 @@ static int process_vmcs_event(struct pt_insn_decoder *decoder)
 
 static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 {
-	pti_bool_t status;
+	int status;
 	struct pt_ild ild;
 	uint8_t raw[pt_max_insn_size];
 	int size;

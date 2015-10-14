@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static pti_uint8_t imm_bytes_map_0x0[256] = {
+static uint8_t imm_bytes_map_0x0[256] = {
 /*opcode 0x0*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0x1*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0x2*/ PTI_0_IMM_WIDTH_CONST_l2,
@@ -284,7 +284,7 @@ static pti_uint8_t imm_bytes_map_0x0[256] = {
 /*opcode 0xfe*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0xff*/ PTI_0_IMM_WIDTH_CONST_l2,
 };
-static pti_uint8_t imm_bytes_map_0x0F[256] = {
+static uint8_t imm_bytes_map_0x0F[256] = {
 /*opcode 0x0*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0x1*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0x2*/ PTI_0_IMM_WIDTH_CONST_l2,

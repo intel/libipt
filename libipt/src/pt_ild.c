@@ -32,11 +32,11 @@
 
 /* SET UP 3 TABLES */
 
-static pti_uint8_t has_disp_regular[4][4][8];
+static uint8_t has_disp_regular[4][4][8];
 
 static void init_has_disp_regular_table(void)
 {
-	pti_uint8_t mod, rm;
+	uint8_t mod, rm;
 
 	memset(has_disp_regular, 0, sizeof(has_disp_regular));
 
@@ -58,7 +58,7 @@ static void init_has_disp_regular_table(void)
 	}
 }
 
-static pti_uint8_t eamode_table[2][4];
+static uint8_t eamode_table[2][4];
 
 static void init_eamode_table(void)
 {
@@ -73,11 +73,11 @@ static void init_eamode_table(void)
 	eamode_table[1][ptem_64bit] = ptem_32bit;
 }
 
-static pti_uint8_t has_sib_table[4][4][8];
+static uint8_t has_sib_table[4][4][8];
 
 static void init_has_sib_table(void)
 {
-	pti_uint8_t mod;
+	uint8_t mod;
 
 	memset(has_sib_table, 0, sizeof(has_sib_table));
 
@@ -90,28 +90,27 @@ static void init_has_sib_table(void)
 
 /* SOME ACCESSORS */
 
-static inline pti_uint8_t get_byte(struct pt_ild *ild, pti_uint_t i)
+static inline uint8_t get_byte(struct pt_ild *ild, uint8_t i)
 {
 	return ild->itext[i];
 }
 
-static inline pti_uint8_t const *get_byte_ptr(struct pt_ild *ild, pti_uint_t i)
+static inline uint8_t const *get_byte_ptr(struct pt_ild *ild, uint8_t i)
 {
 	return ild->itext + i;
 }
 
-static inline pti_bool_t mode_64b(struct pt_ild *ild)
+static inline int mode_64b(struct pt_ild *ild)
 {
 	return ild->mode == ptem_64bit;
 }
 
-static inline pti_bool_t mode_32b(struct pt_ild *ild)
+static inline int mode_32b(struct pt_ild *ild)
 {
 	return ild->mode == ptem_32bit;
 }
 
-static inline pti_bool_t
-bits_match(pti_uint8_t x, pti_uint8_t mask, pti_uint8_t target)
+static inline int bits_match(uint8_t x, uint8_t mask, uint8_t target)
 {
 	return (x & mask) == target;
 }
@@ -122,7 +121,7 @@ static inline void set_error(struct pt_ild *ild)
 }
 
 /* accessors for REX.R/VEX R  */
-static inline pti_uint_t pti_get_rex_vex_r(struct pt_ild *ild)
+static inline uint8_t pti_get_rex_vex_r(struct pt_ild *ild)
 {
 	if (ild->u.s.vexc5)
 		return (ild->c5byte1 >> 7) & 1;
@@ -133,7 +132,7 @@ static inline pti_uint_t pti_get_rex_vex_r(struct pt_ild *ild)
 	return 0;
 }
 
-static inline pti_uint_t pti_get_rex_vex_w(struct pt_ild *ild)
+static inline uint8_t pti_get_rex_vex_w(struct pt_ild *ild)
 {
 	if (ild->u.s.vexc5)
 		return 0;
@@ -185,9 +184,9 @@ pti_get_nominal_eosz_df64(struct pt_ild *ild)
 	return pti_get_nominal_eosz_non64(ild);
 }
 
-static inline pti_uint8_t resolve_z(enum pt_exec_mode eosz, struct pt_ild *ild)
+static inline uint8_t resolve_z(enum pt_exec_mode eosz, struct pt_ild *ild)
 {
-	static const pti_uint8_t bytes[] = { 2, 4, 4 };
+	static const uint8_t bytes[] = { 2, 4, 4 };
 	unsigned int idx;
 
 	idx = (unsigned int) eosz - 1;
@@ -199,9 +198,9 @@ static inline pti_uint8_t resolve_z(enum pt_exec_mode eosz, struct pt_ild *ild)
 	return bytes[idx];
 }
 
-static inline pti_uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
+static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 {
-	static const pti_uint8_t bytes[] = { 2, 4, 8 };
+	static const uint8_t bytes[] = { 2, 4, 8 };
 	unsigned int idx;
 
 	idx = (unsigned int) eosz - 1;
@@ -217,13 +216,13 @@ static inline pti_uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 static void prefix_rex_dec(struct pt_ild *ild)
 {
-	pti_uint8_t max_bytes = ild->max_bytes;
-	pti_uint8_t length = 0;
-	pti_uint_t rex = 0;
-	pti_uint_t nprefixes = 0;
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = 0;
+	uint8_t rex = 0;
+	uint8_t nprefixes = 0;
 
 	while (length < max_bytes) {
-		pti_uint8_t b = get_byte(ild, length);
+		uint8_t b = get_byte(ild, length);
 
 		switch (b) {
 		case 0x66:
@@ -277,7 +276,7 @@ static void prefix_rex_dec(struct pt_ild *ild)
 	}
  out:
 	ild->length = length;
-	ild->rex = (pti_uint8_t) rex;
+	ild->rex = (uint8_t) rex;
 	if (length >= max_bytes) {
 		/* all available length was taken by prefixes, but we for sure
 		 * need at least one additional byte for an opcode, hence we
@@ -290,7 +289,7 @@ static void prefix_rex_dec(struct pt_ild *ild)
 
 static void vex_opcode_dec(struct pt_ild *ild)
 {
-	pti_uint8_t length = ild->length;
+	uint8_t length = ild->length;
 
 	ild->nominal_opcode = get_byte(ild, length);
 	ild->nominal_opcode_pos = length;	/*FIXME: needed? */
@@ -299,14 +298,14 @@ static void vex_opcode_dec(struct pt_ild *ild)
 
 static void vex_c5_dec(struct pt_ild *ild)
 {
-	pti_uint8_t max_bytes = ild->max_bytes;
-	pti_uint8_t length = ild->length;
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = ild->length;
 
 	if (mode_64b(ild)) {
 		ild->u.s.vexc5 = 1;
 		length++;	/* eat the c5 */
 	} else if (length + 1 < max_bytes) {	/* non64b mode */
-		pti_uint8_t n = get_byte(ild, length);
+		uint8_t n = get_byte(ild, length);
 
 		if (bits_match(n, 0xC0, 0xC0)) {
 			ild->u.s.vexc5 = 1;
@@ -337,14 +336,14 @@ static void vex_c5_dec(struct pt_ild *ild)
 
 static void vex_c4_dec(struct pt_ild *ild)
 {
-	pti_uint8_t max_bytes = ild->max_bytes;
-	pti_uint8_t length = ild->length;
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = ild->length;
 
 	if (mode_64b(ild)) {
 		ild->u.s.vexc4 = 1;
 		length++;	/* eat the c4 */
 	} else if (length + 1 < max_bytes) {	/* non64b mode */
-		pti_uint8_t n = get_byte(ild, length);
+		uint8_t n = get_byte(ild, length);
 
 		if (bits_match(n, 0xC0, 0xC0)) {
 			ild->u.s.vexc4 = 1;
@@ -383,7 +382,7 @@ static void vex_dec(struct pt_ild *ild)
 	/* The prefix scanner checked the length for us so we know that there
 	 * is at least 1B left.
 	 */
-	pti_uint8_t b = get_byte(ild, ild->length);
+	uint8_t b = get_byte(ild, ild->length);
 
 	if (b == 0xC5)
 		vex_c5_dec(ild);
@@ -393,7 +392,7 @@ static void vex_dec(struct pt_ild *ild)
 
 static void get_next_as_opcode(struct pt_ild *ild)
 {
-	pti_uint8_t length = ild->length;
+	uint8_t length = ild->length;
 
 	if (length < ild->max_bytes) {
 		ild->nominal_opcode = get_byte(ild, length);
@@ -406,8 +405,8 @@ static void get_next_as_opcode(struct pt_ild *ild)
 
 static void opcode_dec(struct pt_ild *ild)
 {
-	pti_uint8_t length = ild->length;
-	pti_uint8_t b = get_byte(ild, length);
+	uint8_t length = ild->length;
+	uint8_t b = get_byte(ild, length);
 
 	/*no need to check max_bytes - it was checked in previous scanners */
 
@@ -424,7 +423,7 @@ static void opcode_dec(struct pt_ild *ild)
 
 	/* 0x0F opcodes MAPS 1,2,3 */
 	if (length < ild->max_bytes) {
-		pti_uint8_t m = get_byte(ild, length);
+		uint8_t m = get_byte(ild, length);
 
 		if (m == 0x38) {
 			length++;	/* eat the 0x38 */
@@ -478,11 +477,11 @@ static void opcode_dec(struct pt_ild *ild)
 
 static void modrm_dec(struct pt_ild *ild)
 {
-	static pti_uint8_t const *const has_modrm_2d[2] = {
+	static uint8_t const *const has_modrm_2d[2] = {
 		has_modrm_map_0x0,
 		has_modrm_map_0x0F
 	};
-	pti_uint_t has_modrm = PTI_MODRM_FALSE;
+	int has_modrm = PTI_MODRM_FALSE;
 	pti_map_enum_t map = pti_get_map(ild);
 
 	if (map >= PTI_MAP_2)
@@ -503,9 +502,9 @@ static void modrm_dec(struct pt_ild *ild)
 	if (has_modrm != PTI_MODRM_IGNORE_MOD) {
 		/* set disp_bytes and sib using simple tables */
 
-		pti_uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
-		pti_uint8_t mod = (pti_uint8_t) pti_get_modrm_mod(ild);
-		pti_uint8_t rm = (pti_uint8_t) pti_get_modrm_rm(ild);
+		uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
+		uint8_t mod = (uint8_t) pti_get_modrm_mod(ild);
+		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
 
 		ild->disp_bytes = has_disp_regular[eamode][mod][rm];
 		ild->u.s.sib = has_sib_table[eamode][mod][rm];
@@ -516,7 +515,7 @@ static void modrm_dec(struct pt_ild *ild)
 static void sib_dec(struct pt_ild *ild)
 {
 	if (ild->u.s.sib) {
-		pti_uint8_t length = ild->length;
+		uint8_t length = ild->length;
 
 		if (length < ild->max_bytes) {
 			ild->sib_byte = get_byte(ild, length);
@@ -533,7 +532,7 @@ static void sib_dec(struct pt_ild *ild)
 static void compute_disp_dec(struct pt_ild *ild)
 {
 	/* set ild->disp_bytes for maps 0 and 1. */
-	static pti_uint8_t const *const map_map[] = {
+	static uint8_t const *const map_map[] = {
 		/* map 0 */ disp_bytes_map_0x0,
 		/* map 1 */ disp_bytes_map_0x0F,
 		/* map 2 */ 0,
@@ -542,8 +541,8 @@ static void compute_disp_dec(struct pt_ild *ild)
 		/* invalid */ 0
 	};
 
-	pti_uint8_t const *const disp_table = map_map[ild->map];
-	pti_uint_t disp_kind;
+	uint8_t const *const disp_table = map_map[ild->map];
+	uint8_t disp_kind;
 
 	if (disp_table == 0)
 		return;
@@ -605,7 +604,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 
 static void disp_dec(struct pt_ild *ild)
 {
-	pti_uint8_t disp_bytes;
+	uint8_t disp_bytes;
 
 	if (ild->disp_bytes == 0 && pti_get_map(ild) < PTI_MAP_2)
 		compute_disp_dec(ild);
@@ -630,7 +629,7 @@ static void disp_dec(struct pt_ild *ild)
 static void set_imm_bytes(struct pt_ild *ild)
 {
 	/*: set ild->imm1_bytes and  ild->imm2_bytes for maps 0/1 */
-	static pti_uint8_t const *const map_map[] = {
+	static uint8_t const *const map_map[] = {
 		/* map 0 */ imm_bytes_map_0x0,
 		/* map 1 */ imm_bytes_map_0x0F,
 		/* map 2 */ 0,
@@ -638,8 +637,8 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* amd3dnow */ 0,
 		/* invalid */ 0
 	};
-	pti_uint8_t const *const map_imm = map_map[ild->map];
-	pti_uint_t imm_code;
+	uint8_t const *const map_imm = map_map[ild->map];
+	uint8_t imm_code;
 
 	if (map_imm == 0)
 		return;
@@ -776,37 +775,35 @@ static void decode(struct pt_ild *ild)
 	imm_dec(ild);
 }
 
-static inline pti_int64_t sign_extend_bq(pti_int8_t x)
+static inline int64_t sign_extend_bq(int8_t x)
 {
 	return x;
 }
 
-static inline pti_int64_t sign_extend_wq(pti_int16_t x)
+static inline int64_t sign_extend_wq(int16_t x)
 {
 	return x;
 }
 
-static inline pti_int64_t sign_extend_dq(pti_int32_t x)
+static inline int64_t sign_extend_dq(int32_t x)
 {
 	return x;
 }
 
 static void set_branch_target(struct pt_ild *ild)
 {
-	pti_int64_t npc;
-	pti_uint64_t sign_extended_disp = 0;
+	int64_t npc;
+	uint64_t sign_extended_disp = 0;
 
 	if (ild->disp_bytes == 1)
 		sign_extended_disp =
 		    sign_extend_bq(get_byte(ild, ild->disp_pos));
 	else if (ild->disp_bytes == 2) {
-		pti_int16_t *w =
-		    (pti_int16_t *) (get_byte_ptr(ild, ild->disp_pos));
+		int16_t *w = (int16_t *) (get_byte_ptr(ild, ild->disp_pos));
 
 		sign_extended_disp = sign_extend_wq(*w);
 	} else if (ild->disp_bytes == 4) {
-		pti_int32_t *d =
-		    (pti_int32_t *) (get_byte_ptr(ild, ild->disp_pos));
+		int32_t *d = (int32_t *) (get_byte_ptr(ild, ild->disp_pos));
 
 		sign_extended_disp = sign_extend_dq(*d);
 	} else {
@@ -814,8 +811,8 @@ static void set_branch_target(struct pt_ild *ild)
 		return;
 	}
 
-	npc = (pti_int64_t) (ild->runtime_address + ild->length);
-	ild->direct_target = (pti_uint64_t) (npc + sign_extended_disp);
+	npc = (int64_t) (ild->runtime_address + ild->length);
+	ild->direct_target = (uint64_t) (npc + sign_extended_disp);
 }
 
 /*  MAIN ENTRY POINTS */
@@ -827,7 +824,7 @@ void pti_ild_init(void)
 	init_eamode_table();
 }
 
-pti_bool_t pti_instruction_length_decode(struct pt_ild *ild)
+int pti_instruction_length_decode(struct pt_ild *ild)
 {
 	ild->u.i = 0;
 	ild->imm1_bytes = 0;
@@ -841,10 +838,10 @@ pti_bool_t pti_instruction_length_decode(struct pt_ild *ild)
 	return ild->u.s.error == 0;
 }
 
-pti_bool_t pti_instruction_decode(struct pt_ild *ild)
+int pti_instruction_decode(struct pt_ild *ild)
 {
-	pti_uint8_t opcode = ild->nominal_opcode;
-	pti_uint8_t map = pti_get_map(ild);
+	uint8_t opcode = ild->nominal_opcode;
+	uint8_t map = pti_get_map(ild);
 
 	ild->iclass = PTI_INST_INVALID;
 
@@ -890,7 +887,7 @@ pti_bool_t pti_instruction_decode(struct pt_ild *ild)
 
 	case 0xFF:
 		if (map == PTI_MAP_0) {
-			pti_uint_t reg = pti_get_modrm_reg(ild);
+			uint8_t reg = pti_get_modrm_reg(ild);
 
 			if (reg == 2) {
 				ild->iclass = PTI_INST_CALL_FFr2;

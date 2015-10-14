@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static pti_uint8_t disp_bytes_map_0x0[256] = {
+static uint8_t disp_bytes_map_0x0[256] = {
 /*opcode 0x0*/ PTI_PRESERVE_DEFAULT,
 /*opcode 0x1*/ PTI_PRESERVE_DEFAULT,
 /*opcode 0x2*/ PTI_PRESERVE_DEFAULT,
@@ -284,7 +284,7 @@ static pti_uint8_t disp_bytes_map_0x0[256] = {
 /*opcode 0xfe*/ PTI_PRESERVE_DEFAULT,
 /*opcode 0xff*/ PTI_PRESERVE_DEFAULT,
 };
-static pti_uint8_t disp_bytes_map_0x0F[256] = {
+static uint8_t disp_bytes_map_0x0F[256] = {
 /*opcode 0x0*/ PTI_PRESERVE_DEFAULT,
 /*opcode 0x1*/ PTI_PRESERVE_DEFAULT,
 /*opcode 0x2*/ PTI_PRESERVE_DEFAULT,

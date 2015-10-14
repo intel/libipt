@@ -33,8 +33,8 @@
 #include <string.h>
 
 
-enum pti_interest {
-	pti_interesting = 1,
+enum interest {
+	interesting = 1,
 	pti_boring = 0
 };
 
@@ -50,10 +50,9 @@ static const uint64_t pti_addr = 0xffccffccffccull;
  * This is left to the calling test.
  */
 static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
-					      pti_bool_t interest,
-					      pti_uint8_t size)
+					      int interest, uint8_t size)
 {
-	pti_bool_t lret, dret;
+	int lret, dret;
 
 	lret = pti_instruction_length_decode(ild);
 	ptu_int_eq(lret, 1);
@@ -69,8 +68,8 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
  *
  * We can't use a fixture since we don't know the instruction size upfront.
  */
-static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
-			    pti_uint8_t size, enum pt_exec_mode mode)
+static void ptunit_ild_init(struct pt_ild *ild, uint8_t *insn,
+			    uint8_t size, enum pt_exec_mode mode)
 {
 	memset(ild, 0, sizeof(*ild));
 	ild->itext = insn;
@@ -80,8 +79,7 @@ static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
 }
 
 /* Check that a boring instruction is decoded correctly. */
-static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
-					      pti_uint8_t size,
+static struct ptunit_result ptunit_ild_boring(uint8_t *insn, uint8_t size,
 					      enum pt_exec_mode mode)
 {
 	struct pt_ild ild;
@@ -93,15 +91,14 @@ static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
 }
 
 /* Check that an interesting instruction is decoded and classified correctly. */
-static struct ptunit_result ptunit_ild_classify(pti_uint8_t *insn,
-						pti_uint8_t size,
+static struct ptunit_result ptunit_ild_classify(uint8_t *insn, uint8_t size,
 						enum pt_exec_mode mode,
 						pti_inst_enum_t iclass)
 {
 	struct pt_ild ild;
 
 	ptunit_ild_init(&ild, insn, size, mode);
-	ptu_test(ptunit_ild_decode, &ild, pti_interesting, size);
+	ptu_test(ptunit_ild_decode, &ild, interesting, size);
 	ptu_int_eq(ild.iclass, iclass);
 
 	return ptu_passed();
@@ -124,7 +121,7 @@ static struct ptunit_result ptunit_ild_classify(pti_uint8_t *insn,
 
 static struct ptunit_result push(void)
 {
-	pti_uint8_t insn[] = { 0x68, 0x11, 0x22, 0x33, 0x44 };
+	uint8_t insn[] = { 0x68, 0x11, 0x22, 0x33, 0x44 };
 
 	ptu_boring_s(insn, ptem_64bit);
 
@@ -133,7 +130,7 @@ static struct ptunit_result push(void)
 
 static struct ptunit_result jmp_rel(void)
 {
-	pti_uint8_t insn[] = { 0xE9, 0x60, 0xF9, 0xFF, 0xFF };
+	uint8_t insn[] = { 0xE9, 0x60, 0xF9, 0xFF, 0xFF };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_JMP_E9);
 
@@ -142,7 +139,7 @@ static struct ptunit_result jmp_rel(void)
 
 static struct ptunit_result long_nop(void)
 {
-	pti_uint8_t insn[] = { 0x66, 0x66, 0x66, 0x66,
+	uint8_t insn[] = { 0x66, 0x66, 0x66, 0x66,
 			       0x66, 0x66, 0X2E, 0X0F,
 			       0X1F, 0x84, 0x00, 0x00,
 			       0x00, 0x00, 0x00 };
@@ -154,7 +151,7 @@ static struct ptunit_result long_nop(void)
 
 static struct ptunit_result mov_al_64(void)
 {
-	pti_uint8_t insn[] = { 0x48, 0xA1, 0x3f, 0xaa, 0xbb,
+	uint8_t insn[] = { 0x48, 0xA1, 0x3f, 0xaa, 0xbb,
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
@@ -165,7 +162,7 @@ static struct ptunit_result mov_al_64(void)
 
 static struct ptunit_result mov_al_32(void)
 {
-	pti_uint8_t insn[] = { 0xA1, 0x3f, 0xaa, 0xbb,
+	uint8_t insn[] = { 0xA1, 0x3f, 0xaa, 0xbb,
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
@@ -176,7 +173,7 @@ static struct ptunit_result mov_al_32(void)
 
 static struct ptunit_result mov_al_16(void)
 {
-	pti_uint8_t insn[] = { 0x66, 0xA1, 0x3f, 0xaa, 0xbb,
+	uint8_t insn[] = { 0x66, 0xA1, 0x3f, 0xaa, 0xbb,
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
@@ -187,7 +184,7 @@ static struct ptunit_result mov_al_16(void)
 
 static struct ptunit_result rdtsc(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x31 };
+	uint8_t insn[] = { 0x0f, 0x31 };
 
 	ptu_boring_s(insn, ptem_64bit);
 
@@ -196,7 +193,7 @@ static struct ptunit_result rdtsc(void)
 
 static struct ptunit_result pcmpistri(void)
 {
-	pti_uint8_t insn[] = { 0x66, 0x0f, 0x3a, 0x63, 0x04, 0x16, 0x1a };
+	uint8_t insn[] = { 0x66, 0x0f, 0x3a, 0x63, 0x04, 0x16, 0x1a };
 
 	ptu_boring_s(insn, ptem_64bit);
 
@@ -205,7 +202,7 @@ static struct ptunit_result pcmpistri(void)
 
 static struct ptunit_result vmovdqa(void)
 {
-	pti_uint8_t insn[] = { 0xc5, 0xf9, 0x6f, 0x25, 0xa9, 0x55, 0x04, 0x00 };
+	uint8_t insn[] = { 0xc5, 0xf9, 0x6f, 0x25, 0xa9, 0x55, 0x04, 0x00 };
 
 	ptu_boring_s(insn, ptem_64bit);
 
@@ -214,7 +211,7 @@ static struct ptunit_result vmovdqa(void)
 
 static struct ptunit_result vpandn(void)
 {
-	pti_uint8_t insn[] = { 0xc4, 0x41, 0x29, 0xdf, 0xd1 };
+	uint8_t insn[] = { 0xc4, 0x41, 0x29, 0xdf, 0xd1 };
 
 	ptu_boring_s(insn, ptem_64bit);
 
@@ -223,7 +220,7 @@ static struct ptunit_result vpandn(void)
 
 static struct ptunit_result syscall(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x05 };
+	uint8_t insn[] = { 0x0f, 0x05 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSCALL);
 
@@ -232,7 +229,7 @@ static struct ptunit_result syscall(void)
 
 static struct ptunit_result sysret(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x07 };
+	uint8_t insn[] = { 0x0f, 0x07 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSRET);
 
@@ -241,7 +238,7 @@ static struct ptunit_result sysret(void)
 
 static struct ptunit_result sysenter(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x34 };
+	uint8_t insn[] = { 0x0f, 0x34 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSENTER);
 
@@ -250,7 +247,7 @@ static struct ptunit_result sysenter(void)
 
 static struct ptunit_result sysexit(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x35 };
+	uint8_t insn[] = { 0x0f, 0x35 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSEXIT);
 
@@ -259,7 +256,7 @@ static struct ptunit_result sysexit(void)
 
 static struct ptunit_result int3(void)
 {
-	pti_uint8_t insn[] = { 0xcc };
+	uint8_t insn[] = { 0xcc };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_INT3);
 
@@ -268,7 +265,7 @@ static struct ptunit_result int3(void)
 
 static struct ptunit_result intn(void)
 {
-	pti_uint8_t insn[] = { 0xcd, 0x06 };
+	uint8_t insn[] = { 0xcd, 0x06 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_INT);
 
@@ -277,7 +274,7 @@ static struct ptunit_result intn(void)
 
 static struct ptunit_result iret(void)
 {
-	pti_uint8_t insn[] = { 0xcf };
+	uint8_t insn[] = { 0xcf };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_IRET);
 
@@ -286,7 +283,7 @@ static struct ptunit_result iret(void)
 
 static struct ptunit_result call_9a_cd(void)
 {
-	pti_uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_16bit, PTI_INST_CALL_9A);
 
@@ -295,7 +292,7 @@ static struct ptunit_result call_9a_cd(void)
 
 static struct ptunit_result call_9a_cp(void)
 {
-	pti_uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_32bit, PTI_INST_CALL_9A);
 
@@ -304,7 +301,7 @@ static struct ptunit_result call_9a_cp(void)
 
 static struct ptunit_result call_ff_3(void)
 {
-	pti_uint8_t insn[] = { 0xff, 0x1c, 0x25, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t insn[] = { 0xff, 0x1c, 0x25, 0x00, 0x00, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_CALL_FFr3);
 
@@ -313,7 +310,7 @@ static struct ptunit_result call_ff_3(void)
 
 static struct ptunit_result jmp_ff_5(void)
 {
-	pti_uint8_t insn[] = { 0xff, 0x2c, 0x25, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t insn[] = { 0xff, 0x2c, 0x25, 0x00, 0x00, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_JMP_FFr5);
 
@@ -322,7 +319,7 @@ static struct ptunit_result jmp_ff_5(void)
 
 static struct ptunit_result jmp_ea_cd(void)
 {
-	pti_uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_16bit, PTI_INST_JMP_EA);
 
@@ -331,7 +328,7 @@ static struct ptunit_result jmp_ea_cd(void)
 
 static struct ptunit_result jmp_ea_cp(void)
 {
-	pti_uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_32bit, PTI_INST_JMP_EA);
 
@@ -340,7 +337,7 @@ static struct ptunit_result jmp_ea_cp(void)
 
 static struct ptunit_result ret_ca(void)
 {
-	pti_uint8_t insn[] = { 0xca, 0x00, 0x00 };
+	uint8_t insn[] = { 0xca, 0x00, 0x00 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_RET_CA);
 
@@ -349,7 +346,7 @@ static struct ptunit_result ret_ca(void)
 
 static struct ptunit_result vmlaunch(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc2 };
+	uint8_t insn[] = { 0x0f, 0x01, 0xc2 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMLAUNCH);
 
@@ -358,7 +355,7 @@ static struct ptunit_result vmlaunch(void)
 
 static struct ptunit_result vmresume(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc3 };
+	uint8_t insn[] = { 0x0f, 0x01, 0xc3 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMRESUME);
 
@@ -367,7 +364,7 @@ static struct ptunit_result vmresume(void)
 
 static struct ptunit_result vmcall(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc1 };
+	uint8_t insn[] = { 0x0f, 0x01, 0xc1 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMCALL);
 
@@ -376,7 +373,7 @@ static struct ptunit_result vmcall(void)
 
 static struct ptunit_result vmptrld(void)
 {
-	pti_uint8_t insn[] = { 0x0f, 0xc7, 0x30 };
+	uint8_t insn[] = { 0x0f, 0xc7, 0x30 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMPTRLD);
 
@@ -385,7 +382,7 @@ static struct ptunit_result vmptrld(void)
 
 static struct ptunit_result jrcxz(void)
 {
-	pti_uint8_t insn[] = { 0xe3, 0x00 };
+	uint8_t insn[] = { 0xe3, 0x00 };
 
 	ptu_classify_s(insn, ptem_64bit, PTI_INST_JrCXZ);
 
