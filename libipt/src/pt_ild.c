@@ -904,7 +904,7 @@ set_branch_target (pti_ild_t * ild)
 
 /*  MAIN ENTRY POINTS */
 
-PTI_DLL_EXPORT void
+void
 pti_ild_init (void)
 {                               /* initialization */
   init_has_disp_regular_table ();
@@ -912,7 +912,7 @@ pti_ild_init (void)
   init_eamode_table ();
 }
 
-PTI_DLL_EXPORT pti_bool_t
+pti_bool_t
 pti_instruction_length_decode (pti_ild_t * ild)
 {
   ild->u.i = 0;
@@ -927,7 +927,7 @@ pti_instruction_length_decode (pti_ild_t * ild)
   return ild->u.s.error == 0;
 }
 
-PTI_DLL_EXPORT pti_bool_t
+pti_bool_t
 pti_instruction_decode (pti_ild_t * ild)
 {
   pti_uint8_t opcode = ild->nominal_opcode;

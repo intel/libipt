@@ -43,26 +43,6 @@
 #define PTI_MAC
 #endif
 
-#if defined(PTI_DLL)
-/*  __declspec(dllexport) works with GNU GCC or MS compilers, but not ICC
-    on linux */
-
-#if defined(PTI_WINDOWS)
-#define PTI_DLL_EXPORT __declspec(dllexport)
-#define PTI_DLL_IMPORT __declspec(dllimport)
-#elif defined(PTI_LINUX)  || defined(PTI_BSD) || defined(PTI_MAC)
-#define PTI_DLL_EXPORT __attribute__((visibility("default")))
-#define PTI_DLL_IMPORT
-#else
-#define PTI_DLL_EXPORT
-#define PTI_DLL_IMPORT
-#endif
-#else
-#define PTI_DLL_EXPORT
-#define PTI_DLL_IMPORT
-#endif
-
-
 #if defined(_WIN32) && defined(_MSC_VER)
 #if _MSC_VER == 1200
 #define PTI_MSVC6 1
