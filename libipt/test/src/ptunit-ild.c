@@ -71,7 +71,7 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
  */
 static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
 			    pti_uint32_t size,
-			    pti_machine_mode_enum_t mode)
+			    enum pt_exec_mode mode)
 {
 	memset(ild, 0, sizeof(*ild));
 	ild->itext = insn;
@@ -83,7 +83,7 @@ static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
 /* Check that a boring instruction is decoded correctly. */
 static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
 					      pti_uint32_t size,
-					      pti_machine_mode_enum_t mode)
+					      enum pt_exec_mode mode)
 {
 	struct pt_ild ild;
 
@@ -96,7 +96,7 @@ static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
 /* Check that an interesting instruction is decoded and classified correctly. */
 static struct ptunit_result ptunit_ild_classify(pti_uint8_t *insn,
 						pti_uint32_t size,
-						pti_machine_mode_enum_t mode,
+						enum pt_exec_mode mode,
 						pti_inst_enum_t iclass)
 {
 	struct pt_ild ild;
@@ -127,7 +127,7 @@ static struct ptunit_result push(void)
 {
 	pti_uint8_t insn[] = { 0x68, 0x11, 0x22, 0x33, 0x44 };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -136,7 +136,7 @@ static struct ptunit_result jmp_rel(void)
 {
 	pti_uint8_t insn[] = { 0xE9, 0x60, 0xF9, 0xFF, 0xFF };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_JMP_E9);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_JMP_E9);
 
 	return ptu_passed();
 }
@@ -148,7 +148,7 @@ static struct ptunit_result long_nop(void)
 			       0X1F, 0x84, 0x00, 0x00,
 			       0x00, 0x00, 0x00 };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -159,7 +159,7 @@ static struct ptunit_result mov_al_64(void)
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -170,7 +170,7 @@ static struct ptunit_result mov_al_32(void)
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
-	ptu_boring(insn, 5, PTI_MODE_64);
+	ptu_boring(insn, 5, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -181,7 +181,7 @@ static struct ptunit_result mov_al_16(void)
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
-	ptu_boring(insn, 4, PTI_MODE_64);
+	ptu_boring(insn, 4, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -190,7 +190,7 @@ static struct ptunit_result rdtsc(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x31 };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -199,7 +199,7 @@ static struct ptunit_result pcmpistri(void)
 {
 	pti_uint8_t insn[] = { 0x66, 0x0f, 0x3a, 0x63, 0x04, 0x16, 0x1a };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -208,7 +208,7 @@ static struct ptunit_result vmovdqa(void)
 {
 	pti_uint8_t insn[] = { 0xc5, 0xf9, 0x6f, 0x25, 0xa9, 0x55, 0x04, 0x00 };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -217,7 +217,7 @@ static struct ptunit_result vpandn(void)
 {
 	pti_uint8_t insn[] = { 0xc4, 0x41, 0x29, 0xdf, 0xd1 };
 
-	ptu_boring_s(insn, PTI_MODE_64);
+	ptu_boring_s(insn, ptem_64bit);
 
 	return ptu_passed();
 }
@@ -226,7 +226,7 @@ static struct ptunit_result syscall(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x05 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_SYSCALL);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSCALL);
 
 	return ptu_passed();
 }
@@ -235,7 +235,7 @@ static struct ptunit_result sysret(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x07 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_SYSRET);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSRET);
 
 	return ptu_passed();
 }
@@ -244,7 +244,7 @@ static struct ptunit_result sysenter(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x34 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_SYSENTER);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSENTER);
 
 	return ptu_passed();
 }
@@ -253,7 +253,7 @@ static struct ptunit_result sysexit(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x35 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_SYSEXIT);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_SYSEXIT);
 
 	return ptu_passed();
 }
@@ -262,7 +262,7 @@ static struct ptunit_result int3(void)
 {
 	pti_uint8_t insn[] = { 0xcc };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_INT3);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_INT3);
 
 	return ptu_passed();
 }
@@ -271,7 +271,7 @@ static struct ptunit_result intn(void)
 {
 	pti_uint8_t insn[] = { 0xcd, 0x06 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_INT);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_INT);
 
 	return ptu_passed();
 }
@@ -280,7 +280,7 @@ static struct ptunit_result iret(void)
 {
 	pti_uint8_t insn[] = { 0xcf };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_IRET);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_IRET);
 
 	return ptu_passed();
 }
@@ -289,7 +289,7 @@ static struct ptunit_result call_9a_cd(void)
 {
 	pti_uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_16, PTI_INST_CALL_9A);
+	ptu_classify_s(insn, ptem_16bit, PTI_INST_CALL_9A);
 
 	return ptu_passed();
 }
@@ -298,7 +298,7 @@ static struct ptunit_result call_9a_cp(void)
 {
 	pti_uint8_t insn[] = { 0x9a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_32, PTI_INST_CALL_9A);
+	ptu_classify_s(insn, ptem_32bit, PTI_INST_CALL_9A);
 
 	return ptu_passed();
 }
@@ -307,7 +307,7 @@ static struct ptunit_result call_ff_3(void)
 {
 	pti_uint8_t insn[] = { 0xff, 0x1c, 0x25, 0x00, 0x00, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_CALL_FFr3);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_CALL_FFr3);
 
 	return ptu_passed();
 }
@@ -316,7 +316,7 @@ static struct ptunit_result jmp_ff_5(void)
 {
 	pti_uint8_t insn[] = { 0xff, 0x2c, 0x25, 0x00, 0x00, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_JMP_FFr5);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_JMP_FFr5);
 
 	return ptu_passed();
 }
@@ -325,7 +325,7 @@ static struct ptunit_result jmp_ea_cd(void)
 {
 	pti_uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_16, PTI_INST_JMP_EA);
+	ptu_classify_s(insn, ptem_16bit, PTI_INST_JMP_EA);
 
 	return ptu_passed();
 }
@@ -334,7 +334,7 @@ static struct ptunit_result jmp_ea_cp(void)
 {
 	pti_uint8_t insn[] = { 0xea, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_32, PTI_INST_JMP_EA);
+	ptu_classify_s(insn, ptem_32bit, PTI_INST_JMP_EA);
 
 	return ptu_passed();
 }
@@ -343,7 +343,7 @@ static struct ptunit_result ret_ca(void)
 {
 	pti_uint8_t insn[] = { 0xca, 0x00, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_RET_CA);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_RET_CA);
 
 	return ptu_passed();
 }
@@ -352,7 +352,7 @@ static struct ptunit_result vmlaunch(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc2 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMLAUNCH);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMLAUNCH);
 
 	return ptu_passed();
 }
@@ -361,7 +361,7 @@ static struct ptunit_result vmresume(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc3 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMRESUME);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMRESUME);
 
 	return ptu_passed();
 }
@@ -370,7 +370,7 @@ static struct ptunit_result vmcall(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0x01, 0xc1 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMCALL);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMCALL);
 
 	return ptu_passed();
 }
@@ -379,7 +379,7 @@ static struct ptunit_result vmptrld(void)
 {
 	pti_uint8_t insn[] = { 0x0f, 0xc7, 0x30 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_VMPTRLD);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_VMPTRLD);
 
 	return ptu_passed();
 }
@@ -388,7 +388,7 @@ static struct ptunit_result jrcxz(void)
 {
 	pti_uint8_t insn[] = { 0xe3, 0x00 };
 
-	ptu_classify_s(insn, PTI_MODE_64, PTI_INST_JrCXZ);
+	ptu_classify_s(insn, ptem_64bit, PTI_INST_JrCXZ);
 
 	return ptu_passed();
 }

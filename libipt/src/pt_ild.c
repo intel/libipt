@@ -32,6 +32,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 static inline PTI_NORETURN void pti_abort()
 {
@@ -44,74 +45,60 @@ static inline PTI_NORETURN void pti_abort()
 
 /* SET UP 3 TABLES */
 
-static pti_uint8_t has_disp_regular[3][4][8];
+static pti_uint8_t has_disp_regular[4][4][8];
 
 static void init_has_disp_regular_table(void)
 {
-	pti_uint8_t eamode;
-	pti_uint8_t rm;
-	pti_uint8_t mod;
+	pti_uint8_t mod, rm;
 
-	/* zero whole table */
-	for (eamode = 0; eamode < 3; eamode++)
-		for (mod = 0; mod < 4; mod++)
-			for (rm = 0; rm < 8; rm++)
-				has_disp_regular[eamode][mod][rm] = 0;
+	memset(has_disp_regular, 0, sizeof(has_disp_regular));
 
-	/*fill the eamode16 */
-	has_disp_regular[0][0][6] = 2;
+	/*fill eamode16 */
+	has_disp_regular[ptem_16bit][0][6] = 2;
 	for (rm = 0; rm < 8; rm++)
 		for (mod = 1; mod <= 2; mod++)
-			has_disp_regular[0][mod][rm] = mod;
+			has_disp_regular[ptem_16bit][mod][rm] = mod;
 
 	/*fill eamode32/64 */
-	for (eamode = 1; eamode <= 2; eamode++) {
-		for (rm = 0; rm < 8; rm++) {
-			has_disp_regular[eamode][1][rm] = 1;
-			has_disp_regular[eamode][2][rm] = 4;
-		}
-		has_disp_regular[eamode][0][5] = 4;
+	has_disp_regular[ptem_32bit][0][5] = 4;
+	has_disp_regular[ptem_64bit][0][5] = 4;
+	for (rm = 0; rm < 8; rm++) {
+		has_disp_regular[ptem_32bit][1][rm] = 1;
+		has_disp_regular[ptem_32bit][2][rm] = 4;
+
+		has_disp_regular[ptem_64bit][1][rm] = 1;
+		has_disp_regular[ptem_64bit][2][rm] = 4;
 	}
 }
 
-static pti_uint8_t eamode_table[2][PTI_MODE_LAST];
+static pti_uint8_t eamode_table[2][4];
 
 static void init_eamode_table(void)
 {
-	pti_uint8_t mode;
-	pti_uint8_t asz;
+	eamode_table[0][ptem_unknown] = ptem_unknown;
+	eamode_table[0][ptem_16bit] = ptem_16bit;
+	eamode_table[0][ptem_32bit] = ptem_32bit;
+	eamode_table[0][ptem_64bit] = ptem_64bit;
 
-	/* zero out the table. */
-	for (asz = 0; asz < 2; asz++)
-		for (mode = 0; mode < PTI_MODE_LAST; mode++)
-			eamode_table[asz][mode] = 0;
-
-	for (mode = PTI_MODE_16; mode <= PTI_MODE_64; mode++)
-		eamode_table[0][mode] = mode;
-
-	eamode_table[1][PTI_MODE_16] = PTI_MODE_32;
-	eamode_table[1][PTI_MODE_32] = PTI_MODE_16;
-	eamode_table[1][PTI_MODE_64] = PTI_MODE_32;
+	eamode_table[1][ptem_unknown] = ptem_unknown;
+	eamode_table[1][ptem_16bit] = ptem_32bit;
+	eamode_table[1][ptem_32bit] = ptem_16bit;
+	eamode_table[1][ptem_64bit] = ptem_32bit;
 }
 
-static pti_uint8_t has_sib_table[3][4][8];
+static pti_uint8_t has_sib_table[4][4][8];
 
 static void init_has_sib_table(void)
 {
-	pti_uint8_t eamode;
 	pti_uint8_t mod;
-	pti_uint8_t rm;
 
-	/* zero whole table */
-	for (eamode = 0; eamode < 3; eamode++)
-		for (mod = 0; mod < 4; mod++)
-			for (rm = 0; rm < 8; rm++)
-				has_sib_table[eamode][mod][rm] = 0;
+	memset(has_sib_table, 0, sizeof(has_sib_table));
 
 	/*for eamode32/64 there is sib byte for mod!=3 and rm==4 */
-	for (eamode = 1; eamode <= 2; eamode++)
-		for (mod = 0; mod <= 2; mod++)
-			has_sib_table[eamode][mod][4] = 1;
+	for (mod = 0; mod <= 2; mod++) {
+		has_sib_table[ptem_32bit][mod][4] = 1;
+		has_sib_table[ptem_64bit][mod][4] = 1;
+	}
 }
 
 /* SOME ACCESSORS */
@@ -128,12 +115,12 @@ static inline pti_uint8_t const *get_byte_ptr(struct pt_ild *ild, pti_uint_t i)
 
 static inline pti_bool_t mode_64b(struct pt_ild *ild)
 {
-	return ild->mode == PTI_MODE_64;
+	return ild->mode == ptem_64bit;
 }
 
 static inline pti_bool_t mode_32b(struct pt_ild *ild)
 {
-	return ild->mode == PTI_MODE_32;
+	return ild->mode == ptem_32bit;
 }
 
 static inline pti_bool_t
@@ -170,63 +157,65 @@ static inline pti_uint_t pti_get_rex_vex_w(struct pt_ild *ild)
 	return 0;
 }
 
-static inline pti_machine_mode_enum_t
+static inline enum pt_exec_mode
 pti_get_nominal_eosz_non64(struct pt_ild *ild)
 {
 	if (mode_32b(ild)) {
 		if (ild->u.s.osz)
-			return PTI_MODE_16;
-		return PTI_MODE_32;
+			return ptem_16bit;
+		return ptem_32bit;
 	}
 	if (ild->u.s.osz)
-		return PTI_MODE_32;
-	return PTI_MODE_16;
+		return ptem_32bit;
+	return ptem_16bit;
 }
 
-static inline pti_machine_mode_enum_t
+static inline enum pt_exec_mode
 pti_get_nominal_eosz(struct pt_ild *ild)
 {
 	if (mode_64b(ild)) {
 		if (pti_get_rex_vex_w(ild))
-			return PTI_MODE_64;
+			return ptem_64bit;
 		if (ild->u.s.osz)
-			return PTI_MODE_16;
-		return PTI_MODE_32;
+			return ptem_16bit;
+		return ptem_32bit;
 	}
 	return pti_get_nominal_eosz_non64(ild);
 }
 
-static inline pti_machine_mode_enum_t
+static inline enum pt_exec_mode
 pti_get_nominal_eosz_df64(struct pt_ild *ild)
 {
 	if (mode_64b(ild)) {
 		if (pti_get_rex_vex_w(ild))
-			return PTI_MODE_64;
+			return ptem_64bit;
 		if (ild->u.s.osz)
-			return PTI_MODE_16;
+			return ptem_16bit;
 		/* only this next line of code is different relative
 		   to pti_get_nominal_eosz(), above */
-		return PTI_MODE_64;
+		return ptem_64bit;
 	}
 	return pti_get_nominal_eosz_non64(ild);
 }
 
-static inline pti_uint8_t resolve_z(pti_machine_mode_enum_t eosz)
+static inline pti_uint8_t resolve_z(enum pt_exec_mode eosz)
 {
 	static const pti_uint8_t bytes[] = { 2, 4, 4 };
 
-	if (eosz < PTI_MODE_LAST)
-		return bytes[eosz];
-	pti_abort();
+	if (!eosz || sizeof(bytes) < eosz)
+		pti_abort();
+
+	return bytes[eosz-1];
 }
 
-static inline pti_uint8_t resolve_v(pti_machine_mode_enum_t eosz)
+static inline pti_uint8_t resolve_v(enum pt_exec_mode eosz)
 {
 	static const pti_uint8_t bytes[] = { 2, 4, 8 };
 
-	if (eosz < PTI_MODE_LAST)
-		return bytes[eosz];
-	pti_abort();
+	if (!eosz || sizeof(bytes) < eosz)
+		pti_abort();
+
+	return bytes[eosz-1];
 }
 
 /*  DECODERS */
@@ -581,8 +570,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 		if (mode_64b(ild))
 			ild->disp_bytes = 4;
 		else {
-			pti_machine_mode_enum_t eosz =
-				pti_get_nominal_eosz(ild);
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 			ild->disp_bytes = resolve_z(eosz);
 		}
@@ -590,7 +578,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 
 	case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2: {
 		/* MEMDISPv(easz) */
-		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 		ild->disp_bytes = resolve_v(eosz);
 	}
@@ -598,7 +586,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 
 	case PTI_BRDISPz_BRDISP_WIDTH_OSZ_NONTERM_EOSZ_l2: {
 		/* BRDISPz(eosz) for 16/32/64 modes */
-		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 		ild->disp_bytes = resolve_z(eosz);
 	}
@@ -607,8 +595,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 	case PTI_RESOLVE_BYREG_DISP_map0x0_op0xc7_l1:
 		/* reg=0 -> preserve, reg=7 -> BRDISPz(eosz) */
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 7) {
-			pti_machine_mode_enum_t eosz =
-			    pti_get_nominal_eosz(ild);
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 			ild->disp_bytes = resolve_z(eosz);
 		}
@@ -676,7 +663,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 
 	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
 		/* SIMMz(eosz) */
-		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 		ild->imm1_bytes = resolve_z(eosz);
 	}
@@ -684,7 +671,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 
 	case PTI_UIMMv_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
 		/* UIMMv(eosz) */
-		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 		ild->imm1_bytes = resolve_v(eosz);
 	}
@@ -696,7 +683,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 
 	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_DF64_EOSZ_l2: {
 		/* push defaults to eosz64 in 64b mode, then uses SIMMz */
-		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz_df64(ild);
+		enum pt_exec_mode eosz = pti_get_nominal_eosz_df64(ild);
 
 		ild->imm1_bytes = resolve_z(eosz);
 	}
@@ -704,8 +691,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 
 	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf7_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2) {
-			pti_machine_mode_enum_t eosz =
-				pti_get_nominal_eosz(ild);
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 			ild->imm1_bytes = resolve_z(eosz);
 		}
@@ -713,8 +699,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 
 	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xc7_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 0) {
-			pti_machine_mode_enum_t eosz =
-			    pti_get_nominal_eosz(ild);
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
 			ild->imm1_bytes = resolve_z(eosz);
 		}

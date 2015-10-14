@@ -32,6 +32,8 @@
 #include "pti-defs.h"
 #include "pti-types.h"
 
+#include "intel-pt.h"
+
 typedef enum {
 	PTI_INST_INVALID,
 
@@ -78,12 +80,6 @@ typedef enum {
 } pti_inst_enum_t;
 
 typedef enum {
-	PTI_MODE_16,
-	PTI_MODE_32,
-	PTI_MODE_64,
-	PTI_MODE_LAST
-} pti_machine_mode_enum_t;
-typedef enum {
 	PTI_MAP_0,	/* 1-byte opcodes.           may have modrm */
 	PTI_MAP_1,	/* 2-byte opcodes (0x0f).    may have modrm */
 	PTI_MAP_2,	/* 3-byte opcodes (0x0f38).  has modrm */
@@ -97,7 +93,7 @@ struct pt_ild {
 	pti_uint64_t runtime_address;
 	pti_uint8_t const *itext;
 	pti_uint32_t max_bytes;	/*1..15 bytes  */
-	pti_machine_mode_enum_t mode;
+	enum pt_exec_mode mode;
 
 	/* outputs */
 	pti_uint32_t length;	/* bytes */
