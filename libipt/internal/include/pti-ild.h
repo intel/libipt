@@ -91,11 +91,11 @@ struct pt_ild {
 	/* inputs */
 	pti_uint64_t runtime_address;
 	pti_uint8_t const *itext;
-	pti_uint32_t max_bytes;	/*1..15 bytes  */
+	pti_uint8_t max_bytes;	/*1..15 bytes  */
 	enum pt_exec_mode mode;
 
 	/* outputs */
-	pti_uint32_t length;	/* bytes */
+	pti_uint8_t length;	/* bytes */
 	pti_inst_enum_t iclass;
 	pti_uint64_t direct_target;	/* if direct_indirect = 1 */
 	union {

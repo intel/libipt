@@ -218,8 +218,8 @@ static inline pti_uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 static void prefix_rex_dec(struct pt_ild *ild)
 {
-	pti_uint_t max_bytes = ild->max_bytes;
-	pti_uint_t length = 0;
+	pti_uint8_t max_bytes = ild->max_bytes;
+	pti_uint8_t length = 0;
 	pti_uint_t rex = 0;
 	pti_uint_t nprefixes = 0;
 
@@ -291,17 +291,17 @@ static void prefix_rex_dec(struct pt_ild *ild)
 
 static void vex_opcode_dec(struct pt_ild *ild)
 {
-	pti_uint_t length = ild->length;
+	pti_uint8_t length = ild->length;
 
 	ild->nominal_opcode = get_byte(ild, length);
-	ild->nominal_opcode_pos = (pti_uint8_t) length;	/*FIXME: needed? */
+	ild->nominal_opcode_pos = length;	/*FIXME: needed? */
 	ild->length = length + 1;
 }
 
 static void vex_c5_dec(struct pt_ild *ild)
 {
-	pti_uint_t max_bytes = ild->max_bytes;
-	pti_uint_t length = ild->length;
+	pti_uint8_t max_bytes = ild->max_bytes;
+	pti_uint8_t length = ild->length;
 
 	if (mode_64b(ild)) {
 		ild->u.s.vexc5 = 1;
@@ -338,8 +338,8 @@ static void vex_c5_dec(struct pt_ild *ild)
 
 static void vex_c4_dec(struct pt_ild *ild)
 {
-	pti_uint_t max_bytes = ild->max_bytes;
-	pti_uint_t length = ild->length;
+	pti_uint8_t max_bytes = ild->max_bytes;
+	pti_uint8_t length = ild->length;
 
 	if (mode_64b(ild)) {
 		ild->u.s.vexc4 = 1;
@@ -394,11 +394,11 @@ static void vex_dec(struct pt_ild *ild)
 
 static void get_next_as_opcode(struct pt_ild *ild)
 {
-	pti_uint_t length = ild->length;
+	pti_uint8_t length = ild->length;
 
 	if (length < ild->max_bytes) {
 		ild->nominal_opcode = get_byte(ild, length);
-		ild->nominal_opcode_pos = (pti_uint8_t) length;
+		ild->nominal_opcode_pos = length;
 		ild->length = length + 1;
 	} else {
 		set_error(ild);
@@ -407,7 +407,7 @@ static void get_next_as_opcode(struct pt_ild *ild)
 
 static void opcode_dec(struct pt_ild *ild)
 {
-	pti_uint_t length = ild->length;
+	pti_uint8_t length = ild->length;
 	pti_uint8_t b = get_byte(ild, length);
 
 	/*no need to check max_bytes - it was checked in previous scanners */
@@ -415,13 +415,13 @@ static void opcode_dec(struct pt_ild *ild)
 	if (b != 0x0F) {	/* 1B opcodes, map 0 */
 		pti_set_map(ild, PTI_MAP_0);
 		ild->nominal_opcode = b;
-		ild->nominal_opcode_pos = (pti_uint8_t) length;
+		ild->nominal_opcode_pos = length;
 		ild->length = length + 1;
 		return;
 	}
 
-	length++;	/* eat the 0x0F */
-	ild->nominal_opcode_pos = (pti_uint8_t) length;
+	length++;		/* eat the 0x0F */
+	ild->nominal_opcode_pos = length;
 
 	/* 0x0F opcodes MAPS 1,2,3 */
 	if (length < ild->max_bytes) {
@@ -463,7 +463,7 @@ static void opcode_dec(struct pt_ild *ild)
 		} else {	/* map 1 (simple two byte opcodes) */
 			length++;	/* eat the 2nd  opcode byte */
 			ild->nominal_opcode = m;
-			ild->nominal_opcode_pos = (pti_uint8_t) length;
+			ild->nominal_opcode_pos = length;
 			pti_set_map(ild, PTI_MAP_1);
 			ild->length = length;
 		}
@@ -516,7 +516,7 @@ static void modrm_dec(struct pt_ild *ild)
 static void sib_dec(struct pt_ild *ild)
 {
 	if (ild->u.s.sib) {
-		pti_uint_t length = ild->length;
+		pti_uint8_t length = ild->length;
 
 		if (length < ild->max_bytes) {
 			ild->sib_byte = get_byte(ild, length);
@@ -605,7 +605,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 
 static void disp_dec(struct pt_ild *ild)
 {
-	pti_uint_t disp_bytes;
+	pti_uint8_t disp_bytes;
 
 	if (ild->disp_bytes == 0 && pti_get_map(ild) < PTI_MAP_2)
 		compute_disp_dec(ild);
@@ -620,7 +620,7 @@ static void disp_dec(struct pt_ild *ild)
 
 	/*Record only position; must be able to re-read itext bytes for actual
 	   value. (SMC/CMC issue). */
-	ild->disp_pos = (pti_uint8_t) ild->length;
+	ild->disp_pos = ild->length;
 	ild->length += disp_bytes;
 }
 

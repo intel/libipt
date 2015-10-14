@@ -51,7 +51,7 @@ static const uint64_t pti_addr = 0xffccffccffccull;
  */
 static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
 					      pti_bool_t interest,
-					      pti_uint32_t size)
+					      pti_uint8_t size)
 {
 	pti_bool_t lret, dret;
 
@@ -70,8 +70,7 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
  * We can't use a fixture since we don't know the instruction size upfront.
  */
 static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
-			    pti_uint32_t size,
-			    enum pt_exec_mode mode)
+			    pti_uint8_t size, enum pt_exec_mode mode)
 {
 	memset(ild, 0, sizeof(*ild));
 	ild->itext = insn;
@@ -82,7 +81,7 @@ static void ptunit_ild_init(struct pt_ild *ild, pti_uint8_t *insn,
 
 /* Check that a boring instruction is decoded correctly. */
 static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
-					      pti_uint32_t size,
+					      pti_uint8_t size,
 					      enum pt_exec_mode mode)
 {
 	struct pt_ild ild;
@@ -95,7 +94,7 @@ static struct ptunit_result ptunit_ild_boring(pti_uint8_t *insn,
 
 /* Check that an interesting instruction is decoded and classified correctly. */
 static struct ptunit_result ptunit_ild_classify(pti_uint8_t *insn,
-						pti_uint32_t size,
+						pti_uint8_t size,
 						enum pt_exec_mode mode,
 						pti_inst_enum_t iclass)
 {
