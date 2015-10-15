@@ -211,18 +211,18 @@ pti_get_nominal_eosz_df64(struct pt_ild *ild)
 	return pti_get_nominal_eosz_non64(ild);
 }
 
-static inline pti_uint_t resolve_z(pti_machine_mode_enum_t eosz)
+static inline pti_uint8_t resolve_z(pti_machine_mode_enum_t eosz)
 {
-	static const pti_uint_t bytes[] = { 2, 4, 4 };
+	static const pti_uint8_t bytes[] = { 2, 4, 4 };
 
 	if (eosz < PTI_MODE_LAST)
 		return bytes[eosz];
 	pti_abort();
 }
 
-static inline pti_uint_t resolve_v(pti_machine_mode_enum_t eosz)
+static inline pti_uint8_t resolve_v(pti_machine_mode_enum_t eosz)
 {
-	static const pti_uint_t bytes[] = { 2, 4, 8 };
+	static const pti_uint8_t bytes[] = { 2, 4, 8 };
 
 	if (eosz < PTI_MODE_LAST)
 		return bytes[eosz];
@@ -584,7 +584,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 			pti_machine_mode_enum_t eosz =
 				pti_get_nominal_eosz(ild);
 
-			ild->disp_bytes = (pti_uint8_t) resolve_z(eosz);
+			ild->disp_bytes = resolve_z(eosz);
 		}
 		break;
 
@@ -592,7 +592,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 		/* MEMDISPv(easz) */
 		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
 
-		ild->disp_bytes = (pti_uint8_t) resolve_v(eosz);
+		ild->disp_bytes = resolve_v(eosz);
 	}
 		break;
 
@@ -600,7 +600,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 		/* BRDISPz(eosz) for 16/32/64 modes */
 		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
 
-		ild->disp_bytes = (pti_uint8_t) resolve_z(eosz);
+		ild->disp_bytes = resolve_z(eosz);
 	}
 		break;
 
@@ -610,7 +610,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 			pti_machine_mode_enum_t eosz =
 			    pti_get_nominal_eosz(ild);
 
-			ild->disp_bytes = (pti_uint8_t) resolve_z(eosz);
+			ild->disp_bytes = resolve_z(eosz);
 		}
 		break;
 
@@ -678,7 +678,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* SIMMz(eosz) */
 		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
 
-		ild->imm1_bytes = (pti_uint8_t) resolve_z(eosz);
+		ild->imm1_bytes = resolve_z(eosz);
 	}
 		break;
 
@@ -686,7 +686,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* UIMMv(eosz) */
 		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz(ild);
 
-		ild->imm1_bytes = (pti_uint8_t) resolve_v(eosz);
+		ild->imm1_bytes = resolve_v(eosz);
 	}
 		break;
 
@@ -698,7 +698,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* push defaults to eosz64 in 64b mode, then uses SIMMz */
 		pti_machine_mode_enum_t eosz = pti_get_nominal_eosz_df64(ild);
 
-		ild->imm1_bytes = (pti_uint8_t) resolve_z(eosz);
+		ild->imm1_bytes = resolve_z(eosz);
 	}
 		break;
 
@@ -707,7 +707,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 			pti_machine_mode_enum_t eosz =
 				pti_get_nominal_eosz(ild);
 
-			ild->imm1_bytes = (pti_uint8_t) resolve_z(eosz);
+			ild->imm1_bytes = resolve_z(eosz);
 		}
 		break;
 
@@ -716,7 +716,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 			pti_machine_mode_enum_t eosz =
 			    pti_get_nominal_eosz(ild);
 
-			ild->imm1_bytes = (pti_uint8_t) resolve_z(eosz);
+			ild->imm1_bytes = resolve_z(eosz);
 		}
 		break;
 
