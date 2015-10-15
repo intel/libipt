@@ -26,22 +26,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pti-defs.h"
 #include "pti-ild.h"
 #include "pti-enums.h"
 
-#include <assert.h>
-#include <stdlib.h>
 #include <string.h>
-
-static inline PTI_NORETURN void pti_abort()
-{
-	/* this would be be a programming error. */
-	assert(0);
-
-	/* make sure to exit also for release builds. */
-	exit(1);
-}
 
 /* SET UP 3 TABLES */
 
@@ -198,24 +186,32 @@ pti_get_nominal_eosz_df64(struct pt_ild *ild)
 	return pti_get_nominal_eosz_non64(ild);
 }
 
-static inline pti_uint8_t resolve_z(enum pt_exec_mode eosz)
+static inline pti_uint8_t resolve_z(enum pt_exec_mode eosz, struct pt_ild *ild)
 {
 	static const pti_uint8_t bytes[] = { 2, 4, 4 };
+	unsigned int idx;
 
-	if (!eosz || sizeof(bytes) < eosz)
-		pti_abort();
+	idx = (unsigned int) eosz - 1;
+	if (sizeof(bytes) <= idx) {
+		set_error(ild);
+		return 0;
+	}
 
-	return bytes[eosz-1];
+	return bytes[idx];
 }
 
-static inline pti_uint8_t resolve_v(enum pt_exec_mode eosz)
+static inline pti_uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 {
 	static const pti_uint8_t bytes[] = { 2, 4, 8 };
+	unsigned int idx;
 
-	if (!eosz || sizeof(bytes) < eosz)
-		pti_abort();
+	idx = (unsigned int) eosz - 1;
+	if (sizeof(bytes) <= idx) {
+		set_error(ild);
+		return 0;
+	}
 
-	return bytes[eosz-1];
+	return bytes[idx];
 }
 
 /*  DECODERS */
@@ -572,7 +568,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 		else {
 			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-			ild->disp_bytes = resolve_z(eosz);
+			ild->disp_bytes = resolve_z(eosz, ild);
 		}
 		break;
 
@@ -580,7 +576,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 		/* MEMDISPv(easz) */
 		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-		ild->disp_bytes = resolve_v(eosz);
+		ild->disp_bytes = resolve_v(eosz, ild);
 	}
 		break;
 
@@ -588,7 +584,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 		/* BRDISPz(eosz) for 16/32/64 modes */
 		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-		ild->disp_bytes = resolve_z(eosz);
+		ild->disp_bytes = resolve_z(eosz, ild);
 	}
 		break;
 
@@ -597,12 +593,13 @@ static void compute_disp_dec(struct pt_ild *ild)
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 7) {
 			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-			ild->disp_bytes = resolve_z(eosz);
+			ild->disp_bytes = resolve_z(eosz, ild);
 		}
 		break;
 
 	default:
-		pti_abort();
+		set_error(ild);
+		break;
 	}
 }
 
@@ -665,7 +662,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* SIMMz(eosz) */
 		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-		ild->imm1_bytes = resolve_z(eosz);
+		ild->imm1_bytes = resolve_z(eosz, ild);
 	}
 		break;
 
@@ -673,7 +670,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* UIMMv(eosz) */
 		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-		ild->imm1_bytes = resolve_v(eosz);
+		ild->imm1_bytes = resolve_v(eosz, ild);
 	}
 		break;
 
@@ -685,7 +682,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		/* push defaults to eosz64 in 64b mode, then uses SIMMz */
 		enum pt_exec_mode eosz = pti_get_nominal_eosz_df64(ild);
 
-		ild->imm1_bytes = resolve_z(eosz);
+		ild->imm1_bytes = resolve_z(eosz, ild);
 	}
 		break;
 
@@ -693,7 +690,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2) {
 			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-			ild->imm1_bytes = resolve_z(eosz);
+			ild->imm1_bytes = resolve_z(eosz, ild);
 		}
 		break;
 
@@ -701,7 +698,7 @@ static void set_imm_bytes(struct pt_ild *ild)
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 0) {
 			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
 
-			ild->imm1_bytes = resolve_z(eosz);
+			ild->imm1_bytes = resolve_z(eosz, ild);
 		}
 		break;
 
@@ -812,8 +809,11 @@ static void set_branch_target(struct pt_ild *ild)
 		    (pti_int32_t *) (get_byte_ptr(ild, ild->disp_pos));
 
 		sign_extended_disp = sign_extend_dq(*d);
-	} else
-		pti_abort();
+	} else {
+		set_error(ild);
+		return;
+	}
+
 	npc = (pti_int64_t) (ild->runtime_address + ild->length);
 	ild->direct_target = (pti_uint64_t) (npc + sign_extended_disp);
 }

@@ -29,7 +29,6 @@
 #if !defined(PTI_ILD_H)
 #define PTI_ILD_H
 
-#include "pti-defs.h"
 #include "pti-types.h"
 
 #include "intel-pt.h"
