@@ -568,6 +568,11 @@ extern int main(int argc, char *argv[])
 			goto out;
 		}
 		if (strcmp(arg, "--pt") == 0) {
+			if (argc <= i) {
+				fprintf(stderr,
+					"%s: --pt: missing argument.\n", prog);
+				goto out;
+			}
 			arg = argv[i++];
 
 			if (decoder) {
@@ -604,6 +609,11 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 		if (strcmp(arg, "--raw") == 0) {
+			if (argc <= i) {
+				fprintf(stderr,
+					"%s: --raw: missing argument.\n", prog);
+				goto out;
+			}
 			arg = argv[i++];
 
 			errcode = load_raw(image, arg, prog);
@@ -616,6 +626,11 @@ extern int main(int argc, char *argv[])
 		if (strcmp(arg, "--elf") == 0) {
 			uint64_t base;
 
+			if (argc <= i) {
+				fprintf(stderr,
+					"%s: --elf: missing argument.\n", prog);
+				goto out;
+			}
 			arg = argv[i++];
 			base = 0ull;
 			errcode = extract_base(arg, &base, prog);
@@ -659,6 +674,11 @@ extern int main(int argc, char *argv[])
 					"%s: please specify cpu before the pt source file.\n",
 					prog);
 				goto err;
+			}
+			if (argc <= i) {
+				fprintf(stderr,
+					"%s: --cpu: missing argument.\n", prog);
+				goto out;
 			}
 			arg = argv[i++];
 
