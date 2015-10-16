@@ -834,6 +834,11 @@ int pti_instruction_length_decode(struct pt_ild *ild)
 	ild->modrm_byte = 0;
 	ild->map = PTI_MAP_INVALID;
 
+	if (!ild->mode) {
+		set_error(ild);
+		return 1;
+	}
+
 	decode(ild);
 	return ild->u.s.error == 0;
 }

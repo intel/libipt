@@ -375,7 +375,6 @@ static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
  */
 static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 {
-	enum pt_exec_mode mode;
 	struct pt_ild *ild;
 	int status, relevant;
 	int size;
@@ -389,13 +388,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	if (decoder->speculative)
 		insn->speculative = 1;
 	insn->ip = decoder->ip;
-
-	/* If we don't know the execution mode, we can't decode. */
-	mode = decoder->mode;
-	if (!mode)
-		return -pte_bad_insn;
-
-	insn->mode = mode;
+	insn->mode = decoder->mode;
 
 	/* Read the memory at the current IP in the current address space. */
 	size = pt_image_read(decoder->image, insn->raw, sizeof(insn->raw),
@@ -407,7 +400,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	ild = &decoder->ild;
 	ild->itext = insn->raw;
 	ild->max_bytes = (uint8_t) size;
-	ild->mode = mode;
+	ild->mode = decoder->mode;
 	ild->runtime_address = decoder->ip;
 
 	status = pti_instruction_length_decode(ild);
@@ -445,9 +438,6 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 
 	/* We do not expect execution mode changes. */
 	ild.mode = decoder->mode;
-	if (!ild.mode)
-		return -pte_bad_insn;
-
 	ild.itext = raw;
 	ild.runtime_address = decoder->ip;
 
@@ -813,9 +803,6 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 	memset(&ild, 0, sizeof(ild));
 
 	ild.mode = decoder->mode;
-	if (!ild.mode)
-		return -pte_bad_insn;
-
 	ild.max_bytes = (uint8_t) size;
 	ild.itext = raw;
 	ild.runtime_address = decoder->ip;
