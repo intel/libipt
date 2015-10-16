@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pti-ild.h"
+#include "pt_ild.h"
 
 #include <string.h>
 
@@ -817,14 +817,14 @@ static void set_branch_target(struct pt_ild *ild)
 
 /*  MAIN ENTRY POINTS */
 
-void pti_ild_init(void)
+void pt_ild_init(void)
 {	/* initialization */
 	init_has_disp_regular_table();
 	init_has_sib_table();
 	init_eamode_table();
 }
 
-int pti_instruction_length_decode(struct pt_ild *ild)
+int pt_instruction_length_decode(struct pt_ild *ild)
 {
 	ild->u.i = 0;
 	ild->imm1_bytes = 0;
@@ -843,7 +843,7 @@ int pti_instruction_length_decode(struct pt_ild *ild)
 	return ild->u.s.error == 0;
 }
 
-int pti_instruction_decode(struct pt_ild *ild)
+int pt_instruction_decode(struct pt_ild *ild)
 {
 	uint8_t opcode = ild->nominal_opcode;
 	uint8_t map = pti_get_map(ild);

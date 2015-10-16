@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if !defined(PTI_ILD_H)
-#define PTI_ILD_H
+#if !defined(PT_ILD_H)
+#define PT_ILD_H
 
 #include "intel-pt.h"
 
@@ -187,7 +187,7 @@ static inline uint8_t pti_get_modrm_rm(struct pt_ild *ild)
 /* MAIN ENTRANCE POINTS */
 
 /* one time call. not thread safe init. call when single threaded. */
-extern void pti_ild_init(void);
+extern void pt_ild_init(void);
 
 /* all decoding is multithread safe. */
 
@@ -196,9 +196,9 @@ extern void pti_ild_init(void);
    to decode the instruction. (That might be because
    the instruction encoding implied >= 16B and that is an an invalid
    instruction.) */
-extern int pti_instruction_length_decode(struct pt_ild *ild);
+extern int pt_instruction_length_decode(struct pt_ild *ild);
 
 /* returns 1 if an interesting instruction was encountered. */
-extern int pti_instruction_decode(struct pt_ild *ild);
+extern int pt_instruction_decode(struct pt_ild *ild);
 
-#endif
+#endif /* PT_ILD_H */

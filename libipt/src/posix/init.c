@@ -26,11 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pti-ild.h"
+#include "pt_ild.h"
 
 
 static void __attribute__((constructor)) init(void)
 {
 	/* Initialize the Intel(R) Processor Trace instruction decoder. */
-	pti_ild_init();
+	pt_ild_init();
 }

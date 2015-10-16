@@ -28,7 +28,7 @@
 
 #include "ptunit.h"
 
-#include "pti-ild.h"
+#include "pt_ild.h"
 
 #include <string.h>
 
@@ -54,11 +54,11 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
 {
 	int lret, dret;
 
-	lret = pti_instruction_length_decode(ild);
+	lret = pt_instruction_length_decode(ild);
 	ptu_int_eq(lret, 1);
 	ptu_uint_eq(ild->length, size);
 
-	dret = pti_instruction_decode(ild);
+	dret = pt_instruction_decode(ild);
 	ptu_int_eq(dret, interest);
 
 	return ptu_passed();
@@ -393,7 +393,7 @@ int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 
-	pti_ild_init();
+	pt_ild_init();
 
 	suite = ptunit_mk_suite(argc, argv);
 

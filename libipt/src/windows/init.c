@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "pti-ild.h"
+#include "pt_ild.h"
 
 #include <windows.h>
 
@@ -40,7 +40,7 @@ BOOLEAN WINAPI DllMain(HINSTANCE handle, DWORD reason, LPVOID reserved)
 	case DLL_PROCESS_ATTACH:
 		/* Initialize the Intel(R) Processor Trace instruction
 		   decoder. */
-		pti_ild_init();
+		pt_ild_init();
 		break;
 
 	default:

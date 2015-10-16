@@ -403,13 +403,13 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	ild->mode = decoder->mode;
 	ild->runtime_address = decoder->ip;
 
-	status = pti_instruction_length_decode(ild);
+	status = pt_instruction_length_decode(ild);
 	if (!status)
 		return -pte_bad_insn;
 
 	insn->size = ild->length;
 
-	relevant = pti_instruction_decode(ild);
+	relevant = pt_instruction_decode(ild);
 	if (relevant)
 		insn->iclass = pt_insn_classify(ild);
 	else
@@ -458,11 +458,11 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 
 		ild.max_bytes = (uint8_t) size;
 
-		status = pti_instruction_length_decode(&ild);
+		status = pt_instruction_length_decode(&ild);
 		if (!status)
 			return 0;
 
-		(void) pti_instruction_decode(&ild);
+		(void) pt_instruction_decode(&ild);
 
 		errcode = pt_insn_next_ip(&ild.runtime_address, &ild);
 		if (errcode < 0)
@@ -807,11 +807,11 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 	ild.itext = raw;
 	ild.runtime_address = decoder->ip;
 
-	status = pti_instruction_length_decode(&ild);
+	status = pt_instruction_length_decode(&ild);
 	if (!status)
 		return 0;
 
-	(void) pti_instruction_decode(&ild);
+	(void) pt_instruction_decode(&ild);
 
 	switch (ild.iclass) {
 	default:
