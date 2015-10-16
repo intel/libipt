@@ -1298,7 +1298,15 @@ int main(int argc, char *argv[])
 		else if (strcmp(argv[idx], "--no-wall-clock") == 0)
 			options.no_wall_clock = 1;
 		else if (strcmp(argv[idx], "--cpu") == 0) {
-			const char *arg = argv[++idx];
+			const char *arg;
+
+			if (argc <= ++idx) {
+				fprintf(stderr,
+					"%s: --cpu: missing argument.\n",
+					argv[0]);
+				return 1;
+			}
+			arg = argv[idx];
 
 			if (strcmp(arg, "auto") == 0) {
 				errcode = pt_cpu_read(&config.cpu);
@@ -1325,8 +1333,16 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 		} else if (strcmp(argv[idx], "--mtc-freq") == 0) {
-			char *arg = argv[++idx], *rest;
+			char *arg, *rest;
 			unsigned long mtc_freq;
+
+			if (argc <= ++idx) {
+				fprintf(stderr,
+					"%s: --mtc-freq: missing argument.\n",
+					argv[0]);
+				return 1;
+			}
+			arg = argv[idx];
 
 			mtc_freq = strtoul(arg, &rest, 0);
 			if (!rest || *rest || UINT8_MAX < mtc_freq) {
@@ -1337,8 +1353,16 @@ int main(int argc, char *argv[])
 
 			config.mtc_freq = (uint8_t) mtc_freq;
 		} else if (strcmp(argv[idx], "--nom-freq") == 0) {
-			char *arg = argv[++idx], *rest;
+			char *arg, *rest;
 			unsigned long nom_freq;
+
+			if (argc <= ++idx) {
+				fprintf(stderr,
+					"%s: --nom-freq: missing argument.\n",
+					argv[0]);
+				return 1;
+			}
+			arg = argv[idx];
 
 			nom_freq = strtoul(arg, &rest, 0);
 			if (!rest || *rest || UINT8_MAX < nom_freq) {
@@ -1349,8 +1373,15 @@ int main(int argc, char *argv[])
 
 			config.nom_freq = (uint8_t) nom_freq;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.eax") == 0) {
-			char *arg = argv[++idx], *rest;
+			char *arg, *rest;
 			unsigned long eax;
+
+			if (argc <= ++idx) {
+				fprintf(stderr, "%s: --cpuid-0x15.eax: "
+					"missing argument.\n", argv[0]);
+				return 1;
+			}
+			arg = argv[idx];
 
 			eax = strtoul(arg, &rest, 0);
 			if (!rest || *rest || UINT32_MAX < eax) {
@@ -1361,8 +1392,15 @@ int main(int argc, char *argv[])
 
 			config.cpuid_0x15_eax = eax;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.ebx") == 0) {
-			char *arg = argv[++idx], *rest;
+			char *arg, *rest;
 			unsigned long ebx;
+
+			if (argc <= ++idx) {
+				fprintf(stderr, "%s: --cpuid-0x15.ebx: "
+					"missing argument.\n", argv[0]);
+				return 1;
+			}
+			arg = argv[idx];
 
 			ebx = strtoul(arg, &rest, 0);
 			if (!rest || *rest || UINT32_MAX < ebx) {
