@@ -100,32 +100,9 @@ install(TARGETS libipt
 )
 
 
-function(add_ptunit_test_base name)
-  if (PTUNIT)
-    add_executable(${name} ${ARGN})
-    target_link_libraries(${name} ptunit)
-
-    add_test(NAME ${name} COMMAND ${name})
-  endif (PTUNIT)
-endfunction(add_ptunit_test_base)
-
-function(add_ptunit_c_test name)
-    add_ptunit_test_base(ptunit-${name} test/src/ptunit-${name}.c ${ARGN})
-endfunction(add_ptunit_c_test)
-
-function(add_ptunit_cpp_test name)
-    add_ptunit_test_base(ptunit-${name} test/src/ptunit-${name}.cpp ${ARGN})
-endfunction(add_ptunit_cpp_test)
-
 function(add_ptunit_std_test name)
     add_ptunit_c_test(${name} src/pt_${name}.c ${ARGN})
 endfunction(add_ptunit_std_test)
-
-function(add_ptunit_libraries name)
-  if (PTUNIT)
-    target_link_libraries(ptunit-${name} ${ARGN})
-  endif (PTUNIT)
-endfunction(add_ptunit_libraries)
 
 
 add_ptunit_std_test(last_ip)
