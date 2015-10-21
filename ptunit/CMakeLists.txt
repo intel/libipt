@@ -40,8 +40,4 @@ add_library(ptunit STATIC
   ${PTUNIT_FILES}
 )
 
-add_executable(ptunit-selftest
-  src/ptunit-selftest.c
-)
-
-target_link_libraries(ptunit-selftest ptunit)
+add_ptunit_c_test(selftest)
