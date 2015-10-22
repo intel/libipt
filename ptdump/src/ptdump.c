@@ -53,6 +53,9 @@ struct ptdump_options {
 	/* Show the execution mode on mode.exec. */
 	uint32_t show_exec_mode:1;
 
+	/* Keep track of time. */
+	uint32_t track_time:1;
+
 	/* Show the estimated TSC for timing related packets. */
 	uint32_t show_time:1;
 
@@ -1040,7 +1043,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%" PRIx64,
 			    packet->payload.tsc.tsc);
 
-		if (options->show_time || options->show_tcal)
+		if (options->track_time)
 			track_tsc(buffer, tracking, offset,
 				  &packet->payload.tsc, options, config);
 
@@ -1054,7 +1057,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%x",
 			    packet->payload.cbr.ratio);
 
-		if (options->show_time || options->show_tcal)
+		if (options->track_time)
 			track_cbr(buffer, tracking, offset,
 				  &packet->payload.cbr, options, config);
 
@@ -1068,7 +1071,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%x, %x",
 			    packet->payload.tma.ctc, packet->payload.tma.fc);
 
-		if (options->show_time || options->show_tcal)
+		if (options->track_time)
 			track_tma(buffer, tracking, offset,
 				  &packet->payload.tma, options, config);
 
@@ -1082,7 +1085,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%x",
 			    packet->payload.mtc.ctc);
 
-		if (options->show_time || options->show_tcal)
+		if (options->track_time)
 			track_mtc(buffer, tracking, offset,
 				  &packet->payload.mtc, options, config);
 
@@ -1096,8 +1099,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%" PRIx64,
 			    packet->payload.cyc.value);
 
-		if ((options->show_time || options->show_tcal) &&
-		    !options->no_cyc)
+		if (options->track_time && !options->no_cyc)
 			track_cyc(buffer, tracking, offset,
 				  &packet->payload.cyc, options, config);
 
@@ -1346,6 +1348,7 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 
+			options.track_time = 1;
 			options.show_time = 1;
 		} else if (strcmp(argv[idx], "--time-delta") == 0) {
 			options.show_time_as_delta = 1;
@@ -1356,6 +1359,7 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 
+			options.track_time = 1;
 			options.show_tcal = 1;
 		} else if (strcmp(argv[idx], "--no-tcal") == 0)
 			options.no_tcal = 1;
