@@ -108,6 +108,10 @@ static void help(const char *name)
 	       "                                  none     spec (default)\n"
 	       "                                  auto     current cpu\n"
 	       "                                  f/m[/s]  family/model[/stepping]\n"
+	       "  --mtc-freq <n>                set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n"
+	       "  --nom-freq <n>                set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n"
+	       "  --cpuid-0x15.eax              set the value of cpuid[0x15].eax.\n"
+	       "  --cpuid-0x15.ebx              set the value of cpuid[0x15].ebx.\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -525,6 +529,70 @@ static void print_stats(struct ptxed_stats *stats)
 	printf("insn: %" PRIu64 ".\n", stats->insn);
 }
 
+static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
+			  const char *prog)
+{
+	char *rest;
+
+	if (!value || !option || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog ? prog : "?");
+		return 0;
+	}
+
+	if (!arg || (arg[0] == '-' && arg[1] == '-')) {
+		fprintf(stderr, "%s: %s: missing argument.\n", prog, option);
+		return 0;
+	}
+
+	errno = 0;
+	*value = strtoull(arg, &rest, 0);
+	if (errno || *rest) {
+		fprintf(stderr, "%s: %s: bad argument: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int get_arg_uint32(uint32_t *value, const char *option, const char *arg,
+			  const char *prog)
+{
+	uint64_t val;
+
+	if (!get_arg_uint64(&val, option, arg, prog))
+		return 0;
+
+	if (val > UINT32_MAX) {
+		fprintf(stderr, "%s: %s: value too big: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	*value = (uint32_t) val;
+
+	return 1;
+}
+
+static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
+			 const char *prog)
+{
+	uint64_t val;
+
+	if (!get_arg_uint64(&val, option, arg, prog))
+		return 0;
+
+	if (val > UINT8_MAX) {
+		fprintf(stderr, "%s: %s: value too big: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	*value = (uint8_t) val;
+
+	return 1;
+}
+
 extern int main(int argc, char *argv[])
 {
 	struct pt_insn_decoder *decoder;
@@ -706,6 +774,36 @@ extern int main(int argc, char *argv[])
 					prog);
 				goto err;
 			}
+			continue;
+		}
+		if (strcmp(arg, "--mtc-freq") == 0) {
+			if (!get_arg_uint8(&config.mtc_freq, "--mtc-freq",
+					   argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--nom-freq") == 0) {
+			if (!get_arg_uint8(&config.nom_freq, "--nom-freq",
+					   argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--cpuid-0x15.eax") == 0) {
+			if (!get_arg_uint32(&config.cpuid_0x15_eax,
+					    "--cpuid-0x15.eax", argv[i++],
+					    prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--cpuid-0x15.ebx") == 0) {
+			if (!get_arg_uint32(&config.cpuid_0x15_ebx,
+					    "--cpuid-0x15.ebx", argv[i++],
+					    prog))
+				goto err;
+
 			continue;
 		}
 		if (strcmp(arg, "--verbose") == 0 || strcmp(arg, "-v") == 0) {
