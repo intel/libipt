@@ -1228,6 +1228,70 @@ static int dump(const struct pt_config *config,
 	return errcode;
 }
 
+static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
+			  const char *prog)
+{
+	char *rest;
+
+	if (!value || !option || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog ? prog : "?");
+		return 0;
+	}
+
+	if (!arg || (arg[0] == '-' && arg[1] == '-')) {
+		fprintf(stderr, "%s: %s: missing argument.\n", prog, option);
+		return 0;
+	}
+
+	errno = 0;
+	*value = strtoull(arg, &rest, 0);
+	if (errno || *rest) {
+		fprintf(stderr, "%s: %s: bad argument: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int get_arg_uint32(uint32_t *value, const char *option, const char *arg,
+			  const char *prog)
+{
+	uint64_t val;
+
+	if (!get_arg_uint64(&val, option, arg, prog))
+		return 0;
+
+	if (val > UINT32_MAX) {
+		fprintf(stderr, "%s: %s: value too big: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	*value = (uint32_t) val;
+
+	return 1;
+}
+
+static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
+			 const char *prog)
+{
+	uint64_t val;
+
+	if (!get_arg_uint64(&val, option, arg, prog))
+		return 0;
+
+	if (val > UINT8_MAX) {
+		fprintf(stderr, "%s: %s: value too big: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	*value = (uint8_t) val;
+
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct ptdump_options options;
@@ -1300,13 +1364,13 @@ int main(int argc, char *argv[])
 		else if (strcmp(argv[idx], "--cpu") == 0) {
 			const char *arg;
 
-			if (argc <= ++idx) {
+			arg = argv[++idx];
+			if (!arg) {
 				fprintf(stderr,
 					"%s: --cpu: missing argument.\n",
 					argv[0]);
 				return 1;
 			}
-			arg = argv[idx];
 
 			if (strcmp(arg, "auto") == 0) {
 				errcode = pt_cpu_read(&config.cpu);
@@ -1333,83 +1397,23 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 		} else if (strcmp(argv[idx], "--mtc-freq") == 0) {
-			char *arg, *rest;
-			unsigned long mtc_freq;
-
-			if (argc <= ++idx) {
-				fprintf(stderr,
-					"%s: --mtc-freq: missing argument.\n",
-					argv[0]);
+			if (!get_arg_uint8(&config.mtc_freq, "--mtc-freq",
+					   argv[++idx], argv[0]))
 				return 1;
-			}
-			arg = argv[idx];
-
-			mtc_freq = strtoul(arg, &rest, 0);
-			if (!rest || *rest || UINT8_MAX < mtc_freq) {
-				fprintf(stderr, "%s: bad MTC frequency",
-					argv[0]);
-				return 1;
-			}
-
-			config.mtc_freq = (uint8_t) mtc_freq;
 		} else if (strcmp(argv[idx], "--nom-freq") == 0) {
-			char *arg, *rest;
-			unsigned long nom_freq;
-
-			if (argc <= ++idx) {
-				fprintf(stderr,
-					"%s: --nom-freq: missing argument.\n",
-					argv[0]);
+			if (!get_arg_uint8(&config.nom_freq, "--nom-freq",
+					   argv[++idx], argv[0]))
 				return 1;
-			}
-			arg = argv[idx];
-
-			nom_freq = strtoul(arg, &rest, 0);
-			if (!rest || *rest || UINT8_MAX < nom_freq) {
-				fprintf(stderr, "%s: bad nominal frequency",
-					argv[0]);
-				return 1;
-			}
-
-			config.nom_freq = (uint8_t) nom_freq;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.eax") == 0) {
-			char *arg, *rest;
-			unsigned long eax;
-
-			if (argc <= ++idx) {
-				fprintf(stderr, "%s: --cpuid-0x15.eax: "
-					"missing argument.\n", argv[0]);
+			if (!get_arg_uint32(&config.cpuid_0x15_eax,
+					    "--cpuid-0x15.eax", argv[++idx],
+					    argv[0]))
 				return 1;
-			}
-			arg = argv[idx];
-
-			eax = strtoul(arg, &rest, 0);
-			if (!rest || *rest || UINT32_MAX < eax) {
-				fprintf(stderr, "%s: bad cpuid[0x15].eax",
-					argv[0]);
-				return 1;
-			}
-
-			config.cpuid_0x15_eax = eax;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.ebx") == 0) {
-			char *arg, *rest;
-			unsigned long ebx;
-
-			if (argc <= ++idx) {
-				fprintf(stderr, "%s: --cpuid-0x15.ebx: "
-					"missing argument.\n", argv[0]);
+			if (!get_arg_uint32(&config.cpuid_0x15_ebx,
+					    "--cpuid-0x15.ebx", argv[++idx],
+					    argv[0]))
 				return 1;
-			}
-			arg = argv[idx];
-
-			ebx = strtoul(arg, &rest, 0);
-			if (!rest || *rest || UINT32_MAX < ebx) {
-				fprintf(stderr, "%s: bad cpuid[0x15].ebx",
-					argv[0]);
-				return 1;
-			}
-
-			config.cpuid_0x15_ebx = ebx;
 		} else
 			return usage(argv[0]);
 	}
