@@ -34,20 +34,18 @@ usage() {
     cat <<EOF
 usage: $prog [<options>] <perf.data-file>
 
-Extract the raw AUX area from a perf data file.
+Extract the sideband records from a perf data file.
 
 options:
   -h  this text
   -d  print commands, don't execute them
-  -S  generate one file per AUXTRACE record
 
 <perf.data-file> defaults to perf.data.
 EOF
 }
 
 dry_run=0
-snapshot=0
-while getopts "hdS" opt; do
+while getopts "hd" opt; do
     case $opt in
         h)
             usage
@@ -55,9 +53,6 @@ while getopts "hdS" opt; do
             ;;
         d)
             dry_run=1
-            ;;
-        S)
-            snapshot=1
             ;;
     esac
 done
@@ -79,7 +74,7 @@ fi
 if [[ "$dry_run" == 0 ]]; then
     nofiles=0
 
-    for ofile in $file-aux-idx*.bin; do
+    for ofile in $file-sideband-cpu*.pevent $file-sideband.pevent; do
         if [[ -w $ofile ]]; then
             echo "$prog: $ofile is in the way."
             nofiles+=1
@@ -93,25 +88,9 @@ fi
 
 
 perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
-  /PERF_RECORD_AUXTRACE / {
-    offset = strtonum($1)
-    hsize  = strtonum(substr($2, 2))
-    size   = strtonum($5)
-    idx    = strtonum($11)
-    ext    = ""
-
-    if (snapshot != 0) {
-        piece = pieces[idx]
-        pieces[idx] = piece + 1
-
-        ext = sprintf(".%u", piece);
-    }
-
-    ofile = sprintf("%s-aux-idx%d%s.bin", file, idx, ext)
-    begin = offset + hsize
-
+  function handle_record(ofile, offset, size) {
     cmd = sprintf("dd if=%s of=%s conv=notrunc oflag=append ibs=1 skip=%d " \
-                  "count=%d status=none", file, ofile, begin, size)
+                  "count=%d status=none", file, ofile, offset, size)
 
     if (dry_run != 0) {
       print cmd
@@ -119,5 +98,52 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
     else {
       system(cmd)
     }
+
+    next
   }
-' file="$file" dry_run="$dry_run" snapshot="$snapshot"
+
+  function handle_global_record(offset, size) {
+    ofile = sprintf("%s-sideband.pevent", file)
+
+    handle_record(ofile, offset, size)
+  }
+
+  function handle_cpu_record(cpu, offset, size) {
+    # (uint32_t) -1 = 4294967295
+    #
+    if (cpu == -1 || cpu == 4294967295) {
+      handle_global_record(offset, size);
+    }
+    else {
+      ofile = sprintf("%s-sideband-cpu%d.pevent", file, cpu)
+
+      handle_record(ofile, offset, size)
+    }
+  }
+
+  /PERF_RECORD_AUXTRACE_INFO/  { next }
+  /PERF_RECORD_AUXTRACE/       { next }
+  /PERF_RECORD_FINISHED_ROUND/ { next }
+
+  /^[0-9]+ [0-9]+ 0x[0-9a-f]+ \[0x[0-9a-f]+\]: PERF_RECORD_/ {
+    cpu   = strtonum($1)
+    begin = strtonum($3)
+    size  = strtonum(substr($4, 2))
+
+    handle_cpu_record(cpu, begin, size)
+  }
+
+  /^[0-9]+ 0x[0-9a-f]+ \[0x[0-9a-f]+\]: PERF_RECORD_/ {
+    begin = strtonum($2)
+    size  = strtonum(substr($3, 2))
+
+    handle_global_record(begin, size)
+  }
+
+  /^0x[0-9a-f]+ \[0x[0-9a-f]+\]: PERF_RECORD_/ {
+    begin = strtonum($1)
+    size  = strtonum(substr($2, 2))
+
+    handle_global_record(begin, size)
+  }
+' file="$file" dry_run="$dry_run"
