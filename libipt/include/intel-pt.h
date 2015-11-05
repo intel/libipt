@@ -1612,9 +1612,11 @@ extern pt_export const char *pt_image_name(const struct pt_image *image);
  *
  * The section is silently truncated to match the size of \@filename.
  *
+ * Existing sections that would overlap with the new section will be shrunk
+ * or split.
+ *
  * Returns zero on success, a negative error code otherwise.
  *
- * Returns -pte_bad_image if sections would overlap.
  * Returns -pte_invalid if \@image or \@filename is NULL.
  * Returns -pte_invalid if \@offset is too big.
  */
@@ -1626,10 +1628,10 @@ extern pt_export int pt_image_add_file(struct pt_image *image,
 
 /** Copy an image.
  *
- * Adds all sections from \@src to \@image.  Sections that would overlap with
- * existing sections will be ignored.
+ * Adds all sections from \@src to \@image.  Sections that could not be added
+ * will be ignored.
  *
- * Returns the number of ignored images on success, a negative error code
+ * Returns the number of ignored sections on success, a negative error code
  * otherwise.
  *
  * Returns -pte_invalid if \@image or \@src is NULL.

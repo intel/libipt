@@ -90,9 +90,11 @@ supply *pt_asid_no_cr3* and *pt_asid_no_vmcs* to the other field respectively.
 If the *asid* argument is NULL, the file section will be added for all
 processes, guests, and hypervisor images.
 
+If the new section overlaps with an existing section, the existing section is
+truncated or split to make room for the new section.
+
 **pt_image_copy**() adds file sections from the *pt_image* pointed to by the
-*src* argument to the *pt_image* pointed to by the *dst* argument.  Sections in
-*src* that would overlap with sections in *dst* are ignored.
+*src* argument to the *pt_image* pointed to by the *dst* argument.
 
 
 # RETURN VALUE
@@ -111,10 +113,6 @@ pte_invalid
     big such that the section would start past the end of the file
     (**pt_image_add_file**()).
     The *src* or *dst* argument is NULL (**pt_image_copy**()).
-
-pte_bad_image
-:   The image section would overlap with some other section already contained in
-    *image*.
 
 
 # SEE ALSO

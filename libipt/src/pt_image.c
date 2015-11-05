@@ -147,47 +147,187 @@ const char *pt_image_name(const struct pt_image *image)
 	return image->name;
 }
 
+static int pt_image_clone(struct pt_section_list **list,
+			  const struct pt_mapped_section *msec,
+			  uint64_t begin, uint64_t end)
+{
+
+	struct pt_section_list *next;
+	struct pt_section *section, *sec;
+	uint64_t mbegin, sbegin, offset, size;
+	int errcode;
+
+	if (!list || !msec)
+		return -pte_internal;
+
+	sec = msec->section;
+
+	mbegin = pt_msec_begin(msec);
+	sbegin = pt_section_offset(sec);
+
+	if (end <= begin)
+		return -pte_internal;
+
+	if (begin < mbegin)
+		return -pte_internal;
+
+	offset = begin - mbegin;
+	size = end - begin;
+
+	errcode = pt_section_clone(&section, sec, sbegin + offset, size);
+	if (errcode < 0)
+		return errcode;
+
+	next = pt_mk_section_list(section, pt_msec_asid(msec), begin);
+	if (!next) {
+		(void) pt_section_put(section);
+
+		return -pte_nomem;
+	}
+
+	/* The image list got its own reference; let's drop ours. */
+	errcode = pt_section_put(section);
+	if (errcode < 0) {
+		pt_section_list_free(next);
+
+		return errcode;
+	}
+
+	/* Add the new section. */
+	next->next = *list;
+	*list = next;
+
+	return 0;
+}
+
 int pt_image_add(struct pt_image *image, struct pt_section *section,
 		 const struct pt_asid *asid, uint64_t vaddr)
 {
-	struct pt_section_list **list, *next;
+	struct pt_section_list **list, *next, *removed;
 	uint64_t begin, end;
 	int errcode;
 
 	if (!image || !section)
 		return -pte_internal;
 
+	next = pt_mk_section_list(section, asid, vaddr);
+	if (!next)
+		return -pte_nomem;
+
+	removed = NULL;
+	errcode = 0;
+
 	begin = vaddr;
 	end = begin + pt_section_size(section);
 
 	/* Check for overlaps while we move to the end of the list. */
-	for (list = &(image->sections); *list; list = &((*list)->next)) {
+	list = &(image->sections);
+	while (*list) {
 		const struct pt_mapped_section *msec;
+		struct pt_section_list *current;
+		struct pt_section *lsec;
 		uint64_t lbegin, lend;
 
-		msec = &(*list)->section;
+		current = *list;
+		msec = &current->section;
 
 		errcode = pt_msec_matches_asid(msec, asid);
 		if (errcode < 0)
-			return errcode;
+			break;
 
-		if (!errcode)
+		if (!errcode) {
+			list = &((*list)->next);
 			continue;
+		}
 
 		lbegin = pt_msec_begin(msec);
 		lend = pt_msec_end(msec);
 
-		if (end <= lbegin)
+		if ((end <= lbegin) || (lend <= begin)) {
+			list = &((*list)->next);
 			continue;
-		if (lend <= begin)
-			continue;
+		}
 
-		return -pte_bad_image;
+		/* The new section overlaps with @msec->section. */
+		lsec = msec->section;
+
+		/* Let's check for an identical overlap that may be the result
+		 * of repeatedly copying images or repeatedly adding the same
+		 * file.
+		 */
+		if ((begin == lbegin) && (end == lend)) {
+			const char *fname, *lfname;
+
+			fname = pt_section_filename(section);
+			lfname = pt_section_filename(lsec);
+
+			if (!fname || !lfname) {
+				errcode = -pte_internal;
+				break;
+			}
+
+			if (strcmp(fname, lfname) == 0) {
+				/* There should not have been any removals or
+				 * additions.
+				 */
+				if (removed || next->next) {
+					errcode = -pte_internal;
+					break;
+				}
+
+				pt_section_list_free(next);
+				return 0;
+			}
+		}
+
+		/* We remove @msec and insert new sections for the remaining
+		 * parts, if any.  Those new sections are not mapped initially
+		 * and need to be added to the end of the section list.
+		 */
+		*list = current->next;
+
+		/* Keep a list of removed sections so we can re-add them in case
+		 * of errors.
+		 */
+		current->next = removed;
+		removed = current;
+
+		/* Unmap the removed section.  If we need to re-add it, it will
+		 * be moved to the end of the section list where the unmapped
+		 * sections are.
+		 */
+		if (current->mapped) {
+			pt_section_unmap(lsec);
+			current->mapped = 0;
+		}
+
+		/* Add a section covering the remaining bytes at the front. */
+		if (lbegin < begin) {
+			errcode = pt_image_clone(&next, msec, lbegin, begin);
+			if (errcode < 0)
+				break;
+		}
+
+		/* Add a section covering the remaining bytes at the back. */
+		if (end < lend) {
+			errcode = pt_image_clone(&next, msec, end, lend);
+			if (errcode < 0)
+				break;
+		}
 	}
 
-	next = pt_mk_section_list(section, asid, vaddr);
-	if (!next)
-		return -pte_nomap;
+	if (errcode < 0) {
+		pt_section_list_free_tail(next);
+
+		/* Re-add removed sections to the tail of the section list. */
+		for (; *list; list = &((*list)->next))
+			;
+
+		*list = removed;
+		return errcode;
+	}
+
+	pt_section_list_free_tail(removed);
 
 	*list = next;
 	return 0;

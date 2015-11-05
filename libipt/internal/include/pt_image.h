@@ -83,11 +83,12 @@ extern void pt_image_fini(struct pt_image *image);
 
 /* Add a section to an image.
  *
- * Add @section to @image at @vaddr in @asid if @section fits without overlap.
+ * Add @section to @image at @vaddr in @asid.  If @section overlaps with
+ * existing sections, the existing sections are shrunk, split, or removed to
+ * accomodate @section.
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.
- * Returns -pte_bad_image if @section overlaps with a section in @image.
  */
 extern int pt_image_add(struct pt_image *image, struct pt_section *section,
 			const struct pt_asid *asid, uint64_t vaddr);

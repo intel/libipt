@@ -663,7 +663,9 @@ this if you only use one decoder and one image.
 An image is a collection of contiguous, non-overlapping memory regions called
 `sections`.  Starting with an empty image, it may be populated with repeated
 calls to `pt_image_add_file()`, one for each section, or with a call to
-`pt_image_copy()` to add all sections from another image.
+`pt_image_copy()` to add all sections from another image.  If a newly added
+section overlaps with an existing section, the existing section will be
+truncated or split to make room for the new section.
 
 In some cases, the memory image may change during the execution.  You can use
 the `pt_image_remove_by_filename()` function to remove previously added sections
