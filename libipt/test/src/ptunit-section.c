@@ -86,7 +86,7 @@ static struct ptunit_result create(struct section_fixture *sfix)
 {
 	const char *name;
 	uint8_t bytes[] = { 0xcc, 0xcc, 0xcc, 0xcc, 0xcc };
-	uint64_t size;
+	uint64_t offset, size;
 
 	sfix_write(sfix, bytes);
 
@@ -95,6 +95,9 @@ static struct ptunit_result create(struct section_fixture *sfix)
 
 	name = pt_section_filename(sfix->section);
 	ptu_str_eq(name, sfix->name);
+
+	offset = pt_section_offset(sfix->section);
+	ptu_uint_eq(offset, 0x1ull);
 
 	size = pt_section_size(sfix->section);
 	ptu_uint_eq(size, 0x3ull);
@@ -114,7 +117,7 @@ static struct ptunit_result create_truncated(struct section_fixture *sfix)
 {
 	const char *name;
 	uint8_t bytes[] = { 0xcc, 0xcc, 0xcc, 0xcc, 0xcc };
-	uint64_t size;
+	uint64_t offset, size;
 
 	sfix_write(sfix, bytes);
 
@@ -123,6 +126,9 @@ static struct ptunit_result create_truncated(struct section_fixture *sfix)
 
 	name = pt_section_filename(sfix->section);
 	ptu_str_eq(name, sfix->name);
+
+	offset = pt_section_offset(sfix->section);
+	ptu_uint_eq(offset, 0x1ull);
 
 	size = pt_section_size(sfix->section);
 	ptu_uint_eq(size, sizeof(bytes) - 1);
@@ -154,6 +160,16 @@ static struct ptunit_result size_null(void)
 
 	size = pt_section_size(NULL);
 	ptu_uint_eq(size, 0ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result offset_null(void)
+{
+	uint64_t offset;
+
+	offset = pt_section_offset(NULL);
+	ptu_uint_eq(offset, 0ull);
 
 	return ptu_passed();
 }
@@ -713,6 +729,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, create_empty, sfix);
 
 	ptu_run(suite, filename_null);
+	ptu_run(suite, offset_null);
 	ptu_run(suite, size_null);
 	ptu_run(suite, get_null);
 	ptu_run(suite, put_null);

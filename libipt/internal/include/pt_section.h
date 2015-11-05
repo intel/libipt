@@ -159,6 +159,9 @@ extern int pt_section_put(struct pt_section *section);
 /* Return the filename of @section. */
 extern const char *pt_section_filename(const struct pt_section *section);
 
+/* Return the offset of the section in bytes. */
+extern uint64_t pt_section_offset(const struct pt_section *section);
+
 /* Return the size of the section in bytes. */
 extern uint64_t pt_section_size(const struct pt_section *section);
 

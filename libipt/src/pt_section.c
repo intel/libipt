@@ -223,6 +223,14 @@ uint64_t pt_section_size(const struct pt_section *section)
 	return section->size;
 }
 
+uint64_t pt_section_offset(const struct pt_section *section)
+{
+	if (!section)
+		return 0ull;
+
+	return section->offset;
+}
+
 int pt_section_unmap(struct pt_section *section)
 {
 	uint16_t mcount;
