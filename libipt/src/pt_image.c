@@ -88,6 +88,18 @@ static void pt_section_list_free(struct pt_section_list *list)
 	free(list);
 }
 
+static void pt_section_list_free_tail(struct pt_section_list *list)
+{
+	while (list) {
+		struct pt_section_list *trash;
+
+		trash = list;
+		list = list->next;
+
+		pt_section_list_free(trash);
+	}
+}
+
 void pt_image_init(struct pt_image *image, const char *name)
 {
 	if (!image)
@@ -101,20 +113,10 @@ void pt_image_init(struct pt_image *image, const char *name)
 
 void pt_image_fini(struct pt_image *image)
 {
-	struct pt_section_list *list;
-
 	if (!image)
 		return;
 
-	for (list = image->sections; list; ) {
-		struct pt_section_list *trash;
-
-		trash = list;
-		list = list->next;
-
-		pt_section_list_free(trash);
-	}
-
+	pt_section_list_free_tail(image->sections);
 	free(image->name);
 
 	memset(image, 0, sizeof(*image));
