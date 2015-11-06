@@ -59,9 +59,9 @@ struct ifix_status {
 	struct ifix_mapping *mapping;
 };
 
-static void pt_init_section(struct pt_section *section, char *filename,
-			    struct ifix_status *status,
-			    struct ifix_mapping *mapping)
+static void ifix_init_section(struct pt_section *section, char *filename,
+			      struct ifix_status *status,
+			      struct ifix_mapping *mapping)
 {
 	uint8_t i;
 
@@ -247,22 +247,29 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 	return section->read(section, buffer, size, offset);
 }
 
+enum {
+	ifix_nsecs = 3
+};
+
 /* A test fixture providing an image, test sections, and asids. */
 struct image_fixture {
 	/* The image. */
 	struct pt_image image;
 
 	/* The test states. */
-	struct ifix_status status[3];
+	struct ifix_status status[ifix_nsecs];
 
 	/* The test mappings. */
-	struct ifix_mapping mapping[3];
+	struct ifix_mapping mapping[ifix_nsecs];
 
 	/* The sections. */
-	struct pt_section section[3];
+	struct pt_section section[ifix_nsecs];
 
 	/* The asids. */
 	struct pt_asid asid[3];
+
+	/* The number of used sections/mappings/states. */
+	int nsecs;
 
 	/* An initially empty image as destination for image copies. */
 	struct pt_image copy;
@@ -271,6 +278,25 @@ struct image_fixture {
 	struct ptunit_result (*init)(struct image_fixture *);
 	struct ptunit_result (*fini)(struct image_fixture *);
 };
+
+static int ifix_add_section(struct image_fixture *ifix, char *filename)
+{
+	int index;
+
+	if (!ifix)
+		return -pte_internal;
+
+	index = ifix->nsecs;
+	if (ifix_nsecs <= index)
+		return -pte_internal;
+
+	ifix_init_section(&ifix->section[index], filename, &ifix->status[index],
+			  &ifix->mapping[index]);
+
+	ifix->nsecs += 1;
+	return index;
+}
+
 
 /* A test read memory callback. */
 static int image_readmem_callback(uint8_t *buffer, size_t size,
@@ -346,7 +372,7 @@ static struct ptunit_result fini(void)
 	int errcode;
 
 	pt_asid_init(&asid);
-	pt_init_section(&section, NULL, &status, &mapping);
+	ifix_init_section(&section, NULL, &status, &mapping);
 
 	pt_image_init(&image, NULL);
 	errcode = pt_image_add(&image, &section, &asid, 0x0ull);
@@ -983,15 +1009,25 @@ static struct ptunit_result copy_self(struct image_fixture *ifix)
 
 struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
+	int index;
+
 	pt_image_init(&ifix->image, NULL);
 	pt_image_init(&ifix->copy, NULL);
 
-	pt_init_section(&ifix->section[0], "file-0", &ifix->status[0],
-			&ifix->mapping[0]);
-	pt_init_section(&ifix->section[1], "file-1", &ifix->status[1],
-			&ifix->mapping[1]);
-	pt_init_section(&ifix->section[2], "file-2", &ifix->status[2],
-			&ifix->mapping[2]);
+	memset(ifix->status, 0, sizeof(ifix->status));
+	memset(ifix->mapping, 0, sizeof(ifix->mapping));
+	memset(ifix->section, 0, sizeof(ifix->section));
+
+	ifix->nsecs = 0;
+
+	index = ifix_add_section(ifix, "file-0");
+	ptu_int_eq(index, 0);
+
+	index = ifix_add_section(ifix, "file-1");
+	ptu_int_eq(index, 1);
+
+	index = ifix_add_section(ifix, "file-2");
+	ptu_int_eq(index, 2);
 
 	pt_asid_init(&ifix->asid[0]);
 	ifix->asid[0].cr3 = 0xa000;
@@ -1037,7 +1073,7 @@ struct ptunit_result ifix_fini(struct image_fixture *ifix)
 
 	pt_image_fini(&ifix->copy);
 
-	for (sec = 0; sec < 3; ++sec) {
+	for (sec = 0; sec < ifix_nsecs; ++sec) {
 		ptu_int_eq(ifix->section[sec].ucount, 0);
 		ptu_int_eq(ifix->section[sec].mcount, 0);
 	}
