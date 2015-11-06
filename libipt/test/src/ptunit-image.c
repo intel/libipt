@@ -64,6 +64,38 @@ struct ifix_status {
 	struct image_fixture *ifix;
 };
 
+enum {
+	ifix_nsecs = 3
+};
+
+/* A test fixture providing an image, test sections, and asids. */
+struct image_fixture {
+	/* The image. */
+	struct pt_image image;
+
+	/* The test states. */
+	struct ifix_status status[ifix_nsecs];
+
+	/* The test mappings. */
+	struct ifix_mapping mapping[ifix_nsecs];
+
+	/* The sections. */
+	struct pt_section section[ifix_nsecs];
+
+	/* The asids. */
+	struct pt_asid asid[3];
+
+	/* The number of used sections/mappings/states. */
+	int nsecs;
+
+	/* An initially empty image as destination for image copies. */
+	struct pt_image copy;
+
+	/* The test fixture initialization and finalization functions. */
+	struct ptunit_result (*init)(struct image_fixture *);
+	struct ptunit_result (*fini)(struct image_fixture *);
+};
+
 static void ifix_init_section(struct pt_section *section, char *filename,
 			      struct ifix_status *status,
 			      struct ifix_mapping *mapping,
@@ -84,6 +116,24 @@ static void ifix_init_section(struct pt_section *section, char *filename,
 	status->bad_put = 0;
 	status->mapping = mapping;
 	status->ifix = ifix;
+}
+
+static int ifix_add_section(struct image_fixture *ifix, char *filename)
+{
+	int index;
+
+	if (!ifix)
+		return -pte_internal;
+
+	index = ifix->nsecs;
+	if (ifix_nsecs <= index)
+		return -pte_internal;
+
+	ifix_init_section(&ifix->section[index], filename, &ifix->status[index],
+			  &ifix->mapping[index], ifix);
+
+	ifix->nsecs += 1;
+	return index;
 }
 
 const char *pt_section_filename(const struct pt_section *section)
@@ -253,57 +303,6 @@ int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 
 	return section->read(section, buffer, size, offset);
 }
-
-enum {
-	ifix_nsecs = 3
-};
-
-/* A test fixture providing an image, test sections, and asids. */
-struct image_fixture {
-	/* The image. */
-	struct pt_image image;
-
-	/* The test states. */
-	struct ifix_status status[ifix_nsecs];
-
-	/* The test mappings. */
-	struct ifix_mapping mapping[ifix_nsecs];
-
-	/* The sections. */
-	struct pt_section section[ifix_nsecs];
-
-	/* The asids. */
-	struct pt_asid asid[3];
-
-	/* The number of used sections/mappings/states. */
-	int nsecs;
-
-	/* An initially empty image as destination for image copies. */
-	struct pt_image copy;
-
-	/* The test fixture initialization and finalization functions. */
-	struct ptunit_result (*init)(struct image_fixture *);
-	struct ptunit_result (*fini)(struct image_fixture *);
-};
-
-static int ifix_add_section(struct image_fixture *ifix, char *filename)
-{
-	int index;
-
-	if (!ifix)
-		return -pte_internal;
-
-	index = ifix->nsecs;
-	if (ifix_nsecs <= index)
-		return -pte_internal;
-
-	ifix_init_section(&ifix->section[index], filename, &ifix->status[index],
-			  &ifix->mapping[index], ifix);
-
-	ifix->nsecs += 1;
-	return index;
-}
-
 
 /* A test read memory callback. */
 static int image_readmem_callback(uint8_t *buffer, size_t size,
