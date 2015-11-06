@@ -102,6 +102,33 @@ out_status:
 	return NULL;
 }
 
+int pt_section_clone(struct pt_section **pclone,
+		     const struct pt_section *section, uint64_t offset,
+		     uint64_t size)
+{
+	struct pt_section *clone;
+	uint64_t begin, end, sbegin, send;
+
+	if (!pclone || !section)
+		return -pte_internal;
+
+	begin = offset;
+	end = begin + size;
+
+	sbegin = pt_section_offset(section);
+	send = sbegin + pt_section_size(section);
+
+	if (begin < sbegin || send < end)
+		return -pte_internal;
+
+	clone = pt_mk_section(pt_section_filename(section), offset, size);
+	if (!clone)
+		return -pte_nomem;
+
+	*pclone = clone;
+	return 0;
+}
+
 int pt_section_lock(struct pt_section *section)
 {
 	if (!section)
