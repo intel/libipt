@@ -35,6 +35,8 @@
 #include "intel-pt.h"
 
 
+struct image_fixture;
+
 /* A test mapping. */
 struct ifix_mapping {
 	/* The contents. */
@@ -57,11 +59,15 @@ struct ifix_status {
 
 	/* The test mapping to be used. */
 	struct ifix_mapping *mapping;
+
+	/* A link back to the test fixture providing this section. */
+	struct image_fixture *ifix;
 };
 
 static void ifix_init_section(struct pt_section *section, char *filename,
 			      struct ifix_status *status,
-			      struct ifix_mapping *mapping)
+			      struct ifix_mapping *mapping,
+			      struct image_fixture *ifix)
 {
 	uint8_t i;
 
@@ -77,6 +83,7 @@ static void ifix_init_section(struct pt_section *section, char *filename,
 	status->deleted = 0;
 	status->bad_put = 0;
 	status->mapping = mapping;
+	status->ifix = ifix;
 }
 
 const char *pt_section_filename(const struct pt_section *section)
@@ -291,7 +298,7 @@ static int ifix_add_section(struct image_fixture *ifix, char *filename)
 		return -pte_internal;
 
 	ifix_init_section(&ifix->section[index], filename, &ifix->status[index],
-			  &ifix->mapping[index]);
+			  &ifix->mapping[index], ifix);
 
 	ifix->nsecs += 1;
 	return index;
@@ -372,7 +379,7 @@ static struct ptunit_result fini(void)
 	int errcode;
 
 	pt_asid_init(&asid);
-	ifix_init_section(&section, NULL, &status, &mapping);
+	ifix_init_section(&section, NULL, &status, &mapping, NULL);
 
 	pt_image_init(&image, NULL);
 	errcode = pt_image_add(&image, &section, &asid, 0x0ull);
