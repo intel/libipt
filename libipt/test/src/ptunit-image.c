@@ -52,6 +52,9 @@ struct ifix_status {
 	 */
 	int deleted;
 
+	/* Put with use-count of zero indication. */
+	int bad_put;
+
 	/* The test mapping to be used. */
 	struct ifix_mapping *mapping;
 };
@@ -72,6 +75,7 @@ static void pt_init_section(struct pt_section *section, char *filename,
 		mapping->content[i] = i;
 
 	status->deleted = 0;
+	status->bad_put = 0;
 	status->mapping = mapping;
 }
 
@@ -113,24 +117,29 @@ int pt_section_get(struct pt_section *section)
 
 int pt_section_put(struct pt_section *section)
 {
+	struct ifix_status *status;
 	uint16_t ucount;
 
 	if (!section)
 		return -pte_internal;
 
-	ucount = section->ucount;
-	if (!ucount)
+	status = section->status;
+	if (!status)
 		return -pte_internal;
+
+	ucount = section->ucount;
+	if (!ucount) {
+		status->bad_put += 1;
+
+		return -pte_internal;
+	}
 
 	ucount = --section->ucount;
 	if (!ucount) {
-		struct ifix_status *status;
+		status->deleted += 1;
 
-		status = section->status;
-		if (!status || status->deleted)
+		if (status->deleted > 1)
 			return -pte_internal;
-
-		status->deleted = 1;
 	}
 
 	return 0;
@@ -347,6 +356,7 @@ static struct ptunit_result fini(void)
 	ptu_int_eq(section.ucount, 0);
 	ptu_int_eq(section.mcount, 0);
 	ptu_int_eq(status.deleted, 1);
+	ptu_int_eq(status.bad_put, 0);
 
 	return ptu_passed();
 }
