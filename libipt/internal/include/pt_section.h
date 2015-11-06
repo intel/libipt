@@ -122,7 +122,7 @@ extern struct pt_section *pt_mk_section(const char *file, uint64_t offset,
  * Returns a new section on success, NULL otherwise.
  * Returns -pte_bad_lock on any locking error.
  */
-int pt_section_lock(struct pt_section *section);
+extern int pt_section_lock(struct pt_section *section);
 
 /* Unlock a section.
  *
@@ -131,7 +131,7 @@ int pt_section_lock(struct pt_section *section);
  * Returns a new section on success, NULL otherwise.
  * Returns -pte_bad_lock on any locking error.
  */
-int pt_section_unlock(struct pt_section *section);
+extern int pt_section_unlock(struct pt_section *section);
 
 /* Add another user.
  *
