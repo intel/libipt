@@ -954,17 +954,32 @@ static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 
 int pt_qry_decode_psb(struct pt_query_decoder *decoder)
 {
+	const uint8_t *pos;
 	int size, errcode;
 
-	size = pt_pkt_read_psb(decoder->pos, &decoder->config);
+	pos = decoder->pos;
+
+	size = pt_pkt_read_psb(pos, &decoder->config);
 	if (size < 0)
 		return size;
 
 	decoder->pos += size;
 
 	errcode = pt_qry_read_psb_header(decoder);
-	if (errcode < 0)
+	if (errcode < 0) {
+		/* Move back to the PSB so we have a chance to recover and
+		 * continue decoding.
+		 */
+		decoder->pos = pos;
+
+		/* Clear any PSB+ events that have already been queued. */
+		(void) pt_evq_clear(&decoder->evq, evb_psbend);
+
+		/* Reset the decoder's decode function. */
+		decoder->next = &pt_decode_psb;
+
 		return errcode;
+	}
 
 	/* The next packet following the PSB header will be of type PSBEND.
 	 *
