@@ -326,10 +326,10 @@ static int pt_qry_start(struct pt_query_decoder *decoder, const uint8_t *pos,
 			addr = NULL;
 	}
 
-	/* Read ahead until the first query-relevant packet.
-	 * We ignore errors; they will be diagnosed in the first query.
-	 */
-	(void) pt_qry_read_ahead(decoder);
+	/* Read ahead until the first query-relevant packet. */
+	errcode = pt_qry_read_ahead(decoder);
+	if (errcode < 0)
+		return errcode;
 
 	/* We return the current decoder status. */
 	status = pt_qry_status_flags(decoder);
@@ -642,9 +642,10 @@ pt_qry_get_config(const struct pt_query_decoder *decoder)
 
 static int pt_qry_cache_tnt(struct pt_query_decoder *decoder)
 {
+	int errcode;
+
 	for (;;) {
 		const struct pt_decoder_function *dfun;
-		int errcode;
 
 		dfun = decoder->next;
 		if (!dfun)
@@ -686,7 +687,9 @@ static int pt_qry_cache_tnt(struct pt_query_decoder *decoder)
 	}
 
 	/* Read ahead until the next query-relevant packet. */
-	(void) pt_qry_read_ahead(decoder);
+	errcode = pt_qry_read_ahead(decoder);
+	if ((errcode < 0) && (errcode != -pte_eos))
+		return errcode;
 
 	return 0;
 }
@@ -787,7 +790,9 @@ int pt_qry_indirect_branch(struct pt_query_decoder *decoder, uint64_t *addr)
 	}
 
 	/* Read ahead until the next query-relevant packet. */
-	(void) pt_qry_read_ahead(decoder);
+	errcode = pt_qry_read_ahead(decoder);
+	if ((errcode < 0) && (errcode != -pte_eos))
+		return errcode;
 
 	flags |= pt_qry_status_flags(decoder);
 
@@ -864,7 +869,9 @@ int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event,
 	}
 
 	/* Read ahead until the next query-relevant packet. */
-	(void) pt_qry_read_ahead(decoder);
+	errcode = pt_qry_read_ahead(decoder);
+	if ((errcode < 0) && (errcode != -pte_eos))
+		return errcode;
 
 	flags |= pt_qry_status_flags(decoder);
 
