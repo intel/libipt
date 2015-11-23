@@ -161,6 +161,12 @@ static int no_file_error(const char *name)
 	return -1;
 }
 
+static int unknown_option_error(const char *arg, const char *name)
+{
+	fprintf(stderr, "%s: unknown option: %s.\n", name, arg);
+	return -1;
+}
+
 static int help(const char *name)
 {
 	fprintf(stderr,
@@ -1419,7 +1425,7 @@ int main(int argc, char *argv[])
 					    argv[0]))
 				return 1;
 		} else
-			return usage(argv[0]);
+			return unknown_option_error(argv[idx], argv[0]);
 	}
 
 	if (!ptfile)
