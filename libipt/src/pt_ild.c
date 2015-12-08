@@ -184,6 +184,30 @@ pti_get_nominal_eosz_df64(struct pt_ild *ild)
 	return pti_get_nominal_eosz_non64(ild);
 }
 
+static inline enum pt_exec_mode
+pti_get_nominal_easz_non64(struct pt_ild *ild)
+{
+	if (mode_32b(ild)) {
+		if (ild->u.s.asz)
+			return ptem_16bit;
+		return ptem_32bit;
+	}
+	if (ild->u.s.asz)
+		return ptem_32bit;
+	return ptem_16bit;
+}
+
+static inline enum pt_exec_mode
+pti_get_nominal_easz(struct pt_ild *ild)
+{
+	if (mode_64b(ild)) {
+		if (ild->u.s.asz)
+			return ptem_32bit;
+		return ptem_64bit;
+	}
+	return pti_get_nominal_easz_non64(ild);
+}
+
 static inline uint8_t resolve_z(enum pt_exec_mode eosz, struct pt_ild *ild)
 {
 	static const uint8_t bytes[] = { 2, 4, 4 };
@@ -573,9 +597,9 @@ static void compute_disp_dec(struct pt_ild *ild)
 
 	case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2: {
 		/* MEMDISPv(easz) */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+		enum pt_exec_mode easz = pti_get_nominal_easz(ild);
 
-		ild->disp_bytes = resolve_v(eosz, ild);
+		ild->disp_bytes = resolve_v(easz, ild);
 	}
 		break;
 
