@@ -67,6 +67,9 @@ struct ptxed_options {
 
 	/* Print the offset into the trace file. */
 	uint32_t print_offset:1;
+
+	/* Print the raw bytes for an insn. */
+	uint32_t print_raw_insn:1;
 };
 
 /* A collection of statistics. */
@@ -95,6 +98,7 @@ static void help(const char *name)
 	       "  --no-inst                     do not print instructions (only addresses).\n"
 	       "  --quiet|-q                    do not print anything (except errors).\n"
 	       "  --offset                      print the offset into the trace file.\n"
+	       "  --raw-insn                    print the raw bytes of each instruction.\n"
 	       "  --stat                        print statistics (even when quiet).\n"
 	       "  --verbose|-v                  print various information (even when quiet).\n"
 	       "  --pt <file>[:<from>[-<to>]]   load the processor trace data from <file>.\n"
@@ -359,6 +363,17 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		printf("%016" PRIx64 "  ", offset);
 
 	printf("%016" PRIx64, insn->ip);
+
+	if (options->print_raw_insn) {
+		uint8_t i;
+
+		printf(" ");
+		for (i = 0; i < insn->size; ++i)
+			printf(" %02x", insn->raw[i]);
+
+		for (; i < sizeof(insn->raw); ++i)
+			printf("   ");
+	}
 
 	if (!options->dont_print_insn) {
 		xed_machine_mode_enum_t mode;
@@ -727,6 +742,10 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--offset") == 0) {
 			options.print_offset = 1;
+			continue;
+		}
+		if (strcmp(arg, "--raw-insn") == 0) {
+			options.print_raw_insn = 1;
 			continue;
 		}
 		if (strcmp(arg, "--stat") == 0) {
