@@ -673,7 +673,7 @@ static int pt_qry_cache_tnt(struct pt_query_decoder *decoder)
 
 		/* If we skipped an event, we're in trouble. */
 		if (decoder->event)
-			return -pte_nosync;
+			return -pte_event_ignored;
 
 		/* We're done when we decoded a TNT packet. */
 		if (dfun->flags & pdff_tnt)
@@ -760,7 +760,7 @@ int pt_qry_indirect_branch(struct pt_query_decoder *decoder, uint64_t *addr)
 
 		/* If we skipped an event, we're in trouble. */
 		if (decoder->event)
-			return -pte_nosync;
+			return -pte_event_ignored;
 
 		/* We're done when we found a TIP packet that isn't part of an
 		 * event.

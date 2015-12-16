@@ -91,6 +91,21 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_not_supported:
 		return "not supported";
+
+	case pte_retstack_empty:
+		return "compressed return without call";
+
+	case pte_bad_retcomp:
+		return "bad compressed return";
+
+	case pte_bad_status_update:
+		return "bad status update";
+
+	case pte_no_enable:
+		return "expected tracing enabled event";
+
+	case pte_event_ignored:
+		return "event ignored";
 	}
 
 	/* Should not reach here. */

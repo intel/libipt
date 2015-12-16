@@ -89,7 +89,7 @@ static struct ptunit_result query_empty(void)
 
 	ip = 0x42ull;
 	status = pt_retstack_pop(&retstack, &ip);
-	ptu_int_eq(status, -pte_noip);
+	ptu_int_eq(status, -pte_retstack_empty);
 	ptu_uint_eq(ip, 0x42ull);
 
 	return ptu_passed();
@@ -138,7 +138,7 @@ static struct ptunit_result pop_empty(void)
 	pt_retstack_init(&retstack);
 
 	status = pt_retstack_pop(&retstack, NULL);
-	ptu_int_eq(status, -pte_noip);
+	ptu_int_eq(status, -pte_retstack_empty);
 
 	return ptu_passed();
 }

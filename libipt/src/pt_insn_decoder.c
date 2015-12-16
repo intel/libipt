@@ -716,7 +716,7 @@ static int process_exec_mode_event(struct pt_insn_decoder *decoder)
 	/* Use status update events to diagnose inconsistencies. */
 	if (ev->status_update && decoder->enabled &&
 	    decoder->mode != ptem_unknown && decoder->mode != mode)
-		return -pte_nosync;
+		return -pte_bad_status_update;
 
 	decoder->mode = mode;
 
@@ -1290,7 +1290,7 @@ static int proceed(struct pt_insn_decoder *decoder)
 			 * conditional branch.
 			 */
 			if (!taken)
-				return -pte_nosync;
+				return -pte_bad_retcomp;
 
 			errcode = pt_retstack_pop(&decoder->retstack,
 						  &decoder->ip);
@@ -1431,7 +1431,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		/* Any query should give us an end of stream, error. */
 		errcode = pt_qry_event(&decoder->query, &event, sizeof(event));
 		if (errcode != -pte_eos)
-			errcode = -pte_bad_context;
+			errcode = -pte_no_enable;
 
 		goto err;
 	}

@@ -58,7 +58,7 @@ int pt_retstack_pop(struct pt_retstack *retstack, uint64_t *ip)
 	top = retstack->top;
 
 	if (top == retstack->bottom)
-		return -pte_noip;
+		return -pte_retstack_empty;
 
 	top = (!top ? pt_retstack_size : top - 1);
 

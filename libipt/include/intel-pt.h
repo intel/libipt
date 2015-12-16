@@ -464,7 +464,22 @@ enum pt_error_code {
 	pte_bad_lock,
 
 	/* The requested feature is not supported. */
-	pte_not_supported
+	pte_not_supported,
+
+	/* The return address stack is empty. */
+	pte_retstack_empty,
+
+	/* A compressed return is not indicated correctly by a taken branch. */
+	pte_bad_retcomp,
+
+	/* The current decoder state does not match the state in the trace. */
+	pte_bad_status_update,
+
+	/* The trace did not contain an expected enabled event. */
+	pte_no_enable,
+
+	/* An event was ignored. */
+	pte_event_ignored
 };
 
 
