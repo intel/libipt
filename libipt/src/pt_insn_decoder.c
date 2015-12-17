@@ -1302,8 +1302,16 @@ static int proceed(struct pt_insn_decoder *decoder)
 
 		/* Fall through to process the taken branch. */
 	} else if (ild->u.s.call && !ild->u.s.branch_far) {
-		/* Log the call for return compression. */
-		pt_retstack_push(&decoder->retstack, decoder->ip + ild->length);
+		uint64_t nip;
+
+		/* Log the call for return compression.
+		 *
+		 * Unless this is a call to the next instruction as is used
+		 * for position independent code.
+		 */
+		nip = decoder->ip + ild->length;
+		if (!ild->u.s.branch_direct || (nip != ild->direct_target))
+			pt_retstack_push(&decoder->retstack, nip);
 
 		/* Fall through to process the call. */
 	} else if (ild->u.s.ret && !ild->u.s.branch_far) {
