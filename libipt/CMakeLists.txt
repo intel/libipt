@@ -135,6 +135,11 @@ add_ptunit_c_test(query
   src/pt_time.c
 )
 add_ptunit_c_test(section ${LIBIPT_SECTION_FILES})
+add_ptunit_c_test(section-file
+  test/src/ptunit-section.c
+  src/pt_section.c
+  src/pt_section_file.c
+)
 add_ptunit_c_test(packet
   src/pt_encoder.c
   src/pt_packet_decoder.c
