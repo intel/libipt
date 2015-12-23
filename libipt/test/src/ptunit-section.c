@@ -491,6 +491,30 @@ static struct ptunit_result read_overflow(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result read_overflow_32bit(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 }, buffer[] = { 0xcc };
+	int status;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_read(sfix->section, buffer, 1,
+				 0xff00000000ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result read_nomap(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 }, buffer[] = { 0xcc };
@@ -706,6 +730,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, read_from_truncated, sfix);
 	ptu_run_f(suite, read_nomem, sfix);
 	ptu_run_f(suite, read_overflow, sfix);
+	ptu_run_f(suite, read_overflow_32bit, sfix);
 	ptu_run_f(suite, read_nomap, sfix);
 	ptu_run_f(suite, read_unmap_map, sfix);
 	ptu_run_f(suite, stress, sfix);

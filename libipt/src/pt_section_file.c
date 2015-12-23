@@ -195,7 +195,7 @@ int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 {
 	struct pt_sec_file_mapping *mapping;
 	FILE *file;
-	long begin, end, fbegin, fend;
+	long begin;
 	size_t read;
 	int errcode;
 
@@ -207,30 +207,20 @@ int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 		return -pte_internal;
 
 	file = mapping->file;
-	begin = mapping->begin;
-	end = mapping->end;
 
-	fbegin = (long) offset;
-	if (((uint64_t) fbegin) != offset)
-		return -pte_nomap;
-
-	fbegin += begin;
-	fend = fbegin + size;
-
-	if (fend < fbegin)
-		return -pte_nomap;
-
-	if (end <= fbegin)
-		return -pte_nomap;
-
-	if (fbegin < begin)
-		return -pte_nomap;
+	/* We already checked in pt_section_read() that the requested memory
+	 * lies within the section's boundaries.
+	 *
+	 * And we checked that the file covers the entire section in
+	 * pt_sec_file_map().  There's no need to check for overflows, again.
+	 */
+	begin = mapping->begin + (long) offset;
 
 	errcode = fmap_lock(mapping);
 	if (errcode < 0)
 		return errcode;
 
-	errcode = fseek(file, fbegin, SEEK_SET);
+	errcode = fseek(file, begin, SEEK_SET);
 	if (errcode)
 		goto out_unlock;
 

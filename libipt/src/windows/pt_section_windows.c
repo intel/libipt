@@ -321,8 +321,7 @@ int pt_sec_windows_read(const struct pt_section *section, uint8_t *buffer,
 		      uint16_t size, uint64_t offset)
 {
 	struct pt_sec_windows_mapping *mapping;
-	const uint8_t *begin, *end;
-	int bytes;
+	const uint8_t *begin;
 
 	if (!buffer || !section)
 		return -pte_invalid;
@@ -331,23 +330,14 @@ int pt_sec_windows_read(const struct pt_section *section, uint8_t *buffer,
 	if (!mapping)
 		return -pte_internal;
 
+	/* We already checked in pt_section_read() that the requested memory
+	 * lies within the section's boundaries.
+	 *
+	 * And we checked that the entire section was mapped.  There's no need
+	 * to check for overflows, again.
+	 */
 	begin = mapping->begin + offset;
-	end = begin + size;
 
-	if (end < begin)
-		return -pte_nomap;
-
-	if (mapping->end <= begin)
-		return -pte_nomap;
-
-	if (begin < mapping->begin)
-		return -pte_nomap;
-
-	if (mapping->end < end)
-		end = mapping->end;
-
-	bytes = (int) (end - begin);
-
-	memcpy(buffer, begin, bytes);
-	return bytes;
+	memcpy(buffer, begin, size);
+	return (int) size;
 }

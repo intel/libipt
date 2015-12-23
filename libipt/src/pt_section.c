@@ -265,11 +265,22 @@ out_unlock:
 int pt_section_read(const struct pt_section *section, uint8_t *buffer,
 		    uint16_t size, uint64_t offset)
 {
+	uint64_t limit, space;
+
 	if (!section)
 		return -pte_internal;
 
 	if (!section->read)
 		return -pte_nomap;
+
+	limit = section->size;
+	if (limit <= offset)
+		return -pte_nomap;
+
+	/* Truncate if we try to read past the end of the section. */
+	space = limit - offset;
+	if (space < size)
+		size = (uint16_t) space;
 
 	return section->read(section, buffer, size, offset);
 }
