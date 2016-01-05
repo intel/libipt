@@ -496,6 +496,118 @@ static struct ptunit_result mov_ax_moffs16(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result les(void)
+{
+	uint8_t insn[] = { 0xc4, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result les_disp16(void)
+{
+	uint8_t insn[] = { 0xc4, 0x06, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result les_disp32(void)
+{
+	uint8_t insn[] = { 0xc4, 0x05, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result les_ind_disp8(void)
+{
+	uint8_t insn[] = { 0xc4, 0x40, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result les_ind_disp16(void)
+{
+	uint8_t insn[] = { 0xc4, 0x80, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result les_ind_disp32(void)
+{
+	uint8_t insn[] = { 0xc4, 0x80, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lds(void)
+{
+	uint8_t insn[] = { 0xc5, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lds_disp16(void)
+{
+	uint8_t insn[] = { 0xc5, 0x06, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lds_disp32(void)
+{
+	uint8_t insn[] = { 0xc5, 0x05, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lds_ind_disp8(void)
+{
+	uint8_t insn[] = { 0xc5, 0x40, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lds_ind_disp16(void)
+{
+	uint8_t insn[] = { 0xc5, 0x80, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_16bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lds_ind_disp32(void)
+{
+	uint8_t insn[] = { 0xc5, 0x80, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_32bit);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -545,6 +657,18 @@ int main(int argc, char **argv)
 	ptu_run(suite, mov_eax_moffs32);
 	ptu_run(suite, mov_ax_moffs32);
 	ptu_run(suite, mov_ax_moffs16);
+	ptu_run(suite, les);
+	ptu_run(suite, les_disp16);
+	ptu_run(suite, les_disp32);
+	ptu_run(suite, les_ind_disp8);
+	ptu_run(suite, les_ind_disp16);
+	ptu_run(suite, les_ind_disp32);
+	ptu_run(suite, lds);
+	ptu_run(suite, lds_disp16);
+	ptu_run(suite, lds_disp32);
+	ptu_run(suite, lds_ind_disp8);
+	ptu_run(suite, lds_ind_disp16);
+	ptu_run(suite, lds_ind_disp32);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

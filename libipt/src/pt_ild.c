@@ -329,7 +329,7 @@ static void vex_c5_dec(struct pt_ild *ild)
 		ild->u.s.vexc5 = 1;
 		length++;	/* eat the c5 */
 	} else if (length + 1 < max_bytes) {	/* non64b mode */
-		uint8_t n = get_byte(ild, length);
+		uint8_t n = get_byte(ild, length + 1);
 
 		if (bits_match(n, 0xC0, 0xC0)) {
 			ild->u.s.vexc5 = 1;
@@ -367,7 +367,7 @@ static void vex_c4_dec(struct pt_ild *ild)
 		ild->u.s.vexc4 = 1;
 		length++;	/* eat the c4 */
 	} else if (length + 1 < max_bytes) {	/* non64b mode */
-		uint8_t n = get_byte(ild, length);
+		uint8_t n = get_byte(ild, length + 1);
 
 		if (bits_match(n, 0xC0, 0xC0)) {
 			ild->u.s.vexc4 = 1;
