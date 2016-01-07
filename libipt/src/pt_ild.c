@@ -120,24 +120,29 @@ static inline void set_error(struct pt_ild *ild)
 	ild->u.s.error = 1;
 }
 
-/* accessors for REX.R/VEX R  */
+/* Accessors for REX.R/VEX.R/EVEX.R  */
 static inline uint8_t pti_get_rex_vex_r(struct pt_ild *ild)
 {
 	if (ild->u.s.vexc5)
 		return (ild->c5byte1 >> 7) & 1;
 	else if (ild->u.s.vexc4)
 		return (ild->c4byte1 >> 7) & 1;
+	else if (ild->u.s.evex)
+		return (ild->evex_p1 >> 7) & 1;
 	else if (ild->rex)
 		return (ild->rex >> 2) & 1;
 	return 0;
 }
 
+/* Accessors for REX.W/VEX.W/EVEX.W  */
 static inline uint8_t pti_get_rex_vex_w(struct pt_ild *ild)
 {
 	if (ild->u.s.vexc5)
 		return 0;
 	else if (ild->u.s.vexc4)
 		return (ild->c4byte2 >> 7) & 1;
+	else if (ild->u.s.evex)
+		return (ild->evex_p2 >> 7) & 1;
 	else if (ild->rex)
 		return (ild->rex >> 3) & 1;
 	return 0;
@@ -401,6 +406,49 @@ static void vex_c4_dec(struct pt_ild *ild)
 	}
 }
 
+static void evex_dec(struct pt_ild *ild)
+{
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = ild->length;
+	uint8_t p1;
+
+	/* Read the next byte to validate that this is indeed EVEX. */
+	if (max_bytes < (length + 1)) {
+		set_error(ild);
+		return;
+	}
+
+	p1 = get_byte(ild, length + 1);
+
+	/* If p1[7:6] is not 11b in non-64-bit mode, this is BOUND, not EVEX. */
+	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0))
+		return;
+
+	/* We need at least 5 bytes
+	 * - 4 for the EVEX prefix and payload and
+	 * - 1 for the opcode.
+	 */
+	if (max_bytes < (length + 5)) {
+		set_error(ild);
+		return;
+	}
+
+	pti_set_map(ild, (pti_map_enum_t) (p1 & 0x03));
+	if (pti_get_map(ild) == PTI_MAP_3)
+		ild->imm1_bytes = 1;
+
+	ild->u.s.evex = 1;
+	ild->evex_p1 = p1;
+	ild->evex_p2 = get_byte(ild, length + 2);
+	ild->evex_p3 = get_byte(ild, length + 3);
+
+	/* Eat the EVEX. */
+	length += 4;
+
+	ild->length = length;
+	vex_opcode_dec(ild);
+}
+
 static void vex_dec(struct pt_ild *ild)
 {
 	/* The prefix scanner checked the length for us so we know that there
@@ -412,6 +460,8 @@ static void vex_dec(struct pt_ild *ild)
 		vex_c5_dec(ild);
 	else if (b == 0xC4)
 		vex_c4_dec(ild);
+	else if (b == 0x62)
+		evex_dec(ild);
 }
 
 static void get_next_as_opcode(struct pt_ild *ild)
@@ -876,7 +926,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 
 	if (ild->map > PTI_MAP_1)
 		return 0;	/* uninteresting */
-	if (ild->u.s.vexc4 || ild->u.s.vexc5)
+	if (ild->u.s.vexc4 || ild->u.s.vexc5 || ild->u.s.evex)
 		return 0;	/* uninteresting */
 
 	/* PTI_INST_JCC,   70...7F, 0F (0x80...0x8F) */

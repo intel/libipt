@@ -608,6 +608,25 @@ static struct ptunit_result lds_ind_disp32(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result vpshufb(void)
+{
+	uint8_t insn[] = { 0x62, 0x02, 0x05, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, ptem_64bit);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result bound(void)
+{
+	uint8_t insn[] = { 0x62, 0x02 };
+
+	ptu_boring_s(insn, ptem_32bit);
+	ptu_boring_s(insn, ptem_16bit);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -669,6 +688,8 @@ int main(int argc, char **argv)
 	ptu_run(suite, lds_ind_disp8);
 	ptu_run(suite, lds_ind_disp16);
 	ptu_run(suite, lds_ind_disp32);
+	ptu_run(suite, vpshufb);
+	ptu_run(suite, bound);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
