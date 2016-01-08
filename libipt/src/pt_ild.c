@@ -235,6 +235,32 @@ pti_get_nominal_eosz_df64 (pti_ild_t * ild)
   return pti_get_nominal_eosz_non64 (ild);
 }
 
+PTI_INLINE
+  pti_machine_mode_enum_t pti_get_nominal_easz_non64 (pti_ild_t * ild)
+{
+  if (mode_32b (ild))
+    {
+      if (ild->u.s.asz)
+        return PTI_MODE_16;
+      return PTI_MODE_32;
+    }
+  if (ild->u.s.asz)
+    return PTI_MODE_32;
+  return PTI_MODE_16;
+}
+
+PTI_INLINE pti_machine_mode_enum_t
+pti_get_nominal_easz (pti_ild_t * ild)
+{
+  if (mode_64b (ild))
+    {
+      if (ild->u.s.asz)
+        return PTI_MODE_32;
+      return PTI_MODE_64;
+    }
+  return pti_get_nominal_easz_non64 (ild);
+}
+
 PTI_INLINE pti_uint_t
 resolve_z (pti_machine_mode_enum_t eosz)
 {
@@ -671,8 +697,8 @@ compute_disp_dec (pti_ild_t * ild)
     case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2:
       /* MEMDISPv(easz) */
       {
-        pti_machine_mode_enum_t eosz = pti_get_nominal_eosz (ild);
-        ild->disp_bytes = (pti_uint8_t) resolve_v(eosz);
+        pti_machine_mode_enum_t easz = pti_get_nominal_easz (ild);
+        ild->disp_bytes = (pti_uint8_t) resolve_v(easz);
       }
       break;
     case PTI_BRDISPz_BRDISP_WIDTH_OSZ_NONTERM_EOSZ_l2:

@@ -155,7 +155,7 @@ static struct ptunit_result long_nop(void)
 
 static struct ptunit_result mov_al_64(void)
 {
-	pti_uint8_t insn[] = { 0x48, 0xA1, 0x3f, 0xaa, 0xbb,
+	pti_uint8_t insn[] = { 0x48, 0xA0, 0x3f, 0xaa, 0xbb,
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
@@ -164,24 +164,57 @@ static struct ptunit_result mov_al_64(void)
 	return ptu_passed();
 }
 
-static struct ptunit_result mov_al_32(void)
+static struct ptunit_result mov_al_32_em64(void)
 {
-	pti_uint8_t insn[] = { 0xA1, 0x3f, 0xaa, 0xbb,
+	pti_uint8_t insn[] = { 0x67, 0xA0, 0x3f, 0xaa, 0xbb,
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
-	ptu_boring(insn, 5, PTI_MODE_64);
+	ptu_boring(insn, 6, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_al_32(void)
+{
+	pti_uint8_t insn[] = { 0xA0, 0x3f, 0xaa, 0xbb,
+			       0xcc, 0xdd, 0xee, 0xfF,
+			       0X11 };
+
+	ptu_boring(insn, 5, PTI_MODE_32);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_al_32_em16(void)
+{
+	pti_uint8_t insn[] = { 0x67, 0xA0, 0x3f, 0xaa, 0xbb,
+			       0xcc, 0xdd, 0xee, 0xfF,
+			       0X11 };
+
+	ptu_boring(insn, 6, PTI_MODE_16);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_al_16_em32(void)
+{
+	pti_uint8_t insn[] = { 0x67, 0xA0, 0x3f, 0xaa, 0xbb,
+			       0xcc, 0xdd, 0xee, 0xfF,
+			       0X11 };
+
+	ptu_boring(insn, 4, PTI_MODE_32);
 
 	return ptu_passed();
 }
 
 static struct ptunit_result mov_al_16(void)
 {
-	pti_uint8_t insn[] = { 0x66, 0xA1, 0x3f, 0xaa, 0xbb,
+	pti_uint8_t insn[] = { 0xA0, 0x3f, 0xaa, 0xbb,
 			       0xcc, 0xdd, 0xee, 0xfF,
 			       0X11 };
 
-	ptu_boring(insn, 4, PTI_MODE_64);
+	ptu_boring(insn, 3, PTI_MODE_16);
 
 	return ptu_passed();
 }
@@ -393,6 +426,90 @@ static struct ptunit_result jrcxz(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result mov_eax_moffs64(void)
+{
+	pti_uint8_t insn[] = { 0xa1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			       0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_eax_moffs64_32(void)
+{
+	pti_uint8_t insn[] = { 0x67, 0xa1, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_rax_moffs64(void)
+{
+	pti_uint8_t insn[] = { 0x48, 0xa1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			       0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_rax_moffs64_32(void)
+{
+	pti_uint8_t insn[] = { 0x67, 0x48, 0xa1, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_ax_moffs64(void)
+{
+	pti_uint8_t insn[] = { 0x66, 0xa1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			       0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_ax_moffs64_32(void)
+{
+	pti_uint8_t insn[] = { 0x67, 0x66, 0xa1, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_64);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_eax_moffs32(void)
+{
+	pti_uint8_t insn[] = { 0xa1, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_32);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_ax_moffs32(void)
+{
+	pti_uint8_t insn[] = { 0x66, 0xa1, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_32);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result mov_ax_moffs16(void)
+{
+	pti_uint8_t insn[] = { 0xa1, 0x00, 0x00 };
+
+	ptu_boring_s(insn, PTI_MODE_16);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -406,6 +523,9 @@ int main(int argc, char **argv)
 	ptu_run(suite, long_nop);
 	ptu_run(suite, mov_al_64);
 	ptu_run(suite, mov_al_32);
+	ptu_run(suite, mov_al_32_em64);
+	ptu_run(suite, mov_al_32_em16);
+	ptu_run(suite, mov_al_16_em32);
 	ptu_run(suite, mov_al_16);
 	ptu_run(suite, rdtsc);
 	ptu_run(suite, pcmpistri);
@@ -430,6 +550,15 @@ int main(int argc, char **argv)
 	ptu_run(suite, vmcall);
 	ptu_run(suite, vmptrld);
 	ptu_run(suite, jrcxz);
+	ptu_run(suite, mov_eax_moffs64);
+	ptu_run(suite, mov_eax_moffs64_32);
+	ptu_run(suite, mov_rax_moffs64);
+	ptu_run(suite, mov_rax_moffs64_32);
+	ptu_run(suite, mov_ax_moffs64);
+	ptu_run(suite, mov_ax_moffs64_32);
+	ptu_run(suite, mov_eax_moffs32);
+	ptu_run(suite, mov_ax_moffs32);
+	ptu_run(suite, mov_ax_moffs16);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
