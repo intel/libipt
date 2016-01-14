@@ -389,7 +389,7 @@ vex_c5_dec (pti_ild_t * ild)
     }
   else if (length + 1 < max_bytes)
     {                           /* non64b mode */
-      pti_uint8_t n = get_byte (ild, length);
+      pti_uint8_t n = get_byte (ild, length + 1);
       if (bits_match (n, 0xC0, 0xC0))
         {
           ild->u.s.vexc5 = 1;
@@ -437,7 +437,7 @@ vex_c4_dec (pti_ild_t * ild)
     }
   else if (length + 1 < max_bytes)
     {                           /* non64b mode */
-      pti_uint8_t n = get_byte (ild, length);
+      pti_uint8_t n = get_byte (ild, length + 1);
       if (bits_match (n, 0xC0, 0xC0))
         {
           ild->u.s.vexc4 = 1;
