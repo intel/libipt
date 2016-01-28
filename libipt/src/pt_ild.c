@@ -243,79 +243,6 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
-static void prefix_rex_dec(struct pt_ild *ild)
-{
-	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = 0;
-	uint8_t rex = 0;
-	uint8_t nprefixes = 0;
-
-	while (length < max_bytes) {
-		uint8_t b = get_byte(ild, length);
-
-		switch (b) {
-		case 0x66:
-			ild->u.s.osz = 1;
-			/*ignore possible REX prefix encoutered earlier */
-			rex = 0;
-			break;
-
-		case 0x67:
-			ild->u.s.asz = 1;
-			rex = 0;
-			break;
-
-			/* segment prefixes */
-		case 0x2E:
-		case 0x3E:
-		case 0x26:
-		case 0x36:
-		case 0x64:
-		case 0x65:
-			/* ignore possible REX prefix encountered earlier */
-			rex = 0;
-			break;
-
-		case 0xF0:
-			ild->u.s.lock = 1;
-			rex = 0;
-			break;
-
-		case 0xF3:
-			ild->u.s.f3 = 1;
-			ild->u.s.last_f2f3 = 3;
-			rex = 0;
-			break;
-
-		case 0xF2:
-			ild->u.s.f2 = 1;
-			ild->u.s.last_f2f3 = 2;
-			rex = 0;
-			break;
-
-		default:
-			/*Take care of REX prefix */
-			if (mode_64b(ild) && (b & 0xf0) == 0x40)
-				rex = b;
-			else
-				goto out;
-		}
-		length++;
-		nprefixes++;
-	}
- out:
-	ild->length = length;
-	ild->rex = (uint8_t) rex;
-	if (length >= max_bytes) {
-		/* all available length was taken by prefixes, but we for sure
-		 * need at least one additional byte for an opcode, hence we
-		 * are out of bytes.
-		 */
-		set_error(ild);
-		return;
-	}
-}
-
 static void vex_opcode_dec(struct pt_ild *ild)
 {
 	uint8_t length = ild->length;
@@ -837,9 +764,128 @@ static void imm_dec(struct pt_ild *ild)
 	ild->length += ild->imm2_bytes;
 }
 
+typedef void (*prefix_decoder)(struct pt_ild *ild, uint8_t length, uint8_t rex);
+static prefix_decoder prefix_table[256];
+
+static inline void prefix_decode(struct pt_ild *ild, uint8_t length,
+				 uint8_t rex)
+{
+	uint8_t byte;
+
+	if (ild->max_bytes <= length) {
+		set_error(ild);
+		return;
+	}
+
+	byte = get_byte(ild, length);
+
+	prefix_table[byte](ild, length, rex);
+}
+
+static inline void prefix_next(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	prefix_decode(ild, length + 1, rex);
+}
+
+static void prefix_osz(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	ild->u.s.osz = 1;
+
+	prefix_next(ild, length, 0);
+}
+
+static void prefix_asz(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	ild->u.s.asz = 1;
+
+	prefix_next(ild, length, 0);
+}
+
+static void prefix_lock(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	ild->u.s.lock = 1;
+
+	prefix_next(ild, length, 0);
+}
+
+static void prefix_f2(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	ild->u.s.f2 = 1;
+	ild->u.s.last_f2f3 = 2;
+
+	prefix_next(ild, length, 0);
+}
+
+static void prefix_f3(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	ild->u.s.f3 = 1;
+	ild->u.s.last_f2f3 = 3;
+
+	prefix_next(ild, length, 0);
+}
+
+static void prefix_ignore(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	prefix_next(ild, length, 0);
+}
+
+static void prefix_done(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	ild->length = length;
+	ild->rex = rex;
+}
+
+static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	(void) rex;
+
+	if (mode_64b(ild))
+		prefix_next(ild, length, get_byte(ild, length));
+	else
+		prefix_done(ild, length, 0);
+}
+
+static void init_prefix_table(void)
+{
+	unsigned int byte;
+
+	for (byte = 0; byte <= 0xff; ++byte)
+		prefix_table[byte] = prefix_done;
+
+	prefix_table[0x66] = prefix_osz;
+	prefix_table[0x67] = prefix_asz;
+
+	/* Segment prefixes. */
+	prefix_table[0x2e] = prefix_ignore;
+	prefix_table[0x3e] = prefix_ignore;
+	prefix_table[0x26] = prefix_ignore;
+	prefix_table[0x36] = prefix_ignore;
+	prefix_table[0x64] = prefix_ignore;
+	prefix_table[0x65] = prefix_ignore;
+
+	prefix_table[0xf0] = prefix_lock;
+	prefix_table[0xf2] = prefix_f2;
+	prefix_table[0xf3] = prefix_f3;
+
+	for (byte = 0x40; byte <= 0x4f; ++byte)
+		prefix_table[byte] = prefix_rex;
+}
+
 static void decode(struct pt_ild *ild)
 {
-	prefix_rex_dec(ild);
+	prefix_decode(ild, 0, 0);
 	vex_dec(ild);
 	if (ild->nominal_opcode_pos == 0)
 		opcode_dec(ild);
@@ -896,6 +942,7 @@ void pt_ild_init(void)
 	init_has_disp_regular_table();
 	init_has_sib_table();
 	init_eamode_table();
+	init_prefix_table();
 }
 
 int pt_instruction_length_decode(struct pt_ild *ild)
