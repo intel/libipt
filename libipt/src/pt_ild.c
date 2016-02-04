@@ -27,6 +27,12 @@
  */
 
 #include "pt_ild.h"
+#include "pti-imm-defs.h"
+#include "pti-imm.h"
+#include "pti-modrm-defs.h"
+#include "pti-modrm.h"
+#include "pti-disp-defs.h"
+#include "pti-disp.h"
 
 #include <string.h>
 
@@ -319,11 +325,6 @@ static void opcode_dec(struct pt_ild *ild)
 	}
 }
 
-#include "pti-modrm-defs.h"
-#include "pti-modrm.h"
-#include "pti-disp-defs.h"
-#include "pti-disp.h"
-
 static void modrm_dec(struct pt_ild *ild)
 {
 	static uint8_t const *const has_modrm_2d[2] = {
@@ -471,9 +472,6 @@ static void disp_dec(struct pt_ild *ild)
 	ild->disp_pos = ild->length;
 	ild->length += disp_bytes;
 }
-
-#include "pti-imm-defs.h"
-#include "pti-imm.h"
 
 static void set_imm_bytes(struct pt_ild *ild)
 {
