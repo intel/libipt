@@ -249,6 +249,23 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
+static void sib_dec(struct pt_ild *ild)
+{
+	if (ild->u.s.sib) {
+		uint8_t length = ild->length;
+
+		if (length < ild->max_bytes) {
+			ild->sib_byte = get_byte(ild, length);
+			ild->length = length + 1;
+			if (pti_get_sib_base(ild) == 5
+			    && pti_get_modrm_mod(ild) == 0)
+				ild->disp_bytes = 4;
+		} else {
+			set_error(ild);
+		}
+	}
+}
+
 static void modrm_dec(struct pt_ild *ild, uint8_t length)
 {
 	static uint8_t const *const has_modrm_2d[2] = {
@@ -353,23 +370,6 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 		pti_set_map(ild, PTI_MAP_1);
 
 		modrm_dec(ild, length + 1);
-	}
-}
-
-static void sib_dec(struct pt_ild *ild)
-{
-	if (ild->u.s.sib) {
-		uint8_t length = ild->length;
-
-		if (length < ild->max_bytes) {
-			ild->sib_byte = get_byte(ild, length);
-			ild->length = length + 1;
-			if (pti_get_sib_base(ild) == 5
-			    && pti_get_modrm_mod(ild) == 0)
-				ild->disp_bytes = 4;
-		} else {
-			set_error(ild);
-		}
 	}
 }
 
