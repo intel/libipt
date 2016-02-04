@@ -249,7 +249,6 @@ static void get_next_as_opcode(struct pt_ild *ild)
 
 	if (length < ild->max_bytes) {
 		ild->nominal_opcode = get_byte(ild, length);
-		ild->nominal_opcode_pos = length;
 		ild->length = length + 1;
 	} else {
 		set_error(ild);
@@ -266,13 +265,11 @@ static void opcode_dec(struct pt_ild *ild)
 	if (b != 0x0F) {	/* 1B opcodes, map 0 */
 		pti_set_map(ild, PTI_MAP_0);
 		ild->nominal_opcode = b;
-		ild->nominal_opcode_pos = length;
 		ild->length = length + 1;
 		return;
 	}
 
 	length++;		/* eat the 0x0F */
-	ild->nominal_opcode_pos = length;
 
 	/* 0x0F opcodes MAPS 1,2,3 */
 	if (length < ild->max_bytes) {
@@ -314,7 +311,6 @@ static void opcode_dec(struct pt_ild *ild)
 		} else {	/* map 1 (simple two byte opcodes) */
 			length++;	/* eat the 2nd  opcode byte */
 			ild->nominal_opcode = m;
-			ild->nominal_opcode_pos = length;
 			pti_set_map(ild, PTI_MAP_1);
 			ild->length = length;
 		}
@@ -714,7 +710,6 @@ static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static inline void prefix_vex_done(struct pt_ild *ild, uint8_t length)
 {
 	ild->nominal_opcode = get_byte(ild, length);
-	ild->nominal_opcode_pos = length;	/*FIXME: needed? */
 	ild->length = length + 1;
 }
 
@@ -935,7 +930,6 @@ int pt_instruction_length_decode(struct pt_ild *ild)
 	ild->imm1_bytes = 0;
 	ild->imm2_bytes = 0;
 	ild->disp_bytes = 0;
-	ild->nominal_opcode_pos = 0;
 	ild->modrm_byte = 0;
 	ild->map = PTI_MAP_INVALID;
 

@@ -136,7 +136,6 @@ struct pt_ild {
 	uint8_t imm1_bytes;	/* # of bytes in 1st immediate */
 	uint8_t imm2_bytes;	/* # of bytes in 2nd immediate */
 	uint8_t disp_bytes;	/* # of displacement bytes */
-	uint8_t nominal_opcode_pos;
 	uint8_t modrm_byte;
 	/* 5b but valid values=  0,1,2,3 could be in bit union */
 	uint8_t map;
