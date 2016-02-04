@@ -295,6 +295,8 @@ static inline void get_next_as_opcode(struct pt_ild *ild, uint8_t length)
 
 	ild->nominal_opcode = get_byte(ild, length);
 	ild->length = length + 1;
+
+	modrm_dec(ild);
 }
 
 static void opcode_dec(struct pt_ild *ild, uint8_t length)
@@ -307,6 +309,8 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 		pti_set_map(ild, PTI_MAP_0);
 		ild->nominal_opcode = b;
 		ild->length = length + 1;
+
+		modrm_dec(ild);
 		return;
 	}
 
@@ -343,10 +347,14 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 		 * opcode now. */
 		ild->nominal_opcode = 0x0F;
 		ild->length = length + 1;
+
+		modrm_dec(ild);
 	} else {	/* map 1 (simple two byte opcodes) */
 		ild->nominal_opcode = m;
 		pti_set_map(ild, PTI_MAP_1);
 		ild->length = length + 1;
+
+		modrm_dec(ild);
 	}
 }
 
@@ -696,6 +704,8 @@ static inline void prefix_vex_done(struct pt_ild *ild, uint8_t length)
 {
 	ild->nominal_opcode = get_byte(ild, length);
 	ild->length = length + 1;
+
+	modrm_dec(ild);
 }
 
 static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
@@ -858,7 +868,6 @@ static void init_prefix_table(void)
 static void decode(struct pt_ild *ild)
 {
 	prefix_decode(ild, 0, 0);
-	modrm_dec(ild);
 	sib_dec(ild);
 	disp_dec(ild);
 	imm_dec(ild);
