@@ -249,7 +249,7 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
-static void modrm_dec(struct pt_ild *ild)
+static void modrm_dec(struct pt_ild *ild, uint8_t length)
 {
 	static uint8_t const *const has_modrm_2d[2] = {
 		has_modrm_map_0x0,
@@ -262,17 +262,19 @@ static void modrm_dec(struct pt_ild *ild)
 		has_modrm = PTI_MODRM_TRUE;
 	else
 		has_modrm = has_modrm_2d[map][ild->nominal_opcode];
-	if (has_modrm == PTI_MODRM_FALSE)
+
+	if (has_modrm == PTI_MODRM_FALSE || has_modrm == PTI_MODRM_UNDEF) {
+		ild->length = length;
 		return;
-	if (has_modrm == PTI_MODRM_UNDEF)
-		return;
-	if (ild->length >= ild->max_bytes) {
+	}
+
+	if (length >= ild->max_bytes) {
 		/* really >= here because we have not eaten the byte yet */
 		set_error(ild);
 		return;
 	}
-	ild->modrm_byte = get_byte(ild, ild->length);
-	ild->length++;	/* eat modrm */
+	ild->modrm_byte = get_byte(ild, length);
+	ild->length = length + 1;	/* eat modrm */
 	if (has_modrm != PTI_MODRM_IGNORE_MOD) {
 		/* set disp_bytes and sib using simple tables */
 
@@ -294,9 +296,8 @@ static inline void get_next_as_opcode(struct pt_ild *ild, uint8_t length)
 	}
 
 	ild->nominal_opcode = get_byte(ild, length);
-	ild->length = length + 1;
 
-	modrm_dec(ild);
+	modrm_dec(ild, length + 1);
 }
 
 static void opcode_dec(struct pt_ild *ild, uint8_t length)
@@ -308,9 +309,8 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 	if (b != 0x0F) {	/* 1B opcodes, map 0 */
 		pti_set_map(ild, PTI_MAP_0);
 		ild->nominal_opcode = b;
-		ild->length = length + 1;
 
-		modrm_dec(ild);
+		modrm_dec(ild, length + 1);
 		return;
 	}
 
@@ -346,15 +346,13 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 		/* real opcode is in immediate later on, but we need an
 		 * opcode now. */
 		ild->nominal_opcode = 0x0F;
-		ild->length = length + 1;
 
-		modrm_dec(ild);
+		modrm_dec(ild, length + 1);
 	} else {	/* map 1 (simple two byte opcodes) */
 		ild->nominal_opcode = m;
 		pti_set_map(ild, PTI_MAP_1);
-		ild->length = length + 1;
 
-		modrm_dec(ild);
+		modrm_dec(ild, length + 1);
 	}
 }
 
@@ -703,9 +701,8 @@ static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static inline void prefix_vex_done(struct pt_ild *ild, uint8_t length)
 {
 	ild->nominal_opcode = get_byte(ild, length);
-	ild->length = length + 1;
 
-	modrm_dec(ild);
+	modrm_dec(ild, length + 1);
 }
 
 static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
