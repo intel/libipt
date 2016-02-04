@@ -243,154 +243,6 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
-static void vex_opcode_dec(struct pt_ild *ild)
-{
-	uint8_t length = ild->length;
-
-	ild->nominal_opcode = get_byte(ild, length);
-	ild->nominal_opcode_pos = length;	/*FIXME: needed? */
-	ild->length = length + 1;
-}
-
-static void vex_c5_dec(struct pt_ild *ild)
-{
-	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = ild->length;
-
-	if (mode_64b(ild)) {
-		ild->u.s.vexc5 = 1;
-		length++;	/* eat the c5 */
-	} else if (length + 1 < max_bytes) {	/* non64b mode */
-		uint8_t n = get_byte(ild, length + 1);
-
-		if (bits_match(n, 0xC0, 0xC0)) {
-			ild->u.s.vexc5 = 1;
-			length++;	/* eat the c5 */
-		} else {
-			/* not c5 vex, keep going */
-			return;
-		}
-	} else {
-		set_error(ild);
-		return;
-	}
-
-	/* vex payload processing */
-
-	/* we want to make sure, that we have additional 2 bytes
-	 * available for reading - for vex payload byte and opcode */
-	if ((length + 2) <= max_bytes) {
-		ild->c5byte1 = get_byte(ild, length);
-		pti_set_map(ild, PTI_MAP_1);
-		length++;	/* eat the vex payload byte */
-		ild->length = length;
-		vex_opcode_dec(ild);
-	} else {
-		set_error(ild);
-	}
-}
-
-static void vex_c4_dec(struct pt_ild *ild)
-{
-	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = ild->length;
-
-	if (mode_64b(ild)) {
-		ild->u.s.vexc4 = 1;
-		length++;	/* eat the c4 */
-	} else if (length + 1 < max_bytes) {	/* non64b mode */
-		uint8_t n = get_byte(ild, length + 1);
-
-		if (bits_match(n, 0xC0, 0xC0)) {
-			ild->u.s.vexc4 = 1;
-			length++;	/* eat the c4 */
-		} else {
-			/* not c4 vex, keep going */
-			return;
-		}
-	} else {
-		set_error(ild);
-		return;
-	}
-
-	/* vex payload processing */
-
-	/* we want to make sure, that we have additional 2 bytes
-	 * available for reading - for vex payload byte and opcode */
-	if ((length + 3) <= max_bytes) {
-		ild->c4byte1 = get_byte(ild, length);
-		ild->c4byte2 = get_byte(ild, length + 1);
-
-		pti_set_map(ild, (pti_map_enum_t) (ild->c4byte1 & 0x1F));
-		if (pti_get_map(ild) == PTI_MAP_3)
-			ild->imm1_bytes = 1;
-
-		length += 2;	/* eat the 2byte vex payload */
-		ild->length = length;
-		vex_opcode_dec(ild);
-	} else {
-		set_error(ild);
-	}
-}
-
-static void evex_dec(struct pt_ild *ild)
-{
-	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = ild->length;
-	uint8_t p1;
-
-	/* Read the next byte to validate that this is indeed EVEX. */
-	if (max_bytes < (length + 1)) {
-		set_error(ild);
-		return;
-	}
-
-	p1 = get_byte(ild, length + 1);
-
-	/* If p1[7:6] is not 11b in non-64-bit mode, this is BOUND, not EVEX. */
-	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0))
-		return;
-
-	/* We need at least 5 bytes
-	 * - 4 for the EVEX prefix and payload and
-	 * - 1 for the opcode.
-	 */
-	if (max_bytes < (length + 5)) {
-		set_error(ild);
-		return;
-	}
-
-	pti_set_map(ild, (pti_map_enum_t) (p1 & 0x03));
-	if (pti_get_map(ild) == PTI_MAP_3)
-		ild->imm1_bytes = 1;
-
-	ild->u.s.evex = 1;
-	ild->evex_p1 = p1;
-	ild->evex_p2 = get_byte(ild, length + 2);
-	ild->evex_p3 = get_byte(ild, length + 3);
-
-	/* Eat the EVEX. */
-	length += 4;
-
-	ild->length = length;
-	vex_opcode_dec(ild);
-}
-
-static void vex_dec(struct pt_ild *ild)
-{
-	/* The prefix scanner checked the length for us so we know that there
-	 * is at least 1B left.
-	 */
-	uint8_t b = get_byte(ild, ild->length);
-
-	if (b == 0xC5)
-		vex_c5_dec(ild);
-	else if (b == 0xC4)
-		vex_c4_dec(ild);
-	else if (b == 0x62)
-		evex_dec(ild);
-}
-
 static void get_next_as_opcode(struct pt_ild *ild)
 {
 	uint8_t length = ild->length;
@@ -855,6 +707,154 @@ static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		prefix_next(ild, length, get_byte(ild, length));
 	else
 		prefix_done(ild, length, 0);
+}
+
+static void vex_opcode_dec(struct pt_ild *ild)
+{
+	uint8_t length = ild->length;
+
+	ild->nominal_opcode = get_byte(ild, length);
+	ild->nominal_opcode_pos = length;	/*FIXME: needed? */
+	ild->length = length + 1;
+}
+
+static void vex_c5_dec(struct pt_ild *ild)
+{
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = ild->length;
+
+	if (mode_64b(ild)) {
+		ild->u.s.vexc5 = 1;
+		length++;	/* eat the c5 */
+	} else if (length + 1 < max_bytes) {	/* non64b mode */
+		uint8_t n = get_byte(ild, length + 1);
+
+		if (bits_match(n, 0xC0, 0xC0)) {
+			ild->u.s.vexc5 = 1;
+			length++;	/* eat the c5 */
+		} else {
+			/* not c5 vex, keep going */
+			return;
+		}
+	} else {
+		set_error(ild);
+		return;
+	}
+
+	/* vex payload processing */
+
+	/* we want to make sure, that we have additional 2 bytes
+	 * available for reading - for vex payload byte and opcode */
+	if ((length + 2) <= max_bytes) {
+		ild->c5byte1 = get_byte(ild, length);
+		pti_set_map(ild, PTI_MAP_1);
+		length++;	/* eat the vex payload byte */
+		ild->length = length;
+		vex_opcode_dec(ild);
+	} else {
+		set_error(ild);
+	}
+}
+
+static void vex_c4_dec(struct pt_ild *ild)
+{
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = ild->length;
+
+	if (mode_64b(ild)) {
+		ild->u.s.vexc4 = 1;
+		length++;	/* eat the c4 */
+	} else if (length + 1 < max_bytes) {	/* non64b mode */
+		uint8_t n = get_byte(ild, length + 1);
+
+		if (bits_match(n, 0xC0, 0xC0)) {
+			ild->u.s.vexc4 = 1;
+			length++;	/* eat the c4 */
+		} else {
+			/* not c4 vex, keep going */
+			return;
+		}
+	} else {
+		set_error(ild);
+		return;
+	}
+
+	/* vex payload processing */
+
+	/* we want to make sure, that we have additional 2 bytes
+	 * available for reading - for vex payload byte and opcode */
+	if ((length + 3) <= max_bytes) {
+		ild->c4byte1 = get_byte(ild, length);
+		ild->c4byte2 = get_byte(ild, length + 1);
+
+		pti_set_map(ild, (pti_map_enum_t) (ild->c4byte1 & 0x1F));
+		if (pti_get_map(ild) == PTI_MAP_3)
+			ild->imm1_bytes = 1;
+
+		length += 2;	/* eat the 2byte vex payload */
+		ild->length = length;
+		vex_opcode_dec(ild);
+	} else {
+		set_error(ild);
+	}
+}
+
+static void evex_dec(struct pt_ild *ild)
+{
+	uint8_t max_bytes = ild->max_bytes;
+	uint8_t length = ild->length;
+	uint8_t p1;
+
+	/* Read the next byte to validate that this is indeed EVEX. */
+	if (max_bytes < (length + 1)) {
+		set_error(ild);
+		return;
+	}
+
+	p1 = get_byte(ild, length + 1);
+
+	/* If p1[7:6] is not 11b in non-64-bit mode, this is BOUND, not EVEX. */
+	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0))
+		return;
+
+	/* We need at least 5 bytes
+	 * - 4 for the EVEX prefix and payload and
+	 * - 1 for the opcode.
+	 */
+	if (max_bytes < (length + 5)) {
+		set_error(ild);
+		return;
+	}
+
+	pti_set_map(ild, (pti_map_enum_t) (p1 & 0x03));
+	if (pti_get_map(ild) == PTI_MAP_3)
+		ild->imm1_bytes = 1;
+
+	ild->u.s.evex = 1;
+	ild->evex_p1 = p1;
+	ild->evex_p2 = get_byte(ild, length + 2);
+	ild->evex_p3 = get_byte(ild, length + 3);
+
+	/* Eat the EVEX. */
+	length += 4;
+
+	ild->length = length;
+	vex_opcode_dec(ild);
+}
+
+static void vex_dec(struct pt_ild *ild)
+{
+	/* The prefix scanner checked the length for us so we know that there
+	 * is at least 1B left.
+	 */
+	uint8_t b = get_byte(ild, ild->length);
+
+	if (b == 0xC5)
+		vex_c5_dec(ild);
+	else if (b == 0xC4)
+		vex_c4_dec(ild);
+	else if (b == 0x62)
+		evex_dec(ild);
 }
 
 static void init_prefix_table(void)
