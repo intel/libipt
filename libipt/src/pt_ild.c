@@ -718,10 +718,9 @@ static void vex_opcode_dec(struct pt_ild *ild)
 	ild->length = length + 1;
 }
 
-static void vex_c5_dec(struct pt_ild *ild)
+static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = ild->length;
 
 	if (mode_64b(ild)) {
 		ild->u.s.vexc5 = 1;
@@ -734,6 +733,7 @@ static void vex_c5_dec(struct pt_ild *ild)
 			length++;	/* eat the c5 */
 		} else {
 			/* not c5 vex, keep going */
+			prefix_done(ild, length, rex);
 			return;
 		}
 	} else {
@@ -756,10 +756,9 @@ static void vex_c5_dec(struct pt_ild *ild)
 	}
 }
 
-static void vex_c4_dec(struct pt_ild *ild)
+static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = ild->length;
 
 	if (mode_64b(ild)) {
 		ild->u.s.vexc4 = 1;
@@ -772,6 +771,7 @@ static void vex_c4_dec(struct pt_ild *ild)
 			length++;	/* eat the c4 */
 		} else {
 			/* not c4 vex, keep going */
+			prefix_done(ild, length, rex);
 			return;
 		}
 	} else {
@@ -799,10 +799,9 @@ static void vex_c4_dec(struct pt_ild *ild)
 	}
 }
 
-static void evex_dec(struct pt_ild *ild)
+static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes = ild->max_bytes;
-	uint8_t length = ild->length;
 	uint8_t p1;
 
 	/* Read the next byte to validate that this is indeed EVEX. */
@@ -814,8 +813,10 @@ static void evex_dec(struct pt_ild *ild)
 	p1 = get_byte(ild, length + 1);
 
 	/* If p1[7:6] is not 11b in non-64-bit mode, this is BOUND, not EVEX. */
-	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0))
+	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0)) {
+		prefix_done(ild, length, rex);
 		return;
+	}
 
 	/* We need at least 5 bytes
 	 * - 4 for the EVEX prefix and payload and
@@ -842,21 +843,6 @@ static void evex_dec(struct pt_ild *ild)
 	vex_opcode_dec(ild);
 }
 
-static void vex_dec(struct pt_ild *ild)
-{
-	/* The prefix scanner checked the length for us so we know that there
-	 * is at least 1B left.
-	 */
-	uint8_t b = get_byte(ild, ild->length);
-
-	if (b == 0xC5)
-		vex_c5_dec(ild);
-	else if (b == 0xC4)
-		vex_c4_dec(ild);
-	else if (b == 0x62)
-		evex_dec(ild);
-}
-
 static void init_prefix_table(void)
 {
 	unsigned int byte;
@@ -881,12 +867,15 @@ static void init_prefix_table(void)
 
 	for (byte = 0x40; byte <= 0x4f; ++byte)
 		prefix_table[byte] = prefix_rex;
+
+	prefix_table[0xc4] = prefix_vex_c4;
+	prefix_table[0xc5] = prefix_vex_c5;
+	prefix_table[0x62] = prefix_evex;
 }
 
 static void decode(struct pt_ild *ild)
 {
 	prefix_decode(ild, 0, 0);
-	vex_dec(ild);
 	if (ild->nominal_opcode_pos == 0)
 		opcode_dec(ild);
 	modrm_dec(ild);
