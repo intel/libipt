@@ -802,7 +802,7 @@ static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	uint8_t p1;
 
 	/* Read the next byte to validate that this is indeed EVEX. */
-	if (max_bytes < (length + 1)) {
+	if (max_bytes <= (length + 1)) {
 		set_error(ild);
 		return;
 	}

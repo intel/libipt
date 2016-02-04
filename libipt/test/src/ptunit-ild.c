@@ -104,6 +104,22 @@ static struct ptunit_result ptunit_ild_classify(uint8_t *insn, uint8_t size,
 	return ptu_passed();
 }
 
+/* Check that a boring instruction is decoded correctly. */
+static struct ptunit_result ptunit_ild_invalid(uint8_t *insn, uint8_t size,
+					       enum pt_exec_mode mode)
+{
+	struct pt_ild ild;
+	int errcode;
+
+	ptunit_ild_init(&ild, insn, size, mode);
+
+	errcode = pt_instruction_length_decode(&ild);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+
 /* Macros to automatically update the test location. */
 #define ptu_boring(insn, size, mode)		\
 	ptu_check(ptunit_ild_boring, insn, size, mode)
@@ -117,6 +133,9 @@ static struct ptunit_result ptunit_ild_classify(uint8_t *insn, uint8_t size,
 
 #define ptu_classify_s(insn, mode, iclass)		\
 	ptu_classify(insn, sizeof(insn), mode, iclass)
+
+#define ptu_invalid_s(insn, mode)				\
+	ptu_check(ptunit_ild_invalid, insn, sizeof(insn), mode)
 
 
 static struct ptunit_result push(void)
@@ -627,6 +646,17 @@ static struct ptunit_result bound(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result evex_cutoff(void)
+{
+	uint8_t insn[] = { 0x62 };
+
+	ptu_invalid_s(insn, ptem_64bit);
+	ptu_invalid_s(insn, ptem_32bit);
+	ptu_invalid_s(insn, ptem_16bit);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -690,6 +720,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, lds_ind_disp32);
 	ptu_run(suite, vpshufb);
 	ptu_run(suite, bound);
+	ptu_run(suite, evex_cutoff);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
