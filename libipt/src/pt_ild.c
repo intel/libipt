@@ -290,21 +290,22 @@ static void get_next_as_opcode(struct pt_ild *ild)
 {
 	uint8_t length = ild->length;
 
-	if (length < ild->max_bytes) {
-		ild->nominal_opcode = get_byte(ild, length);
-		ild->length = length + 1;
-	} else {
+	if (ild->max_bytes <= length) {
 		set_error(ild);
+		return;
 	}
+
+	ild->nominal_opcode = get_byte(ild, length);
+	ild->length = length + 1;
 }
 
 static void opcode_dec(struct pt_ild *ild)
 {
 	uint8_t length = ild->length;
-	uint8_t b = get_byte(ild, length);
+	uint8_t b, m;
 
 	/*no need to check max_bytes - it was checked in previous scanners */
-
+	b = get_byte(ild, length);
 	if (b != 0x0F) {	/* 1B opcodes, map 0 */
 		pti_set_map(ild, PTI_MAP_0);
 		ild->nominal_opcode = b;
@@ -314,51 +315,52 @@ static void opcode_dec(struct pt_ild *ild)
 
 	length++;		/* eat the 0x0F */
 
-	/* 0x0F opcodes MAPS 1,2,3 */
-	if (length < ild->max_bytes) {
-		uint8_t m = get_byte(ild, length);
-
-		if (m == 0x38) {
-			length++;	/* eat the 0x38 */
-			pti_set_map(ild, PTI_MAP_2);
-			ild->length = length;
-			get_next_as_opcode(ild);
-			return;
-		} else if (m == 0x3A) {
-			length++;	/* eat the 0x3A */
-			pti_set_map(ild, PTI_MAP_3);
-			ild->length = length;
-			ild->imm1_bytes = 1;
-			get_next_as_opcode(ild);
-			return;
-		} else if (m == 0x3B) {
-			length++;	/* eat the 0x3B */
-			pti_set_map(ild, PTI_MAP_INVALID);
-			ild->length = length;
-			get_next_as_opcode(ild);
-			return;
-		} else if (m > 0x38 && m <= 0x3F) {
-			/* eat the 0x39...0x3F (minus 3A and 3B) */
-			length++;
-			pti_set_map(ild, PTI_MAP_INVALID);
-			ild->length = length;
-			get_next_as_opcode(ild);
-			return;
-		} else if (m == 0x0F) {	/* 3dNow */
-			pti_set_map(ild, PTI_MAP_AMD3DNOW);
-			ild->imm1_bytes = 1;
-			/* real opcode is in immediate later on, but we need an
-			 * opcode now. */
-			ild->nominal_opcode = 0x0F;
-			ild->length = length + 1;	/*eat the second 0F */
-		} else {	/* map 1 (simple two byte opcodes) */
-			length++;	/* eat the 2nd  opcode byte */
-			ild->nominal_opcode = m;
-			pti_set_map(ild, PTI_MAP_1);
-			ild->length = length;
-		}
-	} else {
+	if (ild->max_bytes <= length) {
 		set_error(ild);
+		return;
+	}
+
+	/* 0x0F opcodes MAPS 1,2,3 */
+	m = get_byte(ild, length);
+
+	if (m == 0x38) {
+		length++;	/* eat the 0x38 */
+		pti_set_map(ild, PTI_MAP_2);
+		ild->length = length;
+		get_next_as_opcode(ild);
+		return;
+	} else if (m == 0x3A) {
+		length++;	/* eat the 0x3A */
+		pti_set_map(ild, PTI_MAP_3);
+		ild->length = length;
+		ild->imm1_bytes = 1;
+		get_next_as_opcode(ild);
+		return;
+	} else if (m == 0x3B) {
+		length++;	/* eat the 0x3B */
+		pti_set_map(ild, PTI_MAP_INVALID);
+		ild->length = length;
+		get_next_as_opcode(ild);
+		return;
+	} else if (m > 0x38 && m <= 0x3F) {
+		/* eat the 0x39...0x3F (minus 3A and 3B) */
+		length++;
+		pti_set_map(ild, PTI_MAP_INVALID);
+		ild->length = length;
+		get_next_as_opcode(ild);
+		return;
+	} else if (m == 0x0F) {	/* 3dNow */
+		pti_set_map(ild, PTI_MAP_AMD3DNOW);
+		ild->imm1_bytes = 1;
+		/* real opcode is in immediate later on, but we need an
+		 * opcode now. */
+		ild->nominal_opcode = 0x0F;
+		ild->length = length + 1;	/*eat the second 0F */
+	} else {	/* map 1 (simple two byte opcodes) */
+		length++;	/* eat the 2nd  opcode byte */
+		ild->nominal_opcode = m;
+		pti_set_map(ild, PTI_MAP_1);
+		ild->length = length;
 	}
 }
 
