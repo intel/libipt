@@ -322,7 +322,7 @@ static void compute_disp_dec(struct pt_ild *ild)
 	}
 }
 
-static void disp_dec(struct pt_ild *ild)
+static void disp_dec(struct pt_ild *ild, uint8_t length)
 {
 	uint8_t disp_bytes;
 
@@ -330,17 +330,20 @@ static void disp_dec(struct pt_ild *ild)
 		compute_disp_dec(ild);
 
 	disp_bytes = ild->disp_bytes;
-	if (disp_bytes == 0)
+	if (disp_bytes == 0) {
+		ild->length = length;
 		return;
-	if (ild->length + disp_bytes > ild->max_bytes) {
+	}
+
+	if (length + disp_bytes > ild->max_bytes) {
 		set_error(ild);
 		return;
 	}
 
 	/*Record only position; must be able to re-read itext bytes for actual
 	   value. (SMC/CMC issue). */
-	ild->disp_pos = ild->length;
-	ild->length += disp_bytes;
+	ild->disp_pos = length;
+	ild->length = length + disp_bytes;
 }
 
 static void sib_dec(struct pt_ild *ild, uint8_t length)
@@ -353,11 +356,10 @@ static void sib_dec(struct pt_ild *ild, uint8_t length)
 	}
 
 	sib = get_byte(ild, length);
-	ild->length = length + 1;
 	if ((sib & 0x07) == 0x05 && pti_get_modrm_mod(ild) == 0)
 		ild->disp_bytes = 4;
 
-	disp_dec(ild);
+	disp_dec(ild, length + 1);
 }
 
 static void modrm_dec(struct pt_ild *ild, uint8_t length)
@@ -375,8 +377,7 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 		has_modrm = has_modrm_2d[map][ild->nominal_opcode];
 
 	if (has_modrm == PTI_MODRM_FALSE || has_modrm == PTI_MODRM_UNDEF) {
-		ild->length = length;
-		disp_dec(ild);
+		disp_dec(ild, length);
 		return;
 	}
 
@@ -386,7 +387,7 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 		return;
 	}
 	ild->modrm_byte = get_byte(ild, length);
-	ild->length = length + 1;	/* eat modrm */
+
 	if (has_modrm != PTI_MODRM_IGNORE_MOD) {
 		/* set disp_bytes and sib using simple tables */
 
@@ -404,7 +405,7 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 		}
 	}
 
-	disp_dec(ild);
+	disp_dec(ild, length + 1);
 }
 
 static inline void get_next_as_opcode(struct pt_ild *ild, uint8_t length)
