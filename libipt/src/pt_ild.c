@@ -249,10 +249,8 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
-static void sib_dec(struct pt_ild *ild)
+static void sib_dec(struct pt_ild *ild, uint8_t length)
 {
-	uint8_t length = ild->length;
-
 	if (length < ild->max_bytes) {
 		ild->sib_byte = get_byte(ild, length);
 		ild->length = length + 1;
@@ -302,7 +300,7 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 
 		has_sib = has_sib_table[eamode][mod][rm];
 		if (has_sib)
-			sib_dec(ild);
+			sib_dec(ild, length + 1);
 	}
 
 }
