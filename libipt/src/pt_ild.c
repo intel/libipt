@@ -191,32 +191,44 @@ pti_get_nominal_easz(struct pt_ild *ild)
 	return pti_get_nominal_easz_non64(ild);
 }
 
-static inline uint8_t resolve_z(enum pt_exec_mode eosz, struct pt_ild *ild)
+static inline void resolve_z(struct pt_ild *ild, uint8_t *pbytes,
+			     enum pt_exec_mode eosz)
 {
 	static const uint8_t bytes[] = { 2, 4, 4 };
 	unsigned int idx;
 
+	if (!pbytes) {
+		set_error(ild);
+		return;
+	}
+
 	idx = (unsigned int) eosz - 1;
 	if (sizeof(bytes) <= idx) {
 		set_error(ild);
-		return 0;
+		return;
 	}
 
-	return bytes[idx];
+	*pbytes = bytes[idx];
 }
 
-static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
+static inline void resolve_v(struct pt_ild *ild, uint8_t *pbytes,
+			     enum pt_exec_mode eosz)
 {
 	static const uint8_t bytes[] = { 2, 4, 8 };
 	unsigned int idx;
 
+	if (!pbytes) {
+		set_error(ild);
+		return;
+	}
+
 	idx = (unsigned int) eosz - 1;
 	if (sizeof(bytes) <= idx) {
 		set_error(ild);
-		return 0;
+		return;
 	}
 
-	return bytes[idx];
+	*pbytes = bytes[idx];
 }
 
 /*  DECODERS */
@@ -252,47 +264,37 @@ static void set_imm_bytes(struct pt_ild *ild)
 		ild->imm1_bytes = 1;
 		break;
 
-	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
+	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2:
 		/* SIMMz(eosz) */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-		ild->imm1_bytes = resolve_z(eosz, ild);
-	}
+		resolve_z(ild, &ild->imm1_bytes, pti_get_nominal_eosz(ild));
 		break;
 
-	case PTI_UIMMv_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
+	case PTI_UIMMv_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2:
 		/* UIMMv(eosz) */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-		ild->imm1_bytes = resolve_v(eosz, ild);
-	}
+		resolve_v(ild, &ild->imm1_bytes, pti_get_nominal_eosz(ild));
 		break;
 
 	case PTI_UIMM16_IMM_WIDTH_CONST_l2:
 		ild->imm1_bytes = 2;
 		break;
 
-	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_DF64_EOSZ_l2: {
+	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_DF64_EOSZ_l2:
 		/* push defaults to eosz64 in 64b mode, then uses SIMMz */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz_df64(ild);
-
-		ild->imm1_bytes = resolve_z(eosz, ild);
-	}
+		resolve_z(ild, &ild->imm1_bytes,
+			  pti_get_nominal_eosz_df64(ild));
 		break;
 
 	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf7_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2) {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->imm1_bytes = resolve_z(eosz, ild);
+			resolve_z(ild, &ild->imm1_bytes,
+				  pti_get_nominal_eosz(ild));
 		}
 		break;
 
 	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xc7_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 0) {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->imm1_bytes = resolve_z(eosz, ild);
+			resolve_z(ild, &ild->imm1_bytes,
+				  pti_get_nominal_eosz(ild));
 		}
 		break;
 
@@ -388,34 +390,26 @@ static void compute_disp_dec(struct pt_ild *ild)
 		if (mode_64b(ild))
 			ild->disp_bytes = 4;
 		else {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->disp_bytes = resolve_z(eosz, ild);
+			resolve_z(ild, &ild->disp_bytes,
+				  pti_get_nominal_eosz(ild));
 		}
 		break;
 
-	case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2: {
+	case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2:
 		/* MEMDISPv(easz) */
-		enum pt_exec_mode easz = pti_get_nominal_easz(ild);
-
-		ild->disp_bytes = resolve_v(easz, ild);
-	}
+		resolve_v(ild, &ild->disp_bytes, pti_get_nominal_easz(ild));
 		break;
 
-	case PTI_BRDISPz_BRDISP_WIDTH_OSZ_NONTERM_EOSZ_l2: {
+	case PTI_BRDISPz_BRDISP_WIDTH_OSZ_NONTERM_EOSZ_l2:
 		/* BRDISPz(eosz) for 16/32/64 modes */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-		ild->disp_bytes = resolve_z(eosz, ild);
-	}
+		resolve_z(ild, &ild->disp_bytes, pti_get_nominal_eosz(ild));
 		break;
 
 	case PTI_RESOLVE_BYREG_DISP_map0x0_op0xc7_l1:
 		/* reg=0 -> preserve, reg=7 -> BRDISPz(eosz) */
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 7) {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->disp_bytes = resolve_z(eosz, ild);
+			resolve_z(ild, &ild->disp_bytes,
+				  pti_get_nominal_eosz(ild));
 		}
 		break;
 
