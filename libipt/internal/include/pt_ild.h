@@ -150,16 +150,6 @@ struct pt_ild {
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
 };
 
-static inline void pti_set_map(struct pt_ild *ild, pti_map_enum_t mape)
-{
-	if (mape > PTI_MAP_INVALID) {
-		ild->u.s.error = 1;
-		mape = PTI_MAP_INVALID;
-	}
-
-	ild->map = (uint8_t) mape;
-}
-
 static inline pti_map_enum_t pti_get_map(struct pt_ild *ild)
 {
 	return (pti_map_enum_t) ild->map;

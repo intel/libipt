@@ -559,7 +559,7 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 	/*no need to check max_bytes - it was checked in previous scanners */
 	b = get_byte(ild, length);
 	if (b != 0x0F) {	/* 1B opcodes, map 0 */
-		pti_set_map(ild, PTI_MAP_0);
+		ild->map = PTI_MAP_0;
 		ild->nominal_opcode = b;
 
 		modrm_dec(ild, length + 1);
@@ -575,25 +575,24 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 
 	/* 0x0F opcodes MAPS 1,2,3 */
 	m = get_byte(ild, length);
-
 	if (m == 0x38) {
-		pti_set_map(ild, PTI_MAP_2);
+		ild->map = PTI_MAP_2;
 
 		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (m == 0x3A) {
-		pti_set_map(ild, PTI_MAP_3);
+		ild->map = PTI_MAP_3;
 		ild->imm1_bytes = 1;
 
 		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (bits_match(m, 0xf8, 0x38)) {
-		pti_set_map(ild, PTI_MAP_INVALID);
+		ild->map = PTI_MAP_INVALID;
 
 		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (m == 0x0F) {	/* 3dNow */
-		pti_set_map(ild, PTI_MAP_AMD3DNOW);
+		ild->map = PTI_MAP_AMD3DNOW;
 		ild->imm1_bytes = 1;
 		/* real opcode is in immediate later on, but we need an
 		 * opcode now. */
@@ -602,7 +601,7 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 		modrm_dec(ild, length + 1);
 	} else {	/* map 1 (simple two byte opcodes) */
 		ild->nominal_opcode = m;
-		pti_set_map(ild, PTI_MAP_1);
+		ild->map = PTI_MAP_1;
 
 		modrm_dec(ild, length + 1);
 	}
@@ -739,7 +738,7 @@ static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return;
 	}
 
-	pti_set_map(ild, PTI_MAP_1);
+	ild->map = PTI_MAP_1;
 
 	ild->u.s.vexc5 = 1;
 	ild->c5byte1 = p1;
@@ -752,7 +751,7 @@ static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes = ild->max_bytes;
-	uint8_t p1;
+	uint8_t p1, map;
 
 	(void) rex;
 
@@ -779,8 +778,14 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return;
 	}
 
-	pti_set_map(ild, (pti_map_enum_t) (p1 & 0x1f));
-	if (pti_get_map(ild) == PTI_MAP_3)
+	map = p1 & 0x1f;
+	if (PTI_MAP_INVALID <= map) {
+		set_error(ild);
+		return;
+	}
+
+	ild->map = map;
+	if (map == PTI_MAP_3)
 		ild->imm1_bytes = 1;
 
 	ild->u.s.vexc4 = 1;
@@ -795,7 +800,7 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes = ild->max_bytes;
-	uint8_t p1;
+	uint8_t p1, map;
 
 	(void) rex;
 
@@ -822,8 +827,10 @@ static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return;
 	}
 
-	pti_set_map(ild, (pti_map_enum_t) (p1 & 0x03));
-	if (pti_get_map(ild) == PTI_MAP_3)
+	map = p1 & 0x03;
+	ild->map = map;
+
+	if (map == PTI_MAP_3)
 		ild->imm1_bytes = 1;
 
 	ild->u.s.evex = 1;
