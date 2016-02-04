@@ -697,6 +697,8 @@ static void prefix_done(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	ild->length = length;
 	ild->rex = rex;
+
+	opcode_dec(ild);
 }
 
 static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
@@ -871,8 +873,6 @@ static void init_prefix_table(void)
 static void decode(struct pt_ild *ild)
 {
 	prefix_decode(ild, 0, 0);
-	if (ild->nominal_opcode_pos == 0)
-		opcode_dec(ild);
 	modrm_dec(ild);
 	sib_dec(ild);
 	disp_dec(ild);
