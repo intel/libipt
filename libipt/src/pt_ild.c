@@ -356,6 +356,8 @@ static void sib_dec(struct pt_ild *ild, uint8_t length)
 	ild->length = length + 1;
 	if ((sib & 0x07) == 0x05 && pti_get_modrm_mod(ild) == 0)
 		ild->disp_bytes = 4;
+
+	disp_dec(ild);
 }
 
 static void modrm_dec(struct pt_ild *ild, uint8_t length)
@@ -374,6 +376,7 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 
 	if (has_modrm == PTI_MODRM_FALSE || has_modrm == PTI_MODRM_UNDEF) {
 		ild->length = length;
+		disp_dec(ild);
 		return;
 	}
 
@@ -395,10 +398,13 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 		ild->disp_bytes = has_disp_regular[eamode][mod][rm];
 
 		has_sib = has_sib_table[eamode][mod][rm];
-		if (has_sib)
+		if (has_sib) {
 			sib_dec(ild, length + 1);
+			return;
+		}
 	}
 
+	disp_dec(ild);
 }
 
 static inline void get_next_as_opcode(struct pt_ild *ild, uint8_t length)
@@ -867,7 +873,6 @@ static void init_prefix_table(void)
 static void decode(struct pt_ild *ild)
 {
 	prefix_decode(ild, 0, 0);
-	disp_dec(ild);
 	imm_dec(ild);
 }
 
