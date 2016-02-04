@@ -321,30 +321,25 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 	m = get_byte(ild, length);
 
 	if (m == 0x38) {
-		length++;	/* eat the 0x38 */
 		pti_set_map(ild, PTI_MAP_2);
 
-		get_next_as_opcode(ild, length);
+		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (m == 0x3A) {
-		length++;	/* eat the 0x3A */
 		pti_set_map(ild, PTI_MAP_3);
 		ild->imm1_bytes = 1;
 
-		get_next_as_opcode(ild, length);
+		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (m == 0x3B) {
-		length++;	/* eat the 0x3B */
 		pti_set_map(ild, PTI_MAP_INVALID);
 
-		get_next_as_opcode(ild, length);
+		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (m > 0x38 && m <= 0x3F) {
-		/* eat the 0x39...0x3F (minus 3A and 3B) */
-		length++;
 		pti_set_map(ild, PTI_MAP_INVALID);
 
-		get_next_as_opcode(ild, length);
+		get_next_as_opcode(ild, length + 1);
 		return;
 	} else if (m == 0x0F) {	/* 3dNow */
 		pti_set_map(ild, PTI_MAP_AMD3DNOW);
@@ -352,12 +347,11 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 		/* real opcode is in immediate later on, but we need an
 		 * opcode now. */
 		ild->nominal_opcode = 0x0F;
-		ild->length = length + 1;	/*eat the second 0F */
+		ild->length = length + 1;
 	} else {	/* map 1 (simple two byte opcodes) */
-		length++;	/* eat the 2nd  opcode byte */
 		ild->nominal_opcode = m;
 		pti_set_map(ild, PTI_MAP_1);
-		ild->length = length;
+		ild->length = length + 1;
 	}
 }
 
