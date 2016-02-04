@@ -355,35 +355,39 @@ static void set_imm_bytes(struct pt_ild *ild)
 	}
 }
 
-static void imm_dec(struct pt_ild *ild)
+static void imm_dec(struct pt_ild *ild, uint8_t length)
 {
 	if (ild->map == PTI_MAP_AMD3DNOW) {
-		if (ild->length < ild->max_bytes) {
-			ild->nominal_opcode = get_byte(ild, ild->length);
-			ild->length++;
+		if (length < ild->max_bytes) {
+			ild->nominal_opcode = get_byte(ild, length);
+			ild->length = length + 1;
 		} else
 			set_error(ild);
 		return;
 	}
 	set_imm_bytes(ild);
-	if (ild->imm1_bytes == 0)
+	if (ild->imm1_bytes == 0) {
+		ild->length = length;
 		return;
+	}
 
-	if (ild->length + ild->imm1_bytes > ild->max_bytes) {
+	if (length + ild->imm1_bytes > ild->max_bytes) {
 		set_error(ild);
 		return;
 	}
 	/*FIXME: could record immediate position if ever needed... */
-	ild->length += ild->imm1_bytes;
+	length += ild->imm1_bytes;
 
-	if (ild->imm2_bytes == 0)
+	if (ild->imm2_bytes == 0) {
+		ild->length = length;
 		return;
+	}
 
-	if (ild->length + ild->imm2_bytes > ild->max_bytes) {
+	if (length + ild->imm2_bytes > ild->max_bytes) {
 		set_error(ild);
 		return;
 	}
-	ild->length += ild->imm2_bytes;
+	ild->length = length + ild->imm2_bytes;
 }
 
 static void compute_disp_dec(struct pt_ild *ild)
@@ -468,8 +472,7 @@ static void disp_dec(struct pt_ild *ild, uint8_t length)
 
 	disp_bytes = ild->disp_bytes;
 	if (disp_bytes == 0) {
-		ild->length = length;
-		imm_dec(ild);
+		imm_dec(ild, length);
 		return;
 	}
 
@@ -481,8 +484,8 @@ static void disp_dec(struct pt_ild *ild, uint8_t length)
 	/*Record only position; must be able to re-read itext bytes for actual
 	   value. (SMC/CMC issue). */
 	ild->disp_pos = length;
-	ild->length = length + disp_bytes;
-	imm_dec(ild);
+
+	imm_dec(ild, length + disp_bytes);
 }
 
 static void sib_dec(struct pt_ild *ild, uint8_t length)
