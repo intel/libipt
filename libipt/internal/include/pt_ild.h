@@ -126,9 +126,11 @@ struct pt_ild {
 			uint32_t f3:1;
 			uint32_t f2:1;
 			uint32_t last_f2f3:2;	/* 2 or 3 */
-			uint32_t vexc5:1;
-			uint32_t vexc4:1;
-			uint32_t evex:1;
+			/* The vex bit is set for c4/c5 VEX and EVEX. */
+			uint32_t vex:1;
+			/* The REX.R and REX.W bits in REX, VEX, or EVEX. */
+			uint32_t rex_r:1;
+			uint32_t rex_w:1;
 		} s;
 		uint32_t i;
 	} u;
@@ -139,12 +141,6 @@ struct pt_ild {
 	/* 5b but valid values=  0,1,2,3 could be in bit union */
 	uint8_t map;
 	uint8_t rex;	/* 0b0100wrxb */
-	uint8_t c5byte1;
-	uint8_t c4byte1;
-	uint8_t c4byte2;
-	uint8_t evex_p1;
-	uint8_t evex_p2;
-	uint8_t evex_p3;
 	uint8_t nominal_opcode;
 	uint8_t disp_pos;
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
