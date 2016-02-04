@@ -358,36 +358,40 @@ static void set_imm_bytes(struct pt_ild *ild)
 static void imm_dec(struct pt_ild *ild, uint8_t length)
 {
 	if (ild->map == PTI_MAP_AMD3DNOW) {
-		if (length < ild->max_bytes) {
-			ild->nominal_opcode = get_byte(ild, length);
-			ild->length = length + 1;
-		} else
+		if (ild->max_bytes <= length) {
 			set_error(ild);
+			return;
+		}
+
+		ild->nominal_opcode = get_byte(ild, length);
+		ild->length = length + 1;
 		return;
 	}
+
 	set_imm_bytes(ild);
 	if (ild->imm1_bytes == 0) {
 		ild->length = length;
 		return;
 	}
 
-	if (length + ild->imm1_bytes > ild->max_bytes) {
+	length += ild->imm1_bytes;
+	if (ild->max_bytes < length) {
 		set_error(ild);
 		return;
 	}
-	/*FIXME: could record immediate position if ever needed... */
-	length += ild->imm1_bytes;
 
 	if (ild->imm2_bytes == 0) {
 		ild->length = length;
 		return;
 	}
 
-	if (length + ild->imm2_bytes > ild->max_bytes) {
+	length += ild->imm2_bytes;
+	if (ild->max_bytes < length) {
 		set_error(ild);
 		return;
 	}
-	ild->length = length + ild->imm2_bytes;
+
+	ild->length = length;
 }
 
 static void compute_disp_dec(struct pt_ild *ild)
