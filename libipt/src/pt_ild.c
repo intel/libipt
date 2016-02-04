@@ -286,10 +286,8 @@ static void modrm_dec(struct pt_ild *ild)
 
 }
 
-static void get_next_as_opcode(struct pt_ild *ild)
+static inline void get_next_as_opcode(struct pt_ild *ild, uint8_t length)
 {
-	uint8_t length = ild->length;
-
 	if (ild->max_bytes <= length) {
 		set_error(ild);
 		return;
@@ -299,9 +297,8 @@ static void get_next_as_opcode(struct pt_ild *ild)
 	ild->length = length + 1;
 }
 
-static void opcode_dec(struct pt_ild *ild)
+static void opcode_dec(struct pt_ild *ild, uint8_t length)
 {
-	uint8_t length = ild->length;
 	uint8_t b, m;
 
 	/*no need to check max_bytes - it was checked in previous scanners */
@@ -326,28 +323,28 @@ static void opcode_dec(struct pt_ild *ild)
 	if (m == 0x38) {
 		length++;	/* eat the 0x38 */
 		pti_set_map(ild, PTI_MAP_2);
-		ild->length = length;
-		get_next_as_opcode(ild);
+
+		get_next_as_opcode(ild, length);
 		return;
 	} else if (m == 0x3A) {
 		length++;	/* eat the 0x3A */
 		pti_set_map(ild, PTI_MAP_3);
-		ild->length = length;
 		ild->imm1_bytes = 1;
-		get_next_as_opcode(ild);
+
+		get_next_as_opcode(ild, length);
 		return;
 	} else if (m == 0x3B) {
 		length++;	/* eat the 0x3B */
 		pti_set_map(ild, PTI_MAP_INVALID);
-		ild->length = length;
-		get_next_as_opcode(ild);
+
+		get_next_as_opcode(ild, length);
 		return;
 	} else if (m > 0x38 && m <= 0x3F) {
 		/* eat the 0x39...0x3F (minus 3A and 3B) */
 		length++;
 		pti_set_map(ild, PTI_MAP_INVALID);
-		ild->length = length;
-		get_next_as_opcode(ild);
+
+		get_next_as_opcode(ild, length);
 		return;
 	} else if (m == 0x0F) {	/* 3dNow */
 		pti_set_map(ild, PTI_MAP_AMD3DNOW);
@@ -691,10 +688,9 @@ static void prefix_ignore(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 static void prefix_done(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
-	ild->length = length;
 	ild->rex = rex;
 
-	opcode_dec(ild);
+	opcode_dec(ild, length);
 }
 
 static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
