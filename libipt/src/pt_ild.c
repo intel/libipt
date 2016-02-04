@@ -469,6 +469,7 @@ static void disp_dec(struct pt_ild *ild, uint8_t length)
 	disp_bytes = ild->disp_bytes;
 	if (disp_bytes == 0) {
 		ild->length = length;
+		imm_dec(ild);
 		return;
 	}
 
@@ -481,6 +482,7 @@ static void disp_dec(struct pt_ild *ild, uint8_t length)
 	   value. (SMC/CMC issue). */
 	ild->disp_pos = length;
 	ild->length = length + disp_bytes;
+	imm_dec(ild);
 }
 
 static void sib_dec(struct pt_ild *ild, uint8_t length)
@@ -874,7 +876,6 @@ static void init_prefix_table(void)
 static void decode(struct pt_ild *ild)
 {
 	prefix_decode(ild, 0, 0);
-	imm_dec(ild);
 }
 
 static inline int64_t sign_extend_bq(int8_t x)
