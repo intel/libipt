@@ -55,7 +55,7 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
 	int lret, dret;
 
 	lret = pt_instruction_length_decode(ild);
-	ptu_int_eq(lret, 1);
+	ptu_int_eq(lret, 0);
 	ptu_uint_eq(ild->length, size);
 
 	dret = pt_instruction_decode(ild);
@@ -114,7 +114,7 @@ static struct ptunit_result ptunit_ild_invalid(uint8_t *insn, uint8_t size,
 	ptunit_ild_init(&ild, insn, size, mode);
 
 	errcode = pt_instruction_length_decode(&ild);
-	ptu_int_eq(errcode, 0);
+	ptu_int_eq(errcode, -pte_bad_insn);
 
 	return ptu_passed();
 }

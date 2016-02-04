@@ -173,14 +173,13 @@ extern void pt_ild_init(void);
 
 /* all decoding is multithread safe. */
 
-/* returns 1 on success, 0 on failure.
-   Failures come from not having enough bytes
-   to decode the instruction. (That might be because
-   the instruction encoding implied >= 16B and that is an an invalid
-   instruction.) */
+/* Returns zero on success, a negative error code otherwise. */
 extern int pt_instruction_length_decode(struct pt_ild *ild);
 
-/* returns 1 if an interesting instruction was encountered. */
+/* Returns a positive number if an interesting instruction was encountered.
+ * Returns zero if a non-interesting instruction was encountered.
+ * Returns a negative error code otherwise.
+ */
 extern int pt_instruction_decode(struct pt_ild *ild);
 
 #endif /* PT_ILD_H */

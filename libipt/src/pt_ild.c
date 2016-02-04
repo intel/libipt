@@ -870,7 +870,7 @@ static inline int64_t sign_extend_dq(int32_t x)
 	return x;
 }
 
-static void set_branch_target(struct pt_ild *ild)
+static int set_branch_target(struct pt_ild *ild)
 {
 	int64_t npc;
 	uint64_t sign_extended_disp = 0;
@@ -886,13 +886,16 @@ static void set_branch_target(struct pt_ild *ild)
 		int32_t *d = (int32_t *) (get_byte_ptr(ild, ild->disp_pos));
 
 		sign_extended_disp = sign_extend_dq(*d);
-	} else {
-		set_error(ild);
-		return;
-	}
+	} else
+		return -pte_bad_insn;
 
 	npc = (int64_t) (ild->runtime_address + ild->length);
 	ild->direct_target = (uint64_t) (npc + sign_extended_disp);
+
+	/* We return 1 to indicate an interesting instruction so our caller can
+	 * just forward the return value.
+	 */
+	return 1;
 }
 
 /*  MAIN ENTRY POINTS */
@@ -914,13 +917,14 @@ int pt_instruction_length_decode(struct pt_ild *ild)
 	ild->modrm_byte = 0;
 	ild->map = PTI_MAP_INVALID;
 
-	if (!ild->mode) {
-		set_error(ild);
-		return 1;
-	}
+	if (!ild->mode)
+		return -pte_bad_insn;
 
 	decode(ild);
-	return ild->u.s.error == 0;
+	if (ild->u.s.error)
+		return -pte_bad_insn;
+
+	return 0;
 }
 
 int pt_instruction_decode(struct pt_ild *ild)
@@ -942,8 +946,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
 			ild->u.s.cond = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 	}
@@ -953,8 +956,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
 			ild->u.s.cond = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 	}
@@ -1004,8 +1006,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.call = 1;
 			ild->u.s.branch_direct = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 
@@ -1052,8 +1053,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->iclass = PTI_INST_JMP_E9;
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 
@@ -1072,9 +1072,8 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->iclass = PTI_INST_JMP_EB;
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
-			set_branch_target(ild);
-			return 1;
-		}
+			return set_branch_target(ild);
+	}
 		return 0;
 
 	case 0xE3:
@@ -1083,8 +1082,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
 			ild->u.s.cond = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 
@@ -1094,8 +1092,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
 			ild->u.s.cond = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 
@@ -1105,8 +1102,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
 			ild->u.s.cond = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 
@@ -1116,8 +1112,7 @@ int pt_instruction_decode(struct pt_ild *ild)
 			ild->u.s.branch = 1;
 			ild->u.s.branch_direct = 1;
 			ild->u.s.cond = 1;
-			set_branch_target(ild);
-			return 1;
+			return set_branch_target(ild);
 		}
 		return 0;
 

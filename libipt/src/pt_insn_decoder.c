@@ -230,7 +230,7 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 
 static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
 {
-	if (!ild || ild->u.s.error)
+	if (!ild)
 		return ptic_error;
 
 	if (!ild->u.s.branch)
@@ -343,9 +343,6 @@ static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
 	if (!ild)
 		return -pte_invalid;
 
-	if (ild->u.s.error)
-		return -pte_bad_insn;
-
 	if (!ild->u.s.branch) {
 		if (ip)
 			*ip = ild->runtime_address + ild->length;
@@ -377,7 +374,7 @@ static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
 static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 {
 	struct pt_ild *ild;
-	int status, relevant;
+	int errcode, relevant;
 	int size;
 
 	if (!insn || !decoder)
@@ -404,17 +401,21 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	ild->mode = decoder->mode;
 	ild->runtime_address = decoder->ip;
 
-	status = pt_instruction_length_decode(ild);
-	if (!status)
-		return -pte_bad_insn;
+	errcode = pt_instruction_length_decode(ild);
+	if (errcode < 0)
+		return errcode;
 
 	insn->size = ild->length;
 
 	relevant = pt_instruction_decode(ild);
-	if (relevant)
-		insn->iclass = pt_insn_classify(ild);
-	else
+	if (!relevant)
 		insn->iclass = ptic_other;
+	else {
+		if (relevant < 0)
+			return relevant;
+
+		insn->iclass = pt_insn_classify(ild);
+	}
 
 	return relevant;
 }
@@ -443,7 +444,6 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 	ild.runtime_address = decoder->ip;
 
 	while (ild.runtime_address != ip) {
-		int status;
 		int size, errcode;
 
 		if (!steps--)
@@ -459,11 +459,13 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 
 		ild.max_bytes = (uint8_t) size;
 
-		status = pt_instruction_length_decode(&ild);
-		if (!status)
+		errcode = pt_instruction_length_decode(&ild);
+		if (errcode < 0)
 			return 0;
 
-		(void) pt_instruction_decode(&ild);
+		errcode = pt_instruction_decode(&ild);
+		if (errcode < 0)
+			return 0;
 
 		errcode = pt_insn_next_ip(&ild.runtime_address, &ild);
 		if (errcode < 0)
@@ -785,10 +787,9 @@ static int process_vmcs_event(struct pt_insn_decoder *decoder)
 
 static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 {
-	int status;
 	struct pt_ild ild;
 	uint8_t raw[pt_max_insn_size];
-	int size;
+	int size, errcode;
 
 	if (!decoder)
 		return -pte_internal;
@@ -805,11 +806,13 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 	ild.itext = raw;
 	ild.runtime_address = decoder->ip;
 
-	status = pt_instruction_length_decode(&ild);
-	if (!status)
+	errcode = pt_instruction_length_decode(&ild);
+	if (errcode < 0)
 		return 0;
 
-	(void) pt_instruction_decode(&ild);
+	errcode = pt_instruction_decode(&ild);
+	if (errcode < 0)
+		return 0;
 
 	switch (ild.iclass) {
 	default:
@@ -1238,9 +1241,6 @@ static int proceed(struct pt_insn_decoder *decoder)
 		return -pte_internal;
 
 	ild = &decoder->ild;
-
-	if (ild->u.s.error)
-		return -pte_bad_insn;
 
 	if (!ild->u.s.branch) {
 		decoder->ip += ild->length;
