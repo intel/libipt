@@ -249,6 +249,43 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
+static void modrm_dec(struct pt_ild *ild)
+{
+	static uint8_t const *const has_modrm_2d[2] = {
+		has_modrm_map_0x0,
+		has_modrm_map_0x0F
+	};
+	int has_modrm = PTI_MODRM_FALSE;
+	pti_map_enum_t map = pti_get_map(ild);
+
+	if (map >= PTI_MAP_2)
+		has_modrm = PTI_MODRM_TRUE;
+	else
+		has_modrm = has_modrm_2d[map][ild->nominal_opcode];
+	if (has_modrm == PTI_MODRM_FALSE)
+		return;
+	if (has_modrm == PTI_MODRM_UNDEF)
+		return;
+	if (ild->length >= ild->max_bytes) {
+		/* really >= here because we have not eaten the byte yet */
+		set_error(ild);
+		return;
+	}
+	ild->modrm_byte = get_byte(ild, ild->length);
+	ild->length++;	/* eat modrm */
+	if (has_modrm != PTI_MODRM_IGNORE_MOD) {
+		/* set disp_bytes and sib using simple tables */
+
+		uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
+		uint8_t mod = (uint8_t) pti_get_modrm_mod(ild);
+		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
+
+		ild->disp_bytes = has_disp_regular[eamode][mod][rm];
+		ild->u.s.sib = has_sib_table[eamode][mod][rm];
+	}
+
+}
+
 static void get_next_as_opcode(struct pt_ild *ild)
 {
 	uint8_t length = ild->length;
@@ -323,43 +360,6 @@ static void opcode_dec(struct pt_ild *ild)
 	} else {
 		set_error(ild);
 	}
-}
-
-static void modrm_dec(struct pt_ild *ild)
-{
-	static uint8_t const *const has_modrm_2d[2] = {
-		has_modrm_map_0x0,
-		has_modrm_map_0x0F
-	};
-	int has_modrm = PTI_MODRM_FALSE;
-	pti_map_enum_t map = pti_get_map(ild);
-
-	if (map >= PTI_MAP_2)
-		has_modrm = PTI_MODRM_TRUE;
-	else
-		has_modrm = has_modrm_2d[map][ild->nominal_opcode];
-	if (has_modrm == PTI_MODRM_FALSE)
-		return;
-	if (has_modrm == PTI_MODRM_UNDEF)
-		return;
-	if (ild->length >= ild->max_bytes) {
-		/* really >= here because we have not eaten the byte yet */
-		set_error(ild);
-		return;
-	}
-	ild->modrm_byte = get_byte(ild, ild->length);
-	ild->length++;	/* eat modrm */
-	if (has_modrm != PTI_MODRM_IGNORE_MOD) {
-		/* set disp_bytes and sib using simple tables */
-
-		uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
-		uint8_t mod = (uint8_t) pti_get_modrm_mod(ild);
-		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
-
-		ild->disp_bytes = has_disp_regular[eamode][mod][rm];
-		ild->u.s.sib = has_sib_table[eamode][mod][rm];
-	}
-
 }
 
 static void sib_dec(struct pt_ild *ild)
