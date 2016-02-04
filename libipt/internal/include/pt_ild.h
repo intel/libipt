@@ -98,8 +98,6 @@ struct pt_ild {
 	uint64_t direct_target;	/* if direct_indirect = 1 */
 	union {
 		struct {
-			/* all the errors come from not having enough bytes. */
-			uint32_t error:1;
 			uint32_t branch:1;	/* direct or indirect */
 
 			/* direct jmp, direct call or rel/direct branch sets
