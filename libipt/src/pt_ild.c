@@ -251,14 +251,16 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 static void sib_dec(struct pt_ild *ild, uint8_t length)
 {
+	uint8_t sib;
+
 	if (ild->max_bytes <= length) {
 		set_error(ild);
 		return;
 	}
 
-	ild->sib_byte = get_byte(ild, length);
+	sib = get_byte(ild, length);
 	ild->length = length + 1;
-	if (pti_get_sib_base(ild) == 5 && pti_get_modrm_mod(ild) == 0)
+	if ((sib & 0x07) == 0x05 && pti_get_modrm_mod(ild) == 0)
 		ild->disp_bytes = 4;
 }
 

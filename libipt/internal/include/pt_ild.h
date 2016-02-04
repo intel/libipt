@@ -146,7 +146,6 @@ struct pt_ild {
 	uint8_t evex_p2;
 	uint8_t evex_p3;
 	uint8_t nominal_opcode;
-	uint8_t sib_byte;
 	uint8_t disp_pos;
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
 };
@@ -164,11 +163,6 @@ static inline void pti_set_map(struct pt_ild *ild, pti_map_enum_t mape)
 static inline pti_map_enum_t pti_get_map(struct pt_ild *ild)
 {
 	return (pti_map_enum_t) ild->map;
-}
-
-static inline uint8_t pti_get_sib_base(struct pt_ild *ild)
-{
-	return ild->sib_byte & 7;
 }
 
 static inline uint8_t pti_get_modrm_mod(struct pt_ild *ild)
