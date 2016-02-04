@@ -249,6 +249,100 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
+static void compute_disp_dec(struct pt_ild *ild)
+{
+	/* set ild->disp_bytes for maps 0 and 1. */
+	static uint8_t const *const map_map[] = {
+		/* map 0 */ disp_bytes_map_0x0,
+		/* map 1 */ disp_bytes_map_0x0F,
+		/* map 2 */ 0,
+		/* map 3 */ 0,
+		/* amd3dnow */ 0,
+		/* invalid */ 0
+	};
+
+	uint8_t const *const disp_table = map_map[ild->map];
+	uint8_t disp_kind;
+
+	if (disp_table == 0)
+		return;
+	disp_kind = disp_table[ild->nominal_opcode];
+	switch (disp_kind) {
+	case PTI_DISP_NONE:
+		ild->disp_bytes = 0;
+		break;
+
+	case PTI_PRESERVE_DEFAULT:
+		/* nothing to do */
+		break;
+
+	case PTI_BRDISP8:
+		ild->disp_bytes = 1;
+		break;
+
+	case PTI_DISP_BUCKET_0_l1:
+		/* BRDISPz(eosz) for 16/32 modes, and BRDISP32 for 64b mode */
+		if (mode_64b(ild))
+			ild->disp_bytes = 4;
+		else {
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+			ild->disp_bytes = resolve_z(eosz, ild);
+		}
+		break;
+
+	case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2: {
+		/* MEMDISPv(easz) */
+		enum pt_exec_mode easz = pti_get_nominal_easz(ild);
+
+		ild->disp_bytes = resolve_v(easz, ild);
+	}
+		break;
+
+	case PTI_BRDISPz_BRDISP_WIDTH_OSZ_NONTERM_EOSZ_l2: {
+		/* BRDISPz(eosz) for 16/32/64 modes */
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+		ild->disp_bytes = resolve_z(eosz, ild);
+	}
+		break;
+
+	case PTI_RESOLVE_BYREG_DISP_map0x0_op0xc7_l1:
+		/* reg=0 -> preserve, reg=7 -> BRDISPz(eosz) */
+		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 7) {
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+			ild->disp_bytes = resolve_z(eosz, ild);
+		}
+		break;
+
+	default:
+		set_error(ild);
+		break;
+	}
+}
+
+static void disp_dec(struct pt_ild *ild)
+{
+	uint8_t disp_bytes;
+
+	if (ild->disp_bytes == 0 && pti_get_map(ild) < PTI_MAP_2)
+		compute_disp_dec(ild);
+
+	disp_bytes = ild->disp_bytes;
+	if (disp_bytes == 0)
+		return;
+	if (ild->length + disp_bytes > ild->max_bytes) {
+		set_error(ild);
+		return;
+	}
+
+	/*Record only position; must be able to re-read itext bytes for actual
+	   value. (SMC/CMC issue). */
+	ild->disp_pos = ild->length;
+	ild->length += disp_bytes;
+}
+
 static void sib_dec(struct pt_ild *ild, uint8_t length)
 {
 	uint8_t sib;
@@ -373,100 +467,6 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 
 		modrm_dec(ild, length + 1);
 	}
-}
-
-static void compute_disp_dec(struct pt_ild *ild)
-{
-	/* set ild->disp_bytes for maps 0 and 1. */
-	static uint8_t const *const map_map[] = {
-		/* map 0 */ disp_bytes_map_0x0,
-		/* map 1 */ disp_bytes_map_0x0F,
-		/* map 2 */ 0,
-		/* map 3 */ 0,
-		/* amd3dnow */ 0,
-		/* invalid */ 0
-	};
-
-	uint8_t const *const disp_table = map_map[ild->map];
-	uint8_t disp_kind;
-
-	if (disp_table == 0)
-		return;
-	disp_kind = disp_table[ild->nominal_opcode];
-	switch (disp_kind) {
-	case PTI_DISP_NONE:
-		ild->disp_bytes = 0;
-		break;
-
-	case PTI_PRESERVE_DEFAULT:
-		/* nothing to do */
-		break;
-
-	case PTI_BRDISP8:
-		ild->disp_bytes = 1;
-		break;
-
-	case PTI_DISP_BUCKET_0_l1:
-		/* BRDISPz(eosz) for 16/32 modes, and BRDISP32 for 64b mode */
-		if (mode_64b(ild))
-			ild->disp_bytes = 4;
-		else {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->disp_bytes = resolve_z(eosz, ild);
-		}
-		break;
-
-	case PTI_MEMDISPv_DISP_WIDTH_ASZ_NONTERM_EASZ_l2: {
-		/* MEMDISPv(easz) */
-		enum pt_exec_mode easz = pti_get_nominal_easz(ild);
-
-		ild->disp_bytes = resolve_v(easz, ild);
-	}
-		break;
-
-	case PTI_BRDISPz_BRDISP_WIDTH_OSZ_NONTERM_EOSZ_l2: {
-		/* BRDISPz(eosz) for 16/32/64 modes */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-		ild->disp_bytes = resolve_z(eosz, ild);
-	}
-		break;
-
-	case PTI_RESOLVE_BYREG_DISP_map0x0_op0xc7_l1:
-		/* reg=0 -> preserve, reg=7 -> BRDISPz(eosz) */
-		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 7) {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->disp_bytes = resolve_z(eosz, ild);
-		}
-		break;
-
-	default:
-		set_error(ild);
-		break;
-	}
-}
-
-static void disp_dec(struct pt_ild *ild)
-{
-	uint8_t disp_bytes;
-
-	if (ild->disp_bytes == 0 && pti_get_map(ild) < PTI_MAP_2)
-		compute_disp_dec(ild);
-
-	disp_bytes = ild->disp_bytes;
-	if (disp_bytes == 0)
-		return;
-	if (ild->length + disp_bytes > ild->max_bytes) {
-		set_error(ild);
-		return;
-	}
-
-	/*Record only position; must be able to re-read itext bytes for actual
-	   value. (SMC/CMC issue). */
-	ild->disp_pos = ild->length;
-	ild->length += disp_bytes;
 }
 
 static void set_imm_bytes(struct pt_ild *ild)
