@@ -251,18 +251,16 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 static void sib_dec(struct pt_ild *ild)
 {
-	if (ild->u.s.sib) {
-		uint8_t length = ild->length;
+	uint8_t length = ild->length;
 
-		if (length < ild->max_bytes) {
-			ild->sib_byte = get_byte(ild, length);
-			ild->length = length + 1;
-			if (pti_get_sib_base(ild) == 5
-			    && pti_get_modrm_mod(ild) == 0)
-				ild->disp_bytes = 4;
-		} else {
-			set_error(ild);
-		}
+	if (length < ild->max_bytes) {
+		ild->sib_byte = get_byte(ild, length);
+		ild->length = length + 1;
+		if (pti_get_sib_base(ild) == 5
+		    && pti_get_modrm_mod(ild) == 0)
+			ild->disp_bytes = 4;
+	} else {
+		set_error(ild);
 	}
 }
 
@@ -298,9 +296,13 @@ static void modrm_dec(struct pt_ild *ild, uint8_t length)
 		uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
 		uint8_t mod = (uint8_t) pti_get_modrm_mod(ild);
 		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
+		uint8_t has_sib;
 
 		ild->disp_bytes = has_disp_regular[eamode][mod][rm];
-		ild->u.s.sib = has_sib_table[eamode][mod][rm];
+
+		has_sib = has_sib_table[eamode][mod][rm];
+		if (has_sib)
+			sib_dec(ild);
 	}
 
 }
@@ -865,7 +867,6 @@ static void init_prefix_table(void)
 static void decode(struct pt_ild *ild)
 {
 	prefix_decode(ild, 0, 0);
-	sib_dec(ild);
 	disp_dec(ild);
 	imm_dec(ild);
 }

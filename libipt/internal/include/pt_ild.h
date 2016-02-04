@@ -129,7 +129,6 @@ struct pt_ild {
 			uint32_t vexc5:1;
 			uint32_t vexc4:1;
 			uint32_t evex:1;
-			uint32_t sib:1;
 		} s;
 		uint32_t i;
 	} u;
