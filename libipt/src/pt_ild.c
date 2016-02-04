@@ -709,10 +709,8 @@ static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		prefix_done(ild, length, 0);
 }
 
-static void vex_opcode_dec(struct pt_ild *ild)
+static inline void prefix_vex_done(struct pt_ild *ild, uint8_t length)
 {
-	uint8_t length = ild->length;
-
 	ild->nominal_opcode = get_byte(ild, length);
 	ild->nominal_opcode_pos = length;	/*FIXME: needed? */
 	ild->length = length + 1;
@@ -748,9 +746,9 @@ static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	if ((length + 2) <= max_bytes) {
 		ild->c5byte1 = get_byte(ild, length);
 		pti_set_map(ild, PTI_MAP_1);
+
 		length++;	/* eat the vex payload byte */
-		ild->length = length;
-		vex_opcode_dec(ild);
+		prefix_vex_done(ild, length);
 	} else {
 		set_error(ild);
 	}
@@ -792,8 +790,7 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 			ild->imm1_bytes = 1;
 
 		length += 2;	/* eat the 2byte vex payload */
-		ild->length = length;
-		vex_opcode_dec(ild);
+		prefix_vex_done(ild, length);
 	} else {
 		set_error(ild);
 	}
@@ -838,9 +835,7 @@ static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	/* Eat the EVEX. */
 	length += 4;
-
-	ild->length = length;
-	vex_opcode_dec(ild);
+	prefix_vex_done(ild, length);
 }
 
 static void init_prefix_table(void)
