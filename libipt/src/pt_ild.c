@@ -369,22 +369,8 @@ static void imm_dec(struct pt_ild *ild, uint8_t length)
 	}
 
 	set_imm_bytes(ild);
-	if (ild->imm1_bytes == 0) {
-		ild->length = length;
-		return;
-	}
 
 	length += ild->imm1_bytes;
-	if (ild->max_bytes < length) {
-		set_error(ild);
-		return;
-	}
-
-	if (ild->imm2_bytes == 0) {
-		ild->length = length;
-		return;
-	}
-
 	length += ild->imm2_bytes;
 	if (ild->max_bytes < length) {
 		set_error(ild);
