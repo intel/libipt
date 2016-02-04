@@ -249,6 +249,143 @@ static inline uint8_t resolve_v(enum pt_exec_mode eosz, struct pt_ild *ild)
 
 /*  DECODERS */
 
+static void set_imm_bytes(struct pt_ild *ild)
+{
+	/*: set ild->imm1_bytes and  ild->imm2_bytes for maps 0/1 */
+	static uint8_t const *const map_map[] = {
+		/* map 0 */ imm_bytes_map_0x0,
+		/* map 1 */ imm_bytes_map_0x0F,
+		/* map 2 */ 0,
+		/* map 3 */ 0,
+		/* amd3dnow */ 0,
+		/* invalid */ 0
+	};
+	uint8_t const *const map_imm = map_map[ild->map];
+	uint8_t imm_code;
+
+	if (map_imm == 0)
+		return;
+	imm_code = map_imm[ild->nominal_opcode];
+	switch (imm_code) {
+	case PTI_IMM_NONE:
+	case PTI_0_IMM_WIDTH_CONST_l2:
+		/* nothing for either case */
+		break;
+
+	case PTI_UIMM8_IMM_WIDTH_CONST_l2:
+		ild->imm1_bytes = 1;
+		break;
+
+	case PTI_SIMM8_IMM_WIDTH_CONST_l2:
+		ild->imm1_bytes = 1;
+		break;
+
+	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
+		/* SIMMz(eosz) */
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+		ild->imm1_bytes = resolve_z(eosz, ild);
+	}
+		break;
+
+	case PTI_UIMMv_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
+		/* UIMMv(eosz) */
+		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+		ild->imm1_bytes = resolve_v(eosz, ild);
+	}
+		break;
+
+	case PTI_UIMM16_IMM_WIDTH_CONST_l2:
+		ild->imm1_bytes = 2;
+		break;
+
+	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_DF64_EOSZ_l2: {
+		/* push defaults to eosz64 in 64b mode, then uses SIMMz */
+		enum pt_exec_mode eosz = pti_get_nominal_eosz_df64(ild);
+
+		ild->imm1_bytes = resolve_z(eosz, ild);
+	}
+		break;
+
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf7_l1:
+		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2) {
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+			ild->imm1_bytes = resolve_z(eosz, ild);
+		}
+		break;
+
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xc7_l1:
+		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 0) {
+			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
+
+			ild->imm1_bytes = resolve_z(eosz, ild);
+		}
+		break;
+
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf6_l1:
+		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2)
+			ild->imm1_bytes = 1;
+
+		break;
+
+	case PTI_IMM_hasimm_map0x0_op0xc8_l1:
+		if (ild->map == PTI_MAP_0) {
+			/*enter -> imm1=2, imm2=1 */
+			ild->imm1_bytes = 2;
+			ild->imm2_bytes = 1;
+		}
+		break;
+
+	case PTI_IMM_hasimm_map0x0F_op0x78_l1:
+		/* AMD SSE4a (insertq/extrq use  osz/f2) vs vmread
+		 * (no prefixes)
+		 */
+		if (ild->map == PTI_MAP_1) {
+			if (ild->u.s.osz || ild->u.s.last_f2f3 == 2) {
+				ild->imm1_bytes = 1;
+				ild->imm2_bytes = 1;
+			}
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void imm_dec(struct pt_ild *ild)
+{
+	if (ild->map == PTI_MAP_AMD3DNOW) {
+		if (ild->length < ild->max_bytes) {
+			ild->nominal_opcode = get_byte(ild, ild->length);
+			ild->length++;
+		} else
+			set_error(ild);
+		return;
+	}
+	set_imm_bytes(ild);
+	if (ild->imm1_bytes == 0)
+		return;
+
+	if (ild->length + ild->imm1_bytes > ild->max_bytes) {
+		set_error(ild);
+		return;
+	}
+	/*FIXME: could record immediate position if ever needed... */
+	ild->length += ild->imm1_bytes;
+
+	if (ild->imm2_bytes == 0)
+		return;
+
+	if (ild->length + ild->imm2_bytes > ild->max_bytes) {
+		set_error(ild);
+		return;
+	}
+	ild->length += ild->imm2_bytes;
+}
+
 static void compute_disp_dec(struct pt_ild *ild)
 {
 	/* set ild->disp_bytes for maps 0 and 1. */
@@ -474,143 +611,6 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 
 		modrm_dec(ild, length + 1);
 	}
-}
-
-static void set_imm_bytes(struct pt_ild *ild)
-{
-	/*: set ild->imm1_bytes and  ild->imm2_bytes for maps 0/1 */
-	static uint8_t const *const map_map[] = {
-		/* map 0 */ imm_bytes_map_0x0,
-		/* map 1 */ imm_bytes_map_0x0F,
-		/* map 2 */ 0,
-		/* map 3 */ 0,
-		/* amd3dnow */ 0,
-		/* invalid */ 0
-	};
-	uint8_t const *const map_imm = map_map[ild->map];
-	uint8_t imm_code;
-
-	if (map_imm == 0)
-		return;
-	imm_code = map_imm[ild->nominal_opcode];
-	switch (imm_code) {
-	case PTI_IMM_NONE:
-	case PTI_0_IMM_WIDTH_CONST_l2:
-		/* nothing for either case */
-		break;
-
-	case PTI_UIMM8_IMM_WIDTH_CONST_l2:
-		ild->imm1_bytes = 1;
-		break;
-
-	case PTI_SIMM8_IMM_WIDTH_CONST_l2:
-		ild->imm1_bytes = 1;
-		break;
-
-	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
-		/* SIMMz(eosz) */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-		ild->imm1_bytes = resolve_z(eosz, ild);
-	}
-		break;
-
-	case PTI_UIMMv_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2: {
-		/* UIMMv(eosz) */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-		ild->imm1_bytes = resolve_v(eosz, ild);
-	}
-		break;
-
-	case PTI_UIMM16_IMM_WIDTH_CONST_l2:
-		ild->imm1_bytes = 2;
-		break;
-
-	case PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_DF64_EOSZ_l2: {
-		/* push defaults to eosz64 in 64b mode, then uses SIMMz */
-		enum pt_exec_mode eosz = pti_get_nominal_eosz_df64(ild);
-
-		ild->imm1_bytes = resolve_z(eosz, ild);
-	}
-		break;
-
-	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf7_l1:
-		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2) {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->imm1_bytes = resolve_z(eosz, ild);
-		}
-		break;
-
-	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xc7_l1:
-		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 0) {
-			enum pt_exec_mode eosz = pti_get_nominal_eosz(ild);
-
-			ild->imm1_bytes = resolve_z(eosz, ild);
-		}
-		break;
-
-	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf6_l1:
-		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2)
-			ild->imm1_bytes = 1;
-
-		break;
-
-	case PTI_IMM_hasimm_map0x0_op0xc8_l1:
-		if (ild->map == PTI_MAP_0) {
-			/*enter -> imm1=2, imm2=1 */
-			ild->imm1_bytes = 2;
-			ild->imm2_bytes = 1;
-		}
-		break;
-
-	case PTI_IMM_hasimm_map0x0F_op0x78_l1:
-		/* AMD SSE4a (insertq/extrq use  osz/f2) vs vmread
-		 * (no prefixes)
-		 */
-		if (ild->map == PTI_MAP_1) {
-			if (ild->u.s.osz || ild->u.s.last_f2f3 == 2) {
-				ild->imm1_bytes = 1;
-				ild->imm2_bytes = 1;
-			}
-		}
-		break;
-
-	default:
-		break;
-	}
-}
-
-static void imm_dec(struct pt_ild *ild)
-{
-	if (ild->map == PTI_MAP_AMD3DNOW) {
-		if (ild->length < ild->max_bytes) {
-			ild->nominal_opcode = get_byte(ild, ild->length);
-			ild->length++;
-		} else
-			set_error(ild);
-		return;
-	}
-	set_imm_bytes(ild);
-	if (ild->imm1_bytes == 0)
-		return;
-
-	if (ild->length + ild->imm1_bytes > ild->max_bytes) {
-		set_error(ild);
-		return;
-	}
-	/*FIXME: could record immediate position if ever needed... */
-	ild->length += ild->imm1_bytes;
-
-	if (ild->imm2_bytes == 0)
-		return;
-
-	if (ild->length + ild->imm2_bytes > ild->max_bytes) {
-		set_error(ild);
-		return;
-	}
-	ild->length += ild->imm2_bytes;
 }
 
 typedef void (*prefix_decoder)(struct pt_ild *ild, uint8_t length, uint8_t rex);
