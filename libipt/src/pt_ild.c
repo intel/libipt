@@ -342,20 +342,19 @@ static int compute_disp_dec(struct pt_ild *ild)
 	/* set ild->disp_bytes for maps 0 and 1. */
 	static uint8_t const *const map_map[] = {
 		/* map 0 */ disp_bytes_map_0x0,
-		/* map 1 */ disp_bytes_map_0x0F,
-		/* map 2 */ 0,
-		/* map 3 */ 0,
-		/* amd3dnow */ 0,
-		/* invalid */ 0
+		/* map 1 */ disp_bytes_map_0x0F
 	};
+	uint8_t map, disp_kind;
 
-	uint8_t const *const disp_table = map_map[ild->map];
-	uint8_t disp_kind;
-
-	if (disp_table == 0)
+	if (0 < ild->disp_bytes)
 		return 0;
 
-	disp_kind = disp_table[ild->nominal_opcode];
+	map = ild->map;
+
+	if ((sizeof(map_map) / sizeof(*map_map)) <= map)
+		return 0;
+
+	disp_kind = map_map[map][ild->nominal_opcode];
 	switch (disp_kind) {
 	case PTI_DISP_NONE:
 		ild->disp_bytes = 0;
@@ -403,14 +402,11 @@ static int compute_disp_dec(struct pt_ild *ild)
 static int disp_dec(struct pt_ild *ild, uint8_t length)
 {
 	uint8_t disp_bytes;
+	int errcode;
 
-	if (ild->disp_bytes == 0 && pti_get_map(ild) < PTI_MAP_2) {
-		int errcode;
-
-		errcode = compute_disp_dec(ild);
-		if (errcode < 0)
-			return errcode;
-	}
+	errcode = compute_disp_dec(ild);
+	if (errcode < 0)
+		return errcode;
 
 	disp_bytes = ild->disp_bytes;
 	if (disp_bytes == 0)
