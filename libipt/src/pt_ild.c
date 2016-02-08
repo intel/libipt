@@ -694,7 +694,7 @@ static void prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	if (mode_64b(ild))
 		prefix_next(ild, length, get_byte(ild, length));
 	else
-		prefix_done(ild, length, 0);
+		opcode_dec(ild, length);
 }
 
 static inline void prefix_vex_done(struct pt_ild *ild, uint8_t length)
@@ -708,6 +708,8 @@ static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	uint8_t max_bytes = ild->max_bytes;
 	uint8_t p1;
 
+	(void) rex;
+
 	/* Read the next byte to validate that this is indeed VEX. */
 	if (max_bytes <= (length + 1)) {
 		set_error(ild);
@@ -718,7 +720,7 @@ static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	/* If p1[7:6] is not 11b in non-64-bit mode, this is LDS, not VEX. */
 	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0)) {
-		prefix_done(ild, length, rex);
+		opcode_dec(ild, length);
 		return;
 	}
 
@@ -746,6 +748,8 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	uint8_t max_bytes = ild->max_bytes;
 	uint8_t p1;
 
+	(void) rex;
+
 	/* Read the next byte to validate that this is indeed VEX. */
 	if (max_bytes <= (length + 1)) {
 		set_error(ild);
@@ -756,7 +760,7 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	/* If p1[7:6] is not 11b in non-64-bit mode, this is LES, not VEX. */
 	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0)) {
-		prefix_done(ild, length, rex);
+		opcode_dec(ild, length);
 		return;
 	}
 
@@ -787,6 +791,8 @@ static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	uint8_t max_bytes = ild->max_bytes;
 	uint8_t p1;
 
+	(void) rex;
+
 	/* Read the next byte to validate that this is indeed EVEX. */
 	if (max_bytes <= (length + 1)) {
 		set_error(ild);
@@ -797,7 +803,7 @@ static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	/* If p1[7:6] is not 11b in non-64-bit mode, this is BOUND, not EVEX. */
 	if (!mode_64b(ild) && !bits_match(p1, 0xc0, 0xc0)) {
-		prefix_done(ild, length, rex);
+		opcode_dec(ild, length);
 		return;
 	}
 
