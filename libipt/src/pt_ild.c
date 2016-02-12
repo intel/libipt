@@ -738,10 +738,10 @@ static void prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return;
 	}
 
-	ild->map = PTI_MAP_1;
-
 	ild->u.s.vexc5 = 1;
 	ild->c5byte1 = p1;
+
+	ild->map = PTI_MAP_1;
 
 	/* Eat the VEX. */
 	length += 2;
@@ -778,6 +778,10 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return;
 	}
 
+	ild->u.s.vexc4 = 1;
+	ild->c4byte1 = p1;
+	ild->c4byte2 = get_byte(ild, length + 2);
+
 	map = p1 & 0x1f;
 	if (PTI_MAP_INVALID <= map) {
 		set_error(ild);
@@ -787,10 +791,6 @@ static void prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	ild->map = map;
 	if (map == PTI_MAP_3)
 		ild->imm1_bytes = 1;
-
-	ild->u.s.vexc4 = 1;
-	ild->c4byte1 = p1;
-	ild->c4byte2 = get_byte(ild, length + 2);
 
 	/* Eat the VEX. */
 	length += 3;
@@ -827,16 +827,16 @@ static void prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return;
 	}
 
+	ild->u.s.evex = 1;
+	ild->evex_p1 = p1;
+	ild->evex_p2 = get_byte(ild, length + 2);
+	ild->evex_p3 = get_byte(ild, length + 3);
+
 	map = p1 & 0x03;
 	ild->map = map;
 
 	if (map == PTI_MAP_3)
 		ild->imm1_bytes = 1;
-
-	ild->u.s.evex = 1;
-	ild->evex_p1 = p1;
-	ild->evex_p2 = get_byte(ild, length + 2);
-	ild->evex_p3 = get_byte(ild, length + 3);
 
 	/* Eat the EVEX. */
 	length += 4;
