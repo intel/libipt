@@ -229,6 +229,9 @@ static int set_imm_bytes(struct pt_ild *ild)
 	};
 	uint8_t map, imm_code;
 
+	if (!ild)
+		return -pte_internal;
+
 	map = ild->map;
 
 	if ((sizeof(map_map) / sizeof(*map_map)) <= map)
@@ -312,6 +315,9 @@ static int imm_dec(struct pt_ild *ild, uint8_t length)
 {
 	int errcode;
 
+	if (!ild)
+		return -pte_internal;
+
 	if (ild->map == PTI_MAP_AMD3DNOW) {
 		if (ild->max_bytes <= length)
 			return -pte_bad_insn;
@@ -342,6 +348,9 @@ static int compute_disp_dec(struct pt_ild *ild)
 		/* map 1 */ disp_bytes_map_0x0F
 	};
 	uint8_t map, disp_kind;
+
+	if (!ild)
+		return -pte_internal;
 
 	if (0 < ild->disp_bytes)
 		return 0;
@@ -401,6 +410,9 @@ static int disp_dec(struct pt_ild *ild, uint8_t length)
 	uint8_t disp_bytes;
 	int errcode;
 
+	if (!ild)
+		return -pte_internal;
+
 	errcode = compute_disp_dec(ild);
 	if (errcode < 0)
 		return errcode;
@@ -423,6 +435,9 @@ static int sib_dec(struct pt_ild *ild, uint8_t length)
 {
 	uint8_t sib;
 
+	if (!ild)
+		return -pte_internal;
+
 	if (ild->max_bytes <= length)
 		return -pte_bad_insn;
 
@@ -440,8 +455,12 @@ static int modrm_dec(struct pt_ild *ild, uint8_t length)
 		has_modrm_map_0x0F
 	};
 	int has_modrm = PTI_MODRM_FALSE;
-	pti_map_enum_t map = pti_get_map(ild);
+	pti_map_enum_t map;
 
+	if (!ild)
+		return -pte_internal;
+
+	map = pti_get_map(ild);
 	if (map >= PTI_MAP_2)
 		has_modrm = PTI_MODRM_TRUE;
 	else
@@ -476,6 +495,9 @@ static int modrm_dec(struct pt_ild *ild, uint8_t length)
 
 static inline int get_next_as_opcode(struct pt_ild *ild, uint8_t length)
 {
+	if (!ild)
+		return -pte_internal;
+
 	if (ild->max_bytes <= length)
 		return -pte_bad_insn;
 
@@ -487,6 +509,9 @@ static inline int get_next_as_opcode(struct pt_ild *ild, uint8_t length)
 static int opcode_dec(struct pt_ild *ild, uint8_t length)
 {
 	uint8_t b, m;
+
+	if (!ild)
+		return -pte_internal;
 
 	/*no need to check max_bytes - it was checked in previous scanners */
 	b = get_byte(ild, length);
@@ -540,6 +565,9 @@ static inline int prefix_decode(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t byte;
 
+	if (!ild)
+		return -pte_internal;
+
 	if (ild->max_bytes <= length)
 		return -pte_bad_insn;
 
@@ -557,6 +585,9 @@ static int prefix_osz(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	(void) rex;
 
+	if (!ild)
+		return -pte_internal;
+
 	ild->u.s.osz = 1;
 
 	return prefix_next(ild, length, 0);
@@ -565,6 +596,9 @@ static int prefix_osz(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static int prefix_asz(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
 
 	ild->u.s.asz = 1;
 
@@ -575,6 +609,9 @@ static int prefix_lock(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	(void) rex;
 
+	if (!ild)
+		return -pte_internal;
+
 	ild->u.s.lock = 1;
 
 	return prefix_next(ild, length, 0);
@@ -583,6 +620,9 @@ static int prefix_lock(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static int prefix_f2(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
 
 	ild->u.s.f2 = 1;
 	ild->u.s.last_f2f3 = 2;
@@ -593,6 +633,9 @@ static int prefix_f2(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static int prefix_f3(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
 
 	ild->u.s.f3 = 1;
 	ild->u.s.last_f2f3 = 3;
@@ -609,6 +652,9 @@ static int prefix_ignore(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 static int prefix_done(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
+	if (!ild)
+		return -pte_internal;
+
 	if (rex & 0x04)
 		ild->u.s.rex_r = 1;
 	if (rex & 0x08)
@@ -621,6 +667,9 @@ static int prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	(void) rex;
 
+	if (!ild)
+		return -pte_internal;
+
 	if (mode_64b(ild))
 		return prefix_next(ild, length, get_byte(ild, length));
 	else
@@ -629,6 +678,9 @@ static int prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 static inline int prefix_vex_done(struct pt_ild *ild, uint8_t length)
 {
+	if (!ild)
+		return -pte_internal;
+
 	ild->nominal_opcode = get_byte(ild, length);
 
 	return modrm_dec(ild, length + 1);
@@ -636,10 +688,15 @@ static inline int prefix_vex_done(struct pt_ild *ild, uint8_t length)
 
 static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
-	uint8_t max_bytes = ild->max_bytes;
+	uint8_t max_bytes;
 	uint8_t p1;
 
 	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
+
+	max_bytes = ild->max_bytes;
 
 	/* Read the next byte to validate that this is indeed VEX. */
 	if (max_bytes <= (length + 1))
@@ -671,10 +728,15 @@ static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
-	uint8_t max_bytes = ild->max_bytes;
+	uint8_t max_bytes;
 	uint8_t p1, p2, map;
 
 	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
+
+	max_bytes = ild->max_bytes;
 
 	/* Read the next byte to validate that this is indeed VEX. */
 	if (max_bytes <= (length + 1))
@@ -716,10 +778,15 @@ static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
-	uint8_t max_bytes = ild->max_bytes;
+	uint8_t max_bytes;
 	uint8_t p1, p2, map;
 
 	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
+
+	max_bytes = ild->max_bytes;
 
 	/* Read the next byte to validate that this is indeed EVEX. */
 	if (max_bytes <= (length + 1))
@@ -812,6 +879,9 @@ static int set_branch_target(struct pt_ild *ild)
 	int64_t npc;
 	uint64_t sign_extended_disp = 0;
 
+	if (!ild)
+		return -pte_internal;
+
 	if (ild->disp_bytes == 1)
 		sign_extended_disp =
 		    sign_extend_bq(get_byte(ild, ild->disp_pos));
@@ -847,6 +917,9 @@ void pt_ild_init(void)
 
 int pt_instruction_length_decode(struct pt_ild *ild)
 {
+	if (!ild)
+		return -pte_internal;
+
 	ild->u.i = 0;
 	ild->imm1_bytes = 0;
 	ild->imm2_bytes = 0;
@@ -862,12 +935,17 @@ int pt_instruction_length_decode(struct pt_ild *ild)
 
 int pt_instruction_decode(struct pt_ild *ild)
 {
-	uint8_t opcode = ild->nominal_opcode;
-	uint8_t map = pti_get_map(ild);
+	uint8_t opcode, map;
+
+	if (!ild)
+		return -pte_internal;
 
 	ild->iclass = PTI_INST_INVALID;
 
-	if (ild->map > PTI_MAP_1)
+	opcode = ild->nominal_opcode;
+	map = ild->map;
+
+	if (map > PTI_MAP_1)
 		return 0;	/* uninteresting */
 	if (ild->u.s.vex)
 		return 0;	/* uninteresting */
