@@ -29,52 +29,10 @@
 #if !defined(PT_ILD_H)
 #define PT_ILD_H
 
+#include "pt_insn.h"
+
 #include "intel-pt.h"
 
-typedef enum {
-	PTI_INST_INVALID,
-
-	PTI_INST_CALL_9A,
-	PTI_INST_CALL_FFr3,
-	PTI_INST_CALL_FFr2,
-	PTI_INST_CALL_E8,
-	PTI_INST_INT,
-
-	PTI_INST_INT3,
-	PTI_INST_INT1,
-	PTI_INST_INTO,
-	PTI_INST_IRET,	/* includes IRETD and IRETQ (EOSZ determines) */
-
-	PTI_INST_JMP_E9,
-	PTI_INST_JMP_EB,
-	PTI_INST_JMP_EA,
-	PTI_INST_JMP_FFr5,	/* REXW? */
-	PTI_INST_JMP_FFr4,
-	PTI_INST_JCC,
-	PTI_INST_JrCXZ,
-	PTI_INST_LOOP,
-	PTI_INST_LOOPE,	/* aka Z */
-	PTI_INST_LOOPNE,	/* aka NE */
-
-	PTI_INST_MOV_CR3,
-
-	PTI_INST_RET_C3,
-	PTI_INST_RET_C2,
-	PTI_INST_RET_CB,
-	PTI_INST_RET_CA,
-
-	PTI_INST_SYSCALL,
-	PTI_INST_SYSENTER,
-	PTI_INST_SYSEXIT,
-	PTI_INST_SYSRET,
-
-	PTI_INST_VMLAUNCH,
-	PTI_INST_VMRESUME,
-	PTI_INST_VMCALL,
-	PTI_INST_VMPTRLD,
-
-	PTI_INST_LAST
-} pti_inst_enum_t;
 
 typedef enum {
 	PTI_MAP_0,	/* 1-byte opcodes.           may have modrm */

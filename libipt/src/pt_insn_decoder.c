@@ -27,6 +27,7 @@
  */
 
 #include "pt_insn_decoder.h"
+#include "pt_insn.h"
 
 #include "intel-pt.h"
 
@@ -363,7 +364,7 @@ static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
 
 /* Decode and analyze one instruction.
  *
- * Decodes the instructruction at @decoder->ip into @insn and updates
+ * Decodes the instructruction at @decoder->ip into @insn and @iext and updates
  * @decoder->ip.
  *
  * Returns a negative error code on failure.
@@ -371,13 +372,14 @@ static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
  * Returns a positive number on success if the instruction is relevant.
  * Returns -pte_bad_insn if the instruction could not be decoded.
  */
-static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
+static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
+		       struct pt_insn_decoder *decoder)
 {
 	struct pt_ild *ild;
 	int errcode, relevant;
 	int size;
 
-	if (!insn || !decoder)
+	if (!insn || !iext || !decoder)
 		return -pte_internal;
 
 	/* Fill in as much as we can as early as we can so we have the
@@ -415,6 +417,14 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 			return relevant;
 
 		insn->iclass = pt_insn_classify(ild);
+	}
+
+	memset(iext, 0, sizeof(*iext));
+
+	iext->iclass = ild->iclass;
+	if (ild->u.s.branch_direct) {
+		iext->variant.branch.is_direct = 1;
+		iext->variant.branch.target = ild->direct_target;
 	}
 
 	return relevant;
@@ -1358,6 +1368,7 @@ static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		 size_t size)
 {
+	struct pt_insn_ext iext;
 	struct pt_insn insn, *pinsn;
 	int errcode;
 
@@ -1398,7 +1409,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		goto err;
 	}
 
-	errcode = decode_insn(pinsn, decoder);
+	errcode = decode_insn(pinsn, &iext, decoder);
 	if (errcode < 0)
 		goto err;
 
