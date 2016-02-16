@@ -45,7 +45,6 @@ typedef enum {
 
 struct pt_ild {
 	/* inputs */
-	uint64_t runtime_address;
 	uint8_t const *itext;
 	uint8_t max_bytes;	/*1..15 bytes  */
 	enum pt_exec_mode mode;

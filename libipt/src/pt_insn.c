@@ -149,24 +149,25 @@ int pt_insn_binds_to_vmcs(const struct pt_insn *insn,
 	}
 }
 
-int pt_insn_next_ip(uint64_t *ip, const struct pt_insn *insn,
+int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 		    const struct pt_insn_ext *iext)
 {
+	uint64_t ip;
+
 	if (!insn || !iext)
 		return -pte_internal;
 
+	ip = insn->ip + insn->size;
+
 	switch (insn->iclass) {
 	case ptic_other:
-		if (ip)
-			*ip = insn->ip + insn->size;
-		return 0;
+		break;
 
 	case ptic_call:
 	case ptic_jump:
 		if (iext->variant.branch.is_direct) {
-			if (ip)
-				*ip = iext->variant.branch.target;
-			return 0;
+			ip += iext->variant.branch.displacement;
+			break;
 		}
 
 		/* Fall through. */
@@ -176,4 +177,9 @@ int pt_insn_next_ip(uint64_t *ip, const struct pt_insn *insn,
 	case ptic_error:
 		return -pte_bad_insn;
 	}
+
+	if (pip)
+		*pip = ip;
+
+	return 0;
 }

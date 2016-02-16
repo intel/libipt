@@ -859,47 +859,27 @@ static int decode(struct pt_ild *ild)
 	return prefix_decode(ild, 0, 0);
 }
 
-static inline int64_t sign_extend_bq(int8_t x)
-{
-	return x;
-}
-
-static inline int64_t sign_extend_wq(int16_t x)
-{
-	return x;
-}
-
-static inline int64_t sign_extend_dq(int32_t x)
-{
-	return x;
-}
-
 static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 {
-	int64_t npc;
-	uint64_t sign_extended_disp = 0;
-
 	if (!iext || !ild)
 		return -pte_internal;
 
-	if (ild->disp_bytes == 1)
-		sign_extended_disp =
-		    sign_extend_bq(get_byte(ild, ild->disp_pos));
-	else if (ild->disp_bytes == 2) {
+	iext->variant.branch.is_direct = 1;
+
+	if (ild->disp_bytes == 1) {
+		int8_t *b = (int8_t *) (get_byte_ptr(ild, ild->disp_pos));
+
+		iext->variant.branch.displacement = *b;
+	} else if (ild->disp_bytes == 2) {
 		int16_t *w = (int16_t *) (get_byte_ptr(ild, ild->disp_pos));
 
-		sign_extended_disp = sign_extend_wq(*w);
+		iext->variant.branch.displacement = *w;
 	} else if (ild->disp_bytes == 4) {
 		int32_t *d = (int32_t *) (get_byte_ptr(ild, ild->disp_pos));
 
-		sign_extended_disp = sign_extend_dq(*d);
+		iext->variant.branch.displacement = *d;
 	} else
 		return -pte_bad_insn;
-
-	npc = (int64_t) (ild->runtime_address + ild->length);
-
-	iext->variant.branch.is_direct = 1;
-	iext->variant.branch.target = (uint64_t) (npc + sign_extended_disp);
 
 	return 0;
 }
@@ -1215,7 +1195,6 @@ int pt_ild_decode(struct pt_insn *insn, struct pt_insn_ext *iext)
 	ild.mode = insn->mode;
 	ild.itext = insn->raw;
 	ild.max_bytes = insn->size;
-	ild.runtime_address = insn->ip;
 
 	errcode = pt_instruction_length_decode(&ild);
 	if (errcode < 0)

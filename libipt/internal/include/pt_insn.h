@@ -91,11 +91,14 @@ struct pt_insn_ext {
 	union {
 		/* For branch instructions. */
 		struct {
-			/* The target address.
+			/* The branch displacement.
 			 *
 			 * This is only valid for direct calls/jumps.
+			 *
+			 * The displacement is applied to the address of the
+			 * instruction following the branch.
 			 */
-			uint64_t target;
+			int32_t displacement;
 
 			/* A flag saying whether the branch is direct.
 			 *

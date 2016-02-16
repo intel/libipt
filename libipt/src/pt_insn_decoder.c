@@ -883,10 +883,16 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 				 * may ignore direct branches that go to a
 				 * different IP.
 				 */
-				if (iext->variant.branch.is_direct &&
-				    (iext->variant.branch.target !=
-				     ev->variant.disabled.ip))
-					break;
+				if (iext->variant.branch.is_direct) {
+					uint64_t ip;
+
+					ip = insn->ip;
+					ip += insn->size;
+					ip += iext->variant.branch.displacement;
+
+					if (ip != ev->variant.disabled.ip)
+						break;
+				}
 
 				/* Fall through. */
 			case ptic_return:
@@ -1117,6 +1123,9 @@ static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
 	if (!decoder || !insn || !iext)
 		return -pte_internal;
 
+	/* Branch displacements apply to the next instruction. */
+	decoder->ip += insn->size;
+
 	/* We handle non-branches, non-taken conditional branches, and
 	 * compressed returns directly in the switch and do some pre-work for
 	 * calls.
@@ -1125,7 +1134,6 @@ static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
 	 */
 	switch (insn->iclass) {
 	case ptic_other:
-		decoder->ip += insn->size;
 		return 0;
 
 	case ptic_cond_jump: {
@@ -1136,29 +1144,23 @@ static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
 			return status;
 
 		decoder->status = status;
-		if (!taken) {
-			decoder->ip += insn->size;
+		if (!taken)
 			return 0;
-		}
 
 		break;
 	}
 
-	case ptic_call: {
-		uint64_t nip;
-
+	case ptic_call:
 		/* Log the call for return compression.
 		 *
 		 * Unless this is a call to the next instruction as is used
 		 * for position independent code.
 		 */
-		nip = decoder->ip + insn->size;
-		if (!iext->variant.branch.is_direct ||
-		    (nip != iext->variant.branch.target))
-			pt_retstack_push(&decoder->retstack, nip);
+		if (iext->variant.branch.displacement ||
+		    !iext->variant.branch.is_direct)
+			pt_retstack_push(&decoder->retstack, decoder->ip);
 
 		break;
-	}
 
 	case ptic_return: {
 		int taken, status;
@@ -1197,7 +1199,7 @@ static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
 	 * and all flavors of far transfers.
 	 */
 	if (iext->variant.branch.is_direct)
-		decoder->ip = iext->variant.branch.target;
+		decoder->ip += iext->variant.branch.displacement;
 	else {
 		int status;
 
