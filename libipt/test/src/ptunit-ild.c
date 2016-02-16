@@ -33,59 +33,26 @@
 #include <string.h>
 
 
-static const uint64_t pti_addr = 0xffccffccffccull;
-
-/* Check that an instruction
- * - can be length-decoded
- * - is correctly length-decoded
- * - can be classified
- *
- * Does not check whether the classification is correct.
- * This is left to the calling test.
- */
-static struct ptunit_result ptu_ild_decode(struct pt_insn *insn,
-					   struct pt_insn_ext *iext,
-					   struct pt_ild *ild, uint8_t size)
-{
-	int errcode;
-
-	errcode = pt_instruction_length_decode(ild);
-	ptu_int_eq(errcode, 0);
-	ptu_uint_eq(ild->length, size);
-
-	errcode = pt_instruction_decode(insn, iext, ild);
-	ptu_int_eq(errcode, 0);
-
-	return ptu_passed();
-}
-
-/* Initialize an ILD decoder for testing.
- *
- * We can't use a fixture since we don't know the instruction size upfront.
- */
-static void ptu_ild_init(struct pt_ild *ild, uint8_t *raw, uint8_t size,
-			 enum pt_exec_mode mode)
-{
-	memset(ild, 0, sizeof(*ild));
-	ild->itext = raw;
-	ild->max_bytes = size;
-	ild->mode = mode;
-	ild->runtime_address = pti_addr;
-}
-
 /* Check that an instruction is decoded correctly. */
 static struct ptunit_result ptunit_ild_decode(uint8_t *raw, uint8_t size,
 					      enum pt_exec_mode mode)
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
-	struct pt_ild ild;
+	int errcode;
 
-	ptu_ild_init(&ild, raw, size, mode);
 	memset(&iext, 0, sizeof(iext));
 	memset(&insn, 0, sizeof(insn));
 
-	ptu_test(ptu_ild_decode, &insn, &iext, &ild, size);
+	memcpy(insn.raw, raw, size);
+	insn.size = size;
+	insn.mode = mode;
+
+	errcode = pt_ild_decode(&insn, &iext);
+	ptu_int_eq(errcode, 0);
+
+	ptu_uint_eq(insn.size, size);
+	ptu_int_eq(insn.iclass, ptic_other);
 	ptu_int_eq(iext.iclass, PTI_INST_INVALID);
 
 	return ptu_passed();
@@ -98,13 +65,19 @@ static struct ptunit_result ptunit_ild_classify(uint8_t *raw, uint8_t size,
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
-	struct pt_ild ild;
+	int errcode;
 
-	ptu_ild_init(&ild, raw, size, mode);
 	memset(&iext, 0, sizeof(iext));
 	memset(&insn, 0, sizeof(insn));
 
-	ptu_test(ptu_ild_decode, &insn, &iext, &ild, size);
+	memcpy(insn.raw, raw, size);
+	insn.size = size;
+	insn.mode = mode;
+
+	errcode = pt_ild_decode(&insn, &iext);
+	ptu_int_eq(errcode, 0);
+
+	ptu_uint_eq(insn.size, size);
 	ptu_int_eq(iext.iclass, iclass);
 
 	return ptu_passed();
@@ -115,15 +88,21 @@ static struct ptunit_result ptunit_ild_classify(uint8_t *raw, uint8_t size,
  * Note that we intentionally do not detect all invalid instructions.  This test
  * therefore only covers some that we care about.
  */
-static struct ptunit_result ptunit_ild_invalid(uint8_t *insn, uint8_t size,
+static struct ptunit_result ptunit_ild_invalid(uint8_t *raw, uint8_t size,
 					       enum pt_exec_mode mode)
 {
-	struct pt_ild ild;
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
 	int errcode;
 
-	ptu_ild_init(&ild, insn, size, mode);
+	memset(&iext, 0, sizeof(iext));
+	memset(&insn, 0, sizeof(insn));
 
-	errcode = pt_instruction_length_decode(&ild);
+	memcpy(insn.raw, raw, size);
+	insn.size = size;
+	insn.mode = mode;
+
+	errcode = pt_ild_decode(&insn, &iext);
 	ptu_int_eq(errcode, -pte_bad_insn);
 
 	return ptu_passed();

@@ -107,11 +107,25 @@ extern void pt_ild_init(void);
 
 /* all decoding is multithread safe. */
 
-/* Returns zero on success, a negative error code otherwise. */
-extern int pt_instruction_length_decode(struct pt_ild *ild);
-
-/* Returns zero on success, a negative error code otherwise. */
-extern int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
-				 const struct pt_ild *ild);
+/* Decode one instruction.
+ *
+ * Input:
+ *
+ *   @insn->ip:      the virtual address of the instruction
+ *   @insn->raw:     the memory at that virtual address
+ *   @insn->size:    the maximal size of the instruction
+ *   @insn->mode:    the execution mode
+ *
+ * Output:
+ *
+ *   @insn->size:    the actual size of the instruction
+ *   @insn->iclass:  a coarse classification
+ *
+ *   @iext->iclass:  a finer grain classification
+ *   @iext->variant: instruction class dependent information
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+extern int pt_ild_decode(struct pt_insn *insn, struct pt_insn_ext *iext);
 
 #endif /* PT_ILD_H */

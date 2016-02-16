@@ -32,7 +32,6 @@
 #include "pt_query_decoder.h"
 #include "pt_image.h"
 #include "pt_retstack.h"
-#include "pt_ild.h"
 
 #include <inttypes.h>
 
@@ -55,9 +54,6 @@ struct pt_insn_decoder {
 
 	/* The call/return stack for ret compression. */
 	struct pt_retstack retstack;
-
-	/* The Intel(R) Processor Trace instruction (length) decoder. */
-	struct pt_ild ild;
 
 	/* The current IP. */
 	uint64_t ip;

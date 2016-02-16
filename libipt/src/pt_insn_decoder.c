@@ -28,6 +28,7 @@
 
 #include "pt_insn_decoder.h"
 #include "pt_insn.h"
+#include "pt_ild.h"
 
 #include "intel-pt.h"
 
@@ -240,8 +241,6 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
 		       struct pt_insn_decoder *decoder)
 {
-	struct pt_ild *ild;
-	int errcode;
 	int size;
 
 	if (!insn || !iext || !decoder)
@@ -261,20 +260,12 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
 	if (size < 0)
 		return size;
 
-	/* Decode the instruction. */
-	ild = &decoder->ild;
-	ild->itext = insn->raw;
-	ild->max_bytes = (uint8_t) size;
-	ild->mode = decoder->mode;
-	ild->runtime_address = decoder->ip;
+	/* We initialize @insn->size to the maximal possible size.  It will be
+	 * set to the actual size during instruction decode.
+	 */
+	insn->size = (uint8_t) size;
 
-	errcode = pt_instruction_length_decode(ild);
-	if (errcode < 0)
-		return errcode;
-
-	insn->size = ild->length;
-
-	return pt_instruction_decode(insn, iext, ild);
+	return pt_ild_decode(insn, iext);
 }
 
 /* Check whether @ip is ahead of us.
@@ -291,17 +282,15 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
-	struct pt_ild ild;
 
 	if (!decoder)
 		return 0;
 
 	/* We do not expect execution mode changes. */
-	ild.mode = decoder->mode;
-	ild.itext = insn.raw;
-	ild.runtime_address = decoder->ip;
+	insn.mode = decoder->mode;
+	insn.ip = decoder->ip;
 
-	while (ild.runtime_address != ip) {
+	while (insn.ip != ip) {
 		int size, errcode;
 
 		if (!steps--)
@@ -311,25 +300,20 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 		 * reach it.
 		 */
 		size = pt_image_read(decoder->image, &insn.isid, insn.raw,
-				     sizeof(insn.raw), &decoder->asid,
-				     ild.runtime_address);
+				     sizeof(insn.raw), &decoder->asid, insn.ip);
 		if (size < 0)
 			return 0;
 
-		ild.max_bytes = (uint8_t) size;
+		/* We initialize @insn.size to the maximal possible size.  It
+		 * will be set to the actual size during instruction decode.
+		 */
+		insn.size = (uint8_t) size;
 
-		errcode = pt_instruction_length_decode(&ild);
+		errcode = pt_ild_decode(&insn, &iext);
 		if (errcode < 0)
 			return 0;
 
-		errcode = pt_instruction_decode(&insn, &iext, &ild);
-		if (errcode < 0)
-			return 0;
-
-		insn.ip = ild.runtime_address;
-		insn.size = ild.length;
-
-		errcode = pt_insn_next_ip(&ild.runtime_address, &insn, &iext);
+		errcode = pt_insn_next_ip(&insn.ip, &insn, &iext);
 		if (errcode < 0)
 			return 0;
 	}
@@ -662,29 +646,25 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
-	struct pt_ild ild;
 	int size, errcode, isid;
 
 	if (!decoder)
 		return -pte_internal;
 
+	insn.mode = decoder->mode;
+	insn.ip = decoder->ip;
+
 	size = pt_image_read(decoder->image, &isid, insn.raw, sizeof(insn.raw),
-			     &decoder->asid, decoder->ip);
+			     &decoder->asid, insn.ip);
 	if (size < 0)
 		return 0;
 
-	memset(&ild, 0, sizeof(ild));
+	/* We initialize @insn.size to the maximal possible size.  It will be
+	 * set to the actual size during instruction decode.
+	 */
+	insn.size = (uint8_t) size;
 
-	ild.mode = decoder->mode;
-	ild.max_bytes = (uint8_t) size;
-	ild.itext = insn.raw;
-	ild.runtime_address = decoder->ip;
-
-	errcode = pt_instruction_length_decode(&ild);
-	if (errcode < 0)
-		return 0;
-
-	errcode = pt_instruction_decode(&insn, &iext, &ild);
+	errcode = pt_ild_decode(&insn, &iext);
 	if (errcode < 0)
 		return 0;
 

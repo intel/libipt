@@ -914,7 +914,7 @@ void pt_ild_init(void)
 	init_prefix_table();
 }
 
-int pt_instruction_length_decode(struct pt_ild *ild)
+static int pt_instruction_length_decode(struct pt_ild *ild)
 {
 	if (!ild)
 		return -pte_internal;
@@ -932,8 +932,8 @@ int pt_instruction_length_decode(struct pt_ild *ild)
 	return decode(ild);
 }
 
-int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
-			  const struct pt_ild *ild)
+static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
+				 const struct pt_ild *ild)
 {
 	uint8_t opcode, map;
 
@@ -1202,4 +1202,26 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 	default:
 		return 0;
 	}
+}
+
+int pt_ild_decode(struct pt_insn *insn, struct pt_insn_ext *iext)
+{
+	struct pt_ild ild;
+	int errcode;
+
+	if (!insn || !iext)
+		return -pte_internal;
+
+	ild.mode = insn->mode;
+	ild.itext = insn->raw;
+	ild.max_bytes = insn->size;
+	ild.runtime_address = insn->ip;
+
+	errcode = pt_instruction_length_decode(&ild);
+	if (errcode < 0)
+		return errcode;
+
+	insn->size = ild.length;
+
+	return pt_instruction_decode(insn, iext, &ild);
 }
