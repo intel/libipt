@@ -249,50 +249,6 @@ static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
 	return ild->u.s.branch_far ? ptic_far_jump : ptic_jump;
 }
 
-static int pt_insn_is_far_branch(const struct pt_ild *ild)
-{
-	if (!ild)
-		return 0;
-
-	return ild->u.s.branch_far;
-}
-
-static int pt_insn_binds_to_pip(const struct pt_ild *ild)
-{
-	if (!ild)
-		return 0;
-
-	switch (ild->iclass) {
-	default:
-		break;
-
-	case PTI_INST_MOV_CR3:
-	case PTI_INST_VMLAUNCH:
-	case PTI_INST_VMRESUME:
-		return 1;
-	}
-
-	return pt_insn_is_far_branch(ild);
-}
-
-static int pt_insn_binds_to_vmcs(const struct pt_ild *ild)
-{
-	if (!ild)
-		return 0;
-
-	switch (ild->iclass) {
-	default:
-		break;
-
-	case PTI_INST_VMPTRLD:
-	case PTI_INST_VMLAUNCH:
-	case PTI_INST_VMRESUME:
-		return 1;
-	}
-
-	return pt_insn_is_far_branch(ild);
-}
-
 /* Try to determine the next IP for @ild without using Intel PT.
  *
  * If @ip is not NULL, provides the determined IP on success.
@@ -1002,7 +958,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_paging:
-		if (pt_insn_binds_to_pip(&decoder->ild) &&
+		if (pt_insn_binds_to_pip(insn, iext) &&
 		    !decoder->paging_event_bound) {
 			/* Each instruction only binds to one paging event. */
 			decoder->paging_event_bound = 1;
@@ -1013,7 +969,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_vmcs:
-		if (pt_insn_binds_to_vmcs(&decoder->ild) &&
+		if (pt_insn_binds_to_vmcs(insn, iext) &&
 		    !decoder->vmcs_event_bound) {
 			/* Each instruction only binds to one vmcs event. */
 			decoder->vmcs_event_bound = 1;

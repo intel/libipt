@@ -28,6 +28,8 @@
 
 #include "pt_insn.h"
 
+#include "intel-pt.h"
+
 
 int pt_insn_changes_cpl(const struct pt_insn *insn,
 			const struct pt_insn_ext *iext)
@@ -67,6 +69,59 @@ int pt_insn_changes_cr3(const struct pt_insn *insn,
 		return 0;
 
 	case PTI_INST_MOV_CR3:
+		return 1;
+	}
+}
+
+int pt_insn_is_far_branch(const struct pt_insn *insn,
+			  const struct pt_insn_ext *iext)
+{
+	(void) iext;
+
+	if (!insn)
+		return 0;
+
+	switch (insn->iclass) {
+	default:
+		return 0;
+
+	case ptic_far_call:
+	case ptic_far_return:
+	case ptic_far_jump:
+		return 1;
+	}
+}
+
+int pt_insn_binds_to_pip(const struct pt_insn *insn,
+			 const struct pt_insn_ext *iext)
+{
+	if (!iext)
+		return 0;
+
+	switch (iext->iclass) {
+	default:
+		return pt_insn_is_far_branch(insn, iext);
+
+	case PTI_INST_MOV_CR3:
+	case PTI_INST_VMLAUNCH:
+	case PTI_INST_VMRESUME:
+		return 1;
+	}
+}
+
+int pt_insn_binds_to_vmcs(const struct pt_insn *insn,
+			  const struct pt_insn_ext *iext)
+{
+	if (!iext)
+		return 0;
+
+	switch (iext->iclass) {
+	default:
+		return pt_insn_is_far_branch(insn, iext);
+
+	case PTI_INST_VMPTRLD:
+	case PTI_INST_VMLAUNCH:
+	case PTI_INST_VMRESUME:
 		return 1;
 	}
 }
