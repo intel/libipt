@@ -918,7 +918,6 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 				   const struct pt_insn_ext *iext)
 {
 	struct pt_event *ev;
-	const struct pt_ild *ild;
 
 	if (!decoder)
 		return -pte_internal;
@@ -938,8 +937,6 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_disabled:
-		ild = &decoder->ild;
-
 		if (ev->ip_suppressed) {
 			if (pt_insn_is_far_branch(insn, iext) ||
 			    pt_insn_changes_cpl(insn, iext) ||
@@ -947,12 +944,34 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 				return process_sync_disabled_event(decoder,
 								   insn, iext);
 
-		} else if (ild->u.s.branch) {
-			if (!ild->u.s.branch_direct ||
-			    ild->u.s.cond ||
-			    ild->direct_target == ev->variant.disabled.ip)
+		} else {
+			switch (insn->iclass) {
+			case ptic_other:
+				break;
+
+			case ptic_call:
+			case ptic_jump:
+				/* If we got an IP with the disabled event, we
+				 * may ignore direct branches that go to a
+				 * different IP.
+				 */
+				if (iext->variant.branch.is_direct &&
+				    (iext->variant.branch.target !=
+				     ev->variant.disabled.ip))
+					break;
+
+				/* Fall through. */
+			case ptic_return:
+			case ptic_far_call:
+			case ptic_far_return:
+			case ptic_far_jump:
+			case ptic_cond_jump:
 				return process_sync_disabled_event(decoder,
 								   insn, iext);
+
+			case ptic_error:
+				return -pte_bad_insn;
+			}
 		}
 
 		return 0;
