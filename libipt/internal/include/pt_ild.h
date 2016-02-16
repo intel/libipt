@@ -144,22 +144,22 @@ struct pt_ild {
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
 };
 
-static inline pti_map_enum_t pti_get_map(struct pt_ild *ild)
+static inline pti_map_enum_t pti_get_map(const struct pt_ild *ild)
 {
 	return (pti_map_enum_t) ild->map;
 }
 
-static inline uint8_t pti_get_modrm_mod(struct pt_ild *ild)
+static inline uint8_t pti_get_modrm_mod(const struct pt_ild *ild)
 {
 	return ild->modrm_byte >> 6;
 }
 
-static inline uint8_t pti_get_modrm_reg(struct pt_ild *ild)
+static inline uint8_t pti_get_modrm_reg(const struct pt_ild *ild)
 {
 	return (ild->modrm_byte >> 3) & 7;
 }
 
-static inline uint8_t pti_get_modrm_rm(struct pt_ild *ild)
+static inline uint8_t pti_get_modrm_rm(const struct pt_ild *ild)
 {
 	return ild->modrm_byte & 7;
 }

@@ -96,22 +96,22 @@ static void init_has_sib_table(void)
 
 /* SOME ACCESSORS */
 
-static inline uint8_t get_byte(struct pt_ild *ild, uint8_t i)
+static inline uint8_t get_byte(const struct pt_ild *ild, uint8_t i)
 {
 	return ild->itext[i];
 }
 
-static inline uint8_t const *get_byte_ptr(struct pt_ild *ild, uint8_t i)
+static inline uint8_t const *get_byte_ptr(const struct pt_ild *ild, uint8_t i)
 {
 	return ild->itext + i;
 }
 
-static inline int mode_64b(struct pt_ild *ild)
+static inline int mode_64b(const struct pt_ild *ild)
 {
 	return ild->mode == ptem_64bit;
 }
 
-static inline int mode_32b(struct pt_ild *ild)
+static inline int mode_32b(const struct pt_ild *ild)
 {
 	return ild->mode == ptem_32bit;
 }
@@ -122,7 +122,7 @@ static inline int bits_match(uint8_t x, uint8_t mask, uint8_t target)
 }
 
 static inline enum pt_exec_mode
-pti_get_nominal_eosz_non64(struct pt_ild *ild)
+pti_get_nominal_eosz_non64(const struct pt_ild *ild)
 {
 	if (mode_32b(ild)) {
 		if (ild->u.s.osz)
@@ -135,7 +135,7 @@ pti_get_nominal_eosz_non64(struct pt_ild *ild)
 }
 
 static inline enum pt_exec_mode
-pti_get_nominal_eosz(struct pt_ild *ild)
+pti_get_nominal_eosz(const struct pt_ild *ild)
 {
 	if (mode_64b(ild)) {
 		if (ild->u.s.rex_w)
@@ -148,7 +148,7 @@ pti_get_nominal_eosz(struct pt_ild *ild)
 }
 
 static inline enum pt_exec_mode
-pti_get_nominal_eosz_df64(struct pt_ild *ild)
+pti_get_nominal_eosz_df64(const struct pt_ild *ild)
 {
 	if (mode_64b(ild)) {
 		if (ild->u.s.rex_w)
@@ -163,7 +163,7 @@ pti_get_nominal_eosz_df64(struct pt_ild *ild)
 }
 
 static inline enum pt_exec_mode
-pti_get_nominal_easz_non64(struct pt_ild *ild)
+pti_get_nominal_easz_non64(const struct pt_ild *ild)
 {
 	if (mode_32b(ild)) {
 		if (ild->u.s.asz)
@@ -176,7 +176,7 @@ pti_get_nominal_easz_non64(struct pt_ild *ild)
 }
 
 static inline enum pt_exec_mode
-pti_get_nominal_easz(struct pt_ild *ild)
+pti_get_nominal_easz(const struct pt_ild *ild)
 {
 	if (mode_64b(ild)) {
 		if (ild->u.s.asz)
