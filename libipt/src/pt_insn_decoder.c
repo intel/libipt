@@ -941,7 +941,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		ild = &decoder->ild;
 
 		if (ev->ip_suppressed) {
-			if ((ild->u.s.branch && ild->u.s.branch_far) ||
+			if (pt_insn_is_far_branch(insn, iext) ||
 			    pt_insn_changes_cpl(insn, iext) ||
 			    pt_insn_changes_cr3(insn, iext))
 				return process_sync_disabled_event(decoder,
