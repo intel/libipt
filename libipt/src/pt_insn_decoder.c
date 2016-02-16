@@ -254,9 +254,7 @@ static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
  * Decodes the instructruction at @decoder->ip into @insn and @iext and updates
  * @decoder->ip.
  *
- * Returns a negative error code on failure.
- * Returns zero on success if the instruction is not relevant for our purposes.
- * Returns a positive number on success if the instruction is relevant.
+ * Returns zero on success, a negative error code otherwise.
  * Returns -pte_bad_insn if the instruction could not be decoded.
  */
 static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
@@ -314,7 +312,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
 		iext->variant.branch.target = ild->direct_target;
 	}
 
-	return relevant;
+	return 0;
 }
 
 /* Check whether @ip is ahead of us.
