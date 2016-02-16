@@ -323,8 +323,7 @@ static int imm_dec(struct pt_ild *ild, uint8_t length)
 			return -pte_bad_insn;
 
 		ild->nominal_opcode = get_byte(ild, length);
-		ild->length = length + 1;
-		return 0;
+		return length + 1;
 	}
 
 	errcode = set_imm_bytes(ild);
@@ -336,8 +335,7 @@ static int imm_dec(struct pt_ild *ild, uint8_t length)
 	if (ild->max_bytes < length)
 		return -pte_bad_insn;
 
-	ild->length = length;
-	return 0;
+	return length;
 }
 
 static int compute_disp_dec(struct pt_ild *ild)
@@ -1187,7 +1185,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 int pt_ild_decode(struct pt_insn *insn, struct pt_insn_ext *iext)
 {
 	struct pt_ild ild;
-	int errcode;
+	int size;
 
 	if (!insn || !iext)
 		return -pte_internal;
@@ -1196,11 +1194,11 @@ int pt_ild_decode(struct pt_insn *insn, struct pt_insn_ext *iext)
 	ild.itext = insn->raw;
 	ild.max_bytes = insn->size;
 
-	errcode = pt_instruction_length_decode(&ild);
-	if (errcode < 0)
-		return errcode;
+	size = pt_instruction_length_decode(&ild);
+	if (size < 0)
+		return size;
 
-	insn->size = ild.length;
+	insn->size = (uint8_t) size;
 
 	return pt_instruction_decode(insn, iext, &ild);
 }

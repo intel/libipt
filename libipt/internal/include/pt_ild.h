@@ -49,8 +49,6 @@ struct pt_ild {
 	uint8_t max_bytes;	/*1..15 bytes  */
 	enum pt_exec_mode mode;
 
-	/* outputs */
-	uint8_t length;	/* bytes */
 	union {
 		struct {
 			uint32_t osz:1;
