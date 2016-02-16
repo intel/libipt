@@ -229,26 +229,6 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 	return pt_qry_core_bus_ratio(&decoder->query, cbr);
 }
 
-static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
-{
-	if (!ild)
-		return ptic_error;
-
-	if (!ild->u.s.branch)
-		return ptic_other;
-
-	if (ild->u.s.cond)
-		return ptic_cond_jump;
-
-	if (ild->u.s.call)
-		return ild->u.s.branch_far ? ptic_far_call : ptic_call;
-
-	if (ild->u.s.ret)
-		return ild->u.s.branch_far ? ptic_far_return : ptic_return;
-
-	return ild->u.s.branch_far ? ptic_far_jump : ptic_jump;
-}
-
 /* Decode and analyze one instruction.
  *
  * Decodes the instructruction at @decoder->ip into @insn and @iext and updates
@@ -261,7 +241,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
 		       struct pt_insn_decoder *decoder)
 {
 	struct pt_ild *ild;
-	int errcode, relevant;
+	int errcode;
 	int size;
 
 	if (!insn || !iext || !decoder)
@@ -294,25 +274,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
 
 	insn->size = ild->length;
 
-	relevant = pt_instruction_decode(ild);
-	if (!relevant)
-		insn->iclass = ptic_other;
-	else {
-		if (relevant < 0)
-			return relevant;
-
-		insn->iclass = pt_insn_classify(ild);
-	}
-
-	memset(iext, 0, sizeof(*iext));
-
-	iext->iclass = ild->iclass;
-	if (ild->u.s.branch_direct) {
-		iext->variant.branch.is_direct = 1;
-		iext->variant.branch.target = ild->direct_target;
-	}
-
-	return 0;
+	return pt_instruction_decode(insn, iext, ild);
 }
 
 /* Check whether @ip is ahead of us.
@@ -340,7 +302,7 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 	ild.runtime_address = decoder->ip;
 
 	while (ild.runtime_address != ip) {
-		int size, errcode, relevant;
+		int size, errcode;
 
 		if (!steps--)
 			return 0;
@@ -360,25 +322,12 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 		if (errcode < 0)
 			return 0;
 
-		relevant = pt_instruction_decode(&ild);
-		if (!relevant)
-			insn.iclass = ptic_other;
-		else {
-			if (relevant < 0)
-				return relevant;
-
-			insn.iclass = pt_insn_classify(&ild);
-		}
+		errcode = pt_instruction_decode(&insn, &iext, &ild);
+		if (errcode < 0)
+			return 0;
 
 		insn.ip = ild.runtime_address;
 		insn.size = ild.length;
-
-		memset(&iext, 0, sizeof(iext));
-		iext.iclass = ild.iclass;
-		if (ild.u.s.branch_direct) {
-			iext.variant.branch.is_direct = 1;
-			iext.variant.branch.target = ild.direct_target;
-		}
 
 		errcode = pt_insn_next_ip(&ild.runtime_address, &insn, &iext);
 		if (errcode < 0)
@@ -711,14 +660,15 @@ static int process_vmcs_event(struct pt_insn_decoder *decoder)
 
 static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 {
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
 	struct pt_ild ild;
-	uint8_t raw[pt_max_insn_size];
 	int size, errcode, isid;
 
 	if (!decoder)
 		return -pte_internal;
 
-	size = pt_image_read(decoder->image, &isid, raw, sizeof(raw),
+	size = pt_image_read(decoder->image, &isid, insn.raw, sizeof(insn.raw),
 			     &decoder->asid, decoder->ip);
 	if (size < 0)
 		return 0;
@@ -727,18 +677,18 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 
 	ild.mode = decoder->mode;
 	ild.max_bytes = (uint8_t) size;
-	ild.itext = raw;
+	ild.itext = insn.raw;
 	ild.runtime_address = decoder->ip;
 
 	errcode = pt_instruction_length_decode(&ild);
 	if (errcode < 0)
 		return 0;
 
-	errcode = pt_instruction_decode(&ild);
+	errcode = pt_instruction_decode(&insn, &iext, &ild);
 	if (errcode < 0)
 		return 0;
 
-	switch (ild.iclass) {
+	switch (iext.iclass) {
 	default:
 		return 0;
 

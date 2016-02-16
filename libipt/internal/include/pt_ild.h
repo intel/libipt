@@ -52,30 +52,8 @@ struct pt_ild {
 
 	/* outputs */
 	uint8_t length;	/* bytes */
-	pti_inst_enum_t iclass;
-	uint64_t direct_target;	/* if direct_indirect = 1 */
 	union {
 		struct {
-			uint32_t branch:1;	/* direct or indirect */
-
-			/* direct jmp, direct call or rel/direct branch sets
-			 * branch_direct = 1.
-			 *
-			 * 1=direct, 0=indirect
-			 */
-			uint32_t branch_direct:1;
-
-			/* this includes other transfers like SYSENTER,
-			 * SYSEXIT, and IRET.
-			 *
-			 * 1=far, 0=near
-			 */
-			uint32_t branch_far:1;
-
-			uint32_t ret:1;
-			uint32_t call:1;
-			uint32_t cond:1;
-			/* internal fields */
 			uint32_t osz:1;
 			uint32_t asz:1;
 			uint32_t lock:1;
@@ -136,6 +114,7 @@ extern int pt_instruction_length_decode(struct pt_ild *ild);
  * Returns zero if a non-interesting instruction was encountered.
  * Returns a negative error code otherwise.
  */
-extern int pt_instruction_decode(struct pt_ild *ild);
+extern int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
+				 const struct pt_ild *ild);
 
 #endif /* PT_ILD_H */

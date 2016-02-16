@@ -49,7 +49,9 @@ static const uint64_t pti_addr = 0xffccffccffccull;
  * Does not check whether the classification is correct.
  * This is left to the calling test.
  */
-static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
+static struct ptunit_result ptunit_ild_decode(struct pt_insn *insn,
+					      struct pt_insn_ext *iext,
+					      struct pt_ild *ild,
 					      int interest, uint8_t size)
 {
 	int lret, dret;
@@ -58,7 +60,7 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
 	ptu_int_eq(lret, 0);
 	ptu_uint_eq(ild->length, size);
 
-	dret = pt_instruction_decode(ild);
+	dret = pt_instruction_decode(insn, iext, ild);
 	ptu_int_eq(dret, interest);
 
 	return ptu_passed();
@@ -68,38 +70,48 @@ static struct ptunit_result ptunit_ild_decode(struct pt_ild *ild,
  *
  * We can't use a fixture since we don't know the instruction size upfront.
  */
-static void ptunit_ild_init(struct pt_ild *ild, uint8_t *insn,
+static void ptunit_ild_init(struct pt_ild *ild, uint8_t *raw,
 			    uint8_t size, enum pt_exec_mode mode)
 {
 	memset(ild, 0, sizeof(*ild));
-	ild->itext = insn;
+	ild->itext = raw;
 	ild->max_bytes = size;
 	ild->mode = mode;
 	ild->runtime_address = pti_addr;
 }
 
 /* Check that a boring instruction is decoded correctly. */
-static struct ptunit_result ptunit_ild_boring(uint8_t *insn, uint8_t size,
+static struct ptunit_result ptunit_ild_boring(uint8_t *raw, uint8_t size,
 					      enum pt_exec_mode mode)
 {
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
 	struct pt_ild ild;
 
-	ptunit_ild_init(&ild, insn, size, mode);
-	ptu_test(ptunit_ild_decode, &ild, pti_boring, size);
+	ptunit_ild_init(&ild, raw, size, mode);
+	memset(&iext, 0, sizeof(iext));
+	memset(&insn, 0, sizeof(insn));
+
+	ptu_test(ptunit_ild_decode, &insn, &iext, &ild, pti_boring, size);
 
 	return ptu_passed();
 }
 
 /* Check that an interesting instruction is decoded and classified correctly. */
-static struct ptunit_result ptunit_ild_classify(uint8_t *insn, uint8_t size,
+static struct ptunit_result ptunit_ild_classify(uint8_t *raw, uint8_t size,
 						enum pt_exec_mode mode,
 						pti_inst_enum_t iclass)
 {
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
 	struct pt_ild ild;
 
-	ptunit_ild_init(&ild, insn, size, mode);
-	ptu_test(ptunit_ild_decode, &ild, interesting, size);
-	ptu_int_eq(ild.iclass, iclass);
+	ptunit_ild_init(&ild, raw, size, mode);
+	memset(&iext, 0, sizeof(iext));
+	memset(&insn, 0, sizeof(insn));
+
+	ptu_test(ptunit_ild_decode, &insn, &iext, &ild, interesting, size);
+	ptu_int_eq(iext.iclass, iclass);
 
 	return ptu_passed();
 }
