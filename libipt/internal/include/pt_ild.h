@@ -110,10 +110,7 @@ extern void pt_ild_init(void);
 /* Returns zero on success, a negative error code otherwise. */
 extern int pt_instruction_length_decode(struct pt_ild *ild);
 
-/* Returns a positive number if an interesting instruction was encountered.
- * Returns zero if a non-interesting instruction was encountered.
- * Returns a negative error code otherwise.
- */
+/* Returns zero on success, a negative error code otherwise. */
 extern int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 				 const struct pt_ild *ild);
 

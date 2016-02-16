@@ -901,10 +901,7 @@ static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 	iext->variant.branch.is_direct = 1;
 	iext->variant.branch.target = (uint64_t) (npc + sign_extended_disp);
 
-	/* We return 1 to indicate an interesting instruction so our caller can
-	 * just forward the return value.
-	 */
-	return 1;
+	return 0;
 }
 
 /*  MAIN ENTRY POINTS */
@@ -981,7 +978,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_CALL_9A;
-			return 1;
 		}
 		return 0;
 
@@ -992,19 +988,15 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 			if (reg == 2) {
 				insn->iclass = ptic_call;
 				iext->iclass = PTI_INST_CALL_FFr2;
-				return 1;
 			} else if (reg == 3) {
 				insn->iclass = ptic_far_call;
 				iext->iclass = PTI_INST_CALL_FFr3;
-				return 1;
 			} else if (reg == 4) {
 				insn->iclass = ptic_jump;
 				iext->iclass = PTI_INST_JMP_FFr4;
-				return 1;
 			} else if (reg == 5) {
 				insn->iclass = ptic_far_jump;
 				iext->iclass = PTI_INST_JMP_FFr5;
-				return 1;
 			}
 		}
 		return 0;
@@ -1019,38 +1011,33 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xCD:
-		if (map == PTI_MAP_0) {
+		if (map == PTI_MAP_0)
 			iext->iclass = PTI_INST_INT;
-			return 1;
-		}
+
 		return 0;
 
 	case 0xCC:
-		if (map == PTI_MAP_0) {
+		if (map == PTI_MAP_0)
 			iext->iclass = PTI_INST_INT3;
-			return 1;
-		}
+
 		return 0;
 
 	case 0xCE:
-		if (map == PTI_MAP_0) {
+		if (map == PTI_MAP_0)
 			iext->iclass = PTI_INST_INTO;
-			return 1;
-		}
+
 		return 0;
 
 	case 0xF1:
-		if (map == PTI_MAP_0) {
+		if (map == PTI_MAP_0)
 			iext->iclass = PTI_INST_INT1;
-			return 1;
-		}
+
 		return 0;
 
 	case 0xCF:
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_far_return;
 			iext->iclass = PTI_INST_IRET;
-			return 1;
 		}
 		return 0;
 
@@ -1068,7 +1055,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 			/* Far jumps are treated as indirect jumps. */
 			insn->iclass = ptic_far_jump;
 			iext->iclass = PTI_INST_JMP_EA;
-			return 1;
 		}
 		return 0;
 
@@ -1120,17 +1106,15 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 	case 0x22:
 		if (map == PTI_MAP_1)
 			if (pti_get_modrm_reg(ild) == 3)
-				if (!ild->u.s.rex_r) {
+				if (!ild->u.s.rex_r)
 					iext->iclass = PTI_INST_MOV_CR3;
-					return 1;
-				}
+
 		return 0;
 
 	case 0xC3:
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_return;
 			iext->iclass = PTI_INST_RET_C3;
-			return 1;
 		}
 		return 0;
 
@@ -1138,7 +1122,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_return;
 			iext->iclass = PTI_INST_RET_C2;
-			return 1;
 		}
 		return 0;
 
@@ -1146,7 +1129,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_far_return;
 			iext->iclass = PTI_INST_RET_CB;
-			return 1;
 		}
 		return 0;
 
@@ -1154,7 +1136,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_far_return;
 			iext->iclass = PTI_INST_RET_CA;
-			return 1;
 		}
 		return 0;
 
@@ -1162,7 +1143,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_1) {
 			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_SYSCALL;
-			return 1;
 		}
 		return 0;
 
@@ -1170,7 +1150,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_1) {
 			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_SYSENTER;
-			return 1;
 		}
 		return 0;
 
@@ -1178,7 +1157,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_1) {
 			insn->iclass = ptic_far_return;
 			iext->iclass = PTI_INST_SYSEXIT;
-			return 1;
 		}
 		return 0;
 
@@ -1186,7 +1164,6 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_1) {
 			insn->iclass = ptic_far_return;
 			iext->iclass = PTI_INST_SYSRET;
-			return 1;
 		}
 		return 0;
 
@@ -1196,17 +1173,17 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 			case 0xc1:
 				insn->iclass = ptic_far_return;
 				iext->iclass = PTI_INST_VMCALL;
-				return 1;
+				break;
 
 			case 0xc2:
 				insn->iclass = ptic_far_call;
 				iext->iclass = PTI_INST_VMLAUNCH;
-				return 1;
+				break;
 
 			case 0xc3:
 				insn->iclass = ptic_far_call;
 				iext->iclass = PTI_INST_VMRESUME;
-				return 1;
+				break;
 
 			default:
 				break;
@@ -1217,16 +1194,12 @@ int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 	case 0xc7:
 		if (map == PTI_MAP_1 &&
 		    pti_get_modrm_mod(ild) != 3 &&
-		    pti_get_modrm_reg(ild) == 6) {
+		    pti_get_modrm_reg(ild) == 6)
 			iext->iclass = PTI_INST_VMPTRLD;
-			return 1;
-		}
+
 		return 0;
 
 	default:
-		break;
+		return 0;
 	}
-
-	return 0;
-
 }
