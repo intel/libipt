@@ -126,6 +126,13 @@ extern int pt_insn_changes_cpl(const struct pt_insn *insn,
 extern int pt_insn_changes_cr3(const struct pt_insn *insn,
 			       const struct pt_insn_ext *iext);
 
+/* Check if the instruction @insn/@iext is a (near or far) branch.
+ *
+ * Returns non-zero if it is, zero if it isn't (or @insn/@iext is NULL).
+ */
+extern int pt_insn_is_branch(const struct pt_insn *insn,
+			     const struct pt_insn_ext *iext);
+
 /* Check if the instruction @insn/@iext is a far branch.
  *
  * Returns non-zero if it is, zero if it isn't (or @insn/@iext is NULL).

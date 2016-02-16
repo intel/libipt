@@ -1039,7 +1039,8 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 }
 
 static int process_one_event_peek(struct pt_insn_decoder *decoder,
-				  struct pt_insn *insn)
+				  struct pt_insn *insn,
+				  const struct pt_insn_ext *iext)
 {
 	struct pt_event *ev;
 
@@ -1083,7 +1084,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		 * be wrong, but we won't be able to tell.
 		 */
 		if (decoder->query.config.errata.bdm64 &&
-		    ev->variant.tsx.aborted && decoder->ild.u.s.branch &&
+		    ev->variant.tsx.aborted && pt_insn_is_branch(insn, iext) &&
 		    !pt_ip_is_ahead(decoder, ev->variant.tsx.ip, 0x1000)) {
 			decoder->ip = ev->variant.tsx.ip;
 			return process_tsx_event(decoder, insn);
@@ -1153,7 +1154,8 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 }
 
 static int process_events_peek(struct pt_insn_decoder *decoder,
-			       struct pt_insn *insn)
+			       struct pt_insn *insn,
+			       const struct pt_insn_ext *iext)
 {
 	if (!decoder || !insn)
 		return -pte_internal;
@@ -1168,7 +1170,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		if (!pending)
 			break;
 
-		processed = process_one_event_peek(decoder, insn);
+		processed = process_one_event_peek(decoder, insn, iext);
 		if (processed < 0)
 			return processed;
 
@@ -1402,7 +1404,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		/* Peek errors are ignored.  We will run into them again
 		 * in the next iteration.
 		 */
-		(void) process_events_peek(decoder, pinsn);
+		(void) process_events_peek(decoder, pinsn, &iext);
 	}
 
 	errcode = insn_to_user(uinsn, size, pinsn);
