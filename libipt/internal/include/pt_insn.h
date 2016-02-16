@@ -31,6 +31,8 @@
 
 #include <inttypes.h>
 
+struct pt_insn;
+
 
 /* A finer-grain classification of instructions used internally. */
 typedef enum {
@@ -108,5 +110,20 @@ struct pt_insn_ext {
 		} branch;
 	} variant;
 };
+
+
+/* Check if the instruction @insn/@iext changes the current privilege level.
+ *
+ * Returns non-zero if it does, zero if it doesn't (or @insn/@iext is NULL).
+ */
+extern int pt_insn_changes_cpl(const struct pt_insn *insn,
+			       const struct pt_insn_ext *iext);
+
+/* Check if the instruction @insn/@iext changes CR3.
+ *
+ * Returns non-zero if it does, zero if it doesn't (or @insn/@iext is NULL).
+ */
+extern int pt_insn_changes_cr3(const struct pt_insn *insn,
+			       const struct pt_insn_ext *iext);
 
 #endif /* PT_INSN_H */

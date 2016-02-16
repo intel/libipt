@@ -249,42 +249,6 @@ static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
 	return ild->u.s.branch_far ? ptic_far_jump : ptic_jump;
 }
 
-static int pt_insn_changes_cpl(const struct pt_ild *ild)
-{
-	if (!ild)
-		return 0;
-
-	switch (ild->iclass) {
-	default:
-		return 0;
-
-	case PTI_INST_INT:
-	case PTI_INST_INT3:
-	case PTI_INST_INT1:
-	case PTI_INST_INTO:
-	case PTI_INST_IRET:
-	case PTI_INST_SYSCALL:
-	case PTI_INST_SYSENTER:
-	case PTI_INST_SYSEXIT:
-	case PTI_INST_SYSRET:
-		return 1;
-	}
-}
-
-static int pt_insn_changes_cr3(const struct pt_ild *ild)
-{
-	if (!ild)
-		return 0;
-
-	switch (ild->iclass) {
-	default:
-		return 0;
-
-	case PTI_INST_MOV_CR3:
-		return 1;
-	}
-}
-
 static int pt_insn_is_far_branch(const struct pt_ild *ild)
 {
 	if (!ild)
@@ -994,7 +958,8 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 }
 
 static int process_one_event_after(struct pt_insn_decoder *decoder,
-				   struct pt_insn *insn)
+				   struct pt_insn *insn,
+				   const struct pt_insn_ext *iext)
 {
 	struct pt_event *ev;
 	const struct pt_ild *ild;
@@ -1021,8 +986,8 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 
 		if (ev->ip_suppressed) {
 			if ((ild->u.s.branch && ild->u.s.branch_far) ||
-			    pt_insn_changes_cpl(ild) ||
-			    pt_insn_changes_cr3(ild))
+			    pt_insn_changes_cpl(insn, iext) ||
+			    pt_insn_changes_cr3(insn, iext))
 				return process_sync_disabled_event(decoder,
 								   insn, ild);
 
@@ -1063,7 +1028,8 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 }
 
 static int process_events_after(struct pt_insn_decoder *decoder,
-				struct pt_insn *insn)
+				struct pt_insn *insn,
+				const struct pt_insn_ext *iext)
 {
 	int pending, processed, errcode;
 
@@ -1078,7 +1044,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 	decoder->vmcs_event_bound = 0;
 
 	for (;;) {
-		processed = process_one_event_after(decoder, insn);
+		processed = process_one_event_after(decoder, insn, iext);
 		if (processed < 0)
 			return processed;
 
@@ -1441,7 +1407,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 */
 	decoder->event_may_change_ip = 0;
 
-	errcode = process_events_after(decoder, pinsn);
+	errcode = process_events_after(decoder, pinsn, &iext);
 	if (errcode < 0)
 		goto err;
 

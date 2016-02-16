@@ -53,6 +53,7 @@ set(LIBIPT_FILES
   src/pt_packet.c
   src/pt_decoder_function.c
   src/pt_config.c
+  src/pt_insn.c
 )
 
 if (CMAKE_HOST_UNIX)
