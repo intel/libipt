@@ -427,21 +427,38 @@ static void ptdump_tracking_fini(struct ptdump_tracking *tracking)
 static int print_buffer(struct ptdump_buffer *buffer, uint64_t offset,
 			const struct ptdump_options *options)
 {
+	const char *sep;
+
 	if (!buffer)
 		return diag("error printing buffer", offset, -pte_internal);
 
 	if (buffer->skip || options->quiet)
 		return 0;
 
-	printf("%-*s", (int) sizeof(buffer->offset), buffer->offset);
+	/* Make sure the first column starts at the beginning of the line - no
+	 * matter what column is first.
+	 */
+	sep = "";
 
-	if (buffer->raw[0])
-		printf(" %-*s", (int) sizeof(buffer->raw), buffer->raw);
+	if (options->show_offset) {
+		printf("%-*s", (int) sizeof(buffer->offset), buffer->offset);
+		sep = " ";
+	}
+
+	if (buffer->raw[0]) {
+		printf("%s%-*s", sep, (int) sizeof(buffer->raw), buffer->raw);
+		sep = " ";
+	}
 
 	if (buffer->payload.standard[0])
-		printf(" %-*s", (int) sizeof(buffer->opcode), buffer->opcode);
+		printf("%s%-*s", sep, (int) sizeof(buffer->opcode),
+		       buffer->opcode);
 	else
-		printf(" %s", buffer->opcode);
+		printf("%s%s", sep, buffer->opcode);
+
+	/* We printed at least one column.  From this point on, we don't need
+	 * the separator any longer.
+	 */
 
 	if (buffer->use_ext_payload)
 		printf(" %s", buffer->payload.extended);
