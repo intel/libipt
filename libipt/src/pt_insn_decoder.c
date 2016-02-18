@@ -1240,21 +1240,24 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
-static int proceed(struct pt_insn_decoder *decoder)
+static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
+		   const struct pt_insn_ext *iext)
 {
-	const struct pt_ild *ild;
-
-	if (!decoder)
+	if (!decoder || !insn || !iext)
 		return -pte_internal;
 
-	ild = &decoder->ild;
-
-	if (!ild->u.s.branch) {
-		decoder->ip += ild->length;
+	/* We handle non-branches, non-taken conditional branches, and
+	 * compressed returns directly in the switch and do some pre-work for
+	 * calls.
+	 *
+	 * All kinds of branches are handled below the switch.
+	 */
+	switch (insn->iclass) {
+	case ptic_other:
+		decoder->ip += insn->size;
 		return 0;
-	}
 
-	if (ild->u.s.cond) {
+	case ptic_cond_jump: {
 		int status, taken;
 
 		status = pt_qry_cond_branch(&decoder->query, &taken);
@@ -1263,12 +1266,14 @@ static int proceed(struct pt_insn_decoder *decoder)
 
 		decoder->status = status;
 		if (!taken) {
-			decoder->ip += ild->length;
+			decoder->ip += insn->size;
 			return 0;
 		}
 
-		/* Fall through to process the taken branch. */
-	} else if (ild->u.s.call && !ild->u.s.branch_far) {
+		break;
+	}
+
+	case ptic_call: {
 		uint64_t nip;
 
 		/* Log the call for return compression.
@@ -1276,12 +1281,15 @@ static int proceed(struct pt_insn_decoder *decoder)
 		 * Unless this is a call to the next instruction as is used
 		 * for position independent code.
 		 */
-		nip = decoder->ip + ild->length;
-		if (!ild->u.s.branch_direct || (nip != ild->direct_target))
+		nip = decoder->ip + insn->size;
+		if (!iext->variant.branch.is_direct ||
+		    (nip != iext->variant.branch.target))
 			pt_retstack_push(&decoder->retstack, nip);
 
-		/* Fall through to process the call. */
-	} else if (ild->u.s.ret && !ild->u.s.branch_far) {
+		break;
+	}
+
+	case ptic_return: {
 		int taken, status;
 
 		/* Check for a compressed return. */
@@ -1299,12 +1307,26 @@ static int proceed(struct pt_insn_decoder *decoder)
 					       &decoder->ip);
 		}
 
-		/* Fall through to process the uncompressed return. */
+		break;
 	}
 
-	/* Process the actual branch. */
-	if (ild->u.s.branch_direct)
-		decoder->ip = ild->direct_target;
+	case ptic_jump:
+	case ptic_far_call:
+	case ptic_far_return:
+	case ptic_far_jump:
+		break;
+
+	case ptic_error:
+		return -pte_bad_insn;
+	}
+
+	/* Process a direct or indirect branch.
+	 *
+	 * This combines calls, uncompressed returns, taken conditional jumps,
+	 * and all flavors of far transfers.
+	 */
+	if (iext->variant.branch.is_direct)
+		decoder->ip = iext->variant.branch.target;
 	else {
 		int status;
 
@@ -1432,7 +1454,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 */
 	if (decoder->enabled) {
 		/* Proceed errors are signaled one instruction too early. */
-		errcode = proceed(decoder);
+		errcode = proceed(decoder, pinsn, &iext);
 		if (errcode < 0)
 			goto err;
 
