@@ -33,105 +33,38 @@
 #include "intel-pt.h"
 
 
-/* A test mapping. */
-struct sfix_mapping {
-	/* The contents. */
-	uint8_t content[0x10];
-
-	/* The size - between 0 and sizeof(content). */
-	uint64_t size;
-};
-
 uint64_t pt_section_size(const struct pt_section *section)
 {
 	if (!section)
 		return 0ull;
 
-	return section->size;
+	return 0x1000ull;
 }
 
-int pt_section_map(struct pt_section *section)
+static struct ptunit_result begin(void)
 {
-	if (!section)
-		return -pte_internal;
-
-	if (section->mapping)
-		return -pte_internal;
-
-	section->mapping = section->status;
-	return 0;
-}
-
-int pt_section_unmap(struct pt_section *section)
-{
-	if (!section)
-		return -pte_internal;
-
-	if (!section->mapping)
-		return -pte_internal;
-
-	section->mapping = NULL;
-	return 0;
-}
-
-int pt_section_read(const struct pt_section *section, uint8_t *buffer,
-		    uint16_t size, uint64_t offset)
-{
-	struct sfix_mapping *mapping;
-	uint64_t begin, end;
-
-	if (!section || !buffer)
-		return -pte_invalid;
-
-	mapping = section->mapping;
-	if (!mapping)
-		return -pte_nomap;
-
-	if (mapping->size <= offset)
-		return -pte_nomap;
-
-	begin = offset;
-	end = begin + size;
-
-	if (mapping->size < end) {
-		end = mapping->size;
-		size = (uint16_t) (end - begin);
-	}
-
-	memcpy(buffer, &mapping->content[begin], size);
-
-	return size;
-}
-
-/* A test fixture providing a test sections. */
-struct section_fixture {
-	/* The test mapping. */
-	struct sfix_mapping mapping;
-
-	/* The test section. */
-	struct pt_section section;
-
-	/* The test mapped section. */
 	struct pt_mapped_section msec;
+	struct pt_section sec;
+	uint64_t begin;
 
-	/* The address space of @msec. */
-	struct pt_asid asid;
+	pt_msec_init(&msec, &sec, NULL, 0x2000ull);
 
-	/* The virtual address of @msec. */
-	uint64_t vaddr;
+	begin = pt_msec_begin(&msec);
+	ptu_uint_eq(begin, 0x2000);
 
-	/* The test fixture initialization and finalization functions. */
-	struct ptunit_result (*init)(struct section_fixture *);
-	struct ptunit_result (*fini)(struct section_fixture *);
-};
+	return ptu_passed();
+}
 
-
-static struct ptunit_result init(struct section_fixture *sfix)
+static struct ptunit_result end(void)
 {
-	ptu_ptr_eq(sfix->msec.section, &sfix->section);
-	ptu_uint_eq(sfix->msec.vaddr, sfix->vaddr);
-	ptu_uint_eq(sfix->msec.asid.size, sfix->asid.size);
-	ptu_uint_eq(sfix->msec.asid.cr3, sfix->asid.cr3);
+	struct pt_mapped_section msec;
+	struct pt_section sec;
+	uint64_t begin;
+
+	pt_msec_init(&msec, &sec, NULL, 0x2000ull);
+
+	begin = pt_msec_end(&msec);
+	ptu_uint_eq(begin, 0x3000);
 
 	return ptu_passed();
 }
@@ -141,30 +74,10 @@ static struct ptunit_result end_bad(void)
 	struct pt_mapped_section msec;
 	uint64_t end;
 
-	pt_msec_init(&msec, NULL, NULL, 0x1000);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
 
 	end = pt_msec_end(&msec);
 	ptu_uint_eq(end, 0ull);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result begin(struct section_fixture *sfix)
-{
-	uint64_t begin;
-
-	begin = pt_msec_begin(&sfix->msec);
-	ptu_uint_eq(begin, sfix->vaddr);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result end(struct section_fixture *sfix)
-{
-	uint64_t end;
-
-	end = pt_msec_end(&sfix->msec);
-	ptu_uint_eq(end, sfix->vaddr + sfix->section.size);
 
 	return ptu_passed();
 }
@@ -176,159 +89,102 @@ static struct ptunit_result asid(void)
 	const struct pt_asid *pasid;
 
 	pt_asid_init(&asid);
-	asid.cr3 = 0xa00;
+	asid.cr3 = 0xa00000ull;
+	asid.vmcs = 0xb00000ull;
 
-	pt_msec_init(&msec, NULL, &asid, 0ull);
+	pt_msec_init(&msec, NULL, &asid, 0x2000ull);
 
 	pasid = pt_msec_asid(&msec);
-	ptu_uint_eq(pasid->size, asid.size);
+	ptu_ptr(pasid);
 	ptu_uint_eq(pasid->cr3, asid.cr3);
+	ptu_uint_eq(pasid->vmcs, asid.vmcs);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result read(struct section_fixture *sfix)
+static struct ptunit_result asid_null(void)
 {
-	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
-	int status;
+	struct pt_mapped_section msec;
+	const struct pt_asid *pasid;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid, sfix->vaddr);
-	ptu_int_eq(status, 2);
-	ptu_uint_eq(buffer[0], sfix->mapping.content[0]);
-	ptu_uint_eq(buffer[1], sfix->mapping.content[1]);
-	ptu_uint_eq(buffer[2], 0xcc);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+
+	pasid = pt_msec_asid(&msec);
+	ptu_ptr(pasid);
+	ptu_uint_eq(pasid->cr3, pt_asid_no_cr3);
+	ptu_uint_eq(pasid->vmcs, pt_asid_no_vmcs);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result read_default_asid(struct section_fixture *sfix)
+static struct ptunit_result map(void)
 {
-	struct pt_asid asid;
-	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
-	int status;
+	struct pt_mapped_section msec;
+	uint64_t mapped;
 
-	pt_asid_init(&asid);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, &asid, sfix->vaddr);
-	ptu_int_eq(status, 2);
-	ptu_uint_eq(buffer[0], sfix->mapping.content[0]);
-	ptu_uint_eq(buffer[1], sfix->mapping.content[1]);
-	ptu_uint_eq(buffer[2], 0xcc);
+	mapped = pt_msec_map(&msec, 0x1000);
+	ptu_uint_eq(mapped, 0x3000);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result read_offset(struct section_fixture *sfix)
+static struct ptunit_result unmap(void)
 {
-	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
-	int status;
+	struct pt_mapped_section msec;
+	uint64_t offset;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid,
-			      sfix->vaddr + 3);
-	ptu_int_eq(status, 2);
-	ptu_uint_eq(buffer[0], sfix->mapping.content[3]);
-	ptu_uint_eq(buffer[1], sfix->mapping.content[4]);
-	ptu_uint_eq(buffer[2], 0xcc);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+
+	offset = pt_msec_unmap(&msec, 0x3000);
+	ptu_uint_eq(offset, 0x1000);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result read_truncated(struct section_fixture *sfix)
+static struct ptunit_result section(void)
 {
-	uint8_t buffer[] = { 0xcc, 0xcc };
-	int status;
+	static struct pt_section section;
+	struct pt_mapped_section msec;
+	struct pt_section *psection;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid,
-			      sfix->vaddr + sfix->section.size - 1);
-	ptu_int_eq(status, 1);
-	ptu_uint_eq(buffer[0], sfix->mapping.content[sfix->mapping.size - 1]);
-	ptu_uint_eq(buffer[1], 0xcc);
+	pt_msec_init(&msec, &section, NULL, 0x2000ull);
+
+	psection = pt_msec_section(&msec);
+	ptu_ptr_eq(psection, &section);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result read_nomem_vaddr(struct section_fixture *sfix)
+static struct ptunit_result section_null(void)
 {
-	uint8_t buffer[] = { 0xcc };
-	int status;
+	struct pt_mapped_section msec;
+	struct pt_section *psection;
 
-	status = pt_msec_read(&sfix->msec, buffer, 2, &sfix->asid,
-			      sfix->vaddr + sfix->section.size);
-	ptu_int_eq(status, -pte_nomap);
-	ptu_uint_eq(buffer[0], 0xcc);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
 
-	return ptu_passed();
-}
-
-static struct ptunit_result read_nomem_asid(struct section_fixture *sfix)
-{
-	struct pt_asid asid;
-	uint8_t buffer[] = { 0xcc };
-	int status;
-
-	pt_asid_init(&asid);
-	asid.cr3 = 0xcece00ull;
-
-	status = pt_msec_read(&sfix->msec, buffer, 2, &asid, sfix->vaddr);
-	ptu_int_eq(status, -pte_nomap);
-	ptu_uint_eq(buffer[0], 0xcc);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result sfix_init(struct section_fixture *sfix)
-{
-	uint8_t i;
-
-	sfix->section.size = sfix->mapping.size = sizeof(sfix->mapping.content);
-	sfix->vaddr = 0x1000;
-
-	for (i = 0; i < sfix->mapping.size; ++i)
-		sfix->mapping.content[i] = i;
-
-	sfix->section.status = &sfix->mapping;
-	sfix->section.mapping = NULL;
-
-	pt_asid_init(&sfix->asid);
-	sfix->asid.cr3 = 0x4200ull;
-
-	pt_msec_init(&sfix->msec, &sfix->section, &sfix->asid, sfix->vaddr);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result sfix_fini(struct section_fixture *sfix)
-{
-	pt_msec_fini(&sfix->msec);
+	psection = pt_msec_section(&msec);
+	ptu_ptr_eq(psection, NULL);
 
 	return ptu_passed();
 }
 
 int main(int argc, char **argv)
 {
-	struct section_fixture sfix;
 	struct ptunit_suite suite;
-
-	sfix.init = sfix_init;
-	sfix.fini = sfix_fini;
 
 	suite = ptunit_mk_suite(argc, argv);
 
-	ptu_run_f(suite, init, sfix);
-
+	ptu_run(suite, begin);
+	ptu_run(suite, end);
 	ptu_run(suite, end_bad);
-
-	ptu_run_f(suite, begin, sfix);
-	ptu_run_f(suite, end, sfix);
-
 	ptu_run(suite, asid);
-
-	ptu_run_f(suite, read, sfix);
-	ptu_run_f(suite, read_default_asid, sfix);
-	ptu_run_f(suite, read_offset, sfix);
-	ptu_run_f(suite, read_truncated, sfix);
-	ptu_run_f(suite, read_nomem_vaddr, sfix);
-	ptu_run_f(suite, read_nomem_asid, sfix);
+	ptu_run(suite, asid_null);
+	ptu_run(suite, map);
+	ptu_run(suite, unmap);
+	ptu_run(suite, section);
+	ptu_run(suite, section_null);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

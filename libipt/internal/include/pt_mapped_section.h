@@ -111,30 +111,4 @@ static inline uint64_t pt_msec_unmap(const struct pt_mapped_section *msec,
 	return vaddr - msec->vaddr;
 }
 
-/* Read memory from a mapped section.
- *
- * Reads at most @size bytes from @msec at @addr in @asid into @buffer.
- *
- * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_internal, if @msec or @asid are NULL.
- * Returns -pte_invalid, if @buffer is NULL.
- * Returns -pte_nomap, if the mapped section does not contain @addr in @asid.
- */
-extern int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
-			uint16_t size, const struct pt_asid *asid,
-			uint64_t addr);
-
-/* Read memory from a mapped section.
- *
- * This function is similar to the above but requires the caller to map @msec.
- *
- * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_internal, if @msec or @asid are NULL.
- * Returns -pte_invalid, if @buffer is NULL.
- * Returns -pte_nomap, if the mapped section does not contain @addr in @asid.
- */
-extern int pt_msec_read_mapped(const struct pt_mapped_section *msec,
-			       uint8_t *buffer, uint16_t size,
-			       const struct pt_asid *asid, uint64_t addr);
-
 #endif /* PT_MAPPED_SECTION_H */

@@ -27,7 +27,6 @@
  */
 
 #include "pt_mapped_section.h"
-#include "pt_section.h"
 #include "pt_asid.h"
 
 #include "intel-pt.h"
@@ -55,60 +54,4 @@ void pt_msec_fini(struct pt_mapped_section *msec)
 
 	msec->section = NULL;
 	msec->vaddr = 0ull;
-}
-
-int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
-		 uint16_t size, const struct pt_asid *asid, uint64_t addr)
-{
-	struct pt_section *sec;
-	int errcode, status;
-
-	if (!msec)
-		return -pte_internal;
-
-	sec = msec->section;
-
-	errcode = pt_section_map(sec);
-	if (errcode < 0)
-		return errcode;
-
-	status = pt_msec_read_mapped(msec, buffer, size, asid, addr);
-
-	errcode = pt_section_unmap(sec);
-	if (errcode < 0)
-		return errcode;
-
-	return status;
-}
-
-int pt_msec_read_mapped(const struct pt_mapped_section *msec, uint8_t *buffer,
-			uint16_t size, const struct pt_asid *asid,
-			uint64_t addr)
-{
-	const struct pt_asid *masid;
-	struct pt_section *sec;
-	int errcode, status;
-
-	if (!msec || !asid)
-		return -pte_internal;
-
-	masid = pt_msec_asid(msec);
-
-	errcode = pt_asid_match(masid, asid);
-	if (errcode < 0)
-		return errcode;
-
-	if (!errcode)
-		return -pte_nomap;
-
-	if (addr < msec->vaddr)
-		return -pte_nomap;
-
-	addr -= msec->vaddr;
-
-	sec = msec->section;
-
-	status = pt_section_read(sec, buffer, size, addr);
-
-	return status;
 }
