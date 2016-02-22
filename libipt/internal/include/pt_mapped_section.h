@@ -97,6 +97,20 @@ pt_msec_asid(const struct pt_mapped_section *msec)
 	return &msec->asid;
 }
 
+/* Translate a section/file offset into a virtual address. */
+static inline uint64_t pt_msec_map(const struct pt_mapped_section *msec,
+				   uint64_t offset)
+{
+	return offset + msec->vaddr;
+}
+
+/* Translate a virtual address into a section/file offset. */
+static inline uint64_t pt_msec_unmap(const struct pt_mapped_section *msec,
+				     uint64_t vaddr)
+{
+	return vaddr - msec->vaddr;
+}
+
 /* Read memory from a mapped section.
  *
  * Reads at most @size bytes from @msec at @addr in @asid into @buffer.
