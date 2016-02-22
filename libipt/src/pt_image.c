@@ -589,6 +589,45 @@ static int pt_image_read_callback(struct pt_image *image, uint8_t *buffer,
 	return callback(buffer, size, asid, addr, image->readmem.context);
 }
 
+/* Read memory from a mapped section.
+ *
+ * @msec's section must be mapped.
+ *
+ * Returns the number of bytes read on success.
+ * Returns a negative error code otherwise.
+ */
+
+static int pt_image_read_msec(uint8_t *buffer, uint16_t size,
+			      const struct pt_mapped_section *msec,
+			      const struct pt_asid *asid, uint64_t addr)
+{
+	const struct pt_asid *masid;
+	struct pt_section *section;
+	uint64_t begin, offset;
+	int errcode;
+
+	if (!msec)
+		return -pte_internal;
+
+	masid = pt_msec_asid(msec);
+	begin = pt_msec_begin(msec);
+	if (addr < begin)
+		return -pte_nomap;
+
+	errcode = pt_asid_match(masid, asid);
+	if (errcode <= 0) {
+		if (!errcode)
+			errcode = -pte_nomap;
+
+		return errcode;
+	}
+
+	section = pt_msec_section(msec);
+	offset = pt_msec_unmap(msec, addr);
+
+	return pt_section_read(section, buffer, size, offset);
+}
+
 static int pt_image_read_cold(struct pt_image *image,
 			      struct pt_section_list **list,
 			      uint8_t *buffer, uint16_t size,
@@ -617,7 +656,7 @@ static int pt_image_read_cold(struct pt_image *image,
 				return errcode;
 		}
 
-		status = pt_msec_read_mapped(msec, buffer, size, asid, addr);
+		status = pt_image_read_msec(buffer, size, msec, asid, addr);
 		if (status < 0) {
 			if (!mapped) {
 				errcode = pt_section_unmap(sec);
@@ -688,7 +727,7 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 		if (!elem->mapped)
 			break;
 
-		status = pt_msec_read_mapped(msec, buffer, size, asid, addr);
+		status = pt_image_read_msec(buffer, size, msec, asid, addr);
 		if (status < 0) {
 			list = &elem->next;
 			continue;
