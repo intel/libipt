@@ -348,6 +348,7 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 		struct pt_mapped_section *msec;
 		const struct pt_asid *masid;
 		struct pt_section_list *trash;
+		uint64_t begin;
 		int errcode;
 
 		trash = *list;
@@ -361,7 +362,8 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 		if (!errcode)
 			continue;
 
-		if (msec->section == section && msec->vaddr == vaddr) {
+		begin = pt_msec_begin(msec);
+		if (msec->section == section && begin == vaddr) {
 			*list = trash->next;
 			pt_section_list_free(trash);
 
