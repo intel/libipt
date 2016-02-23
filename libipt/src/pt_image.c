@@ -160,8 +160,7 @@ static int pt_image_clone(struct pt_section_list **list,
 	if (!list || !msec)
 		return -pte_internal;
 
-	sec = msec->section;
-
+	sec = pt_msec_section(msec);
 	masid = pt_msec_asid(msec);
 	mbegin = pt_msec_begin(msec);
 	sbegin = pt_section_offset(sec);
@@ -251,8 +250,8 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 			continue;
 		}
 
-		/* The new section overlaps with @msec->section. */
-		lsec = msec->section;
+		/* The new section overlaps with @msec's section. */
+		lsec = pt_msec_section(msec);
 
 		/* Let's check for an identical overlap that may be the result
 		 * of repeatedly copying images or repeatedly adding the same
@@ -346,6 +345,7 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 
 	for (list = &image->sections; *list; list = &((*list)->next)) {
 		struct pt_mapped_section *msec;
+		const struct pt_section *sec;
 		const struct pt_asid *masid;
 		struct pt_section_list *trash;
 		uint64_t begin;
@@ -363,7 +363,8 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 			continue;
 
 		begin = pt_msec_begin(msec);
-		if (msec->section == section && begin == vaddr) {
+		sec = pt_msec_section(msec);
+		if (sec == section && begin == vaddr) {
 			*list = trash->next;
 			pt_section_list_free(trash);
 
@@ -446,6 +447,7 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 	removed = 0;
 	for (list = &image->sections; *list;) {
 		struct pt_mapped_section *msec;
+		const struct pt_section *sec;
 		const struct pt_asid *masid;
 		struct pt_section_list *trash;
 		const char *tname;
@@ -463,7 +465,8 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 			continue;
 		}
 
-		tname = pt_section_filename(msec->section);
+		sec = pt_msec_section(msec);
+		tname = pt_section_filename(sec);
 
 		if (tname && (strcmp(tname, filename) == 0)) {
 			*list = trash->next;
@@ -605,7 +608,7 @@ static int pt_image_read_cold(struct pt_image *image,
 
 		elem = *list;
 		msec = &elem->section;
-		sec = msec->section;
+		sec = pt_msec_section(msec);
 
 		mapped = elem->mapped;
 		if (!mapped) {

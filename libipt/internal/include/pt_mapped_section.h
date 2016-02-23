@@ -80,6 +80,13 @@ static inline uint64_t pt_msec_end(const struct pt_mapped_section *msec)
 	return size;
 }
 
+/* Return the underlying section. */
+static inline struct pt_section *
+pt_msec_section(const struct pt_mapped_section *msec)
+{
+	return msec->section;
+}
+
 /* Return an identifier for the address-space the section is mapped into. */
 static inline const struct pt_asid *
 pt_msec_asid(const struct pt_mapped_section *msec)
