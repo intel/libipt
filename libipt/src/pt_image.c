@@ -225,14 +225,16 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 	list = &(image->sections);
 	while (*list) {
 		const struct pt_mapped_section *msec;
+		const struct pt_asid *masid;
 		struct pt_section_list *current;
 		struct pt_section *lsec;
 		uint64_t lbegin, lend;
 
 		current = *list;
 		msec = &current->section;
+		masid = pt_msec_asid(msec);
 
-		errcode = pt_msec_matches_asid(msec, asid);
+		errcode = pt_asid_match(masid, asid);
 		if (errcode < 0)
 			break;
 
@@ -344,13 +346,15 @@ int pt_image_remove(struct pt_image *image, struct pt_section *section,
 
 	for (list = &image->sections; *list; list = &((*list)->next)) {
 		struct pt_mapped_section *msec;
+		const struct pt_asid *masid;
 		struct pt_section_list *trash;
 		int errcode;
 
 		trash = *list;
 		msec = &trash->section;
+		masid = pt_msec_asid(msec);
 
-		errcode = pt_msec_matches_asid(msec, asid);
+		errcode = pt_asid_match(masid, asid);
 		if (errcode < 0)
 			return errcode;
 
@@ -440,13 +444,15 @@ int pt_image_remove_by_filename(struct pt_image *image, const char *filename,
 	removed = 0;
 	for (list = &image->sections; *list;) {
 		struct pt_mapped_section *msec;
+		const struct pt_asid *masid;
 		struct pt_section_list *trash;
 		const char *tname;
 
 		trash = *list;
 		msec = &trash->section;
+		masid = pt_msec_asid(msec);
 
-		errcode = pt_msec_matches_asid(msec, &asid);
+		errcode = pt_asid_match(masid, &asid);
 		if (errcode < 0)
 			return errcode;
 
@@ -486,12 +492,14 @@ int pt_image_remove_by_asid(struct pt_image *image,
 	removed = 0;
 	for (list = &image->sections; *list;) {
 		struct pt_mapped_section *msec;
+		const struct pt_asid *masid;
 		struct pt_section_list *trash;
 
 		trash = *list;
 		msec = &trash->section;
+		masid = pt_msec_asid(msec);
 
-		errcode = pt_msec_matches_asid(msec, &asid);
+		errcode = pt_asid_match(masid, &asid);
 		if (errcode < 0)
 			return errcode;
 

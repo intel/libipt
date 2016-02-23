@@ -73,17 +73,6 @@ pt_msec_asid(const struct pt_mapped_section *msec)
 	return &msec->asid;
 }
 
-/* Check if a section matches an asid.
- *
- * Returns a positive number if @msec matches @asid.
- * Returns zero if @msec does not match @asid.
- * Returns a negative error code otherwise.
- *
- * Returns -pte_internal if @msec or @asid are NULL.
- */
-extern int pt_msec_matches_asid(const struct pt_mapped_section *msec,
-				const struct pt_asid *asid);
-
 /* Read memory from a mapped section.
  *
  * Reads at most @size bytes from @msec at @addr in @asid into @buffer.

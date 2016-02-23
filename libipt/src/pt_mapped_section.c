@@ -79,15 +79,6 @@ uint64_t pt_msec_end(const struct pt_mapped_section *msec)
 	return msec->vaddr + size;
 }
 
-int pt_msec_matches_asid(const struct pt_mapped_section *msec,
-			 const struct pt_asid *asid)
-{
-	if (!msec || !asid)
-		return -pte_internal;
-
-	return pt_asid_match(&msec->asid, asid);
-}
-
 int pt_msec_read(const struct pt_mapped_section *msec, uint8_t *buffer,
 		 uint16_t size, const struct pt_asid *asid, uint64_t addr)
 {
@@ -116,13 +107,16 @@ int pt_msec_read_mapped(const struct pt_mapped_section *msec, uint8_t *buffer,
 			uint16_t size, const struct pt_asid *asid,
 			uint64_t addr)
 {
+	const struct pt_asid *masid;
 	struct pt_section *sec;
 	int errcode, status;
 
 	if (!msec || !asid)
 		return -pte_internal;
 
-	errcode = pt_msec_matches_asid(msec, asid);
+	masid = pt_msec_asid(msec);
+
+	errcode = pt_asid_match(masid, asid);
 	if (errcode < 0)
 		return errcode;
 
