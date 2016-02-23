@@ -30,10 +30,9 @@
 #define PT_MAPPED_SECTION_H
 
 #include "intel-pt.h"
+#include "pt_section.h"
 
 #include <stdint.h>
-
-struct pt_section;
 
 
 /* A section mapped into memory. */
@@ -58,10 +57,28 @@ extern void pt_msec_init(struct pt_mapped_section *msec,
 extern void pt_msec_fini(struct pt_mapped_section *msec);
 
 /* Return the virtual address of the beginning of the memory region. */
-extern uint64_t pt_msec_begin(const struct pt_mapped_section *msec);
+static inline uint64_t pt_msec_begin(const struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return 0ull;
+
+	return msec->vaddr;
+}
 
 /* Return the virtual address one byte past the end of the memory region. */
-extern uint64_t pt_msec_end(const struct pt_mapped_section *msec);
+static inline uint64_t pt_msec_end(const struct pt_mapped_section *msec)
+{
+	uint64_t size;
+
+	if (!msec)
+		return 0ull;
+
+	size = pt_section_size(msec->section);
+	if (size)
+		size += msec->vaddr;
+
+	return size;
+}
 
 /* Return an identifier for the address-space the section is mapped into. */
 static inline const struct pt_asid *

@@ -28,7 +28,6 @@
 
 #include "ptunit.h"
 
-#include "pt_section.h"
 #include "pt_mapped_section.h"
 
 #include "intel-pt.h"
@@ -133,26 +132,6 @@ static struct ptunit_result init(struct section_fixture *sfix)
 	ptu_uint_eq(sfix->msec.vaddr, sfix->vaddr);
 	ptu_uint_eq(sfix->msec.asid.size, sfix->asid.size);
 	ptu_uint_eq(sfix->msec.asid.cr3, sfix->asid.cr3);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result begin_null(void)
-{
-	uint64_t begin;
-
-	begin = pt_msec_begin(NULL);
-	ptu_uint_eq(begin, 0ull);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result end_null(void)
-{
-	uint64_t end;
-
-	end = pt_msec_end(NULL);
-	ptu_uint_eq(end, 0ull);
 
 	return ptu_passed();
 }
@@ -337,8 +316,6 @@ int main(int argc, char **argv)
 
 	ptu_run_f(suite, init, sfix);
 
-	ptu_run(suite, begin_null);
-	ptu_run(suite, end_null);
 	ptu_run(suite, end_bad);
 
 	ptu_run_f(suite, begin, sfix);
