@@ -331,12 +331,7 @@ static void opcode_dec(struct pt_ild *ild, uint8_t length)
 
 		get_next_as_opcode(ild, length + 1);
 		return;
-	} else if (m == 0x3B) {
-		pti_set_map(ild, PTI_MAP_INVALID);
-
-		get_next_as_opcode(ild, length + 1);
-		return;
-	} else if (m > 0x38 && m <= 0x3F) {
+	} else if (bits_match(m, 0xf8, 0x38)) {
 		pti_set_map(ild, PTI_MAP_INVALID);
 
 		get_next_as_opcode(ild, length + 1);
