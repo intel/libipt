@@ -190,16 +190,6 @@ static struct ptunit_result end(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result asid_null(void)
-{
-	const struct pt_asid *asid;
-
-	asid = pt_msec_asid(NULL);
-	ptu_null(asid);
-
-	return ptu_passed();
-}
-
 static struct ptunit_result asid(void)
 {
 	struct pt_mapped_section msec;
@@ -354,7 +344,6 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, begin, sfix);
 	ptu_run_f(suite, end, sfix);
 
-	ptu_run(suite, asid_null);
 	ptu_run(suite, asid);
 
 	ptu_run_f(suite, read, sfix);

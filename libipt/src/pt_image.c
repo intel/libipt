@@ -151,7 +151,7 @@ static int pt_image_clone(struct pt_section_list **list,
 			  const struct pt_mapped_section *msec,
 			  uint64_t begin, uint64_t end)
 {
-
+	const struct pt_asid *masid;
 	struct pt_section_list *next;
 	struct pt_section *section, *sec;
 	uint64_t mbegin, sbegin, offset, size;
@@ -162,6 +162,7 @@ static int pt_image_clone(struct pt_section_list **list,
 
 	sec = msec->section;
 
+	masid = pt_msec_asid(msec);
 	mbegin = pt_msec_begin(msec);
 	sbegin = pt_section_offset(sec);
 
@@ -178,7 +179,7 @@ static int pt_image_clone(struct pt_section_list **list,
 	if (errcode < 0)
 		return errcode;
 
-	next = pt_mk_section_list(section, pt_msec_asid(msec), begin);
+	next = pt_mk_section_list(section, masid, begin);
 	if (!next) {
 		(void) pt_section_put(section);
 

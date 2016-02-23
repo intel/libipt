@@ -64,7 +64,14 @@ extern uint64_t pt_msec_begin(const struct pt_mapped_section *msec);
 extern uint64_t pt_msec_end(const struct pt_mapped_section *msec);
 
 /* Return an identifier for the address-space the section is mapped into. */
-extern const struct pt_asid *pt_msec_asid(const struct pt_mapped_section *msec);
+static inline const struct pt_asid *
+pt_msec_asid(const struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return NULL;
+
+	return &msec->asid;
+}
 
 /* Check if a section matches an asid.
  *

@@ -79,14 +79,6 @@ uint64_t pt_msec_end(const struct pt_mapped_section *msec)
 	return msec->vaddr + size;
 }
 
-const struct pt_asid *pt_msec_asid(const struct pt_mapped_section *msec)
-{
-	if (!msec)
-		return NULL;
-
-	return &msec->asid;
-}
-
 int pt_msec_matches_asid(const struct pt_mapped_section *msec,
 			 const struct pt_asid *asid)
 {
