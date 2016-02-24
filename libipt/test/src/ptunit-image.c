@@ -44,6 +44,12 @@ struct ifix_mapping {
 
 	/* The size - between 0 and sizeof(content). */
 	uint64_t size;
+
+	/* An artificial error code to be injected into pt_section_read().
+	 *
+	 * If @errcode is non-zero, pt_section_read() fails with @errcode.
+	 */
+	int errcode;
 };
 
 /* A test file status - turned into a section status. */
@@ -309,6 +315,9 @@ static int ifix_read(const struct pt_section *section, uint8_t *buffer,
 	mapping = section->mapping;
 	if (!mapping)
 		return -pte_nomap;
+
+	if (mapping->errcode)
+		return mapping->errcode;
 
 	if (mapping->size <= begin)
 		return -pte_nomap;
@@ -959,6 +968,42 @@ static struct ptunit_result read_truncated(struct image_fixture *ifix)
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], 0x0f);
 	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_error(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc };
+	int status;
+
+	ifix->mapping[0].errcode = -pte_nosync;
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, -pte_nosync);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_spurious_error(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0x00);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	ifix->mapping[0].errcode = -pte_nosync;
+
+	status = pt_image_read(&ifix->image, buffer, 1, &ifix->asid[0],
+			       0x1005ull);
+	ptu_int_eq(status, -pte_nosync);
+	ptu_uint_eq(buffer[0], 0x00);
 
 	return ptu_passed();
 }
@@ -1618,6 +1663,8 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, read_callback, rfix);
 	ptu_run_f(suite, read_nomem, rfix);
 	ptu_run_f(suite, read_truncated, rfix);
+	ptu_run_f(suite, read_error, rfix);
+	ptu_run_f(suite, read_spurious_error, rfix);
 
 	ptu_run_f(suite, remove_section, rfix);
 	ptu_run_f(suite, remove_bad_vaddr, rfix);

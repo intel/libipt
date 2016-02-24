@@ -658,6 +658,12 @@ static int pt_image_read_cold(struct pt_image *image,
 
 		status = pt_image_read_msec(buffer, size, msec, asid, addr);
 		if (status < 0) {
+			if (status != -pte_nomap) {
+				if (!mapped)
+					(void) pt_section_unmap(sec);
+				return status;
+			}
+
 			if (!mapped) {
 				errcode = pt_section_unmap(sec);
 				if (errcode < 0)
@@ -729,6 +735,9 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 
 		status = pt_image_read_msec(buffer, size, msec, asid, addr);
 		if (status < 0) {
+			if (status != -pte_nomap)
+				return status;
+
 			list = &elem->next;
 			continue;
 		}
