@@ -467,6 +467,7 @@ static void decode(struct pt_insn_decoder *decoder,
 
 	xed_state_zero(&xed);
 
+	offset = 0ull;
 	sync = 0ull;
 	for (;;) {
 		struct pt_insn insn;
@@ -499,9 +500,11 @@ static void decode(struct pt_insn_decoder *decoder,
 		}
 
 		for (;;) {
-			errcode = pt_insn_get_offset(decoder, &offset);
-			if (errcode < 0)
-				break;
+			if (options->print_offset) {
+				errcode = pt_insn_get_offset(decoder, &offset);
+				if (errcode < 0)
+					break;
+			}
 
 			errcode = pt_insn_next(decoder, &insn, sizeof(insn));
 			if (errcode < 0)
