@@ -266,6 +266,9 @@ int pt_section_add_bcache(struct pt_section *section)
 	if (!section || section->bcache)
 		return -pte_internal;
 
+	if (section->disable_bcache)
+		return 0;
+
 	cache_size = (uint32_t) section->size;
 
 	/* We do not allocate a cache if it would get too big.

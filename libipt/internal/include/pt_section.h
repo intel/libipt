@@ -106,6 +106,12 @@ struct pt_section {
 
 	/* The number of current mappers.  The last unmaps the section. */
 	uint16_t mcount;
+
+	/* A collection of flags to:
+	 *
+	 * - disable block caching.
+	 */
+	uint32_t disable_bcache:1;
 };
 
 /* Create a section.
@@ -118,7 +124,8 @@ struct pt_section {
  *
  * If @offset lies beyond the end of @file, no section is created.
  *
- * The returned section is not mapped and starts with a user count of one.
+ * The returned section is not mapped and starts with a user count of one and
+ * instruction caching enabled.
  *
  * Returns a new section on success, NULL otherwise.
  */
@@ -207,6 +214,18 @@ pt_section_bcache(const struct pt_section *section)
 		return NULL;
 
 	return section->bcache;
+}
+
+/* Enable block caching. */
+static inline void pt_section_enable_bcache(struct pt_section *section)
+{
+	section->disable_bcache = 0;
+}
+
+/* Disable block caching. */
+static inline void pt_section_disable_bcache(struct pt_section *section)
+{
+	section->disable_bcache = 1;
 }
 
 /* Create the OS-specific file status.
