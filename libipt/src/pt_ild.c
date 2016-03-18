@@ -225,19 +225,16 @@ static int set_imm_bytes(struct pt_ild *ild)
 	/*: set ild->imm1_bytes and  ild->imm2_bytes for maps 0/1 */
 	static uint8_t const *const map_map[] = {
 		/* map 0 */ imm_bytes_map_0x0,
-		/* map 1 */ imm_bytes_map_0x0F,
-		/* map 2 */ 0,
-		/* map 3 */ 0,
-		/* amd3dnow */ 0,
-		/* invalid */ 0
+		/* map 1 */ imm_bytes_map_0x0F
 	};
-	uint8_t const *const map_imm = map_map[ild->map];
-	uint8_t imm_code;
+	uint8_t map, imm_code;
 
-	if (map_imm == 0)
+	map = ild->map;
+
+	if ((sizeof(map_map) / sizeof(*map_map)) <= map)
 		return 0;
 
-	imm_code = map_imm[ild->nominal_opcode];
+	imm_code = map_map[map][ild->nominal_opcode];
 	switch (imm_code) {
 	case PTI_IMM_NONE:
 	case PTI_0_IMM_WIDTH_CONST_l2:
