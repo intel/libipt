@@ -1280,8 +1280,6 @@ static int proceed(struct pt_insn_decoder *decoder)
 		/* Check for a compressed return. */
 		status = pt_qry_cond_branch(&decoder->query, &taken);
 		if (status >= 0) {
-			int errcode;
-
 			decoder->status = status;
 
 			/* A compressed return is indicated by a taken
@@ -1290,12 +1288,8 @@ static int proceed(struct pt_insn_decoder *decoder)
 			if (!taken)
 				return -pte_bad_retcomp;
 
-			errcode = pt_retstack_pop(&decoder->retstack,
-						  &decoder->ip);
-			if (errcode < 0)
-				return errcode;
-
-			return 0;
+			return pt_retstack_pop(&decoder->retstack,
+					       &decoder->ip);
 		}
 
 		/* Fall through to process the uncompressed return. */
