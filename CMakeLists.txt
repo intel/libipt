@@ -60,7 +60,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(CMAKE_MACOSX_RPATH ON)
 
-option(FEATURE_THREADS "A small amount of multi-threading support." OFF)
+option(FEATURE_THREADS "A small amount of multi-threading support." ON)
 if (FEATURE_THREADS)
   add_definitions(-DFEATURE_THREADS)
 endif (FEATURE_THREADS)
