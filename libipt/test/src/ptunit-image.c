@@ -1562,6 +1562,8 @@ struct ptunit_result ifix_fini(struct image_fixture *ifix)
 	for (sec = 0; sec < ifix_nsecs; ++sec) {
 		ptu_int_eq(ifix->section[sec].ucount, 0);
 		ptu_int_eq(ifix->section[sec].mcount, 0);
+		ptu_int_le(ifix->status[sec].deleted, 1);
+		ptu_int_eq(ifix->status[sec].bad_put, 0);
 	}
 
 	return ptu_passed();
