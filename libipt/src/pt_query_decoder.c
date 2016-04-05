@@ -2543,6 +2543,184 @@ static int pt_qry_handle_apl12(struct pt_query_decoder *decoder,
 	return status;
 }
 
+/* Apply workaround for erratum APL11.
+ *
+ * We search for a TIP.PGD and, if we found one, resume from after that packet
+ * with tracing disabled.  On our way to the resume location we process packets
+ * to update our state.
+ *
+ * If we don't find a TIP.PGD but instead some other packet that indicates that
+ * tracing is disabled, indicate that the erratum does not apply.
+ *
+ * Any event will be dropped.
+ *
+ * Returns zero if the erratum was handled.
+ * Returns a positive integer if the erratum was not handled.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int apl11_apply(struct pt_query_decoder *decoder,
+		       struct pt_packet_decoder *pkt)
+{
+	struct pt_time_cal tcal;
+	struct pt_time time;
+
+	if (!decoder)
+		return -pte_internal;
+
+	time = decoder->time;
+	tcal = decoder->tcal;
+	for (;;) {
+		struct pt_packet packet;
+		int errcode;
+
+		errcode = pt_pkt_next(pkt, &packet, sizeof(packet));
+		if (errcode < 0)
+			return errcode;
+
+		switch (packet.type) {
+		case ppt_tip_pgd: {
+			uint64_t offset;
+
+			/* We found a TIP.PGD.  The erratum applies.
+			 *
+			 * Resume from here with tracing disabled.
+			 */
+			errcode = pt_pkt_get_offset(pkt, &offset);
+			if (errcode < 0)
+				return errcode;
+
+			decoder->time = time;
+			decoder->tcal = tcal;
+			decoder->pos = decoder->config.begin + offset;
+
+			return pt_qry_event_ovf_disabled(decoder);
+		}
+
+		case ppt_invalid:
+			return -pte_bad_opc;
+
+		case ppt_fup:
+		case ppt_psb:
+		case ppt_tip_pge:
+		case ppt_stop:
+		case ppt_ovf:
+		case ppt_mode:
+		case ppt_pip:
+		case ppt_vmcs:
+		case ppt_exstop:
+		case ppt_mwait:
+		case ppt_pwre:
+		case ppt_pwrx:
+		case ppt_ptw:
+			/* The erratum does not apply. */
+			return 1;
+
+		case ppt_unknown:
+		case ppt_pad:
+		case ppt_mnt:
+			/* Skip those packets. */
+			break;
+
+		case ppt_psbend:
+		case ppt_tip:
+		case ppt_tnt_8:
+		case ppt_tnt_64:
+			return -pte_bad_context;
+
+
+		case ppt_tsc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_tsc(&time, &tcal,
+						   &packet.payload.tsc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_cbr:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_cbr(&time, &tcal,
+						   &packet.payload.cbr,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_tma:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_tma(&time, &tcal,
+						   &packet.payload.tma,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_mtc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_mtc(&time, &tcal,
+						   &packet.payload.mtc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ppt_cyc:
+			/* Keep track of time. */
+			errcode = pt_qry_apply_cyc(&time, &tcal,
+						   &packet.payload.cyc,
+						   &decoder->config);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+		}
+	}
+}
+
+/* Handle erratum APL11.
+ *
+ * This function is called when we diagnose a bad packet while searching for a
+ * FUP after an OVF.
+ *
+ * Due to erratum APL11 we may get an extra TIP.PGD after the OVF.  Find that
+ * TIP.PGD and resume from there with tracing disabled.
+ *
+ * This will drop any CBR or MTC events.  We will update @decoder's timing state
+ * on CBR but drop the event.
+ *
+ * Returns zero if the erratum was handled.
+ * Returns a positive integer if the erratum was not handled.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_qry_handle_apl11(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_decoder pkt;
+	uint64_t offset;
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = pt_qry_get_offset(decoder, &offset);
+	if (status < 0)
+		return status;
+
+	status = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (status < 0)
+		return status;
+
+	status = pt_pkt_sync_set(&pkt, offset);
+	if (status >= 0)
+		status = apl11_apply(decoder, &pkt);
+
+	pt_pkt_decoder_fini(&pkt);
+	return status;
+}
+
 static int pt_pkt_find_ovf_fup(struct pt_packet_decoder *decoder)
 {
 	for (;;) {
@@ -2690,6 +2868,18 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		 */
 		if (decoder->config.errata.skd010) {
 			status = pt_qry_handle_skd010(decoder);
+			if (status <= 0)
+				return status;
+		}
+
+		/* Check for erratum APL11.
+		 *
+		 * We may have gotten an extra TIP.PGD, which should be
+		 * diagnosed by our search for a subsequent FUP.
+		 */
+		if (decoder->config.errata.apl11 &&
+		    (offset == -pte_bad_context)) {
+			status = pt_qry_handle_apl11(decoder);
 			if (status <= 0)
 				return status;
 		}

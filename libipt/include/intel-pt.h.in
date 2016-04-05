@@ -316,6 +316,17 @@ struct pt_errata {
 	 */
 	uint32_t apl12:1;
 
+	/** APL11: Intel(R) PT OVF Pakcet May Be Followed by TIP.PGD Packet
+	 *
+	 * If Intel PT (Processor Trace) encounters an internal buffer overflow
+	 * and generates an OVF (Overflow) packet just as IA32_RTIT_CTL (MSR
+	 * 570H) bit 0 (TraceEn) is cleared, or during a far transfer that
+	 * causes IA32_RTIT_STATUS.ContextEn[1] (MSR 571H) to be cleared, the
+	 * OVF may be followed by a TIP.PGD (Target Instruction Pointer - Packet
+	 * Generation Disable) packet.
+	 */
+	uint32_t apl11:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
