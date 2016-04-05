@@ -82,6 +82,54 @@ static int pt_qry_find_header_fup(struct pt_packet *packet,
 	}
 }
 
+static int pt_qry_skip(struct pt_query_decoder *decoder,
+		       struct pt_packet_decoder *pkt)
+{
+	struct pt_packet packet;
+	int errcode;
+
+	if (!decoder || !pkt)
+		return -pte_internal;
+
+	errcode = pt_pkt_next(pkt, &packet, sizeof(packet));
+	if (errcode < 0)
+		return errcode;
+
+	if (!packet.size)
+		return -pte_bad_packet;
+
+	decoder->pos += packet.size;
+
+	return 0;
+}
+
+/* Ignore the next packet. */
+
+static int pt_qry_ignore(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_decoder pkt;
+	uint64_t offset;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_qry_get_offset(decoder, &offset);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_sync_set(&pkt, offset);
+	if (errcode >= 0)
+		errcode = pt_qry_skip(decoder, &pkt);
+
+	pt_pkt_decoder_fini(&pkt);
+	return errcode;
+}
+
 int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 			const struct pt_config *config)
 {
@@ -2409,6 +2457,18 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 
 			if (errcode)
 				return 0;
+		}
+
+		/* Check for erratum APL11.
+		 *
+		 * We may encounter an extra TIP.PGD if the overflow resolved
+		 * just as tracing was disabled.
+		 */
+		if (decoder->config.errata.apl11 &&
+		    dfun == &pt_decode_tip_pgd) {
+			status = pt_qry_ignore(decoder);
+			if (status < 0)
+				return status;
 		}
 
 		ev = pt_evq_standalone(&decoder->evq);
