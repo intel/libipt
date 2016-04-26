@@ -126,19 +126,23 @@ static void help(const char *name)
 	       name);
 }
 
-static int extract_base(char *arg, uint64_t *base, const char *prog)
+static int extract_base(char *arg, uint64_t *base)
 {
 	char *sep, *rest;
 
-	sep = strstr(arg, ":");
+	sep = strrchr(arg, ':');
 	if (sep) {
-		errno = 0;
-		*base = strtoull(sep+1, &rest, 0);
-		if (errno || *rest) {
-			fprintf(stderr, "%s: bad argument: %s.\n", prog, arg);
-			return -1;
-		}
+		uint64_t num;
 
+		if (!sep[1])
+			return 0;
+
+		errno = 0;
+		num = strtoull(sep+1, &rest, 0);
+		if (errno || *rest)
+			return 0;
+
+		*base = num;
 		*sep = 0;
 		return 1;
 	}
@@ -146,11 +150,11 @@ static int extract_base(char *arg, uint64_t *base, const char *prog)
 	return 0;
 }
 
-static int parse_range(char *arg, uint64_t *begin, uint64_t *end)
+static int parse_range(const char *arg, uint64_t *begin, uint64_t *end)
 {
 	char *rest;
 
-	if (!arg)
+	if (!arg || !*arg)
 		return 0;
 
 	errno = 0;
@@ -159,7 +163,7 @@ static int parse_range(char *arg, uint64_t *begin, uint64_t *end)
 		return -1;
 
 	if (!*rest)
-		return 0;
+		return 1;
 
 	if (*rest != '-')
 		return -1;
@@ -168,7 +172,7 @@ static int parse_range(char *arg, uint64_t *begin, uint64_t *end)
 	if (errno || *rest)
 		return -1;
 
-	return 0;
+	return 2;
 }
 
 static int load_file(uint8_t **buffer, size_t *size, char *arg,
@@ -179,7 +183,7 @@ static int load_file(uint8_t **buffer, size_t *size, char *arg,
 	size_t read;
 	FILE *file;
 	long fsize, begin, end;
-	int errcode;
+	int errcode, range_parts;
 	char *range;
 
 	if (!buffer || !size || !arg || !prog) {
@@ -187,10 +191,26 @@ static int load_file(uint8_t **buffer, size_t *size, char *arg,
 		return -1;
 	}
 
-	range = strstr(arg, ":");
+	range_parts = 0;
+	begin_arg = 0ull;
+	end_arg = UINT64_MAX;
+
+	range = strrchr(arg, ':');
 	if (range) {
-		range += 1;
-		range[-1] = 0;
+		/* Let's try to parse an optional range suffix.
+		 *
+		 * If we can, remove it from the filename argument.
+		 * If we can not, assume that the ':' is part of the filename,
+		 * e.g. a drive letter on Windows.
+		 */
+		range_parts = parse_range(range + 1, &begin_arg, &end_arg);
+		if (range_parts <= 0) {
+			begin_arg = 0ull;
+			end_arg = UINT64_MAX;
+
+			range_parts = 0;
+		} else
+			*range = 0;
 	}
 
 	errno = 0;
@@ -215,13 +235,11 @@ static int load_file(uint8_t **buffer, size_t *size, char *arg,
 		goto err_file;
 	}
 
-	begin_arg = 0ull;
-	end_arg = (uint64_t) fsize;
-	errcode = parse_range(range, &begin_arg, &end_arg);
-	if (errcode < 0) {
-		fprintf(stderr, "%s: bad range: %s.\n", prog, range);
-		goto err_file;
-	}
+	/* Truncate the range to fit into the file unless an explicit range end
+	 * was provided.
+	 */
+	if (range_parts < 2)
+		end_arg = (uint64_t) fsize;
 
 	begin = (long) begin_arg;
 	end = (long) end_arg;
@@ -306,7 +324,7 @@ static int load_raw(struct pt_image *image, char *arg, const char *prog)
 	uint64_t base;
 	int errcode, has_base;
 
-	has_base = extract_base(arg, &base, prog);
+	has_base = extract_base(arg, &base);
 	if (has_base <= 0)
 		return 1;
 
@@ -730,7 +748,7 @@ extern int main(int argc, char *argv[])
 			}
 			arg = argv[i++];
 			base = 0ull;
-			errcode = extract_base(arg, &base, prog);
+			errcode = extract_base(arg, &base);
 			if (errcode < 0)
 				goto err;
 
