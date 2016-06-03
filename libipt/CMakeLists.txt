@@ -47,7 +47,6 @@ set(LIBIPT_FILES
   src/pt_retstack.c
   src/pt_insn_decoder.c
   src/pt_time.c
-  src/pt_mapped_section.c
   src/pt_asid.c
   src/pt_event_queue.c
   src/pt_packet.c
@@ -111,13 +110,13 @@ add_ptunit_std_test(retstack)
 add_ptunit_std_test(ild)
 add_ptunit_std_test(cpu)
 add_ptunit_std_test(time)
-add_ptunit_std_test(mapped_section src/pt_asid.c)
 add_ptunit_std_test(asid)
 add_ptunit_std_test(event_queue)
-add_ptunit_std_test(image src/pt_mapped_section.c src/pt_asid.c)
+add_ptunit_std_test(image src/pt_asid.c)
 add_ptunit_std_test(sync src/pt_packet.c)
 add_ptunit_std_test(config)
 
+add_ptunit_c_test(mapped_section src/pt_asid.c)
 add_ptunit_c_test(query
   src/pt_encoder.c
   src/pt_last_ip.c

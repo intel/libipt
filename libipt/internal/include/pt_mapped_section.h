@@ -49,12 +49,30 @@ struct pt_mapped_section {
 
 
 /* Initialize a mapped section - @section may be NULL. */
-extern void pt_msec_init(struct pt_mapped_section *msec,
-			 struct pt_section *section, const struct pt_asid *asid,
-			 uint64_t vaddr);
+static inline void pt_msec_init(struct pt_mapped_section *msec,
+				struct pt_section *section,
+				const struct pt_asid *asid,
+				uint64_t vaddr)
+{
+	if (!msec)
+		return;
+
+	msec->section = section;
+	msec->vaddr = vaddr;
+
+	if (asid)
+		msec->asid = *asid;
+	else
+		pt_asid_init(&msec->asid);
+}
 
 /* Destroy a mapped section - does not free @msec->section. */
-extern void pt_msec_fini(struct pt_mapped_section *msec);
+static inline void pt_msec_fini(struct pt_mapped_section *msec)
+{
+	(void) msec;
+
+	/* Nothing to do. */
+}
 
 /* Return the virtual address of the beginning of the memory region. */
 static inline uint64_t pt_msec_begin(const struct pt_mapped_section *msec)
