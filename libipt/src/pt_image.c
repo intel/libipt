@@ -587,18 +587,20 @@ static int pt_image_prune_cache(struct pt_image *image)
 	return status;
 }
 
-static int pt_image_read_callback(struct pt_image *image, uint8_t *buffer,
-				  uint16_t size, const struct pt_asid *asid,
-				  uint64_t addr)
+static int pt_image_read_callback(struct pt_image *image, int *isid,
+				  uint8_t *buffer, uint16_t size,
+				  const struct pt_asid *asid, uint64_t addr)
 {
 	read_memory_callback_t *callback;
 
-	if (!image)
+	if (!image || !isid)
 		return -pte_internal;
 
 	callback = image->readmem.callback;
 	if (!callback)
 		return -pte_nomap;
+
+	*isid = 0;
 
 	return callback(buffer, size, asid, addr, image->readmem.context);
 }
@@ -733,7 +735,7 @@ static int pt_image_fetch_section(struct pt_image *image,
 	return -pte_nomap;
 }
 
-static int pt_image_read_cold(struct pt_image *image,
+static int pt_image_read_cold(struct pt_image *image, int *isid,
 			      uint8_t *buffer, uint16_t size,
 			      const struct pt_asid *asid, uint64_t addr)
 {
@@ -741,7 +743,7 @@ static int pt_image_read_cold(struct pt_image *image,
 	struct pt_section_list *section;
 	int errcode;
 
-	if (!image)
+	if (!image || !isid)
 		return -pte_internal;
 
 	errcode = pt_image_fetch_section(image, asid, addr);
@@ -752,7 +754,8 @@ static int pt_image_read_cold(struct pt_image *image,
 
 	section = image->sections;
 	if (!section)
-		return pt_image_read_callback(image, buffer, size, asid, addr);
+		return pt_image_read_callback(image, isid, buffer, size, asid,
+					      addr);
 
 	msec = &section->section;
 
@@ -761,8 +764,11 @@ static int pt_image_read_cold(struct pt_image *image,
 		if (errcode != -pte_nomap)
 			return errcode;
 
-		return pt_image_read_callback(image, buffer, size, asid, addr);
+		return pt_image_read_callback(image, isid, buffer, size, asid,
+					      addr);
 	}
+
+	*isid = section->isid;
 
 	if (section->mapped)
 		return pt_image_read_msec(buffer, size, msec, addr);
@@ -787,22 +793,24 @@ static int pt_image_read_cold(struct pt_image *image,
 }
 
 
-int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
-		  const struct pt_asid *asid, uint64_t addr)
+int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
+		  uint16_t size, const struct pt_asid *asid, uint64_t addr)
 {
 	struct pt_mapped_section *msec;
 	struct pt_section_list *section;
 	int errcode;
 
-	if (!image)
+	if (!image || !isid)
 		return -pte_internal;
 
 	section = image->sections;
 	if (!section)
-		return pt_image_read_callback(image, buffer, size, asid, addr);
+		return pt_image_read_callback(image, isid, buffer, size, asid,
+					      addr);
 
 	if (!section->mapped)
-		return pt_image_read_cold(image, buffer, size, asid, addr);
+		return pt_image_read_cold(image, isid, buffer, size, asid,
+					  addr);
 
 	msec = &section->section;
 
@@ -811,8 +819,11 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 		if (errcode != -pte_nomap)
 			return errcode;
 
-		return pt_image_read_cold(image, buffer, size, asid, addr);
+		return pt_image_read_cold(image, isid, buffer, size, asid,
+					  addr);
 	}
+
+	*isid = section->isid;
 
 	return pt_image_read_msec(buffer, size, msec, addr);
 }

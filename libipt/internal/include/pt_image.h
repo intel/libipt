@@ -111,10 +111,10 @@ extern int pt_image_remove(struct pt_image *image, struct pt_section *section,
  * Reads at most @size bytes from @image at @addr in @asid into @buffer.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_internal if @image, @buffer, or @asid is NULL.
+ * Returns -pte_internal if @image, @isid, @buffer, or @asid is NULL.
  * Returns -pte_nomap if the section does not contain @addr.
  */
-extern int pt_image_read(struct pt_image *image, uint8_t *buffer,
+extern int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
 			 uint16_t size, const struct pt_asid *asid,
 			 uint64_t addr);
 
