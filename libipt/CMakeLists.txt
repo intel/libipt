@@ -44,6 +44,7 @@ set(LIBIPT_FILES
   src/pt_tnt_cache.c
   src/pt_ild.c
   src/pt_image.c
+  src/pt_image_section_cache.c
   src/pt_retstack.c
   src/pt_insn_decoder.c
   src/pt_time.c

@@ -98,6 +98,6 @@ pte_invalid
 # SEE ALSO
 
 **pt_image_alloc**(3), **pt_image_free**(3), **pt_image_add_file**(3),
-**pt_image_copy**(3), **pt_image_remove_by_filename**(3),
-**pt_image_remove_by_asid**(3), **pt_insn_set_image**(3),
-**pt_insn_get_image**(3)
+**pt_image_add_cached**(3), pt_image_copy**(3),
+**pt_image_remove_by_filename**(3), pt_image_remove_by_asid**(3),
+**pt_insn_set_image**(3), pt_insn_get_image**(3)

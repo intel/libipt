@@ -421,3 +421,61 @@ int pt_iscache_clear(struct pt_image_section_cache *iscache)
 	free(entries);
 	return 0;
 }
+
+struct pt_image_section_cache *pt_iscache_alloc(const char *name)
+{
+	struct pt_image_section_cache *iscache;
+
+	iscache = malloc(sizeof(*iscache));
+	if (iscache)
+		pt_iscache_init(iscache, name);
+
+	return iscache;
+}
+
+void pt_iscache_free(struct pt_image_section_cache *iscache)
+{
+	if (!iscache)
+		return;
+
+	pt_iscache_fini(iscache);
+	free(iscache);
+}
+
+const char *pt_iscache_name(const struct pt_image_section_cache *iscache)
+{
+	if (!iscache)
+		return NULL;
+
+	return iscache->name;
+}
+
+int pt_iscache_add_file(struct pt_image_section_cache *iscache,
+			const char *filename, uint64_t offset, uint64_t size,
+			uint64_t vaddr)
+{
+	struct pt_section *section;
+	int isid, errcode;
+
+	if (!iscache || !filename)
+		return -pte_invalid;
+
+	isid = pt_iscache_find(iscache, filename, offset, size, vaddr);
+	if (isid != 0)
+		return isid;
+
+	section = pt_mk_section(filename, offset, size);
+	if (!section)
+		return -pte_invalid;
+
+	isid = pt_iscache_add(iscache, section, vaddr);
+
+	/* We grab a reference when we add the section.  Drop the one we
+	 * obtained when creating the section.
+	 */
+	errcode = pt_section_put(section);
+	if (errcode < 0)
+		return errcode;
+
+	return isid;
+}

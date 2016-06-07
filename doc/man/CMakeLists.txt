@@ -81,6 +81,8 @@ set(MAN3_FUNCTIONS
   pt_insn_get_offset
   pt_insn_get_image
   pt_insn_next
+  pt_iscache_alloc
+  pt_iscache_add_file
 )
 
 foreach (function ${MAN3_FUNCTIONS})
@@ -113,6 +115,7 @@ add_man_page_alias(3 pt_qry_time pt_insn_core_bus_ratio)
 add_man_page_alias(3 pt_image_alloc pt_image_free)
 add_man_page_alias(3 pt_image_alloc pt_image_name)
 add_man_page_alias(3 pt_image_add_file pt_image_copy)
+add_man_page_alias(3 pt_image_add_file pt_image_add_cached)
 add_man_page_alias(3 pt_image_remove_by_filename pt_image_remove_by_asid)
 add_man_page_alias(3 pt_insn_alloc_decoder pt_insn_free_decoder)
 add_man_page_alias(3 pt_insn_sync_forward pt_insn_sync_backward)
@@ -120,5 +123,7 @@ add_man_page_alias(3 pt_insn_sync_forward pt_insn_sync_set)
 add_man_page_alias(3 pt_insn_get_offset pt_insn_get_sync_offset)
 add_man_page_alias(3 pt_insn_get_image pt_insn_set_image)
 add_man_page_alias(3 pt_insn_next pt_insn)
+add_man_page_alias(3 pt_iscache_alloc pt_iscache_free)
+add_man_page_alias(3 pt_iscache_alloc pt_iscache_name)
 
 add_custom_target(man ALL DEPENDS ${MAN_PAGES})

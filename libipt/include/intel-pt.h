@@ -1576,6 +1576,53 @@ static inline void pt_asid_init(struct pt_asid *asid)
 }
 
 
+/** A cache of traced image sections. */
+struct pt_image_section_cache;
+
+/** Allocate a traced memory image section cache.
+ *
+ * An optional \@name may be given to the cache.  The name string is copied.
+ *
+ * Returns a new traced memory image section cache on success, NULL otherwise.
+ */
+extern pt_export struct pt_image_section_cache *
+pt_iscache_alloc(const char *name);
+
+/** Free a traced memory image section cache.
+ *
+ * The \@iscache must have been allocated with pt_iscache_alloc().
+ * The \@iscache must not be used after a successful return.
+ */
+extern pt_export void pt_iscache_free(struct pt_image_section_cache *iscache);
+
+/** Get the image section cache name.
+ *
+ * Returns a pointer to \@iscache's name or NULL if there is no name.
+ */
+extern pt_export const char *
+pt_iscache_name(const struct pt_image_section_cache *iscache);
+
+/** Add a new file section to the traced memory image section cache.
+ *
+ * Adds a new section consisting of \@size bytes starting at \@offset in
+ * \@filename loaded at the virtual address \@vaddr if \@iscache does not
+ * already contain such a section.
+ *
+ * Returns an image section identifier (isid) uniquely identifying that section
+ * in \@iscache.
+ *
+ * The section is silently truncated to match the size of \@filename.
+ *
+ * Returns a positive isid on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@iscache or \@filename is NULL.
+ * Returns -pte_invalid if \@offset is too big.
+ */
+extern pt_export int pt_iscache_add_file(struct pt_image_section_cache *iscache,
+					 const char *filename, uint64_t offset,
+					 uint64_t size, uint64_t vaddr);
+
+
 /** The traced memory image. */
 struct pt_image;
 
@@ -1625,6 +1672,21 @@ extern pt_export int pt_image_add_file(struct pt_image *image,
 				       uint64_t size,
 				       const struct pt_asid *asid,
 				       uint64_t vaddr);
+
+/** Add a section from an image section cache.
+ *
+ * Add the section from \@iscache identified by \@isid in address space \@asid.
+ *
+ * Existing sections that would overlap with the new section will be shrunk
+ * or split.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_invalid if \@image or \@iscache is NULL.
+ * Returns -pte_bad_image if \@iscache does not contain \@isid.
+ */
+extern pt_export int pt_image_add_cached(struct pt_image *image,
+					 struct pt_image_section_cache *iscache,
+					 int isid, const struct pt_asid *asid);
 
 /** Copy an image.
  *

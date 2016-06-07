@@ -662,10 +662,10 @@ this if you only use one decoder and one image.
 
 An image is a collection of contiguous, non-overlapping memory regions called
 `sections`.  Starting with an empty image, it may be populated with repeated
-calls to `pt_image_add_file()`, one for each section, or with a call to
-`pt_image_copy()` to add all sections from another image.  If a newly added
-section overlaps with an existing section, the existing section will be
-truncated or split to make room for the new section.
+calls to `pt_image_add_file()` or `pt_image_add_cached()`, one for each section,
+or with a call to `pt_image_copy()` to add all sections from another image.  If
+a newly added section overlaps with an existing section, the existing section
+will be truncated or split to make room for the new section.
 
 In some cases, the memory image may change during the execution.  You can use
 the `pt_image_remove_by_filename()` function to remove previously added sections
@@ -689,6 +689,25 @@ images for different processes at the same time.  The decoder will select the
 correct image based on context switch information in the Intel PT trace.  If
 you want to manage this on your own, you can use `pt_insn_set_image()` to
 replace the image a decoder uses.
+
+
+#### The Traced Image Section Cache
+
+When using multiple decoders that work on related memory images it is desirable
+to share image sections between decoders.  The underlying file sections will be
+mapped only once per image section cache.
+
+Use `pt_iscache_alloc()` to allocate and `pt_iscache_free()` to free an image
+section cache.  Freeing the cache does not destroy sections added to the cache.
+They remain valid until they are no longer used.
+
+Use `pt_iscache_add_file()` to add a file section to an image section cache.
+The function returns an image section identifier that uniquely identifies the
+section in this cache.  Use `pt_image_add_cached()` to add a file section from
+an image section cache to an image.
+
+Multiple image section caches may be used at the same time but it is recommended
+not to mix sections from different image section caches in one image.
 
 
 #### Synchronizing

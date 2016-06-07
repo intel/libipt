@@ -30,8 +30,8 @@
 
 # NAME
 
-pt_image_add_file, pt_image_copy - add file sections to a traced memory image
-descriptor
+pt_image_add_file, pt_image_add_cached, pt_image_copy - add file sections to a
+traced memory image descriptor
 
 
 # SYNOPSIS
@@ -40,7 +40,10 @@ descriptor
 |
 | **int pt_image_add_file(struct pt_image \**image*, const char \**filename*,**
 |                       **uint64_t *offset*, uint64_t *size*,**
-|				        **const struct pt_asid \**asid*, uint64_t *vaddr*);**
+|                       **const struct pt_asid \**asid*, uint64_t *vaddr*);**
+| **int pt_image_add_cached(struct pt_image \**image*,**
+|                         **struct pt_image_section_cache \**iscache*,**
+|                         **int *isid*, const struct pt_asid \**asid*);**
 | **int pt_image_copy(struct pt_image \**image*,**
 |                   **const struct pt_image \**src*);**
 
@@ -56,6 +59,11 @@ contains the section.  The *offset* and *size* arguments define the section
 within the file.  The *size* argument is silently truncated to end the section
 with the end of the underlying file.  The *vaddr* argument gives the virtual
 address at which the section is being loaded.
+
+**pt_image_add_cached**() adds a new section from an image section cache.  See
+**pt_iscache_add_file**(3).  The *iscache* argument points to the
+*pt_image_section_cache* object containing the section.  The *isid* argument
+gives the image section identifier for the desired section in that cache.
 
 The *asid* argument gives an optional address space identifier.  If it is not
 NULL, it points to a *pt_asid* structure, which is declared as:
@@ -99,8 +107,8 @@ truncated or split to make room for the new section.
 
 # RETURN VALUE
 
-**pt_image_add_file**() returns zero on success or a negative *pt_error_code*
-enumeration constant in case of an error.
+**pt_image_add_file**() and **pt_image_add_cached**() return zero on success or
+a negative *pt_error_code* enumeration constant in case of an error.
 
 **pt_image_copy**() returns the number of ignored sections on success or a
 negative *pt_error_code* enumeration constant in case of an error.
@@ -112,11 +120,16 @@ pte_invalid
 :   The *image* or *filename* argument is NULL or the *offset* argument is too
     big such that the section would start past the end of the file
     (**pt_image_add_file**()).
+    The *image* or *iscache* argument is NULL (**pt_image_add_cached**()).
     The *src* or *dst* argument is NULL (**pt_image_copy**()).
+
+pte_bad_image
+:   The *iscache* does not contain *isid* (**pt_image_add_cached**()).
 
 
 # SEE ALSO
 
 **pt_image_alloc**(3), **pt_image_free**(3),
 **pt_image_remove_by_filename**(3), **pt_image_remove_by_asid**(3),
-**pt_image_set_callback**(3), **pt_insn_set_image**(3), **pt_insn_get_image**(3)
+**pt_image_set_callback**(3), **pt_insn_set_image**(3),
+**pt_insn_get_image**(3), **pt_iscache_alloc**(3), **pt_iscache_add_file**(3)

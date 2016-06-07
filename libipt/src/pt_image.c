@@ -29,6 +29,7 @@
 #include "pt_image.h"
 #include "pt_section.h"
 #include "pt_asid.h"
+#include "pt_image_section_cache.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -801,4 +802,36 @@ int pt_image_read(struct pt_image *image, uint8_t *buffer, uint16_t size,
 	}
 
 	return pt_image_read_msec(buffer, size, msec, addr);
+}
+
+int pt_image_add_cached(struct pt_image *image,
+			struct pt_image_section_cache *iscache, int isid,
+			const struct pt_asid *uasid)
+{
+	struct pt_section *section;
+	struct pt_asid asid;
+	uint64_t vaddr;
+	int errcode, status;
+
+	if (!image || !iscache)
+		return -pte_invalid;
+
+	errcode = pt_iscache_lookup(iscache, &section, &vaddr, isid);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_asid_from_user(&asid, uasid);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_image_add(image, section, &asid, vaddr);
+
+	/* We grab a reference when we add the section.  Drop the one we
+	 * obtained from cache lookup.
+	 */
+	errcode = pt_section_put(section);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
 }

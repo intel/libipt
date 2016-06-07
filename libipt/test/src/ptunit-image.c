@@ -74,6 +74,18 @@ enum {
 	ifix_nsecs = 5
 };
 
+/* A fake image section cache. */
+struct pt_image_section_cache {
+	/* The cached sections. */
+	struct pt_section *section[ifix_nsecs];
+
+	/* Their load addresses. */
+	uint64_t laddr[ifix_nsecs];
+
+	/* The number of used sections. */
+	int nsecs;
+};
+
 /* A test fixture providing an image, test sections, and asids. */
 struct image_fixture {
 	/* The image. */
@@ -96,6 +108,9 @@ struct image_fixture {
 
 	/* An initially empty image as destination for image copies. */
 	struct pt_image copy;
+
+	/* A test section cache. */
+	struct pt_image_section_cache iscache;
 
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct image_fixture *);
@@ -140,6 +155,27 @@ static int ifix_add_section(struct image_fixture *ifix, char *filename)
 			  &ifix->mapping[index], ifix);
 
 	ifix->nsecs += 1;
+	return index;
+}
+
+static int ifix_cache_section(struct image_fixture *ifix,
+			      struct pt_section *section, uint64_t laddr)
+{
+	int index;
+
+	if (!ifix)
+		return -pte_internal;
+
+	index = ifix->iscache.nsecs;
+	if (ifix_nsecs <= index)
+		return -pte_internal;
+
+	ifix->iscache.section[index] = section;
+	ifix->iscache.laddr[index] = laddr;
+
+	index += 1;
+	ifix->iscache.nsecs = index;
+
 	return index;
 }
 
@@ -274,6 +310,23 @@ int pt_section_put(struct pt_section *section)
 	}
 
 	return 0;
+}
+
+int pt_iscache_lookup(struct pt_image_section_cache *iscache,
+		      struct pt_section **section, uint64_t *laddr, int isid)
+{
+	if (!iscache || !section || !laddr)
+		return -pte_internal;
+
+	if (!isid || iscache->nsecs < isid)
+		return -pte_bad_image;
+
+	isid -= 1;
+
+	*section = iscache->section[isid];
+	*laddr = iscache->laddr[isid];
+
+	return pt_section_get(*section);
 }
 
 static int ifix_unmap(struct pt_section *section)
@@ -1556,6 +1609,106 @@ static struct ptunit_result copy_replace(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result add_cached_null(void)
+{
+	struct pt_image_section_cache iscache;
+	struct pt_image image;
+	int status;
+
+	status = pt_image_add_cached(NULL, &iscache, 0, NULL);
+	ptu_int_eq(status, -pte_invalid);
+
+	status = pt_image_add_cached(&image, NULL, 0, NULL);
+	ptu_int_eq(status, -pte_invalid);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_cached(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status, isid;
+
+	isid = ifix_cache_section(ifix, &ifix->section[0], 0x1000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_image_add_cached(&ifix->image, &ifix->iscache, isid,
+				      &ifix->asid[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_cached_null_asid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status, isid;
+
+	isid = ifix_cache_section(ifix, &ifix->section[0], 0x1000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_image_add_cached(&ifix->image, &ifix->iscache, isid, NULL);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_cached_twice(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status, isid;
+
+	isid = ifix_cache_section(ifix, &ifix->section[0], 0x1000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_image_add_cached(&ifix->image, &ifix->iscache, isid,
+				      &ifix->asid[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add_cached(&ifix->image, &ifix->iscache, isid,
+				      &ifix->asid[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x03);
+	ptu_uint_eq(buffer[1], 0x04);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_cached_bad_isid(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status;
+
+	status = pt_image_add_cached(&ifix->image, &ifix->iscache, 1,
+				      &ifix->asid[0]);
+	ptu_int_eq(status, -pte_bad_image);
+
+	status = pt_image_read(&ifix->image, buffer, 2, &ifix->asid[0],
+			       0x1003ull);
+	ptu_int_eq(status, -pte_nomap);
+
+	return ptu_passed();
+}
+
 struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	int index;
@@ -1566,6 +1719,7 @@ struct ptunit_result ifix_init(struct image_fixture *ifix)
 	memset(ifix->status, 0, sizeof(ifix->status));
 	memset(ifix->mapping, 0, sizeof(ifix->mapping));
 	memset(ifix->section, 0, sizeof(ifix->section));
+	memset(&ifix->iscache, 0, sizeof(ifix->iscache));
 
 	ifix->nsecs = 0;
 
@@ -1702,6 +1856,12 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, copy_merge, ifix);
 	ptu_run_f(suite, copy_overlap, ifix);
 	ptu_run_f(suite, copy_replace, ifix);
+
+	ptu_run(suite, add_cached_null);
+	ptu_run_f(suite, add_cached, ifix);
+	ptu_run_f(suite, add_cached_null_asid, ifix);
+	ptu_run_f(suite, add_cached_twice, ifix);
+	ptu_run_f(suite, add_cached_bad_isid, ifix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

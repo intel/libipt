@@ -217,14 +217,11 @@ struct iscache_fixture {
 	struct ptunit_result (*fini)(struct iscache_fixture *);
 };
 
-static struct ptunit_result cfix_init(struct iscache_fixture *cfix)
+static struct ptunit_result dfix_init(struct iscache_fixture *cfix)
 {
-	int errcode, idx;
+	int idx;
 
 	ptu_test(ptunit_thrd_init, &cfix->thrd);
-
-	errcode = pt_iscache_init(&cfix->iscache, NULL);
-	ptu_int_eq(errcode, 0);
 
 	memset(cfix->section, 0, sizeof(cfix->section));
 
@@ -238,6 +235,18 @@ static struct ptunit_result cfix_init(struct iscache_fixture *cfix)
 
 		cfix->section[idx] = section;
 	}
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cfix_init(struct iscache_fixture *cfix)
+{
+	int errcode;
+
+	ptu_test(dfix_init, cfix);
+
+	errcode = pt_iscache_init(&cfix->iscache, NULL);
+	ptu_int_eq(errcode, 0);
 
 	return ptu_passed();
 }
@@ -277,6 +286,16 @@ static struct ptunit_result init_null(void)
 static struct ptunit_result fini_null(void)
 {
 	pt_iscache_fini(NULL);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result name_null(void)
+{
+	const char *name;
+
+	name = pt_iscache_name(NULL);
+	ptu_null(name);
 
 	return ptu_passed();
 }
@@ -335,11 +354,56 @@ static struct ptunit_result clear_null(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result free_null(void)
+{
+	pt_iscache_free(NULL);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_file_null(void)
+{
+	struct pt_image_section_cache iscache;
+	int errcode;
+
+	errcode = pt_iscache_add_file(NULL, "filename", 0ull, 0ull, 0ull);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_iscache_add_file(&iscache, NULL, 0ull, 0ull, 0ull);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result init_fini(struct iscache_fixture *cfix)
 {
 	(void) cfix;
 
 	/* The actual init and fini calls are in cfix_init() and cfix_fini(). */
+	return ptu_passed();
+}
+
+static struct ptunit_result name(struct iscache_fixture *cfix)
+{
+	const char *name;
+
+	pt_iscache_init(&cfix->iscache, "iscache-name");
+
+	name = pt_iscache_name(&cfix->iscache);
+	ptu_str_eq(name, "iscache-name");
+
+	return ptu_passed();
+}
+
+static struct ptunit_result name_none(struct iscache_fixture *cfix)
+{
+	const char *name;
+
+	pt_iscache_init(&cfix->iscache, NULL);
+
+	name = pt_iscache_name(&cfix->iscache);
+	ptu_null(name);
+
 	return ptu_passed();
 }
 
@@ -366,6 +430,16 @@ static struct ptunit_result add_no_name(struct iscache_fixture *cfix)
 
 	errcode = pt_iscache_add(&cfix->iscache, &section, 0ull);
 	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_file(struct iscache_fixture *cfix)
+{
+	int isid;
+
+	isid = pt_iscache_add_file(&cfix->iscache, "name", 0ull, 1ull, 0ull);
+	ptu_int_gt(isid, 0);
 
 	return ptu_passed();
 }
@@ -668,7 +742,57 @@ add_different_same_laddr(struct iscache_fixture *cfix)
 	return ptu_passed();
 }
 
-static int worker(void *arg)
+static struct ptunit_result add_file_same(struct iscache_fixture *cfix)
+{
+	int isid[2];
+
+	isid[0] = pt_iscache_add_file(&cfix->iscache, "name", 0ull, 1ull, 0ull);
+	ptu_int_gt(isid[0], 0);
+
+	isid[1] = pt_iscache_add_file(&cfix->iscache, "name", 0ull, 1ull, 0ull);
+	ptu_int_gt(isid[1], 0);
+
+	/* The second add should be ignored. */
+	ptu_int_eq(isid[1], isid[0]);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result
+add_file_same_different_laddr(struct iscache_fixture *cfix)
+{
+	int isid[2];
+
+	isid[0] = pt_iscache_add_file(&cfix->iscache, "name", 0ull, 1ull, 0ull);
+	ptu_int_gt(isid[0], 0);
+
+	isid[1] = pt_iscache_add_file(&cfix->iscache, "name", 0ull, 1ull, 1ull);
+	ptu_int_gt(isid[1], 0);
+
+	/* We must get different identifiers. */
+	ptu_int_ne(isid[1], isid[0]);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result
+add_file_different_same_laddr(struct iscache_fixture *cfix)
+{
+	int isid[2];
+
+	isid[0] = pt_iscache_add_file(&cfix->iscache, "name", 0ull, 1ull, 0ull);
+	ptu_int_gt(isid[0], 0);
+
+	isid[1] = pt_iscache_add_file(&cfix->iscache, "name", 1ull, 1ull, 0ull);
+	ptu_int_gt(isid[1], 0);
+
+	/* We must get different identifiers. */
+	ptu_int_ne(isid[1], isid[0]);
+
+	return ptu_passed();
+}
+
+static int worker_add(void *arg)
 {
 	struct iscache_fixture *cfix;
 	int it;
@@ -722,7 +846,58 @@ static int worker(void *arg)
 	return 0;
 }
 
-static struct ptunit_result stress(struct iscache_fixture *cfix)
+static int worker_add_file(void *arg)
+{
+	struct iscache_fixture *cfix;
+	int it;
+
+	cfix = arg;
+	if (!cfix)
+		return -pte_internal;
+
+	for (it = 0; it < num_iterations; ++it) {
+		uint64_t offset, size, laddr;
+		int sec;
+
+		offset = num_iterations % 7 == 0 ? 0x1000 : 0x2000;
+		size = num_iterations % 5 == 0 ? 0x1000 : 0x2000;
+		laddr = num_iterations % 3 == 0 ? 0x1000 : 0x2000;
+
+		for (sec = 0; sec < num_sections; ++sec) {
+			struct pt_section *section;
+			uint64_t addr;
+			int isid, errcode;
+
+			isid = pt_iscache_add_file(&cfix->iscache, "name",
+						   offset, size, laddr);
+			if (isid < 0)
+				return isid;
+
+			errcode = pt_iscache_lookup(&cfix->iscache, &section,
+						    &addr, isid);
+			if (errcode < 0)
+				return errcode;
+
+			if (laddr != addr)
+				return -pte_noip;
+
+			if (section->offset != offset)
+				return -pte_bad_image;
+
+			if (section->size != size)
+				return -pte_bad_image;
+
+			errcode = pt_section_put(section);
+			if (errcode < 0)
+				return errcode;
+		}
+	}
+
+	return 0;
+}
+
+static struct ptunit_result stress(struct iscache_fixture *cfix,
+				   int (*worker)(void *))
 {
 	int errcode;
 
@@ -740,27 +915,36 @@ static struct ptunit_result stress(struct iscache_fixture *cfix)
 
 	return ptu_passed();
 }
-
 int main(int argc, char **argv)
 {
-	struct iscache_fixture cfix;
+	struct iscache_fixture cfix, dfix;
 	struct ptunit_suite suite;
 
 	cfix.init = cfix_init;
 	cfix.fini = cfix_fini;
 
+	dfix.init = dfix_init;
+	dfix.fini = cfix_fini;
+
 	suite = ptunit_mk_suite(argc, argv);
 
 	ptu_run(suite, init_null);
 	ptu_run(suite, fini_null);
+	ptu_run(suite, name_null);
 	ptu_run(suite, add_null);
 	ptu_run(suite, find_null);
 	ptu_run(suite, lookup_null);
 	ptu_run(suite, clear_null);
+	ptu_run(suite, free_null);
+	ptu_run(suite, add_file_null);
+
+	ptu_run_f(suite, name, dfix);
+	ptu_run_f(suite, name_none, dfix);
 
 	ptu_run_f(suite, init_fini, cfix);
 	ptu_run_f(suite, add, cfix);
 	ptu_run_f(suite, add_no_name, cfix);
+	ptu_run_f(suite, add_file, cfix);
 
 	ptu_run_f(suite, find, cfix);
 	ptu_run_f(suite, find_empty, cfix);
@@ -783,7 +967,12 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, add_same_different_laddr, cfix);
 	ptu_run_f(suite, add_different_same_laddr, cfix);
 
-	ptu_run_f(suite, stress, cfix);
+	ptu_run_f(suite, add_file_same, cfix);
+	ptu_run_f(suite, add_file_same_different_laddr, cfix);
+	ptu_run_f(suite, add_file_different_same_laddr, cfix);
+
+	ptu_run_fp(suite, stress, cfix, worker_add);
+	ptu_run_fp(suite, stress, cfix, worker_add_file);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
