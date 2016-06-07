@@ -44,6 +44,9 @@ struct pt_section_list {
 	/* The mapped section. */
 	struct pt_mapped_section section;
 
+	/* The image section identifier. */
+	int isid;
+
 	/* A flag saying whether @section is already mapped. */
 	uint32_t mapped:1;
 };
@@ -83,15 +86,16 @@ extern void pt_image_fini(struct pt_image *image);
 
 /* Add a section to an image.
  *
- * Add @section to @image at @vaddr in @asid.  If @section overlaps with
- * existing sections, the existing sections are shrunk, split, or removed to
- * accomodate @section.
+ * Add @section identified by @isid to @image at @vaddr in @asid.  If @section
+ * overlaps with existing sections, the existing sections are shrunk, split, or
+ * removed to accomodate @section.  Absence of a section identifier is indicated
+ * by an @isid of zero.
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.
  */
 extern int pt_image_add(struct pt_image *image, struct pt_section *section,
-			const struct pt_asid *asid, uint64_t vaddr);
+			const struct pt_asid *asid, uint64_t vaddr, int isid);
 
 /* Remove a section from an image.
  *

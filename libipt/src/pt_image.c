@@ -53,7 +53,7 @@ static char *dupstr(const char *str)
 
 static struct pt_section_list *pt_mk_section_list(struct pt_section *section,
 						  const struct pt_asid *asid,
-						  uint64_t vaddr)
+						  uint64_t vaddr, int isid)
 {
 	struct pt_section_list *list;
 	int errcode;
@@ -69,6 +69,7 @@ static struct pt_section_list *pt_mk_section_list(struct pt_section *section,
 		goto out_mem;
 
 	pt_msec_init(&list->section, section, asid, vaddr);
+	list->isid = isid;
 
 	return list;
 
@@ -150,7 +151,7 @@ const char *pt_image_name(const struct pt_image *image)
 
 static int pt_image_clone(struct pt_section_list **list,
 			  const struct pt_mapped_section *msec,
-			  uint64_t begin, uint64_t end)
+			  uint64_t begin, uint64_t end, int isid)
 {
 	const struct pt_asid *masid;
 	struct pt_section_list *next;
@@ -179,7 +180,7 @@ static int pt_image_clone(struct pt_section_list **list,
 	if (errcode < 0)
 		return errcode;
 
-	next = pt_mk_section_list(section, masid, begin);
+	next = pt_mk_section_list(section, masid, begin, isid);
 	if (!next) {
 		(void) pt_section_put(section);
 
@@ -202,7 +203,7 @@ static int pt_image_clone(struct pt_section_list **list,
 }
 
 int pt_image_add(struct pt_image *image, struct pt_section *section,
-		 const struct pt_asid *asid, uint64_t vaddr)
+		 const struct pt_asid *asid, uint64_t vaddr, int isid)
 {
 	struct pt_section_list **list, *next, *removed;
 	uint64_t begin, end;
@@ -211,7 +212,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 	if (!image || !section)
 		return -pte_internal;
 
-	next = pt_mk_section_list(section, asid, vaddr);
+	next = pt_mk_section_list(section, asid, vaddr, isid);
 	if (!next)
 		return -pte_nomem;
 
@@ -258,7 +259,8 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		 * of repeatedly copying images or repeatedly adding the same
 		 * file.
 		 */
-		if ((begin == lbegin) && (end == lend)) {
+		if ((begin == lbegin) && (end == lend) &&
+		    (isid == current->isid)) {
 			const char *fname, *lfname;
 
 			fname = pt_section_filename(section);
@@ -304,16 +306,26 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 			current->mapped = 0;
 		}
 
-		/* Add a section covering the remaining bytes at the front. */
+		/* Add a section covering the remaining bytes at the front.
+		 *
+		 * We preserve the section identifier to indicate that the new
+		 * section originated from the original section.
+		 */
 		if (lbegin < begin) {
-			errcode = pt_image_clone(&next, msec, lbegin, begin);
+			errcode = pt_image_clone(&next, msec, lbegin, begin,
+						 current->isid);
 			if (errcode < 0)
 				break;
 		}
 
-		/* Add a section covering the remaining bytes at the back. */
+		/* Add a section covering the remaining bytes at the back.
+		 *
+		 * We preserve the section identifier to indicate that the new
+		 * section originated from the original section.
+		 */
 		if (end < lend) {
-			errcode = pt_image_clone(&next, msec, end, lend);
+			errcode = pt_image_clone(&next, msec, end, lend,
+						 current->isid);
 			if (errcode < 0)
 				break;
 		}
@@ -395,7 +407,7 @@ int pt_image_add_file(struct pt_image *image, const char *filename,
 	if (!section)
 		return -pte_invalid;
 
-	errcode = pt_image_add(image, section, &asid, vaddr);
+	errcode = pt_image_add(image, section, &asid, vaddr, 0);
 	if (errcode < 0) {
 		(void) pt_section_put(section);
 		return errcode;
@@ -423,7 +435,8 @@ int pt_image_copy(struct pt_image *image, const struct pt_image *src)
 
 		errcode = pt_image_add(image, list->section.section,
 				       &list->section.asid,
-				       list->section.vaddr);
+				       list->section.vaddr,
+				       list->isid);
 		if (errcode < 0)
 			ignored += 1;
 	}
@@ -824,7 +837,7 @@ int pt_image_add_cached(struct pt_image *image,
 	if (errcode < 0)
 		return errcode;
 
-	status = pt_image_add(image, section, &asid, vaddr);
+	status = pt_image_add(image, section, &asid, vaddr, isid);
 
 	/* We grab a reference when we add the section.  Drop the one we
 	 * obtained from cache lookup.
