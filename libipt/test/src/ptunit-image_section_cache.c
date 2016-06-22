@@ -41,8 +41,14 @@ struct pt_section {
 	uint64_t offset;
 	uint64_t size;
 
+	/* The file content. */
+	uint8_t content[0x10];
+
 	/* The use count. */
 	int ucount;
+
+	/* The map count. */
+	int mcount;
 
 #if defined(FEATURE_THREADS)
 	/* A lock protecting this section. */
@@ -57,10 +63,16 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 
 	section = malloc(sizeof(*section));
 	if (section) {
+		uint8_t idx;
+
 		section->filename = filename;
 		section->offset = offset;
 		section->size = size;
 		section->ucount = 1;
+		section->mcount = 0;
+
+		for (idx = 0; idx < sizeof(section->content); ++idx)
+			section->content[idx] = idx;
 
 #if defined(FEATURE_THREADS)
 		{
@@ -164,6 +176,52 @@ int pt_section_put(struct pt_section *section)
 	return 0;
 }
 
+int pt_section_map(struct pt_section *section)
+{
+	int errcode, mcount;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = ++section->mcount;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (mcount <= 0)
+		return -pte_internal;
+
+	return 0;
+}
+
+int pt_section_unmap(struct pt_section *section)
+{
+	int errcode, mcount;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = --section->mcount;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (mcount < 0)
+		return -pte_internal;
+
+	return 0;
+}
+
 const char *pt_section_filename(const struct pt_section *section)
 {
 	if (!section)
@@ -188,6 +246,30 @@ uint64_t pt_section_size(const struct pt_section *section)
 	return section->size;
 }
 
+int pt_section_read(const struct pt_section *section, uint8_t *buffer,
+		    uint16_t size, uint64_t offset)
+{
+	uint64_t begin, end, max;
+
+	if (!section || !buffer)
+		return -pte_internal;
+
+	begin = offset;
+	end = begin + size;
+	max = sizeof(section->content);
+
+	if (max <= begin)
+		return -pte_nomap;
+
+	if (max < end)
+		end = max;
+
+	if (end <= begin)
+		return -pte_invalid;
+
+	memcpy(buffer, &section->content[begin], (size_t) (end - begin));
+	return (int) (end - begin);
+}
 
 enum {
 	/* The number of test sections. */
@@ -264,6 +346,7 @@ static struct ptunit_result cfix_fini(struct iscache_fixture *cfix)
 
 	for (idx = 0; idx < num_sections; ++idx) {
 		ptu_int_eq(cfix->section[idx]->ucount, 1);
+		ptu_int_eq(cfix->section[idx]->mcount, 0);
 
 		errcode = pt_section_put(cfix->section[idx]);
 		ptu_int_eq(errcode, 0);
@@ -370,6 +453,24 @@ static struct ptunit_result add_file_null(void)
 	ptu_int_eq(errcode, -pte_invalid);
 
 	errcode = pt_iscache_add_file(&iscache, NULL, 0ull, 0ull, 0ull);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_null(void)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t buffer;
+	int errcode;
+
+	errcode = pt_iscache_read(NULL, &buffer, sizeof(buffer), 1ull, 0ull);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_iscache_read(&iscache, NULL, sizeof(buffer), 1ull, 0ull);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_iscache_read(&iscache, &buffer, 0ull, 1, 0ull);
 	ptu_int_eq(errcode, -pte_invalid);
 
 	return ptu_passed();
@@ -792,6 +893,71 @@ add_file_different_same_laddr(struct iscache_fixture *cfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result read(struct iscache_fixture *cfix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
+	int status, isid;
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_iscache_read(&cfix->iscache, buffer, 2ull, isid, 0xa008ull);
+	ptu_int_eq(status, 2);
+	ptu_uint_eq(buffer[0], 0x8);
+	ptu_uint_eq(buffer[1], 0x9);
+	ptu_uint_eq(buffer[2], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_truncate(struct iscache_fixture *cfix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc };
+	int status, isid;
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_iscache_read(&cfix->iscache, buffer, sizeof(buffer), isid,
+				 0xa00full);
+	ptu_int_eq(status, 1);
+	ptu_uint_eq(buffer[0], 0xf);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_bad_vaddr(struct iscache_fixture *cfix)
+{
+	uint8_t buffer[] = { 0xcc };
+	int status, isid;
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_iscache_read(&cfix->iscache, buffer, 1ull, isid, 0xb000ull);
+	ptu_int_eq(status, -pte_nomap);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_bad_isid(struct iscache_fixture *cfix)
+{
+	uint8_t buffer[] = { 0xcc };
+	int status, isid;
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_iscache_read(&cfix->iscache, buffer, 1ull, isid + 1,
+				 0xa000ull);
+	ptu_int_eq(status, -pte_bad_image);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	return ptu_passed();
+}
+
 static int worker_add(void *arg)
 {
 	struct iscache_fixture *cfix;
@@ -937,6 +1103,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, clear_null);
 	ptu_run(suite, free_null);
 	ptu_run(suite, add_file_null);
+	ptu_run(suite, read_null);
 
 	ptu_run_f(suite, name, dfix);
 	ptu_run_f(suite, name_none, dfix);
@@ -970,6 +1137,11 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, add_file_same, cfix);
 	ptu_run_f(suite, add_file_same_different_laddr, cfix);
 	ptu_run_f(suite, add_file_different_same_laddr, cfix);
+
+	ptu_run_f(suite, read, cfix);
+	ptu_run_f(suite, read_truncate, cfix);
+	ptu_run_f(suite, read_bad_vaddr, cfix);
+	ptu_run_f(suite, read_bad_isid, cfix);
 
 	ptu_run_fp(suite, stress, cfix, worker_add);
 	ptu_run_fp(suite, stress, cfix, worker_add_file);

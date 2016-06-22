@@ -702,12 +702,15 @@ section cache.  Freeing the cache does not destroy sections added to the cache.
 They remain valid until they are no longer used.
 
 Use `pt_iscache_add_file()` to add a file section to an image section cache.
-The function returns an image section identifier that uniquely identifies the
-section in this cache.  Use `pt_image_add_cached()` to add a file section from
-an image section cache to an image.
+The function returns an image section identifier (ISID) that uniquely identifies
+the section in this cache.  Use `pt_image_add_cached()` to add a file section
+from an image section cache to an image.
 
 Multiple image section caches may be used at the same time but it is recommended
 not to mix sections from different image section caches in one image.
+
+A traced image section cache can also be used for reading an instruction's
+memory via its IP and ISID as provided in `struct pt_insn`.
 
 
 #### Synchronizing

@@ -83,6 +83,7 @@ set(MAN3_FUNCTIONS
   pt_insn_next
   pt_iscache_alloc
   pt_iscache_add_file
+  pt_iscache_read
 )
 
 foreach (function ${MAN3_FUNCTIONS})

@@ -53,7 +53,8 @@ On success, **pt_iscache_add_file**() returns a positive integer identifier that
 uniquely identifies the added section in that cache.  This identifier can be
 used to add sections from an image section cache to one or more traced memory
 images.  See **pt_image_add_cached**(3).  Sections added from an image section
-cache will be shared across images.
+cache will be shared across images.  It can also be used to read memory from the
+cached section.  See **pt_iscache_read**(3).
 
 If the cache already contains a suitable section, no section is added and the
 identifier for the existing section is returned.  If the cache already contains
@@ -93,4 +94,5 @@ int add_file(struct pt_image_section_cache *iscache, struct pt_image *image,
 
 # SEE ALSO
 
-**pt_iscache_alloc**(3), **pt_iscache_free**(3), **pt_image_add_cached**(3)
+**pt_iscache_alloc**(3), **pt_iscache_free**(3), **pt_iscache_read**(3),
+**pt_image_add_cached**(3)

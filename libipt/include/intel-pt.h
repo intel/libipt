@@ -1622,6 +1622,27 @@ extern pt_export int pt_iscache_add_file(struct pt_image_section_cache *iscache,
 					 const char *filename, uint64_t offset,
 					 uint64_t size, uint64_t vaddr);
 
+/** Read memory from a cached file section
+ *
+ * Reads \@size bytes of memory starting at virtual address \@vaddr in the
+ * section identified by \@isid in \@iscache into \@buffer.
+ *
+ * The caller is responsible for allocating a \@buffer of at least \@size bytes.
+ *
+ * The read request may be truncated if it crosses section boundaries or if
+ * @size is getting too big.  We support reading at least 4Kbyte in one chunk
+ * unless the read would cross a section boundary.
+ *
+ * Returns the number of bytes read on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@iscache or \@buffer is NULL.
+ * Returns -pte_invalid if \@size is zero.
+ * Returns -pte_nomap if \@vaddr is not contained in section \@isid.
+ * Returns -pte_bad_image if \@iscache does not contain \@isid.
+ */
+extern pt_export int pt_iscache_read(struct pt_image_section_cache *iscache,
+				     uint8_t *buffer, uint64_t size, int isid,
+				     uint64_t vaddr);
 
 /** The traced memory image. */
 struct pt_image;
