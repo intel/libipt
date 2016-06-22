@@ -121,6 +121,15 @@ struct pt_insn {
 
 	/** - tracing was stopped after this instruction. */
 	uint32_t stopped:1;
+
+	/** The image section identifier for the section containing this
+	 * instruction.
+	 *
+	 * A value of zero means that the section did not have an identifier.
+	 * The section was not added via an image section cache or the memory
+	 * was read via the read memory callback.
+	 */
+	int isid;
 };
 ~~~
 
@@ -245,6 +254,14 @@ stopped
 :   A flag saying whether tracing was stopped after this instruction.  If set,
     this is the last instruction that retired before tracing was stopped due to
     a TraceStop condition.
+
+isid
+:   The image section identifier of the section from which the instruction
+    originated.  This will be zero unless the instruction came from a section
+    that was added via an image section cache.  See **pt_image_add_cached**(3).
+
+    The image section identifier can be used to trace an instruction back to
+    its binary file and from there to source code.
 
 
 # RETURN VALUE

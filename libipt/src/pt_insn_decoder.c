@@ -375,7 +375,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 {
 	struct pt_ild *ild;
 	int errcode, relevant;
-	int size, isid;
+	int size;
 
 	if (!insn || !decoder)
 		return -pte_internal;
@@ -389,7 +389,7 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_decoder *decoder)
 	insn->mode = decoder->mode;
 
 	/* Read the memory at the current IP in the current address space. */
-	size = pt_image_read(decoder->image, &isid, insn->raw,
+	size = pt_image_read(decoder->image, &insn->isid, insn->raw,
 			     sizeof(insn->raw), &decoder->asid, decoder->ip);
 	if (size < 0)
 		return size;

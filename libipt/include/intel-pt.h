@@ -1856,6 +1856,15 @@ struct pt_insn {
 
 	/** - tracing was stopped after this instruction. */
 	uint32_t stopped:1;
+
+	/** The image section identifier for the section containing this
+	 * instruction.
+	 *
+	 * A value of zero means that the section did not have an identifier.
+	 * The section was not added via an image section cache or the memory
+	 * was read via the read memory callback.
+	 */
+	int isid;
 };
 
 

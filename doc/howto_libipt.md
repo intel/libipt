@@ -776,11 +776,16 @@ example:
     }
 ~~~
 
-For each instruction, you get its IP, its size in bytes, the raw memory, the
-current execution mode, and the speculation state, that is whether the
-instruction has been executed speculatively.  In addition, you get a coarse
-classification that can be used for further processing without the need for a
-full instruction decode.
+For each instruction, you get its IP, its size in bytes, the raw memory, an
+identifier for the image section that contained it, the current execution mode,
+and the speculation state, that is whether the instruction has been executed
+speculatively.  In addition, you get a coarse classification that can be used
+for further processing without the need for a full instruction decode.
+
+If a traced image section cache is used the image section identifier can be used
+to trace an instruction back to the binary file that contained it.  This allows
+mapping the instruction back to source code using the debug information
+contained in or reachable via the binary file.
 
 You also get some information about events that occured either before or after
 executing the instruction like enable or disable tracing.  For detailed
