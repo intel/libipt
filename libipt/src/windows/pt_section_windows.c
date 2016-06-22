@@ -324,7 +324,7 @@ int pt_sec_windows_read(const struct pt_section *section, uint8_t *buffer,
 	const uint8_t *begin;
 
 	if (!buffer || !section)
-		return -pte_invalid;
+		return -pte_internal;
 
 	mapping = section->mapping;
 	if (!mapping)

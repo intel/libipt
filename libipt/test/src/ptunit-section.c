@@ -405,6 +405,34 @@ static struct ptunit_result read(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result read_null(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	uint8_t buffer[] = { 0xcc };
+	int status;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	status = pt_section_map(sfix->section);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_read(sfix->section, NULL, 1, 0x0ull);
+	ptu_int_eq(status, -pte_internal);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	status = pt_section_read(NULL, buffer, 1, 0x0ull);
+	ptu_int_eq(status, -pte_internal);
+	ptu_uint_eq(buffer[0], 0xcc);
+
+	status = pt_section_unmap(sfix->section);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result read_offset(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
@@ -845,6 +873,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, get_put, sfix);
 	ptu_run_f(suite, map_unmap, sfix);
 	ptu_run_f(suite, read, sfix);
+	ptu_run_f(suite, read_null, sfix);
 	ptu_run_f(suite, read_offset, sfix);
 	ptu_run_f(suite, read_truncated, sfix);
 	ptu_run_f(suite, read_from_truncated, sfix);

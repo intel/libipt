@@ -304,7 +304,7 @@ static int ifix_read(const struct pt_section *section, uint8_t *buffer,
 	uint64_t begin, end;
 
 	if (!section || !buffer)
-		return -pte_invalid;
+		return -pte_internal;
 
 	begin = offset;
 	end = begin + size;
@@ -850,6 +850,24 @@ static struct ptunit_result adjacent(struct image_fixture *ifix)
 	ptu_int_eq(status, 1);
 	ptu_uint_eq(buffer[0], 0x00);
 	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result read_null(struct image_fixture *ifix)
+{
+	uint8_t buffer;
+	int status;
+
+	status = pt_image_read(NULL, &buffer, 1, &ifix->asid[0], 0x1000ull);
+	ptu_int_eq(status, -pte_internal);
+
+	status = pt_image_read(&ifix->image, NULL, 1, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, -pte_internal);
+
+	status = pt_image_read(&ifix->image, &buffer, 1, NULL, 0x1000ull);
+	ptu_int_eq(status, -pte_internal);
 
 	return ptu_passed();
 }
@@ -1657,6 +1675,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, adjacent, ifix);
 
 	ptu_run_f(suite, read, rfix);
+	ptu_run_f(suite, read_null, rfix);
 	ptu_run_f(suite, read_asid, ifix);
 	ptu_run_f(suite, read_bad_asid, rfix);
 	ptu_run_f(suite, read_null_asid, rfix);

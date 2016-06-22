@@ -200,7 +200,7 @@ int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 	int errcode;
 
 	if (!buffer || !section)
-		return -pte_invalid;
+		return -pte_internal;
 
 	mapping = section->mapping;
 	if (!mapping)

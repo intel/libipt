@@ -230,7 +230,7 @@ extern int pt_section_unmap(struct pt_section *section);
  * must be mapped.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
- * Returns -pte_invalid if @section or @buffer are NULL.
+ * Returns -pte_internal if @section or @buffer are NULL.
  * Returns -pte_nomap if @offset is beyond the end of the section.
  */
 extern int pt_section_read(const struct pt_section *section, uint8_t *buffer,
