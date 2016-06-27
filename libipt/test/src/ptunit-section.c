@@ -653,15 +653,14 @@ static struct ptunit_result stress(struct section_fixture *sfix)
 
 static struct ptunit_result sfix_init(struct section_fixture *sfix)
 {
+	int errcode;
+
 	sfix->section = NULL;
 	sfix->file = NULL;
 	sfix->name = NULL;
 
-	sfix->name = mktempname();
-	ptu_ptr(sfix->name);
-
-	sfix->file = fopen(sfix->name, "wb");
-	ptu_ptr(sfix->file);
+	errcode = ptunit_mkfile(&sfix->file, &sfix->name, "wb");
+	ptu_int_eq(errcode, 0);
 
 	ptu_test(ptunit_thrd_init, &sfix->thrd);
 

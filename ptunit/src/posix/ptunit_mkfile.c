@@ -26,23 +26,38 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
+#include "ptunit_mkfile.h"
+
+#include "intel-pt.h"
+
 #include <stdlib.h>
 #include <string.h>
 
 
-char *mktempname(void)
+int ptunit_mkfile(FILE **pfile, char **pfilename, const char *mode)
 {
+	FILE *file;
 	char tmp[L_tmpnam];
-	char *result;
+	char *filename;
 
-	result = tmpnam(tmp);
-	if (!result)
-		return NULL;
+	filename = tmpnam(tmp);
+	if (!filename)
+		return -pte_not_supported;
 
-	result = malloc(strlen(tmp) + 1);
-	if (!result)
-		return NULL;
+	filename = malloc(strlen(tmp) + 1);
+	if (!filename)
+		return -pte_nomem;
 
-	return strcpy(result, tmp);
+	strcpy(filename, tmp);
+
+	file = fopen(filename, mode);
+	if (!file) {
+		free(filename);
+		return -pte_not_supported;
+	}
+
+	*pfile = file;
+	*pfilename = filename;
+
+	return 0;
 }

@@ -29,12 +29,20 @@
 #ifndef PTUNIT_MKFILE_H
 #define PTUNIT_MKFILE_H
 
-/* Create a name for a temporary file.
+#include <stdio.h>
+
+
+/* Create a temporary file for unit testing.
  *
- * The result is a newly allocated string, which needs to be freed with free().
+ * Creates a new file and opens it with @mode.  On success, provides the file
+ * struct and file name in @file and @filename respectively.
  *
- * Returns a temporary file name on success, NULL otherwise.
+ * The @file needs to be closed and the @filename needs to be freed after use.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @file or @filename is NULL.
+ * Returns -pte_nomem if @filename can't be allocated.
  */
-extern char *mktempname(void);
+int ptunit_mkfile(FILE **file, char **filename, const char *mode);
 
 #endif /* PTUNIT_MKFILE_H */
