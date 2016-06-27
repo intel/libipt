@@ -26,34 +26,52 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "ptunit_mkfile.h"
 
 #include "intel-pt.h"
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 
 int ptunit_mkfile(FILE **pfile, char **pfilename, const char *mode)
 {
 	FILE *file;
-	char tmp[L_tmpnam];
-	char *filename;
+	const char *tmpdir;
+	const char *tmpfile;
+	char template[256], *filename;
+	int fd, len;
 
-	filename = tmpnam(tmp);
-	if (!filename)
+	tmpfile = "ptunit-tmp-XXXXXX";
+	tmpdir = getenv("TMP");
+	if (!tmpdir || !tmpdir[0])
+		tmpdir = "/tmp";
+
+	len = snprintf(template, sizeof(template), "%s/%s", tmpdir, tmpfile);
+	if (len < 0)
 		return -pte_not_supported;
 
-	filename = malloc(strlen(tmp) + 1);
-	if (!filename)
-		return -pte_nomem;
+	/* We must not truncate the template. */
+	if (sizeof(template) <= (size_t) len)
+		return -pte_not_supported;
 
-	strcpy(filename, tmp);
+	fd = mkstemp(template);
+	if (fd == -1)
+		return -pte_not_supported;
 
-	file = fopen(filename, mode);
+	file = fdopen(fd, mode);
 	if (!file) {
-		free(filename);
+		close(fd);
 		return -pte_not_supported;
+	}
+
+	filename = strdup(template);
+	if (!filename) {
+		fclose(file);
+		return -pte_nomem;
 	}
 
 	*pfile = file;
