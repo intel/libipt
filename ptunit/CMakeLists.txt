@@ -29,11 +29,11 @@ set(PTUNIT_FILES
 )
 
 if (CMAKE_HOST_UNIX)
-  set(PTUNIT_FILES ${PTUNIT_FILES} src/posix/ptunit_mktempname.c)
+  set(PTUNIT_FILES ${PTUNIT_FILES} src/posix/ptunit_mkfile.c)
 endif (CMAKE_HOST_UNIX)
 
 if (CMAKE_HOST_WIN32)
-  set(PTUNIT_FILES ${PTUNIT_FILES} src/windows/ptunit_mktempname.c)
+  set(PTUNIT_FILES ${PTUNIT_FILES} src/windows/ptunit_mkfile.c)
 endif (CMAKE_HOST_WIN32)
 
 add_library(ptunit STATIC

@@ -27,7 +27,7 @@
  */
 
 #include "ptunit_threads.h"
-#include "ptunit_mktempname.h"
+#include "ptunit_mkfile.h"
 
 #include "pt_section.h"
 
