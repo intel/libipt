@@ -682,6 +682,9 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 	}
 
 	if (sfix->file) {
+		if (sfix->name)
+			remove(sfix->name);
+
 		fclose(sfix->file);
 		sfix->file = NULL;
 	}
