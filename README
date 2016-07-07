@@ -35,9 +35,14 @@ Optional Contents and Samples
 
   script        A collection of scripts
 
+  test          A collection of tests
+
+  include       A collection of substitute headers
+
   doc           A document describing the build
                 A document describing how to get started
                 A document describing the usage of the decoder library
+                A document describing how to capture trace
                 A document describing pttc
 
   doc/man       Man pages for the encoder/decoder library
