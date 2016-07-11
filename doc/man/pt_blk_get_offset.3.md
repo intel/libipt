@@ -1,7 +1,7 @@
-% PT_ENC_GET_CONFIG(3)
+% PT_BLK_GET_OFFSET(3)
 
 <!---
- ! Copyright (c) 2015-2016, Intel Corporation
+ ! Copyright (c) 2016, Intel Corporation
  !
  ! Redistribution and use in source and binary forms, with or without
  ! modification, are permitted provided that the following conditions are met:
@@ -30,48 +30,53 @@
 
 # NAME
 
-pt_enc_get_config, pt_pkt_get_config, pt_qry_get_config, pt_insn_get_config,
-pt_blk_get_config - get an Intel(R) Processor Trace encoder/decoder's
-configuration
+pt_blk_get_offset, pt_blk_get_sync_offset - get an Intel(R) Processor Trace
+block decoder's current/synchronization trace buffer offset
 
 
 # SYNOPSIS
 
 | **\#include `<intel-pt.h>`**
 |
-| **const struct pt_config \***
-| **pt_enc_get_config(const struct pt_encoder \**encoder*);**
-|
-| **const struct pt_config \***
-| **pt_pkt_get_config(const struct pt_packet_decoder \**decoder*);**
-|
-| **const struct pt_config \***
-| **pt_qry_get_config(const struct pt_query_decoder \**decoder*);**
-|
-| **const struct pt_config \***
-| **pt_insn_get_config(const struct pt_insn_decoder \**decoder*);**
-|
-| **const struct pt_config \***
-| **pt_blk_get_config(const struct pt_block_decoder \**decoder*);**
+| **int pt_blk_get_offset(struct pt_block_decoder \**decoder*,**
+|                       **uint64_t \**offset*);**
+| **int pt_blk_get_sync_offset(struct pt_block_decoder \**decoder*,**
+|                            **uint64_t \**offset*);**
 
 Link with *-lipt*.
 
 
 # DESCRIPTION
 
-These functions return a pointer to their argument's configuration.  The
-returned configuration object must not be freed.  It is valid as long as their
-argument is not freed.
+**pt_blk_get_offset**() provides *decoder*'s current position as offset in
+bytes from the beginning of *decoder*'s trace buffer in the unsigned integer
+variable pointed to by *offset*.
+
+**pt_blk_get_sync_offset**() provides *decoder*'s last synchronization point as
+offset in bytes from the beginning of *decoder*'s trace buffer in the unsigned
+integer variable pointed to by *offset*.
 
 
 # RETURN VALUE
 
-These functions returns a pointer to a *pt_config* object.  The returned pointer
-is NULL if their argument is NULL.
+Both functions return zero on success or a negative *pt_error_code* enumeration
+constant in case of an error.
+
+
+# ERRORS
+
+pte_invalid
+:   The *decoder* or *offset* argument is NULL.
+
+pte_nosync
+:   *decoder* has not been synchronized onto the trace stream.  Use
+    **pt_blk_sync_forward**(3), **pt_blk_sync_backward**(3), or
+    **pt_blk_sync_set**(3) to synchronize *decoder*.
 
 
 # SEE ALSO
 
-**pt_config**(3), **pt_alloc_encoder**(3), **pt_pkt_alloc_decoder**(3),
-**pt_qry_alloc_decoder**(3), **pt_insn_alloc_decoder**(3),
-**pt_blk_alloc_decoder**(3)
+**pt_blk_alloc_decoder**(3), **pt_blk_free_decoder**(3),
+**pt_blk_sync_forward**(3), **pt_blk_sync_backward**(3),
+**pt_blk_sync_set**(3), **pt_blk_get_config**(3), **pt_blk_time**(3),
+**pt_blk_core_bus_ratio**(3), **pt_blk_next**(3)

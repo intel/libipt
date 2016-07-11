@@ -30,8 +30,9 @@
 
 # NAME
 
-pt_insn_get_image, pt_insn_set_image - get/set an Intel(R) Processor Trace
-instruction flow decoder's traced memory image descriptor
+pt_insn_get_image, pt_insn_set_image, pt_blk_get_image, pt_blk_set_image -
+get/set an Intel(R) Processor Trace instruction flow or block decoder's traced
+memory image descriptor
 
 
 # SYNOPSIS
@@ -39,33 +40,39 @@ instruction flow decoder's traced memory image descriptor
 | **\#include `<intel-pt.h>`**
 |
 | **struct pt_image \*pt_insn_get_image(struct pt_insn_decoder \**decoder*);**
+| **struct pt_image \*pt_blk_get_image(struct pt_block_decoder \**decoder*);**
 |
 | **int pt_insn_set_image(struct pt_insn_decoder \**decoder*,**
 |                       **struct pt_image \**image*);**
+| **int pt_blk_set_image(struct pt_block_decoder \**decoder*,**
+|                      **struct pt_image \**image*);**
 
 Link with *-lipt*.
 
 
 # DESCRIPTION
 
-**pt_insn_get_image**() returns the traced memory image descriptor that
-*decoder* uses for reading instruction memory.  See **pt_image_alloc**(3).
-Every decoder comes with a default *pt_image* object that is initially empty and
-that will automatically be destroyed when the decoder is freed.
+**pt_insn_get_image**() and **pt_blk_get_image**() return the traced memory
+*image descriptor that decoder* uses for reading instruction memory.  See
+***pt_image_alloc**(3).  Every decoder comes with a default *pt_image* object
+*that is initially empty and that will automatically be destroyed when the
+*decoder is freed.
 
-**pt_insn_set_image**() sets the traced memory image descriptor that *decoder*
-uses for reading instruction memory.  If the *image* argument is NULL, sets
-*decoder*'s image to be its default image.  The user is responsible for freeing
-the *pt_image* object that *image* points to when it is no longer needed.
+**pt_insn_set_image**() and **pt_blk_set_image**() set the traced memory image
+descriptor that *decoder* uses for reading instruction memory.  If the *image*
+argument is NULL, sets *decoder*'s image to be its default image.  The user is
+responsible for freeing the *pt_image* object that *image* points to when it is
+no longer needed.
 
 
 # RETURN VALUE
 
-**pt_insn_get_image**() returns a pointer to *decoder*'s *pt_image* object.  The
-returned pointer is NULL if the *decoder* argument is NULL.
+**pt_insn_get_image**() and **pt_blk_get_image**() return a pointer to
+*decoder*'s *pt_image* object.  The returned pointer is NULL if the *decoder*
+argument is NULL.
 
-**pt_insn_set_image**() returns zero on success or a negative *pt_error_code*
-enumeration constant in case of an error.
+**pt_insn_set_image**() and **pt_blk_set_image**() return zero on success or a
+negative *pt_error_code* enumeration constant in case of an error.
 
 
 # ERRORS
@@ -82,4 +89,5 @@ One *pt_image* object must not be shared between multiple decoders.  Use
 
 # SEE ALSO
 
-**pt_insn_alloc_decoder**(3), **pt_insn_free_decoder**(3), **pt_insn_next**(3)
+**pt_insn_alloc_decoder**(3), **pt_insn_free_decoder**(3), **pt_insn_next**(3),
+**pt_blk_alloc_decoder**(3), **pt_blk_free_decoder**(3), **pt_blk_next**(3)

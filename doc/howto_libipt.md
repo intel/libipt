@@ -56,6 +56,12 @@ are organized as follows:
   * *instruction flow*      This layer deals with the execution flow on the
                             instruction level.
 
+  * *block*                 This layer deals with the execution flow on the
+                            instruction level.
+
+                            It is faster than the instruction flow decoder but
+                            requires a small amount of post-processing.
+
 
 Each layer provides its own encoder or decoder struct plus a set of functions
 for allocating and freeing encoder or decoder objects and for synchronizing
@@ -67,6 +73,7 @@ abbreviations are used:
   * *pkt*     Packet decoding (packet layer).
   * *qry*     Event (or query) layer.
   * *insn*    Instruction flow layer.
+  * *blk*     Block layer.
 
 
 Here is some generic example code for working with decoders:
@@ -799,6 +806,147 @@ Beware that `pt_insn_next()` may indicate errors that occur after the returned
 instruction.  The returned instruction is valid if its `iclass` field is set.
 
 
+## The Block Layer
+
+The block layer provides a simple API for iterating over blocks of sequential
+instructions in execution order.  The instructions in a block are sequential in
+the sense that no trace is required for reconstructing the instructions.  The IP
+of the first instruction is given in `struct pt_block` and the IP of other
+instructions in the block can be determined by decoding and examining the
+previous instruction.
+
+Start by configuring and allocating a `pt_block_decoder` as shown below:
+
+~~~{.c}
+    struct pt_block_decoder *decoder;
+    struct pt_config config;
+
+    memset(&config, 0, sizeof(config));
+    config.size = sizeof(config);
+    config.begin = <pt buffer begin>;
+    config.end = <pt buffer end>;
+    config.cpu = <cpu identifier>;
+    config.decode.callback = <decode function>;
+    config.decode.context = <decode context>;
+
+    decoder = pt_blk_alloc_decoder(&config);
+~~~
+
+An optional packet decode callback function may be specified in addition to the
+mandatory config fields.  If specified, the callback function will be called for
+packets the decoder does not know about.  The decoder will ignore the unknown
+packet except for its size in order to skip it.  If there is no decode callback
+specified, the decoder will abort with `-pte_bad_opc`.  In addition to the
+callback function pointer, an optional pointer to user-defined context
+information can be specified.  This context will be passed to the decode
+callback function.
+
+
+#### Synchronizing
+
+Before the decoder can be used, it needs to be synchronized onto the Intel PT
+packet stream.  To iterate over synchronization points in the Intel PT packet
+stream in forward or backward directions, the block decoder offers the following
+two synchronization functions respectively:
+
+    pt_blk_sync_forward()
+    pt_blk_sync_backward()
+
+
+To manually synchronize the decoder at a synchronization point (i.e. PSB packet)
+in the Intel PT packet stream, use the following function:
+
+    pt_blk_sync_set()
+
+
+The example below shows synchronization to the first synchronization point:
+
+~~~{.c}
+    struct pt_block_decoder *decoder;
+    int errcode;
+
+    errcode = pt_blk_sync_forward(decoder);
+    if (errcode < 0)
+        <handle error>(errcode);
+~~~
+
+The decoder will remember the last synchronization packet it decoded.
+Subsequent calls to `pt_blk_sync_forward` and `pt_blk_sync_backward` will use
+this as their starting point.
+
+You can get the current decoder position as offset into the Intel PT buffer via:
+
+    pt_blk_get_offset()
+
+
+You can get the position of the last synchronization point as offset into the
+Intel PT buffer via:
+
+    pt_blk_get_sync_offset()
+
+
+#### Iterating
+
+Once the decoder is synchronized, it can be used to iterate over blocks of
+instructions in execution flow order by repeated calls to `pt_blk_next()` as
+shown in the following example:
+
+~~~{.c}
+    struct pt_block_decoder *decoder;
+    int errcode;
+
+    for (;;) {
+        struct pt_block block;
+
+        errcode = pt_blk_next(decoder, &block, sizeof(block));
+
+        if (block.ninsn > 0)
+            <process block>(&block);
+
+        if (errcode < 0)
+            break;
+    }
+~~~
+
+A block contains enough information to reconstruct the instructions.  See
+`struct pt_block` in `intel-pt.h` for details.  Note that errors returned by
+`pt_blk_next()` apply after the last instruction in the provided block.
+
+It is recommended to use a traced image section cache so the image section
+identifier contained in a block can be used for reading the memory containing
+the instructions in the block.  This also allows mapping the instructions back
+to source code using the debug information contained in or reachable via the
+binary file.
+
+The following example shows how instructions can be reconstructed from a block:
+
+~~~{.c}
+    struct pt_image_section_cache *iscache;
+    struct pt_block *block;
+    uint16_t ninsn;
+    uint64_t ip;
+
+    ip = block->ip;
+    for (ninsn = 0; ninsn < block->ninsn; ++ninsn) {
+        uint8_t raw[pt_max_insn_size];
+        <struct insn> insn;
+        int size;
+
+        size = pt_iscache_read(iscache, raw, sizeof(raw), block->isid, ip);
+        if (size < 0)
+            break;
+
+        errcode = <decode instruction>(&insn, raw, size, block->mode);
+        if (errcode < 0)
+            break;
+
+        <process instruction>(&insn);
+
+        ip = <determine next ip>(&insn);
+    }
+~~~
+
+
 ## Parallel Decode
 
 Intel PT splits naturally into self-contained PSB segments that can be decoded
@@ -826,8 +974,8 @@ the next step.
     }
 ~~~
 
-The individual trace segments can then be decoded using the query or instruction
-flow decoder as shown above in the previous examples.
+The individual trace segments can then be decoded using the query, instruction
+flow, or block decoder as shown above in the previous examples.
 
 When stitching decoded trace segments together, a sequence of linear (in the
 sense that it can be decoded without Intel PT) code has to be filled in.  Use

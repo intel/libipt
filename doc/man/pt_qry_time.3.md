@@ -30,8 +30,9 @@
 
 # NAME
 
-pt_qry_time, pt_qry_core_bus_ratio, pt_insn_time, pt_insn_core_bus_ratio - query
-an Intel(R) Processor Trace decoder for timing information
+pt_qry_time, pt_qry_core_bus_ratio, pt_insn_time, pt_insn_core_bus_ratio,
+pt_blk_time, pt_blk_core_bus_ratio - query an Intel(R) Processor Trace decoder
+for timing information
 
 
 # SYNOPSIS
@@ -47,16 +48,21 @@ an Intel(R) Processor Trace decoder for timing information
 |                  **uint32_t \**lost_mtc*, uint32_t \**lost_cyc*);**
 | **int pt_insn_core_bus_ratio(struct pt_insn_decoder \**decoder*,**
 |                            **uint32_t \**cbr*);**
+|
+| **int pt_blk_time(struct pt_block_decoder \**decoder*, uint64_t \**time*,**
+|                 **uint32_t \**lost_mtc*, uint32_t \**lost_cyc*);**
+| **int pt_blk_core_bus_ratio(struct pt_block_decoder \**decoder*,**
+|                           **uint32_t \**cbr*);**
 
 Link with *-lipt*.
 
 
 # DESCRIPTION
 
-**pt_qry_time**() and **pt_insn_time**() provide the current estimated timestamp
-count (TSC) value in the unsigned integer variable pointed to by the *time*
-argument.  The returned value corresponds to what an **rdtsc** instruction would
-have returned.
+**pt_qry_time**(), **pt_insn_time**(), and **pt_blk_time**() provide the current
+estimated timestamp count (TSC) value in the unsigned integer variable pointed
+to by the *time* argument.  The returned value corresponds to what an **rdtsc**
+instruction would have returned.
 
 At configurable intervals, Intel PT contains the full, accurate TSC value.
 Between those intervals, the timestamp count is estimated using a collection of
@@ -81,8 +87,9 @@ given in the unsigned integer variables pointed to by the *lost_mtc* and
 *lost_cyc* arguments respectively.  If one or both of the arguments is NULL, no
 information on lost packets is provided for the respective packet type.
 
-**pt_qry_core_bus_ratio**() and **pt_insn_core_bus_ratio**() give the last known
-core:bus ratio as provided by the Core Bus Ratio (CBR) Intel PT packet.
+**pt_qry_core_bus_ratio**(), **pt_insn_core_bus_ratio**(), and
+**pt_blk_core_bus_ratio**() give the last known core:bus ratio as provided by
+the Core Bus Ratio (CBR) Intel PT packet.
 
 
 # RETURN VALUE
@@ -94,8 +101,9 @@ constant in case of an error.
 # ERRORS
 
 pte_invalid
-:   The *decoder* or *time* (**pt_qry_time**() and **pt_insn_time**()) or *cbr*
-    (**pt_qry_core_bus_ratio**() and **pt_insn_core_bus_ratio**()) argument is
+:   The *decoder* or *time* (**pt_qry_time**(), **pt_insn_time**(), and
+    **pt_blk_time**()) or *cbr* (**pt_qry_core_bus_ratio**(),
+    **pt_insn_core_bus_ratio**(), and **pt_blk_core_bus_ratio**()) argument is
     NULL.
 
 pte_no_time
@@ -114,10 +122,9 @@ pte_no_cbr
 
 # NOTES
 
-Both the query and the instruction flow decoder read ahead.  The estimated
-timestamp count and core:bus ratios correspond to their current decode position,
-which may be ahead of the trace position that matches the last event or
-instruction.
+All decoders read ahead.  The estimated timestamp count and core:bus ratios
+correspond to their current decode position, which may be ahead of the trace
+position that matches the last event, instruction, or block.
 
 The query decoder also provides an estimated timestamp count in the *pt_event*
 structure.
@@ -127,4 +134,5 @@ structure.
 
 **pt_qry_alloc_decoder**(3), **pt_qry_free_decoder**(3),
 **pt_qry_cond_branch**(3), **pt_qry_indirect_branch**(3), **pt_qry_event**(3),
-**pt_insn_alloc_decoder**(3), **pt_insn_free_decoder**(3), **pt_insn_next**(3)
+**pt_insn_alloc_decoder**(3), **pt_insn_free_decoder**(3), **pt_insn_next**(3),
+**pt_blk_alloc_decoder**(3), **pt_blk_free_decoder**(3), **pt_blk_next**(3)

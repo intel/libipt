@@ -84,6 +84,11 @@ set(MAN3_FUNCTIONS
   pt_iscache_alloc
   pt_iscache_add_file
   pt_iscache_read
+  pt_blk_alloc_decoder
+  pt_blk_sync_forward
+  pt_blk_get_offset
+  pt_blk_get_image
+  pt_blk_next
 )
 
 foreach (function ${MAN3_FUNCTIONS})
@@ -101,6 +106,7 @@ add_man_page_alias(3 pt_enc_get_offset pt_enc_sync_set)
 add_man_page_alias(3 pt_enc_get_config pt_pkt_get_config)
 add_man_page_alias(3 pt_enc_get_config pt_qry_get_config)
 add_man_page_alias(3 pt_enc_get_config pt_insn_get_config)
+add_man_page_alias(3 pt_enc_get_config pt_blk_get_config)
 add_man_page_alias(3 pt_pkt_alloc_decoder pt_pkt_free_decoder)
 add_man_page_alias(3 pt_pkt_sync_forward pt_pkt_sync_backward)
 add_man_page_alias(3 pt_pkt_sync_forward pt_pkt_sync_set)
@@ -113,6 +119,8 @@ add_man_page_alias(3 pt_qry_cond_branch pt_qry_indirect_branch)
 add_man_page_alias(3 pt_qry_time pt_qry_core_bus_ratio)
 add_man_page_alias(3 pt_qry_time pt_insn_time)
 add_man_page_alias(3 pt_qry_time pt_insn_core_bus_ratio)
+add_man_page_alias(3 pt_qry_time pt_blk_time)
+add_man_page_alias(3 pt_qry_time pt_blk_core_bus_ratio)
 add_man_page_alias(3 pt_image_alloc pt_image_free)
 add_man_page_alias(3 pt_image_alloc pt_image_name)
 add_man_page_alias(3 pt_image_add_file pt_image_copy)
@@ -123,8 +131,15 @@ add_man_page_alias(3 pt_insn_sync_forward pt_insn_sync_backward)
 add_man_page_alias(3 pt_insn_sync_forward pt_insn_sync_set)
 add_man_page_alias(3 pt_insn_get_offset pt_insn_get_sync_offset)
 add_man_page_alias(3 pt_insn_get_image pt_insn_set_image)
+add_man_page_alias(3 pt_insn_get_image pt_blk_get_image)
+add_man_page_alias(3 pt_insn_get_image pt_blk_set_image)
 add_man_page_alias(3 pt_insn_next pt_insn)
 add_man_page_alias(3 pt_iscache_alloc pt_iscache_free)
 add_man_page_alias(3 pt_iscache_alloc pt_iscache_name)
+add_man_page_alias(3 pt_blk_alloc_decoder pt_blk_free_decoder)
+add_man_page_alias(3 pt_blk_sync_forward pt_blk_sync_backward)
+add_man_page_alias(3 pt_blk_sync_forward pt_blk_sync_set)
+add_man_page_alias(3 pt_blk_get_offset pt_blk_get_sync_offset)
+add_man_page_alias(3 pt_blk_next pt_block)
 
 add_custom_target(man ALL DEPENDS ${MAN_PAGES})
