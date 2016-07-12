@@ -249,39 +249,6 @@ static enum pt_insn_class pt_insn_classify(const struct pt_ild *ild)
 	return ild->u.s.branch_far ? ptic_far_jump : ptic_jump;
 }
 
-/* Try to determine the next IP for @ild without using Intel PT.
- *
- * If @ip is not NULL, provides the determined IP on success.
- *
- * Returns 0 on success.
- * Returns a negative error code, otherwise.
- * Returns -pte_bad_query if determining the IP would require Intel PT.
- * Returns -pte_bad_insn if @ild has not been decoded correctly.
- * Returns -pte_invalid if @ild is NULL.
- */
-static int pt_insn_next_ip(uint64_t *ip, const struct pt_ild *ild)
-{
-	if (!ild)
-		return -pte_invalid;
-
-	if (!ild->u.s.branch) {
-		if (ip)
-			*ip = ild->runtime_address + ild->length;
-		return 0;
-	}
-
-	if (ild->u.s.cond)
-		return -pte_bad_query;
-
-	if (ild->u.s.branch_direct) {
-		if (ip)
-			*ip = ild->direct_target;
-		return 0;
-	}
-
-	return -pte_bad_query;
-}
-
 /* Decode and analyze one instruction.
  *
  * Decodes the instructruction at @decoder->ip into @insn and @iext and updates
@@ -362,19 +329,20 @@ static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
 static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 			  size_t steps)
 {
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
 	struct pt_ild ild;
-	uint8_t raw[pt_max_insn_size];
 
 	if (!decoder)
 		return 0;
 
 	/* We do not expect execution mode changes. */
 	ild.mode = decoder->mode;
-	ild.itext = raw;
+	ild.itext = insn.raw;
 	ild.runtime_address = decoder->ip;
 
 	while (ild.runtime_address != ip) {
-		int size, errcode, isid;
+		int size, errcode, relevant;
 
 		if (!steps--)
 			return 0;
@@ -382,8 +350,9 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 		/* If we can't read the memory for the instruction, we can't
 		 * reach it.
 		 */
-		size = pt_image_read(decoder->image, &isid, raw, sizeof(raw),
-				     &decoder->asid, ild.runtime_address);
+		size = pt_image_read(decoder->image, &insn.isid, insn.raw,
+				     sizeof(insn.raw), &decoder->asid,
+				     ild.runtime_address);
 		if (size < 0)
 			return 0;
 
@@ -393,11 +362,27 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 		if (errcode < 0)
 			return 0;
 
-		errcode = pt_instruction_decode(&ild);
-		if (errcode < 0)
-			return 0;
+		relevant = pt_instruction_decode(&ild);
+		if (!relevant)
+			insn.iclass = ptic_other;
+		else {
+			if (relevant < 0)
+				return relevant;
 
-		errcode = pt_insn_next_ip(&ild.runtime_address, &ild);
+			insn.iclass = pt_insn_classify(&ild);
+		}
+
+		insn.ip = ild.runtime_address;
+		insn.size = ild.length;
+
+		memset(&iext, 0, sizeof(iext));
+		iext.iclass = ild.iclass;
+		if (ild.u.s.branch_direct) {
+			iext.variant.branch.is_direct = 1;
+			iext.variant.branch.target = ild.direct_target;
+		}
+
+		errcode = pt_insn_next_ip(&ild.runtime_address, &insn, &iext);
 		if (errcode < 0)
 			return 0;
 	}
@@ -517,7 +502,7 @@ static int process_async_disabled_event(struct pt_insn_decoder *decoder,
 
 static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
 				       struct pt_insn *insn,
-				       const struct pt_ild *ild)
+				       const struct pt_insn_ext *iext)
 {
 	int errcode, iperr;
 
@@ -525,16 +510,31 @@ static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
 	if (errcode <= 0)
 		return errcode;
 
-	iperr = pt_insn_next_ip(&decoder->last_disable_ip, ild);
+	iperr = pt_insn_next_ip(&decoder->last_disable_ip, insn, iext);
 	if (iperr < 0) {
+		/* We don't know the IP on error. */
+		decoder->last_disable_ip = 0ull;
+
 		/* For indirect calls, assume that we return to the next
 		 * instruction.
 		 */
-		if (iperr == -pte_bad_query && ild->u.s.call)
-			decoder->last_disable_ip =
-				ild->runtime_address + ild->length;
-		else
-			decoder->last_disable_ip = 0ull;
+		if (iperr == -pte_bad_query) {
+			switch (insn->iclass) {
+			case ptic_call:
+			case ptic_far_call:
+				/* We only check the instruction class, not the
+				 * is_direct property, since direct calls would
+				 * have been handled by pt_insn_nex_ip() or
+				 * would have provoked a different error.
+				 */
+				decoder->last_disable_ip =
+					insn->ip + insn->size;
+				break;
+
+			default:
+				break;
+			}
+		}
 	}
 
 	return errcode;
@@ -945,14 +945,14 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 			    pt_insn_changes_cpl(insn, iext) ||
 			    pt_insn_changes_cr3(insn, iext))
 				return process_sync_disabled_event(decoder,
-								   insn, ild);
+								   insn, iext);
 
 		} else if (ild->u.s.branch) {
 			if (!ild->u.s.branch_direct ||
 			    ild->u.s.cond ||
 			    ild->direct_target == ev->variant.disabled.ip)
 				return process_sync_disabled_event(decoder,
-								   insn, ild);
+								   insn, iext);
 		}
 
 		return 0;

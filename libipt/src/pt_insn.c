@@ -125,3 +125,32 @@ int pt_insn_binds_to_vmcs(const struct pt_insn *insn,
 		return 1;
 	}
 }
+
+int pt_insn_next_ip(uint64_t *ip, const struct pt_insn *insn,
+		    const struct pt_insn_ext *iext)
+{
+	if (!insn || !iext)
+		return -pte_internal;
+
+	switch (insn->iclass) {
+	case ptic_other:
+		if (ip)
+			*ip = insn->ip + insn->size;
+		return 0;
+
+	case ptic_call:
+	case ptic_jump:
+		if (iext->variant.branch.is_direct) {
+			if (ip)
+				*ip = iext->variant.branch.target;
+			return 0;
+		}
+
+		/* Fall through. */
+	default:
+		return -pte_bad_query;
+
+	case ptic_error:
+		return -pte_bad_insn;
+	}
+}

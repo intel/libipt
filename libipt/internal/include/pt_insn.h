@@ -147,4 +147,16 @@ extern int pt_insn_binds_to_pip(const struct pt_insn *insn,
 extern int pt_insn_binds_to_vmcs(const struct pt_insn *insn,
 				 const struct pt_insn_ext *iext);
 
+/* Determine the IP of the next instruction.
+ *
+ * Tries to determine the IP of the next instruction without using trace and
+ * provides it in @ip unless @ip is NULL.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_bad_query if the IP can't be determined.
+ * Returns -pte_internal if @insn or @iext is NULL.
+ */
+extern int pt_insn_next_ip(uint64_t *ip, const struct pt_insn *insn,
+			   const struct pt_insn_ext *iext);
+
 #endif /* PT_INSN_H */
