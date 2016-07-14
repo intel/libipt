@@ -776,7 +776,7 @@ example:
     for (;;) {
         struct pt_insn insn;
 
-        errcode = pt_insn_next(decoder, &insn);
+        errcode = pt_insn_next(decoder, &insn, sizeof(insn));
 
         if (insn.iclass != ptic_error)
             <process instruction>(&insn);
@@ -1000,7 +1000,7 @@ shown in the following example:
     int status;
 
     for (;;) {
-        status = pt_insn_next(decoder, &insn);
+        status = pt_insn_next(decoder, &insn, sizeof(insn));
         if (status < 0)
             <handle error>(status);
 
@@ -1013,7 +1013,7 @@ shown in the following example:
     while (insn.ip != <next segment's start IP>) {
         <process instruction>(&insn);
 
-        status = pt_insn_next(decoder, &insn);
+        status = pt_insn_next(decoder, &insn, sizeof(insn));
         if (status < 0)
             <handle error>(status);
     }
