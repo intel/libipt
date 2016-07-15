@@ -43,6 +43,27 @@
 #include <xed-interface.h>
 
 
+/* The type of decoder to be used. */
+enum ptxed_decoder_type {
+	pdt_insn_decoder,
+	pdt_block_decoder
+};
+
+/* The decoder to use. */
+struct ptxed_decoder {
+	/* The decoder type. */
+	enum ptxed_decoder_type type;
+
+	/* The actual decoder. */
+	union {
+		/* If @type == pdt_insn_decoder */
+		struct pt_insn_decoder *insn;
+
+		/* If @type == pdt_block_decoder */
+		struct pt_block_decoder *block;
+	} variant;
+};
+
 /* A collection of options. */
 struct ptxed_options {
 	/* Do not print the instruction. */
@@ -73,6 +94,27 @@ struct ptxed_stats {
 	uint64_t insn;
 };
 
+static int ptxed_have_decoder(const struct ptxed_decoder *decoder)
+{
+	/* It suffices to check for one decoder in the variant union. */
+	return decoder && decoder->variant.insn;
+}
+
+static void ptxed_free_decoder(struct ptxed_decoder *decoder)
+{
+	if (!decoder)
+		return;
+
+	switch (decoder->type) {
+	case pdt_insn_decoder:
+		pt_insn_free_decoder(decoder->variant.insn);
+		break;
+
+	case pdt_block_decoder:
+		pt_blk_free_decoder(decoder->variant.block);
+		break;
+	}
+}
 
 static void version(const char *name)
 {
@@ -111,6 +153,8 @@ static void help(const char *name)
 	       "  --nom-freq <n>                set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n"
 	       "  --cpuid-0x15.eax              set the value of cpuid[0x15].eax.\n"
 	       "  --cpuid-0x15.ebx              set the value of cpuid[0x15].ebx.\n"
+	       "  --insn-decoder                use the instruction flow decoder (default).\n"
+	       "  --block-decoder               use the block decoder.\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -360,6 +404,47 @@ static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 	return XED_MACHINE_MODE_INVALID;
 }
 
+static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
+			   const struct ptxed_options *options)
+{
+	xed_print_info_t pi;
+	char buffer[256];
+	xed_bool_t ok;
+
+	if (!inst || !options) {
+		printf(" [internal error]");
+		return;
+	}
+
+	if (options->print_raw_insn) {
+		xed_uint_t length, i;
+
+		length = xed_decoded_inst_get_length(inst);
+		for (i = 0; i < length; ++i)
+			printf(" %02x", xed_decoded_inst_get_byte(inst, i));
+
+		for (; i < pt_max_insn_size; ++i)
+			printf("   ");
+	}
+
+	xed_init_print_info(&pi);
+	pi.p = inst;
+	pi.buf = buffer;
+	pi.blen = sizeof(buffer);
+	pi.runtime_address = ip;
+
+	if (options->att_format)
+		pi.syntax = XED_SYNTAX_ATT;
+
+	ok = xed_format_generic(&pi);
+	if (!ok) {
+		printf(" [xed print error]");
+		return;
+	}
+
+	printf("  %s", buffer);
+}
+
 static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		       const struct ptxed_options *options, uint64_t offset)
 {
@@ -385,17 +470,6 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 
 	printf("%016" PRIx64, insn->ip);
 
-	if (options->print_raw_insn) {
-		uint8_t i;
-
-		printf(" ");
-		for (i = 0; i < insn->size; ++i)
-			printf(" %02x", insn->raw[i]);
-
-		for (; i < sizeof(insn->raw); ++i)
-			printf("   ");
-	}
-
 	if (!options->dont_print_insn) {
 		xed_machine_mode_enum_t mode;
 		xed_decoded_inst_t inst;
@@ -408,28 +482,8 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 
 		errcode = xed_decode(&inst, insn->raw, insn->size);
 		switch (errcode) {
-		case XED_ERROR_NONE: {
-			xed_print_info_t pi;
-			char buffer[256];
-			xed_bool_t ok;
-
-			xed_init_print_info(&pi);
-			pi.p = &inst;
-			pi.buf = buffer;
-			pi.blen = sizeof(buffer);
-			pi.runtime_address = insn->ip;
-
-			if (options->att_format)
-				pi.syntax = XED_SYNTAX_ATT;
-
-			ok = xed_format_generic(&pi);
-			if (!ok) {
-				printf(" [xed print error]");
-				break;
-			}
-
-			printf("  %s", buffer);
-		}
+		case XED_ERROR_NONE:
+			xed_print_insn(&inst, insn->ip, options);
 			break;
 
 		default:
@@ -457,8 +511,8 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		printf("[stopped]\n");
 }
 
-static void diagnose(const char *errtype, struct pt_insn_decoder *decoder,
-		     const struct pt_insn *insn, int errcode)
+static void diagnose_insn(const char *errtype, struct pt_insn_decoder *decoder,
+			  struct pt_insn *insn, int errcode)
 {
 	int err;
 	uint64_t pos;
@@ -474,9 +528,9 @@ static void diagnose(const char *errtype, struct pt_insn_decoder *decoder,
 		       insn->ip, errtype, pt_errstr(pt_errcode(errcode)));
 }
 
-static void decode(struct pt_insn_decoder *decoder,
-		   const struct ptxed_options *options,
-		   struct ptxed_stats *stats)
+static void decode_insn(struct pt_insn_decoder *decoder,
+			const struct ptxed_options *options,
+			struct ptxed_stats *stats)
 {
 	xed_state_t xed;
 	uint64_t offset, sync;
@@ -504,7 +558,7 @@ static void decode(struct pt_insn_decoder *decoder,
 			if (errcode == -pte_eos)
 				break;
 
-			diagnose("sync error", decoder, &insn, errcode);
+			diagnose_insn("sync error", decoder, &insn, errcode);
 
 			/* Let's see if we made any progress.  If we haven't,
 			 * we likely never will.  Bail out.
@@ -565,7 +619,291 @@ static void decode(struct pt_insn_decoder *decoder,
 		if (errcode == -pte_eos)
 			break;
 
-		diagnose("error", decoder, &insn, errcode);
+		diagnose_insn("error", decoder, &insn, errcode);
+	}
+}
+
+static void diagnose_block_at(const char *errtype, uint64_t pos,
+			      struct pt_block *block, int errcode)
+{
+	if (!block) {
+		printf("ptxed: internal error");
+		return;
+	}
+
+	if (block->ninsn)
+		printf("[%" PRIx64 ", %" PRIx64 "(+%x): %s: %s]\n", pos,
+		       block->ip, block->ninsn, errtype,
+		       pt_errstr(pt_errcode(errcode)));
+	else
+		printf("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos,
+		       block->ip, errtype,
+		       pt_errstr(pt_errcode(errcode)));
+}
+
+static void diagnose_block(const char *errtype,
+			   struct pt_block_decoder *decoder,
+			   struct pt_block *block, int errcode)
+{
+	int err;
+	uint64_t pos;
+
+	if (!block) {
+		printf("ptxed: internal error");
+		return;
+	}
+
+	err = pt_blk_get_offset(decoder, &pos);
+	if (err < 0) {
+		printf("could not determine offset: %s\n",
+		       pt_errstr(pt_errcode(err)));
+		if (block->ninsn)
+			printf("[?, %" PRIx64 "(+%x): %s: %s]\n", block->ip,
+			       block->ninsn, errtype,
+			       pt_errstr(pt_errcode(errcode)));
+		else
+			printf("[?, %" PRIx64 ": %s: %s]\n", block->ip, errtype,
+			       pt_errstr(pt_errcode(errcode)));
+	} else
+		diagnose_block_at(errtype, pos, block, errcode);
+}
+
+static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
+		       uint64_t ip)
+{
+	xed_uint_t length, disp_width;
+
+	if (!pip || !inst)
+		return -pte_internal;
+
+	length = xed_decoded_inst_get_length(inst);
+	if (!length) {
+		printf("[xed error: failed to determine instruction length]\n");
+		return -pte_bad_insn;
+	}
+
+	ip += length;
+
+	/* If it got a branch displacement it must be a branch.
+	 *
+	 * This includes conditional branches for which we don't know whether
+	 * they were taken.  The next IP won't be used in this case as a
+	 * conditional branch ends a block.  The next block will start with the
+	 * correct IP.
+	 */
+	disp_width = xed_decoded_inst_get_branch_displacement_width(inst);
+	if (disp_width)
+		ip += xed_decoded_inst_get_branch_displacement(inst);
+
+	*pip = ip;
+	return 0;
+}
+
+static void print_block(struct pt_block *block,
+			struct pt_image_section_cache *iscache,
+			const struct ptxed_options *options, uint64_t offset)
+{
+	xed_machine_mode_enum_t mode;
+	xed_state_t xed;
+	uint64_t last_ip;
+
+	if (!block || !options) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	if (block->resynced)
+		printf("[overflow]\n");
+
+	if (block->enabled)
+		printf("[enabled]\n");
+
+	if (block->resumed)
+		printf("[resumed]\n");
+
+	mode = translate_mode(block->mode);
+	xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
+
+	last_ip = 0ull;
+	for (; block->ninsn; --block->ninsn) {
+		xed_decoded_inst_t inst;
+		xed_error_enum_t xederrcode;
+		uint8_t raw[pt_max_insn_size];
+		int size, errcode;
+
+		size = pt_iscache_read(iscache, raw, sizeof(raw), block->isid,
+				       block->ip);
+		if (size < 0) {
+			printf(" [error reading insn: (%d) %s]\n", size,
+			       pt_errstr(pt_errcode(size)));
+			break;
+		}
+
+		xed_decoded_inst_zero_set_mode(&inst, &xed);
+
+		if (block->speculative)
+			printf("? ");
+
+		if (options->print_offset)
+			printf("%016" PRIx64 "  ", offset);
+
+		printf("%016" PRIx64, block->ip);
+
+		xederrcode = xed_decode(&inst, raw, size);
+		if (xederrcode != XED_ERROR_NONE) {
+			printf(" [xed decode error: (%u) %s]\n", xederrcode,
+			       xed_error_enum_t2str(xederrcode));
+			break;
+		}
+
+		if (!options->dont_print_insn)
+			xed_print_insn(&inst, block->ip, options);
+
+		printf("\n");
+
+		last_ip = block->ip;
+
+		errcode = xed_next_ip(&block->ip, &inst, last_ip);
+		if (errcode < 0) {
+			diagnose_block_at("reconstruct error", offset, block,
+					  errcode);
+			break;
+		}
+	}
+
+	/* Decode should have brought us to @block->end_ip. */
+	if (last_ip != block->end_ip)
+		diagnose_block_at("reconstruct error", offset, block,
+				  -pte_nosync);
+
+	if (block->interrupted)
+		printf("[interrupt]\n");
+
+	if (block->aborted)
+		printf("[aborted]\n");
+
+	if (block->committed)
+		printf("[committed]\n");
+
+	if (block->disabled)
+		printf("[disabled]\n");
+
+	if (block->stopped)
+		printf("[stopped]\n");
+}
+
+static void decode_block(struct pt_block_decoder *decoder,
+			 struct pt_image_section_cache *iscache,
+			 const struct ptxed_options *options,
+			 struct ptxed_stats *stats)
+{
+	uint64_t offset, sync;
+
+	if (!options) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	offset = 0ull;
+	sync = 0ull;
+	for (;;) {
+		struct pt_block block;
+		int errcode;
+
+		/* Initialize IP and ninsn - we use it for error reporting. */
+		block.ip = 0ull;
+		block.ninsn = 0u;
+
+		errcode = pt_blk_sync_forward(decoder);
+		if (errcode < 0) {
+			uint64_t new_sync;
+
+			if (errcode == -pte_eos)
+				break;
+
+			diagnose_block("sync error", decoder, &block, errcode);
+
+			/* Let's see if we made any progress.  If we haven't,
+			 * we likely never will.  Bail out.
+			 *
+			 * We intentionally report the error twice to indicate
+			 * that we tried to re-sync.  Maybe it even changed.
+			 */
+			errcode = pt_blk_get_offset(decoder, &new_sync);
+			if (errcode < 0 || (new_sync <= sync))
+				break;
+
+			sync = new_sync;
+			continue;
+		}
+
+		for (;;) {
+			if (options->print_offset) {
+				errcode = pt_blk_get_offset(decoder, &offset);
+				if (errcode < 0)
+					break;
+			}
+
+			errcode = pt_blk_next(decoder, &block, sizeof(block));
+			if (errcode < 0) {
+				/* Even in case of errors, we may have succeeded
+				 * in decoding some instructions.
+				 */
+				if (block.ninsn) {
+					if (!options->quiet)
+						print_block(&block, iscache,
+							    options, offset);
+					if (stats)
+						stats->insn += block.ninsn;
+				}
+				break;
+			}
+
+			if (!options->quiet)
+				print_block(&block, iscache, options, offset);
+
+			if (stats)
+				stats->insn += block.ninsn;
+
+			if (errcode & pts_eos) {
+				if (!block.disabled && !options->quiet)
+					printf("[end of trace]\n");
+
+				errcode = -pte_eos;
+				break;
+			}
+		}
+
+		/* We shouldn't break out of the loop without an error. */
+		if (!errcode)
+			errcode = -pte_internal;
+
+		/* We're done when we reach the end of the trace stream. */
+		if (errcode == -pte_eos)
+			break;
+
+		diagnose_block("error", decoder, &block, errcode);
+	}
+}
+
+static void decode(struct ptxed_decoder *decoder,
+		   struct pt_image_section_cache *iscache,
+		   const struct ptxed_options *options,
+		   struct ptxed_stats *stats)
+{
+	if (!decoder) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	switch (decoder->type) {
+	case pdt_insn_decoder:
+		decode_insn(decoder->variant.insn, options, stats);
+		break;
+
+	case pdt_block_decoder:
+		decode_block(decoder->variant.block, iscache, options, stats);
+		break;
 	}
 }
 
@@ -646,7 +984,7 @@ static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 extern int main(int argc, char *argv[])
 {
 	struct pt_image_section_cache *iscache;
-	struct pt_insn_decoder *decoder;
+	struct ptxed_decoder decoder;
 	struct ptxed_options options;
 	struct ptxed_stats stats;
 	struct pt_config config;
@@ -660,9 +998,11 @@ extern int main(int argc, char *argv[])
 	}
 
 	prog = argv[0];
-	decoder = NULL;
 	iscache = NULL;
 	image = NULL;
+
+	memset(&decoder, 0, sizeof(decoder));
+	decoder.type = pdt_block_decoder;
 
 	memset(&options, 0, sizeof(options));
 	memset(&stats, 0, sizeof(stats));
@@ -703,7 +1043,7 @@ extern int main(int argc, char *argv[])
 			}
 			arg = argv[i++];
 
-			if (decoder) {
+			if (ptxed_have_decoder(&decoder)) {
 				fprintf(stderr,
 					"%s: duplicate pt sources: %s.\n",
 					prog, arg);
@@ -718,20 +1058,46 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			decoder = pt_insn_alloc_decoder(&config);
-			if (!decoder) {
-				fprintf(stderr,
-					"%s: failed to create decoder.\n",
-					prog);
-				goto err;
-			}
+			switch (decoder.type) {
+			case pdt_insn_decoder:
+				decoder.variant.insn =
+					pt_insn_alloc_decoder(&config);
+				if (!decoder.variant.insn) {
+					fprintf(stderr, "%s: failed to create "
+						"decoder.\n", prog);
+					goto err;
+				}
 
-			errcode = pt_insn_set_image(decoder, image);
-			if (errcode < 0) {
-				fprintf(stderr,
-					"%s: failed to set image.\n",
-					prog);
-				goto err;
+				errcode =
+					pt_insn_set_image(decoder.variant.insn,
+							  image);
+				if (errcode < 0) {
+					fprintf(stderr,
+						"%s: failed to set image.\n",
+						prog);
+					goto err;
+				}
+				break;
+
+			case pdt_block_decoder:
+				decoder.variant.block =
+					pt_blk_alloc_decoder(&config);
+				if (!decoder.variant.block) {
+					fprintf(stderr, "%s: failed to create "
+						"decoder.\n", prog);
+					goto err;
+				}
+
+				errcode =
+					pt_blk_set_image(decoder.variant.block,
+							 image);
+				if (errcode < 0) {
+					fprintf(stderr,
+						"%s: failed to set image.\n",
+						prog);
+					goto err;
+				}
+				break;
 			}
 
 			continue;
@@ -801,7 +1167,7 @@ extern int main(int argc, char *argv[])
 			/* override cpu information before the decoder
 			 * is initialized.
 			 */
-			if (decoder) {
+			if (ptxed_have_decoder(&decoder)) {
 				fprintf(stderr,
 					"%s: please specify cpu before the pt source file.\n",
 					prog);
@@ -875,29 +1241,54 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 
+		if (strcmp(arg, "--insn-decoder") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before the pt "
+					"source file.\n", arg, prog);
+				goto err;
+			}
+
+			decoder.type = pdt_insn_decoder;
+			continue;
+		}
+
+		if (strcmp(arg, "--block-decoder") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before the pt "
+					"source file.\n", arg, prog);
+				goto err;
+			}
+
+			decoder.type = pdt_block_decoder;
+			continue;
+		}
+
 		fprintf(stderr, "%s: unknown option: %s.\n", prog, arg);
 		goto err;
 	}
 
-	if (!decoder) {
+	if (!ptxed_have_decoder(&decoder)) {
 		fprintf(stderr, "%s: no pt file.\n", prog);
 		goto err;
 	}
 
 	xed_tables_init();
-	decode(decoder, &options, &stats);
+
+	decode(&decoder, iscache, &options, &stats);
 
 	if (options.print_stats)
 		print_stats(&stats);
 
 out:
-	pt_insn_free_decoder(decoder);
+	ptxed_free_decoder(&decoder);
 	pt_image_free(image);
 	pt_iscache_free(iscache);
 	return 0;
 
 err:
-	pt_insn_free_decoder(decoder);
+	ptxed_free_decoder(&decoder);
 	pt_image_free(image);
 	pt_iscache_free(iscache);
 	return 1;
