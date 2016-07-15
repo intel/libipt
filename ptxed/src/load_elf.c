@@ -37,7 +37,26 @@
 #include <string.h>
 
 
-static int load_elf32(struct pt_image *image, FILE *file, uint64_t base,
+static int load_section(struct pt_image_section_cache *iscache,
+			struct pt_image *image, const char *name,
+			uint64_t offset, uint64_t size, uint64_t vaddr)
+{
+	if (!iscache)
+		return pt_image_add_file(image, name, offset, size, NULL,
+					 vaddr);
+	else {
+		int isid;
+
+		isid = pt_iscache_add_file(iscache, name, offset, size, vaddr);
+		if (isid < 0)
+			return isid;
+
+		return pt_image_add_cached(image, iscache, isid, NULL);
+	}
+}
+
+static int load_elf32(struct pt_image_section_cache *iscache,
+		      struct pt_image *image, FILE *file, uint64_t base,
 		      const char *name, const char *prog, int verbose)
 {
 	Elf32_Ehdr ehdr;
@@ -124,9 +143,8 @@ static int load_elf32(struct pt_image *image, FILE *file, uint64_t base,
 		if (!phdr.p_filesz)
 			continue;
 
-		errcode = pt_image_add_file(image, name, phdr.p_offset,
-					    phdr.p_filesz, NULL,
-					    phdr.p_vaddr + offset);
+		errcode = load_section(iscache, image, name, phdr.p_offset,
+				       phdr.p_filesz, phdr.p_vaddr + offset);
 		if (errcode < 0) {
 			fprintf(stderr, "%s: warning: %s: failed to create "
 				"section for phdr %u: %s.\n", prog, name, pidx,
@@ -153,7 +171,8 @@ static int load_elf32(struct pt_image *image, FILE *file, uint64_t base,
 	return 0;
 }
 
-static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
+static int load_elf64(struct pt_image_section_cache *iscache,
+		      struct pt_image *image, FILE *file, uint64_t base,
 		      const char *name, const char *prog, int verbose)
 {
 	Elf64_Ehdr ehdr;
@@ -240,9 +259,8 @@ static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
 		if (!phdr.p_filesz)
 			continue;
 
-		errcode = pt_image_add_file(image, name, phdr.p_offset,
-					    phdr.p_filesz, NULL,
-					    phdr.p_vaddr + offset);
+		errcode = load_section(iscache, image, name, phdr.p_offset,
+				       phdr.p_filesz, phdr.p_vaddr + offset);
 		if (errcode < 0) {
 			fprintf(stderr, "%s: warning: %s: failed to create "
 				"section for phdr %u: %s.\n", prog, name, pidx,
@@ -269,8 +287,8 @@ static int load_elf64(struct pt_image *image, FILE *file, uint64_t base,
 	return 0;
 }
 
-int load_elf(struct pt_image *image, const char *name, uint64_t base,
-	     const char *prog, int verbose)
+int load_elf(struct pt_image_section_cache *iscache, struct pt_image *image,
+	     const char *name, uint64_t base, const char *prog, int verbose)
 {
 	uint8_t e_ident[EI_NIDENT];
 	FILE *file;
@@ -315,11 +333,13 @@ int load_elf(struct pt_image *image, const char *name, uint64_t base,
 		break;
 
 	case ELFCLASS32:
-		errcode = load_elf32(image, file, base, name, prog, verbose);
+		errcode = load_elf32(iscache, image, file, base, name, prog,
+				     verbose);
 		break;
 
 	case ELFCLASS64:
-		errcode = load_elf64(image, file, base, name, prog, verbose);
+		errcode = load_elf64(iscache, image, file, base, name, prog,
+				     verbose);
 		break;
 	}
 

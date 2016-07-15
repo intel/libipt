@@ -314,16 +314,24 @@ static int load_pt(struct pt_config *config, char *arg, const char *prog)
 	return 0;
 }
 
-static int load_raw(struct pt_image *image, char *arg, const char *prog)
+static int load_raw(struct pt_image_section_cache *iscache,
+		    struct pt_image *image, char *arg, const char *prog)
 {
 	uint64_t base;
-	int errcode, has_base;
+	int isid, errcode, has_base;
 
 	has_base = extract_base(arg, &base);
 	if (has_base <= 0)
 		return 1;
 
-	errcode = pt_image_add_file(image, arg, 0, UINT64_MAX, NULL, base);
+	isid = pt_iscache_add_file(iscache, arg, 0, UINT64_MAX, base);
+	if (isid < 0) {
+		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
+			prog, arg, base, pt_errstr(pt_errcode(isid)));
+		return 1;
+	}
+
+	errcode = pt_image_add_cached(image, iscache, isid, NULL);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
 			prog, arg, base, pt_errstr(pt_errcode(errcode)));
@@ -637,6 +645,7 @@ static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 
 extern int main(int argc, char *argv[])
 {
+	struct pt_image_section_cache *iscache;
 	struct pt_insn_decoder *decoder;
 	struct ptxed_options options;
 	struct ptxed_stats stats;
@@ -652,16 +661,25 @@ extern int main(int argc, char *argv[])
 
 	prog = argv[0];
 	decoder = NULL;
+	iscache = NULL;
+	image = NULL;
 
 	memset(&options, 0, sizeof(options));
 	memset(&stats, 0, sizeof(stats));
 
 	pt_config_init(&config);
 
+	iscache = pt_iscache_alloc(NULL);
+	if (!iscache) {
+		fprintf(stderr,
+			"%s: failed to allocate image section cache.\n", prog);
+		goto err;
+	}
+
 	image = pt_image_alloc(NULL);
 	if (!image) {
 		fprintf(stderr, "%s: failed to allocate image.\n", prog);
-		return 1;
+		goto err;
 	}
 
 	for (i = 1; i < argc;) {
@@ -726,7 +744,7 @@ extern int main(int argc, char *argv[])
 			}
 			arg = argv[i++];
 
-			errcode = load_raw(image, arg, prog);
+			errcode = load_raw(iscache, image, arg, prog);
 			if (errcode < 0)
 				goto err;
 
@@ -747,7 +765,7 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			errcode = load_elf(image, arg, base, prog,
+			errcode = load_elf(iscache, image, arg, base, prog,
 					   options.track_image);
 			if (errcode < 0)
 				goto err;
@@ -875,10 +893,12 @@ extern int main(int argc, char *argv[])
 out:
 	pt_insn_free_decoder(decoder);
 	pt_image_free(image);
+	pt_iscache_free(iscache);
 	return 0;
 
 err:
 	pt_insn_free_decoder(decoder);
 	pt_image_free(image);
+	pt_iscache_free(iscache);
 	return 1;
 }

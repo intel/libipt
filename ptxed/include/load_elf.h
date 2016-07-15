@@ -31,6 +31,7 @@
 
 #include <stdint.h>
 
+struct pt_image_section_cache;
 struct pt_image;
 
 
@@ -49,12 +50,15 @@ struct pt_image;
  *
  * Successfully loaded segments are not unloaded in case of errors.
  *
+ * If @iscache is not NULL, use it to cache image sections.
+ *
  * Returns 0 on success, a negative error code otherwise.
  * Returns -pte_invalid if @image or @file are NULL.
  * Returns -pte_bad_config if @file can't be processed.
  * Returns -pte_nomem if not enough memory can be allocated.
  */
-extern int load_elf(struct pt_image *image, const char *file,
+extern int load_elf(struct pt_image_section_cache *iscache,
+		    struct pt_image *image, const char *file,
 		    uint64_t base, const char *prog, int verbose);
 
 #endif /* LOAD_ELF_H */
