@@ -40,12 +40,7 @@
 #include <inttypes.h>
 #include <errno.h>
 
-#include <xed-state.h>
-#include <xed-init.h>
-#include <xed-error-enum.h>
-#include <xed-decode.h>
-#include <xed-decoded-inst-api.h>
-#include <xed-machine-mode-enum.h>
+#include <xed-interface.h>
 
 
 /* A collection of options. */
