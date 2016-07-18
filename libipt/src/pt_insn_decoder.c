@@ -627,10 +627,6 @@ static int process_async_branch_event(struct pt_insn_decoder *decoder)
 	if (!decoder->enabled)
 		return -pte_bad_context;
 
-	/* Delay processing of the event if we can't change the IP. */
-	if (!decoder->event_may_change_ip)
-		return 0;
-
 	decoder->ip = ev->variant.async_branch.to;
 
 	return 1;
@@ -1145,12 +1141,13 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_async_branch:
-		/* The event is processed on the next iteration.
-		 *
-		 * We indicate the interrupt in the preceding instruction.
+		/* We indicate the interrupt in the preceding instruction.
 		 */
-		if (ev->variant.async_branch.from == decoder->ip)
+		if (ev->variant.async_branch.from == decoder->ip) {
 			insn->interrupted = 1;
+
+			return process_async_branch_event(decoder);
+		}
 
 		return 0;
 
