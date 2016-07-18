@@ -1359,7 +1359,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		 size_t size)
 {
 	struct pt_insn insn, *pinsn;
-	int errcode, status;
+	int errcode;
 
 	if (!uinsn || !decoder)
 		return -pte_invalid;
@@ -1412,9 +1412,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	if (errcode < 0)
 		goto err;
 
-	/* We return the decoder status for this instruction. */
-	status = pt_insn_status(decoder);
-
 	/* If event processing disabled tracing, we're done for this
 	 * iteration - we will process the re-enable event on the next.
 	 *
@@ -1441,7 +1438,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	/* We're done with this instruction.  Now we may change the IP again. */
 	decoder->event_may_change_ip = 1;
 
-	return status;
+	return pt_insn_status(decoder);
 
 err:
 	/* We provide the (incomplete) instruction also in case of errors.
