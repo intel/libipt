@@ -27,6 +27,7 @@
  */
 
 #include "pt_section.h"
+#include "pt_block_cache.h"
 
 #include "intel-pt.h"
 
@@ -258,6 +259,26 @@ uint64_t pt_section_offset(const struct pt_section *section)
 	return section->offset;
 }
 
+int pt_section_add_bcache(struct pt_section *section)
+{
+	uint32_t cache_size;
+
+	if (!section || section->bcache)
+		return -pte_internal;
+
+	cache_size = (uint32_t) section->size;
+
+	/* We do not allocate a cache if it would get too big.
+	 *
+	 * We also do not treat failure to allocate a cache as an error.
+	 * Without the cache, decode will be slower but still correct.
+	 */
+	if (cache_size == section->size)
+		section->bcache = pt_bcache_alloc(cache_size);
+
+	return 0;
+}
+
 int pt_section_unmap(struct pt_section *section)
 {
 	uint16_t mcount;
@@ -285,6 +306,9 @@ int pt_section_unmap(struct pt_section *section)
 		goto out_unlock;
 
 	status = section->unmap(section);
+
+	pt_bcache_free(section->bcache);
+	section->bcache = NULL;
 
 	errcode = pt_section_unlock(section);
 	if (errcode < 0)

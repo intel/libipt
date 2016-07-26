@@ -55,6 +55,7 @@ set(LIBIPT_FILES
   src/pt_config.c
   src/pt_insn.c
   src/pt_block_decoder.c
+  src/pt_block_cache.c
 )
 
 if (CMAKE_HOST_UNIX)
@@ -137,6 +138,7 @@ add_ptunit_c_test(query
   src/pt_config.c
   ${LIBIPT_SECTION_FILES}
   src/pt_time.c
+  src/pt_block_cache.c
 )
 add_ptunit_c_test(section ${LIBIPT_SECTION_FILES})
 add_ptunit_c_test(section-file

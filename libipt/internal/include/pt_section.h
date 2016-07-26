@@ -30,10 +30,13 @@
 #define PT_SECTION_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #if defined(FEATURE_THREADS)
 #  include <threads.h>
 #endif /* defined(FEATURE_THREADS) */
+
+struct pt_block_cache;
 
 
 /* A section of contiguous memory loaded from a file. */
@@ -64,6 +67,13 @@ struct pt_section {
 	 * implementation.
 	 */
 	void *mapping;
+
+	/* A pointer to an optional block cache.
+	 *
+	 * The cache is created and destroyed implicitly when the section is
+	 * mapped and unmapped respectively.
+	 */
+	struct pt_block_cache *bcache;
 
 	/* A pointer to the unmap function - NULL if the section is currently
 	 * not mapped.
@@ -180,6 +190,25 @@ extern uint64_t pt_section_offset(const struct pt_section *section);
 /* Return the size of the section in bytes. */
 extern uint64_t pt_section_size(const struct pt_section *section);
 
+/* Return @section's block cache, if available.
+ *
+ * @section must be mapped.
+ *
+ * The cache, if available, is implicitly created when the section is mapped and
+ * implicitly destroyed when the section is unmapped.
+ *
+ * The cache is not use-counted.  It is only valid as long as the caller keeps
+ * @section mapped.
+ */
+static inline struct pt_block_cache *
+pt_section_bcache(const struct pt_section *section)
+{
+	if (!section)
+		return NULL;
+
+	return section->bcache;
+}
+
 /* Create the OS-specific file status.
  *
  * On success, allocates a status object, provides a pointer to it in @pstatus
@@ -196,6 +225,17 @@ extern uint64_t pt_section_size(const struct pt_section *section);
  */
 extern int pt_section_mk_status(void **pstatus, uint64_t *psize,
 				const char *filename);
+
+/* Setup a block cache.
+ *
+ * This function is called from the OS-specific implementation when the section
+ * is mapped.  Do not call this function directly.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_internal if @section already has an instruction cache.
+ */
+extern int pt_section_add_bcache(struct pt_section *section);
 
 /* Map a section.
  *

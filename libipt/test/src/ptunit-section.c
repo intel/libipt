@@ -30,12 +30,37 @@
 #include "ptunit_mkfile.h"
 
 #include "pt_section.h"
+#include "pt_block_cache.h"
 
 #include "intel-pt.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 
+
+struct pt_block_cache *pt_bcache_alloc(uint64_t nentries)
+{
+	struct pt_block_cache *bcache;
+
+	if (!nentries || (UINT32_MAX < nentries))
+		return NULL;
+
+	/* The cache is not really used by tests.  It suffices to allocate only
+	 * the cache struct with the single default entry.
+	 *
+	 * We still set the number of entries to the requested size.
+	 */
+	bcache = malloc(sizeof(*bcache));
+	if (bcache)
+		bcache->nentries = (uint32_t) nentries;
+
+	return bcache;
+}
+
+void pt_bcache_free(struct pt_block_cache *bcache)
+{
+	free(bcache);
+}
 
 /* A test fixture providing a temporary file and an initially NULL section. */
 struct section_fixture {
@@ -229,6 +254,16 @@ static struct ptunit_result unmap_null(void)
 
 	errcode = pt_section_unmap(NULL);
 	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cache_null(void)
+{
+	struct pt_block_cache *bcache;
+
+	bcache = pt_section_bcache(NULL);
+	ptu_null(bcache);
 
 	return ptu_passed();
 }
@@ -789,6 +824,36 @@ static struct ptunit_result stress(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result cache(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	struct pt_block_cache *bcache;
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	bcache = pt_section_bcache(sfix->section);
+	ptu_null(bcache);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	bcache = pt_section_bcache(sfix->section);
+	ptu_ptr(bcache);
+	ptu_uint_eq(bcache->nentries, sfix->section->size);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	bcache = pt_section_bcache(sfix->section);
+	ptu_null(bcache);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result sfix_init(struct section_fixture *sfix)
 {
 	int errcode;
@@ -864,6 +929,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, put_null);
 	ptu_run(suite, map_null);
 	ptu_run(suite, unmap_null);
+	ptu_run(suite, cache_null);
 
 	ptu_run_f(suite, get_overflow, sfix);
 	ptu_run_f(suite, map_change, sfix);
@@ -887,6 +953,8 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, clone_bad_range, sfix);
 	ptu_run_f(suite, clone_head, sfix);
 	ptu_run_f(suite, clone_tail, sfix);
+
+	ptu_run_f(suite, cache, sfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

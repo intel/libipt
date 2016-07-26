@@ -175,8 +175,7 @@ int pt_sec_windows_map(struct pt_section *section, int fd)
 	section->unmap = pt_sec_windows_unmap;
 	section->read = pt_sec_windows_read;
 
-	return 0;
-
+	return pt_section_add_bcache(section);
 
 out_map:
 	UnmapViewOfFile(base);
