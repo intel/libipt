@@ -118,4 +118,18 @@ extern int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
 			 uint16_t size, const struct pt_asid *asid,
 			 uint64_t addr);
 
+/* Find an image section.
+ *
+ * Find the section containing @vaddr in @asid and provide a reference to it in
+ * @section and its load address in @laddr.  The caller needs to put the
+ * reference to @section after use.
+ *
+ * Returns the section's identifier on success, a negative error code otherwise.
+ * Returns -pte_internal if @image, @section, @laddr, or @asid is NULL.
+ * Returns -pte_nomap if there is no such section in @image.
+ */
+extern int pt_image_find(struct pt_image *image, struct pt_section **section,
+			 uint64_t *laddr, const struct pt_asid *asid,
+			 uint64_t vaddr);
+
 #endif /* PT_IMAGE_H */

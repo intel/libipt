@@ -1898,6 +1898,109 @@ static struct ptunit_result add_cached_bad_isid(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result find_null(struct image_fixture *ifix)
+{
+	struct pt_section *section;
+	uint64_t laddr;
+	int status;
+
+	status = pt_image_find(NULL, &section, &laddr, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, -pte_internal);
+
+	status = pt_image_find(&ifix->image, NULL, &laddr, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, -pte_internal);
+
+	status = pt_image_find(&ifix->image, &section, NULL, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, -pte_internal);
+
+	status = pt_image_find(&ifix->image, &section, &laddr, NULL, 0x1000ull);
+	ptu_int_eq(status, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result find(struct image_fixture *ifix)
+{
+	struct pt_section *section;
+	uint64_t laddr;
+	int status;
+
+	status = pt_image_find(&ifix->image, &section, &laddr, &ifix->asid[1],
+			       0x2003ull);
+	ptu_int_eq(status, 11);
+	ptu_ptr_eq(section, &ifix->section[1]);
+	ptu_uint_eq(laddr, 0x2000ull);
+
+	status = pt_section_put(section);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result find_asid(struct image_fixture *ifix)
+{
+	struct pt_section *section;
+	uint64_t laddr;
+	int status;
+
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
+			      0x1000ull, 1);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[1],
+			      0x1008ull, 2);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_find(&ifix->image, &section, &laddr, &ifix->asid[0],
+			       0x1009ull);
+	ptu_int_eq(status, 1);
+	ptu_ptr_eq(section, &ifix->section[0]);
+	ptu_uint_eq(laddr, 0x1000ull);
+
+	status = pt_section_put(section);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_find(&ifix->image, &section, &laddr, &ifix->asid[1],
+			       0x1009ull);
+	ptu_int_eq(status, 2);
+	ptu_ptr_eq(section, &ifix->section[0]);
+	ptu_uint_eq(laddr, 0x1008ull);
+
+	status = pt_section_put(section);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result find_bad_asid(struct image_fixture *ifix)
+{
+	struct pt_section *section;
+	uint64_t laddr;
+	int status;
+
+	status = pt_image_find(&ifix->image, &section, &laddr, &ifix->asid[0],
+			       0x2003ull);
+	ptu_int_eq(status, -pte_nomap);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result find_nomem(struct image_fixture *ifix)
+{
+	struct pt_section *section;
+	uint64_t laddr;
+	int status;
+
+	status = pt_image_find(&ifix->image, &section, &laddr, &ifix->asid[1],
+			       0x1010ull);
+	ptu_int_eq(status, -pte_nomap);
+
+	return ptu_passed();
+}
+
 struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	int index;
@@ -2053,6 +2156,12 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, add_cached_null_asid, ifix);
 	ptu_run_f(suite, add_cached_twice, ifix);
 	ptu_run_f(suite, add_cached_bad_isid, ifix);
+
+	ptu_run_f(suite, find_null, rfix);
+	ptu_run_f(suite, find, rfix);
+	ptu_run_f(suite, find_asid, ifix);
+	ptu_run_f(suite, find_bad_asid, rfix);
+	ptu_run_f(suite, find_nomem, rfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;

@@ -859,3 +859,81 @@ int pt_image_add_cached(struct pt_image *image,
 
 	return status;
 }
+
+static int pt_image_find_cold(struct pt_image *image,
+			      struct pt_section **psection, uint64_t *laddr,
+			      const struct pt_asid *asid, uint64_t vaddr)
+{
+	struct pt_mapped_section *msec;
+	struct pt_section_list *slist;
+	struct pt_section *section;
+	int errcode;
+
+	if (!image || !psection || !laddr)
+		return -pte_internal;
+
+	errcode = pt_image_fetch_section(image, asid, vaddr);
+	if (errcode < 0)
+		return errcode;
+
+	slist = image->sections;
+	if (!slist)
+		return -pte_nomap;
+
+	msec = &slist->section;
+
+	errcode = pt_image_check_msec(msec, asid, vaddr);
+	if (errcode < 0)
+		return errcode;
+
+	section = pt_msec_section(msec);
+
+	errcode = pt_section_get(section);
+	if (errcode < 0)
+		return errcode;
+
+	*psection = section;
+	*laddr = pt_msec_begin(msec);
+
+	return slist->isid;
+}
+
+int pt_image_find(struct pt_image *image, struct pt_section **psection,
+		  uint64_t *laddr, const struct pt_asid *asid, uint64_t vaddr)
+{
+	struct pt_mapped_section *msec;
+	struct pt_section_list *slist;
+	struct pt_section *section;
+	int errcode;
+
+	if (!image || !psection || !laddr)
+		return -pte_internal;
+
+	slist = image->sections;
+	if (!slist)
+		return -pte_nomap;
+
+	if (!slist->mapped)
+		return pt_image_find_cold(image, psection, laddr, asid, vaddr);
+
+	msec = &slist->section;
+
+	errcode = pt_image_check_msec(msec, asid, vaddr);
+	if (errcode < 0) {
+		if (errcode != -pte_nomap)
+			return errcode;
+
+		return pt_image_find_cold(image, psection, laddr, asid, vaddr);
+	}
+
+	section = pt_msec_section(msec);
+
+	errcode = pt_section_get(section);
+	if (errcode < 0)
+		return errcode;
+
+	*psection = section;
+	*laddr = pt_msec_begin(msec);
+
+	return slist->isid;
+}
