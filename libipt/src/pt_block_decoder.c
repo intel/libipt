@@ -27,6 +27,9 @@
  */
 
 #include "pt_block_decoder.h"
+#include "pt_block_cache.h"
+#include "pt_section.h"
+#include "pt_image.h"
 #include "pt_insn.h"
 #include "pt_ild.h"
 
@@ -38,6 +41,10 @@
 static int pt_blk_proceed(struct pt_block_decoder *, struct pt_block *);
 static int pt_blk_process_trailing_events(struct pt_block_decoder *,
 					  struct pt_block *);
+static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *,
+					  struct pt_block *,
+					  struct pt_block_cache *,
+					  struct pt_section *, uint64_t);
 
 
 static void pt_blk_reset(struct pt_block_decoder *decoder)
@@ -1153,6 +1160,64 @@ static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
 	return 0;
 }
 
+/* Decode one instruction in a known section.
+ *
+ * Decode the instruction at @insn->ip in @section loaded at @laddr assuming
+ * execution mode @insn->mode.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_decode_in_section(struct pt_insn *insn,
+				    struct pt_insn_ext *iext,
+				    const struct pt_section *section,
+				    uint64_t laddr)
+{
+	int status;
+
+	if (!insn || !iext)
+		return -pte_internal;
+
+	/* We know that @ip is contained in @section.
+	 *
+	 * Note that we need to translate @ip into a section offset.
+	 */
+	status = pt_section_read(section, insn->raw, sizeof(insn->raw),
+				 insn->ip - laddr);
+	if (status < 0)
+		return status;
+
+	/* We initialize @insn->size to the maximal possible size.  It will be
+	 * set to the actual size during instruction decode.
+	 */
+	insn->size = (uint8_t) status;
+
+	return pt_ild_decode(insn, iext);
+}
+
+/* Update the return-address stack if @insn is a near call.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static inline int pt_blk_log_call(struct pt_block_decoder *decoder,
+				  const struct pt_insn *insn,
+				  const struct pt_insn_ext *iext)
+{
+	if (!decoder || !insn || !iext)
+		return -pte_internal;
+
+	if (insn->iclass != ptic_call)
+		return 0;
+
+	/* Ignore direct calls to the next instruction that are used for
+	 * position independent code.
+	 */
+	if (iext->variant.branch.is_direct &&
+	    !iext->variant.branch.displacement)
+		return 0;
+
+	return pt_retstack_push(&decoder->retstack, insn->ip + insn->size);
+}
+
 /* Proceed by one instruction.
  *
  * Tries to decode the instruction at @decoder->ip and, on success, adds it to
@@ -1209,19 +1274,10 @@ static int pt_blk_proceed_one_insn(struct pt_block_decoder *decoder,
 	if (status < 0)
 		return status;
 
-	/* Log calls' return addresses for return compression.
-	 *
-	 * Unless this is a call to the next instruction as is used for position
-	 * independent code.
-	 */
-	if ((insn.iclass == ptic_call) &&
-	    (!iext.variant.branch.is_direct ||
-	     iext.variant.branch.displacement)) {
-		status = pt_retstack_push(&decoder->retstack,
-					  insn.ip + insn.size);
-		if (status < 0)
-			return status;
-	}
+	/* Log calls' return addresses for return compression. */
+	status = pt_blk_log_call(decoder, &insn, &iext);
+	if (status < 0)
+		return status;
 
 	/* We have a new instruction. */
 	block->end_ip = insn.ip;
@@ -1634,7 +1690,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 	return status;
 }
 
-/* Proceed to the next decision point.
+/* Proceed to the next decision point without using the block cache.
  *
  * Tracing is enabled and we don't have an event pending.  Proceed as far as
  * we get without trace.  Stop when we either:
@@ -1647,8 +1703,8 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
-				   struct pt_block *block)
+static int pt_blk_proceed_no_event_uncached(struct pt_block_decoder *decoder,
+					    struct pt_block *block)
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
@@ -1674,6 +1730,611 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 	}
 
 	return 0;
+}
+
+/* Check if @ip is contained in @section loaded at @laddr.
+ *
+ * Returns non-zero if it is.
+ * Returns zero if it isn't or of @section is NULL.
+ */
+static inline int pt_blk_is_in_section(uint64_t ip,
+				       const struct pt_section *section,
+				       uint64_t laddr)
+{
+	uint64_t begin, end;
+
+	begin = laddr;
+	end = begin + pt_section_size(section);
+
+	return (begin <= ip && ip < end);
+}
+
+/* Proceed to the next instruction and fill the block cache for @decoder->ip.
+ *
+ * Tracing is enabled and we don't have an event pending.  The current IP is not
+ * yet cached.
+ *
+ * Proceed one instruction without using the block cache, then try to proceed
+ * further using the block cache.
+ *
+ * On our way back, add a block cache entry for the IP before proceeding.  Note
+ * that the recursion is bounded by the maximum number of instructions in a
+ * block.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
+					      struct pt_block *block,
+					      struct pt_block_cache *bcache,
+					      struct pt_section *section,
+					      uint64_t laddr)
+{
+	struct pt_bcache_entry bce;
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+	uint64_t nip, dip;
+	int64_t disp;
+	int status;
+
+	/* Proceed one instruction by decoding and examining it.
+	 *
+	 * Note that we also return on a status of zero that indicates that the
+	 * instruction didn't fit into @block.
+	 */
+	status = pt_blk_proceed_one_insn(decoder, block, &insn, &iext);
+	if (status <= 0)
+		return status;
+
+	/* Let's see if we can proceed to the next IP without trace.
+	 *
+	 * If we can't, this is certainly a decision point.
+	 */
+	status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+	if (status < 0) {
+		if (status != -pte_bad_query)
+			return status;
+
+		memset(&bce, 0, sizeof(bce));
+		bce.ninsn = 1;
+		bce.mode = insn.mode;
+		bce.isize = insn.size;
+
+		/* Clear the instruction size in case of overflows. */
+		if ((uint8_t) bce.isize != insn.size)
+			bce.isize = 0;
+
+		switch (insn.iclass) {
+		case ptic_error:
+		case ptic_other:
+			return -pte_internal;
+
+		case ptic_jump:
+			/* A direct jump doesn't require trace. */
+			if (iext.variant.branch.is_direct)
+				return -pte_internal;
+
+			bce.qualifier = ptbq_indirect;
+			break;
+
+		case ptic_call:
+			/* A direct call doesn't require trace. */
+			if (iext.variant.branch.is_direct)
+				return -pte_internal;
+
+			bce.qualifier = ptbq_ind_call;
+			break;
+
+		case ptic_return:
+			bce.qualifier = ptbq_return;
+			break;
+
+		case ptic_cond_jump:
+			bce.qualifier = ptbq_cond;
+			break;
+
+		case ptic_far_call:
+		case ptic_far_return:
+		case ptic_far_jump:
+			bce.qualifier = ptbq_indirect;
+			break;
+		}
+
+		status = pt_bcache_add(bcache, insn.ip - laddr, bce);
+		if (status < 0)
+			return status;
+
+		return pt_blk_proceed_with_trace(decoder, &insn, &iext);
+	}
+
+	/* The next instruction's IP. */
+	nip = decoder->ip;
+
+	/* Even if we were able to proceed without trace, we might have to stop
+	 * here for various reasons:
+	 *
+	 *   - at near direct calls to update the return-address stack
+	 *
+	 *     We are forced to re-decode @insn to get the branch displacement.
+	 *
+	 *     Even though it is constant, we don't cache it to avoid increasing
+	 *     the size of a cache entry.  Note that the displacement field is
+	 *     zero for this entry and we might be tempted to use it - but other
+	 *     entries that point to this decision point will have non-zero
+	 *     displacement.
+	 *
+	 *     We could proceed after a near direct call but we migh as well
+	 *     postpone it to the next iteration.
+	 *
+	 *   - if we switched sections
+	 *
+	 *     This ends a block just like a branch that requires trace.
+	 *
+	 *     We need to re-decode @insn in order to determine the start IP of
+	 *     the next block.
+	 */
+	if (insn.iclass == ptic_call ||
+	    !pt_blk_is_in_section(nip, section, laddr)) {
+
+		memset(&bce, 0, sizeof(bce));
+		bce.ninsn = 1;
+		bce.mode = insn.mode;
+		bce.qualifier = ptbq_decode;
+
+		return pt_bcache_add(bcache, insn.ip - laddr, bce);
+	}
+
+	/* We proceeded one instruction.  Let's proceed normally with caching.
+	 * This may fill the block cache for @nip.
+	 */
+	status = pt_blk_proceed_no_event_cached(decoder, block, bcache,
+						section, laddr);
+	if (status < 0)
+		return status;
+
+	/* On our way back, we add a cache entry for this instruction based on
+	 * the cache entry of the succeeding instruction.
+	 */
+	status = pt_bcache_lookup(&bce, bcache, nip - laddr);
+	if (status < 0)
+		return status;
+
+	/* If the cache entry for @nip isn't valid, @block overflowed before we
+	 * could reach a decision point in this iteration.
+	 *
+	 * We will proceed from @decoder->ip in the next iteration.  Eventually,
+	 * we will find a decision point and, on our way back, populate the
+	 * block cache entries preceding it.
+	 */
+	if (!pt_bce_is_valid(bce))
+		return 0;
+
+	/* We must not have switched execution modes.
+	 *
+	 * This would require an event and we're on the no-event flow.
+	 */
+	if (pt_bce_exec_mode(bce) != insn.mode)
+		return -pte_internal;
+
+	/* The decision point IP and the displacement from @insn.ip. */
+	dip = nip + bce.displacement;
+	disp = (int64_t) (dip - insn.ip);
+
+	/* We must not have switched sections between @nip and @dip since the
+	 * cache entry at @nip brought us to @dip.
+	 */
+	if (!pt_blk_is_in_section(dip, section, laddr))
+		return -pte_internal;
+
+	/* Let's try to reach @nip's decision point from @insn.ip.
+	 *
+	 * There are two fields that may overflow: @bce.ninsn and
+	 * @bce.displacement.
+	 */
+	bce.ninsn += 1;
+	bce.displacement = (int32_t) disp;
+
+	/* If none of them overflowed, we're done.
+	 *
+	 * If one or both overflowed, let's try to insert a trampoline, i.e. we
+	 * try to reach @dip via a ptbq_again entry to @nip.
+	 */
+	if (!bce.ninsn || ((int64_t) bce.displacement != disp)) {
+		/* The displacement from @ip to @nip for the trampoline. */
+		disp = (int64_t) (nip - insn.ip);
+
+		memset(&bce, 0, sizeof(bce));
+		bce.displacement = (int32_t) disp;
+		bce.ninsn = 1;
+		bce.mode = insn.mode;
+		bce.qualifier = ptbq_again;
+
+		/* If we can't even reach @nip without overflowing the
+		 * displacement field, we have to stop and re-decode @insn.
+		 */
+		if ((int64_t) bce.displacement != disp) {
+
+			memset(&bce, 0, sizeof(bce));
+			bce.ninsn = 1;
+			bce.mode = insn.mode;
+			bce.qualifier = ptbq_decode;
+		}
+	}
+
+	/* We're done.  Add the cache entry.
+	 *
+	 * There's a chance that other decoders updated the cache entry in the
+	 * meantime.  They should have come to the same conclusion as we,
+	 * though, and the cache entries should be identical.
+	 *
+	 * Cache updates are atomic so even if the two versions were not
+	 * identical, we wouldn't care because they are both correct.
+	 */
+	return pt_bcache_add(bcache, insn.ip - laddr, bce);
+}
+
+/* Proceed to the next decision point using the block cache.
+ *
+ * Tracing is enabled and we don't have an event pending.  We already set
+ * @block's isid.  All reads are done within @section as we're not switching
+ * sections between blocks.
+ *
+ * Proceed as far as we get without trace.  Stop when we either:
+ *
+ *   - need trace in order to continue
+ *   - overflow the max number of instructions in a block
+ *
+ * We actually proceed one instruction further to get the start IP for the next
+ * block.  This only updates @decoder's internal state, though.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
+					  struct pt_block *block,
+					  struct pt_block_cache *bcache,
+					  struct pt_section *section,
+					  uint64_t laddr)
+{
+	struct pt_bcache_entry bce;
+	uint16_t binsn, ninsn;
+	int status;
+
+	status = pt_bcache_lookup(&bce, bcache, decoder->ip - laddr);
+	if (status < 0)
+		return status;
+
+	/* If we don't find a valid cache entry, fill the cache. */
+	if (!pt_bce_is_valid(bce))
+		return pt_blk_proceed_no_event_fill_cache(decoder, block,
+							  bcache, section,
+							  laddr);
+
+	/* We have a valid cache entry.  Let's first check if the way to the
+	 * decision point still fits into @block.
+	 *
+	 * If it doesn't, we end the block without filling it as much as we
+	 * could since this would require us to switch to the slow path.
+	 *
+	 * On the next iteration, we will start with an empty block, which is
+	 * guaranteed to have enough room for at least one block cache entry.
+	 */
+	binsn = block->ninsn;
+	ninsn = binsn + (uint16_t) bce.ninsn;
+	if (ninsn < binsn)
+		return 0;
+
+	/* Jump ahead to the decision point and proceed from there.
+	 *
+	 * We're not switching execution modes so even if @block already has an
+	 * execution mode, it will be the one we're going to set.
+	 */
+	decoder->ip += bce.displacement;
+
+	block->end_ip = decoder->ip;
+	block->ninsn = ninsn;
+	block->mode = pt_bce_exec_mode(bce);
+
+
+	switch (pt_bce_qualifier(bce)) {
+	case ptbq_again:
+		/* We're not able to reach the actual decision point due to
+		 * overflows so we inserted a trampoline.
+		 */
+		return pt_blk_proceed_no_event_cached(decoder, block, bcache,
+						      section, laddr);
+
+	case ptbq_cond:
+		/* We're at a conditional branch.  Let's first check whether we
+		 * know the size of the instruction.  If we do, we might get
+		 * away without decoding the instruction.
+		 *
+		 * If we don't know the size we might as well do the full decode
+		 * and proceed-with-trace flow we do for ptbq_decode.
+		 */
+		if (bce.isize) {
+			uint64_t ip;
+			int taken;
+
+			/* If the branch is not taken, we don't need to decode
+			 * the instruction at @decoder->ip.
+			 *
+			 * If it is taken, we have to implement everything here.
+			 * We can't use the normal decode and proceed-with-trace
+			 * flow since we already consumed the TNT bit.
+			 */
+			status = pt_qry_cond_branch(&decoder->query, &taken);
+			if (status < 0)
+				return status;
+
+			/* Preserve the query decoder's response which indicates
+			 * upcoming events.
+			 */
+			decoder->status = status;
+
+			ip = decoder->ip;
+			if (taken) {
+				struct pt_insn_ext iext;
+				struct pt_insn insn;
+
+				memset(&iext, 0, sizeof(iext));
+				memset(&insn, 0, sizeof(insn));
+
+				insn.mode = pt_bce_exec_mode(bce);
+				insn.ip = ip;
+
+				status = pt_blk_decode_in_section(&insn, &iext,
+								  section,
+								  laddr);
+				if (status < 0)
+					return status;
+
+				ip += iext.variant.branch.displacement;
+			}
+
+			decoder->ip = ip + bce.isize;
+			break;
+		}
+
+		/* Fall through to ptbq_decode. */
+
+	case ptbq_decode: {
+		struct pt_insn_ext iext;
+		struct pt_insn insn;
+
+		/* We need to decode the instruction at @decoder->ip and decide
+		 * what to do based on that.
+		 *
+		 * We already accounted for the instruction so we can't just
+		 * call pt_blk_proceed_one_insn().
+		 */
+
+		memset(&iext, 0, sizeof(iext));
+		memset(&insn, 0, sizeof(insn));
+
+		insn.mode = pt_bce_exec_mode(bce);
+		insn.ip = decoder->ip;
+
+		status = pt_blk_decode_in_section(&insn, &iext, section, laddr);
+		if (status < 0)
+			return status;
+
+		/* Log calls' return addresses for return compression. */
+		status = pt_blk_log_call(decoder, &insn, &iext);
+		if (status < 0)
+			return status;
+
+		/* Let's see if we can proceed to the next IP without trace.
+		 *
+		 * Note that we also stop due to displacement overflows or to
+		 * maintain the return-address stack for near direct calls.
+		 */
+		status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+		if (status < 0) {
+			if (status != -pte_bad_query)
+				return status;
+
+			/* We can't, so let's proceed with trace, which
+			 * completes the block.
+			 */
+			return pt_blk_proceed_with_trace(decoder, &insn, &iext);
+		}
+
+		/* If we can proceed without trace and we stay in @section we
+		 * may proceed further.
+		 *
+		 * We're done if we switch sections, though.
+		 */
+		if (!pt_blk_is_in_section(decoder->ip, section, laddr))
+			break;
+
+		return pt_blk_proceed_no_event_cached(decoder, block, bcache,
+						      section, laddr);
+	}
+
+	case ptbq_ind_call: {
+		uint64_t ip;
+
+		/* We're at a near indirect call.
+		 *
+		 * We need to update the return-address stack and query the
+		 * destination IP.
+		 */
+		ip = decoder->ip;
+
+		/* If we already know the size of the instruction, we don't need
+		 * to re-decode it.
+		 */
+		if (bce.isize)
+			ip += bce.isize;
+		else {
+			struct pt_insn_ext iext;
+			struct pt_insn insn;
+
+			memset(&iext, 0, sizeof(iext));
+			memset(&insn, 0, sizeof(insn));
+
+			insn.mode = pt_bce_exec_mode(bce);
+			insn.ip = ip;
+
+			status = pt_blk_decode_in_section(&insn, &iext, section,
+							  laddr);
+			if (status < 0)
+				return status;
+
+			ip += insn.size;
+		}
+
+		status = pt_retstack_push(&decoder->retstack, ip);
+		if (status < 0)
+			return status;
+
+		status = pt_qry_indirect_branch(&decoder->query, &decoder->ip);
+		if (status < 0)
+			return status;
+
+		/* Preserve the query decoder's response which indicates
+		 * upcoming events.
+		 */
+		decoder->status = status;
+		break;
+	}
+
+	case ptbq_return: {
+		int taken;
+
+		/* Check for a compressed return. */
+		status = pt_qry_cond_branch(&decoder->query, &taken);
+		if (status < 0) {
+			if (status != -pte_bad_query)
+				return status;
+
+			/* The return is not compressed.  We need another query
+			 * to determine the destination IP.
+			 */
+			status = pt_qry_indirect_branch(&decoder->query,
+							&decoder->ip);
+			if (status < 0)
+				return status;
+
+			/* Preserve the query decoder's response which indicates
+			 * upcoming events.
+			 */
+			decoder->status = status;
+			break;
+		}
+
+		/* Preserve the query decoder's response which indicates
+		 * upcoming events.
+		 */
+		decoder->status = status;
+
+		/* A compressed return is indicated by a taken conditional
+		 * branch.
+		 */
+		if (!taken)
+			return -pte_bad_retcomp;
+
+		return pt_retstack_pop(&decoder->retstack, &decoder->ip);
+	}
+
+	case ptbq_indirect:
+		/* We're at an indirect jump or far transfer.
+		 *
+		 * This is neither a near call nor return so we don't need to
+		 * touch the return-address stack.
+		 *
+		 * Just query the destination IP.
+		 */
+		status = pt_qry_indirect_branch(&decoder->query, &decoder->ip);
+		if (status < 0)
+			return status;
+
+		/* Preserve the query decoder's response which indicates
+		 * upcoming events.
+		 */
+		decoder->status = status;
+		break;
+	}
+
+	return 0;
+}
+
+/* Proceed to the next decision point.
+ *
+ * Tracing is enabled and we don't have an event pending.  Proceed as far as
+ * we get without trace.  Stop when we either:
+ *
+ *   - need trace in order to continue
+ *   - overflow the max number of instructions in a block
+ *
+ * We actually proceed one instruction further to get the start IP for the next
+ * block.  This only updates @decoder's internal state, though.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
+				   struct pt_block *block)
+{
+	struct pt_block_cache *bcache;
+	struct pt_section *section;
+	uint64_t laddr;
+	int isid, errcode, status;
+
+	if (!decoder || !block)
+		return -pte_internal;
+
+	isid = pt_image_find(decoder->image, &section, &laddr, &decoder->asid,
+			     decoder->ip);
+	if (isid < 0) {
+		if (isid != -pte_nomap)
+			return isid;
+
+		/* Even if there is no such section in the image, we may still
+		 * read the memory via the callback function.
+		 */
+		return pt_blk_proceed_no_event_uncached(decoder, block);
+	}
+
+	/* We do not switch sections inside a block. */
+	if (isid != block->isid) {
+		if (!pt_blk_block_is_empty(block))
+			return 0;
+
+		block->isid = isid;
+	}
+
+	errcode = pt_section_map(section);
+	if (errcode < 0)
+		goto out_put;
+
+	bcache = pt_section_bcache(section);
+	if (!bcache) {
+		errcode = pt_section_unmap(section);
+		if (errcode < 0)
+			goto out_put;
+
+		errcode = pt_section_put(section);
+		if (errcode < 0)
+			return errcode;
+
+		return pt_blk_proceed_no_event_uncached(decoder, block);
+	}
+
+	status = pt_blk_proceed_no_event_cached(decoder, block, bcache,
+						section, laddr);
+
+	errcode = pt_section_unmap(section);
+	if (errcode < 0)
+		goto out_put;
+
+	errcode = pt_section_put(section);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
+
+out_put:
+	(void) pt_section_put(section);
+	return errcode;
 }
 
 /* Proceed to the next event or decision point.
