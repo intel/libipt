@@ -29,17 +29,6 @@
 # This script executes ptt tests and compares the output of tools, like
 # ptxed or ptdump, with the expected output from the ptt testfile.
 
-check_tools() {
-	local status=0
-	for i in "$@"; do
-		if [[ -z "`which $i`" ]]; then
-			echo "$i: not in PATH" >&2
-			status=1
-		fi
-	done
-	return $status
-}
-
 info() {
 	[[ $verbose != 0 ]] && echo -e "$@" >&2
 }
@@ -119,9 +108,6 @@ if [[ $# == 0 ]]; then
 	usage
 	exit 1
 fi
-
-# check if all the tools are in PATH
-check_tools $pttc_cmd yasm $ptxed_cmd $ptdump_cmd || exit 1
 
 # the exit status
 status=0
