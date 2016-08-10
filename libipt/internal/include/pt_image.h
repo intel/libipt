@@ -132,4 +132,21 @@ extern int pt_image_find(struct pt_image *image, struct pt_section **section,
 			 uint64_t *laddr, const struct pt_asid *asid,
 			 uint64_t vaddr);
 
+/* Validate an image section.
+ *
+ * Validate that a lookup by @asid and @vaddr in @image would result in @section
+ * loaded at @laddr identified by @isid.
+ *
+ * Validation may fail sporadically, e.g. if @section has been evicted from
+ * @image's LRU cache.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_invalid if @image or @asid is NULL.
+ * Returns -pte_nomap if validation failed.
+ */
+extern int pt_image_validate(const struct pt_image *image,
+			     const struct pt_asid *asid, uint64_t vaddr,
+			     const struct pt_section *section, uint64_t laddr,
+			     int isid);
+
 #endif /* PT_IMAGE_H */

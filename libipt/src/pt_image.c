@@ -937,3 +937,38 @@ int pt_image_find(struct pt_image *image, struct pt_section **psection,
 
 	return slist->isid;
 }
+
+int pt_image_validate(const struct pt_image *image, const struct pt_asid *asid,
+		      uint64_t vaddr, const struct pt_section *section,
+		      uint64_t laddr, int isid)
+{
+	struct pt_mapped_section *msec;
+	struct pt_section_list *slist;
+
+	if (!image)
+		return -pte_internal;
+
+	/* We only look at the top of our LRU stack and accept sporadic
+	 * validation fails if @section moved down in the LRU stack or has been
+	 * evicted.
+	 *
+	 * A failed validation requires decoders to re-fetch the section so it
+	 * only results in a (relatively small) performance loss.
+	 */
+	slist = image->sections;
+	if (!slist)
+		return -pte_nomap;
+
+	if (slist->isid != isid)
+		return -pte_nomap;
+
+	msec = &slist->section;
+
+	if (pt_msec_section(msec) != section)
+		return -pte_nomap;
+
+	if (pt_msec_begin(msec) != laddr)
+		return -pte_nomap;
+
+	return pt_image_check_msec(msec, asid, vaddr);
+}

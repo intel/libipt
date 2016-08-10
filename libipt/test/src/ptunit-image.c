@@ -2001,6 +2001,71 @@ static struct ptunit_result find_nomem(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result validate_null(struct image_fixture *ifix)
+{
+	int status;
+
+	status = pt_image_validate(NULL, &ifix->asid[0], 0x1004ull,
+				   &ifix->section[0], 0x1000ull, 10);
+	ptu_int_eq(status, -pte_internal);
+
+	status = pt_image_validate(&ifix->image, NULL, 0x1004ull,
+				   &ifix->section[0], 0x1000ull, 10);
+	ptu_int_eq(status, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result validate(struct image_fixture *ifix)
+{
+	int status;
+
+	/* This test depends on the order in which sections are stored when
+	 * added to the image.
+	 *
+	 * Since pt_image_validate() only looks at the top of the LRU stack we
+	 * can only validate that section - i.e. the one that was added first.
+	 */
+	status = pt_image_validate(&ifix->image, &ifix->asid[0], 0x1004ull,
+				   &ifix->section[0], 0x1000ull, 10);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result validate_bad_asid(struct image_fixture *ifix)
+{
+	int status;
+
+	status = pt_image_validate(&ifix->image, &ifix->asid[1], 0x1004ull,
+				   &ifix->section[0], 0x1000ull, 10);
+	ptu_int_eq(status, -pte_nomap);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result validate_bad_laddr(struct image_fixture *ifix)
+{
+	int status;
+
+	status = pt_image_validate(&ifix->image, &ifix->asid[0], 0x1004ull,
+				   &ifix->section[0], 0x2000ull, 10);
+	ptu_int_eq(status, -pte_nomap);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result validate_bad_isid(struct image_fixture *ifix)
+{
+	int status;
+
+	status = pt_image_validate(&ifix->image, &ifix->asid[0], 0x1004ull,
+				   &ifix->section[0], 0x1000ull, 11);
+	ptu_int_eq(status, -pte_nomap);
+
+	return ptu_passed();
+}
+
 struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	int index;
@@ -2162,6 +2227,12 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, find_asid, ifix);
 	ptu_run_f(suite, find_bad_asid, rfix);
 	ptu_run_f(suite, find_nomem, rfix);
+
+	ptu_run_f(suite, validate_null, rfix);
+	ptu_run_f(suite, validate, rfix);
+	ptu_run_f(suite, validate_bad_asid, rfix);
+	ptu_run_f(suite, validate_bad_laddr, rfix);
+	ptu_run_f(suite, validate_bad_isid, rfix);
 
 	ptunit_report(&suite);
 	return suite.nr_fails;
