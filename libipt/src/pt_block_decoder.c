@@ -47,6 +47,99 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *,
 					  struct pt_section *, uint64_t);
 
 
+/* Release a cached section.
+ *
+ * If @scache does not contain a section, this does noting.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal, if @scache is NULL.
+ */
+static int pt_blk_scache_invalidate(struct pt_cached_section *scache)
+{
+	struct pt_section *section;
+	int errcode;
+
+	if (!scache)
+		return -pte_internal;
+
+	section = scache->section;
+	if (!section)
+		return 0;
+
+	errcode = pt_section_unmap(section);
+	if (errcode < 0)
+		return errcode;
+
+	scache->section = NULL;
+
+	return pt_section_put(section);
+}
+
+/* Cache @section loaded at @laddr identified by @isid in @scache.
+ *
+ * The caller transfers its use- and map-count to @scache.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @scache or @section is NULL.
+ * Returns -pte_internal if another section is already cached.
+ */
+static int pt_blk_cache_section(struct pt_cached_section *scache,
+				struct pt_section *section, uint64_t laddr,
+				int isid)
+{
+	if (!scache || !section)
+		return -pte_internal;
+
+	if (scache->section)
+		return -pte_internal;
+
+	scache->section = section;
+	scache->laddr = laddr;
+	scache->isid = isid;
+
+	return 0;
+}
+
+/* Get @scache's cached section.
+ *
+ * Check whether @scache contains a section that an image lookup of @ip in @asid
+ * would return.  On success, provides the cached section in @psection and its
+ * load address in @pladdr.
+ *
+ * Returns the section's identifier on success, a negative error code otherwise.
+ * Returns -pte_internal if @scache, @psection, or @pladdr is NULL.
+ * Returns -pte_nomap if @scache does not have a section cached.
+ * Returns -pte_nomap if @scache's cached section does not contain @ip.
+ */
+static int pt_blk_cached_section(struct pt_cached_section *scache,
+				 struct pt_section **psection, uint64_t *pladdr,
+				 struct pt_image *image, struct pt_asid *asid,
+				 uint64_t ip)
+{
+	struct pt_section *section;
+	uint64_t laddr;
+	int isid, errcode;
+
+	if (!scache || !psection || !pladdr)
+		return -pte_internal;
+
+
+	section = scache->section;
+	laddr = scache->laddr;
+	isid = scache->isid;
+	if (!section)
+		return -pte_nomap;
+
+	errcode = pt_image_validate(image, asid, ip, section, laddr, isid);
+	if (errcode < 0)
+		return errcode;
+
+	*psection = section;
+	*pladdr = laddr;
+
+	return isid;
+}
+
 static void pt_blk_reset(struct pt_block_decoder *decoder)
 {
 	if (!decoder)
@@ -78,6 +171,8 @@ int pt_blk_decoder_init(struct pt_block_decoder *decoder,
 	pt_image_init(&decoder->default_image, NULL);
 	decoder->image = &decoder->default_image;
 
+	memset(&decoder->scache, 0, sizeof(decoder->scache));
+
 	pt_blk_reset(decoder);
 
 	return 0;
@@ -87,6 +182,9 @@ void pt_blk_decoder_fini(struct pt_block_decoder *decoder)
 {
 	if (!decoder)
 		return;
+
+	/* Release the cached section so we don't leak it. */
+	(void) pt_blk_scache_invalidate(&decoder->scache);
 
 	pt_image_fini(&decoder->default_image);
 	pt_qry_decoder_fini(&decoder->query);
@@ -2277,21 +2375,42 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 	struct pt_block_cache *bcache;
 	struct pt_section *section;
 	uint64_t laddr;
-	int isid, errcode, status;
+	int isid, errcode;
 
 	if (!decoder || !block)
 		return -pte_internal;
 
-	isid = pt_image_find(decoder->image, &section, &laddr, &decoder->asid,
-			     decoder->ip);
+	isid = pt_blk_cached_section(&decoder->scache, &section, &laddr,
+				     decoder->image, &decoder->asid,
+				     decoder->ip);
 	if (isid < 0) {
 		if (isid != -pte_nomap)
 			return isid;
 
-		/* Even if there is no such section in the image, we may still
-		 * read the memory via the callback function.
-		 */
-		return pt_blk_proceed_no_event_uncached(decoder, block);
+		errcode = pt_blk_scache_invalidate(&decoder->scache);
+		if (errcode < 0)
+			return errcode;
+
+		isid = pt_image_find(decoder->image, &section, &laddr,
+				     &decoder->asid, decoder->ip);
+		if (isid < 0) {
+			if (isid != -pte_nomap)
+				return isid;
+
+			/* Even if there is no such section in the image, we may
+			 * still read the memory via the callback function.
+			 */
+			return pt_blk_proceed_no_event_uncached(decoder, block);
+		}
+
+		errcode = pt_section_map(section);
+		if (errcode < 0)
+			goto out_put;
+
+		errcode = pt_blk_cache_section(&decoder->scache, section, laddr,
+					       isid);
+		if (errcode < 0)
+			goto out_unmap;
 	}
 
 	/* We do not switch sections inside a block. */
@@ -2302,35 +2421,15 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 		block->isid = isid;
 	}
 
-	errcode = pt_section_map(section);
-	if (errcode < 0)
-		goto out_put;
-
 	bcache = pt_section_bcache(section);
-	if (!bcache) {
-		errcode = pt_section_unmap(section);
-		if (errcode < 0)
-			goto out_put;
-
-		errcode = pt_section_put(section);
-		if (errcode < 0)
-			return errcode;
-
+	if (!bcache)
 		return pt_blk_proceed_no_event_uncached(decoder, block);
-	}
 
-	status = pt_blk_proceed_no_event_cached(decoder, block, bcache,
-						section, laddr);
+	return pt_blk_proceed_no_event_cached(decoder, block, bcache, section,
+					      laddr);
 
-	errcode = pt_section_unmap(section);
-	if (errcode < 0)
-		goto out_put;
-
-	errcode = pt_section_put(section);
-	if (errcode < 0)
-		return errcode;
-
-	return status;
+out_unmap:
+	(void) pt_section_unmap(section);
 
 out_put:
 	(void) pt_section_put(section);
