@@ -137,7 +137,9 @@ int pt_time_update_tsc(struct pt_time *time,
 
 	time->have_tsc = 1;
 	time->have_tma = 0;
+	time->have_mtc = 0;
 	time->tsc = time->base = packet->tsc;
+	time->ctc = 0;
 	time->fc = 0ull;
 
 	/* We got the full time; we recover from previous losses. */
@@ -166,7 +168,7 @@ int pt_time_update_tma(struct pt_time *time,
 		       const struct pt_packet_tma *packet,
 		       const struct pt_config *config)
 {
-	uint32_t ctc, mtc_mask, mtc_offset, mtc_freq;
+	uint32_t ctc, mtc_mask, mtc_offset, mtc_freq, mtc_hi;
 	uint64_t fc;
 
 	if (!time || !packet || !config)
@@ -176,12 +178,21 @@ int pt_time_update_tma(struct pt_time *time,
 	if (!time->have_tsc)
 		return -pte_bad_context;
 
+	/* We shouldn't have more than one TMA per TSC. */
+	if (time->have_tma)
+		return -pte_bad_context;
+
+	/* We're ignoring MTC between TSC and TMA. */
+	if (time->have_mtc)
+		return -pte_internal;
+
 	ctc = packet->ctc;
 	fc = packet->fc;
 
 	mtc_freq = config->mtc_freq;
 	mtc_mask = (1u << mtc_freq) - 1u;
 	mtc_offset = ctc & mtc_mask;
+	mtc_hi = mtc_freq + pt_pl_mtc_bit_size;
 
 	/* Mask out the MTC offset and the high order bits. */
 	ctc &= pt_pl_mtc_mask << mtc_freq;
@@ -192,18 +203,24 @@ int pt_time_update_tma(struct pt_time *time,
 	time->mtc_offset = mtc_offset;
 
 	/* If the MTC frequency is low enough that TMA provides the full CTC
-	 * value, we're fine.
+	 * value, we can use the TMA as an MTC.
+	 *
+	 * If it isn't, we will estimate the preceding MTC based on the CTC bits
+	 * the TMA provides at the next MTC.  We forget about the previous MTC
+	 * in this case.
+	 *
+	 * If no MTC packets are dropped around TMA, we will estimate the
+	 * forgotten value again at the next MTC.
+	 *
+	 * If MTC packets are dropped, we can't really tell where in this
+	 * extended MTC period the TSC occurred.  The estimation will place it
+	 * right before the next MTC.
 	 */
-	if ((mtc_freq + 8) <= pt_pl_tma_ctc_bit_size) {
-		time->ctc = ctc;
-		time->ctc_cyc = ctc;
-
-		/* We can use the TMA instead of an MTC. */
+	if (mtc_hi <= pt_pl_tma_ctc_bit_size)
 		time->have_mtc = 1;
-	}
-	/* Otherwise, we must rely on either having seen an MTC before or
-	 * on heuristically approximating it later at the next MTC.
-	 */
+
+	/* In both cases, we store the TMA's CTC bits until the next MTC. */
+	time->ctc = time->ctc_cyc = ctc;
 
 	return 0;
 }
@@ -225,7 +242,10 @@ int pt_time_update_mtc(struct pt_time *time,
 	have_mtc = time->have_mtc;
 
 	/* We ignore MTCs between TSC and TMA to avoid apparent CTC overflows.
-	 * Later MTCs will ensure that no time is lost.
+	 *
+	 * Later MTCs will ensure that no time is lost - provided TMA provides
+	 * enough bits.  If TMA doesn't provide any of the MTC bits we may place
+	 * the TSC into the wrong MTC period.
 	 */
 	if (have_tsc && !have_tma)
 		return 0;
@@ -254,7 +274,7 @@ int pt_time_update_mtc(struct pt_time *time,
 	 * payload.
 	 */
 	if (!have_mtc) {
-		uint8_t shift;
+		uint32_t ctc_lo, ctc_hi;
 
 		/* If we have not seen a TMA, we ignore this first MTC.
 		 *
@@ -267,25 +287,41 @@ int pt_time_update_mtc(struct pt_time *time,
 		if (!have_tma)
 			return 0;
 
-		/* The TMA we've seen provided an offset into the current
-		 * MTC period.  Let's assume the last CTC was just small
-		 * enough to contain that offset.
+		/* The TMA's CTC value didn't provide enough bits - otherwise,
+		 * we would have treated the TMA as an MTC.
 		 */
-		shift = pt_pl_tma_ctc_bit_size;
-		if (shift < mtc_freq)
-			shift = mtc_freq;
+		if (last_ctc & ~pt_pl_tma_ctc_mask)
+			return -pte_internal;
 
-		ctc_delta = 1u << shift;
-	} else {
-		/* This is the normal case.  We have seen an MTC before so we
-		 * know the previous CTC value.
+		/* Split this MTC's CTC value into low and high parts with
+		 * respect to the bits provided by TMA.
 		 */
+		ctc_lo = ctc & pt_pl_tma_ctc_mask;
+		ctc_hi = ctc & ~pt_pl_tma_ctc_mask;
 
-		errcode = pt_time_ctc_delta(&ctc_delta, ctc, last_ctc, config);
-		if (errcode < 0) {
-			time->lost_mtc += 1;
-			return errcode;
+		/* We estimate the high-order CTC bits that are not provided by
+		 * TMA based on the CTC bits provided by this MTC.
+		 *
+		 * We assume that no MTC packets were dropped around TMA.  If
+		 * there are, we might place the TSC into the wrong MTC period
+		 * depending on how many CTC bits TMA provides and how many MTC
+		 * packets were dropped.
+		 *
+		 * Note that we may underflow which results in more bits to be
+		 * set than MTC packets may provide.  Drop those extra bits.
+		 */
+		if (ctc_lo < last_ctc) {
+			ctc_hi -= 1u << pt_pl_tma_ctc_bit_size;
+			ctc_hi &= pt_pl_mtc_mask << mtc_freq;
 		}
+
+		last_ctc |= ctc_hi;
+	}
+
+	errcode = pt_time_ctc_delta(&ctc_delta, ctc, last_ctc, config);
+	if (errcode < 0) {
+		time->lost_mtc += 1;
+		return errcode;
 	}
 
 	/* We don't want a wrap-around here.  Something must be wrong. */
