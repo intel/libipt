@@ -168,7 +168,7 @@ int pt_time_update_tma(struct pt_time *time,
 		       const struct pt_packet_tma *packet,
 		       const struct pt_config *config)
 {
-	uint32_t ctc, mtc_mask, mtc_offset, mtc_freq, mtc_hi;
+	uint32_t ctc, mtc_freq, mtc_hi, ctc_mask;
 	uint64_t fc;
 
 	if (!time || !packet || !config)
@@ -190,17 +190,16 @@ int pt_time_update_tma(struct pt_time *time,
 	fc = packet->fc;
 
 	mtc_freq = config->mtc_freq;
-	mtc_mask = (1u << mtc_freq) - 1u;
-	mtc_offset = ctc & mtc_mask;
 	mtc_hi = mtc_freq + pt_pl_mtc_bit_size;
 
-	/* Mask out the MTC offset and the high order bits. */
-	ctc &= pt_pl_mtc_mask << mtc_freq;
+	/* A mask for the relevant CTC bits ignoring high-order bits that are
+	 * not provided by MTC.
+	 */
+	ctc_mask = (1u << mtc_hi) - 1u;
 
 	time->have_tma = 1;
 	time->base -= fc;
 	time->fc += fc;
-	time->mtc_offset = mtc_offset;
 
 	/* If the MTC frequency is low enough that TMA provides the full CTC
 	 * value, we can use the TMA as an MTC.
@@ -220,7 +219,7 @@ int pt_time_update_tma(struct pt_time *time,
 		time->have_mtc = 1;
 
 	/* In both cases, we store the TMA's CTC bits until the next MTC. */
-	time->ctc = time->ctc_cyc = ctc;
+	time->ctc = time->ctc_cyc = ctc & ctc_mask;
 
 	return 0;
 }
@@ -229,7 +228,7 @@ int pt_time_update_mtc(struct pt_time *time,
 		       const struct pt_packet_mtc *packet,
 		       const struct pt_config *config)
 {
-	uint32_t last_ctc, mtc_offset, ctc, ctc_delta;
+	uint32_t last_ctc, ctc, ctc_delta;
 	uint64_t tsc, base;
 	uint8_t mtc_freq;
 	int errcode, have_tsc, have_tma, have_mtc;
@@ -252,7 +251,6 @@ int pt_time_update_mtc(struct pt_time *time,
 
 	base = time->base;
 	last_ctc = time->ctc;
-	mtc_offset = time->mtc_offset;
 	mtc_freq = config->mtc_freq;
 
 	ctc = packet->ctc << mtc_freq;
@@ -264,7 +262,6 @@ int pt_time_update_mtc(struct pt_time *time,
 	/* Prepare for the next packet in case we error out below. */
 	time->have_mtc = 1;
 	time->fc = 0ull;
-	time->mtc_offset = 0;
 	time->ctc = ctc;
 
 	/* We recover from previous CYC losses. */
@@ -323,14 +320,6 @@ int pt_time_update_mtc(struct pt_time *time,
 		time->lost_mtc += 1;
 		return errcode;
 	}
-
-	/* We don't want a wrap-around here.  Something must be wrong. */
-	if (ctc_delta < mtc_offset) {
-		time->lost_mtc += 1;
-		return -pte_bad_packet;
-	}
-
-	ctc_delta -= mtc_offset;
 
 	errcode = pt_time_ctc_fc(&tsc, ctc_delta, config);
 	if (errcode < 0)
