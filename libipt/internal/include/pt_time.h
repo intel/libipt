@@ -50,9 +50,6 @@ struct pt_time {
 	/* The estimated Fast Counter. */
 	uint64_t fc;
 
-	/* The number of CTC ticks into the current MTC period (from TMA). */
-	uint32_t mtc_offset;
-
 	/* The adjusted last CTC value (from MTC and TMA). */
 	uint32_t ctc;
 
