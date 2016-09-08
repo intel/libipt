@@ -87,7 +87,6 @@ set(MAN3_FUNCTIONS
   pt_blk_alloc_decoder
   pt_blk_sync_forward
   pt_blk_get_offset
-  pt_blk_get_image
   pt_blk_next
 )
 
