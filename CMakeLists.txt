@@ -73,6 +73,10 @@ option(PTTC   "Enable pttc, a test compiler")
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 option(MAN "Enable man pages (requires pandoc)." OFF)
 
+if (PTXED)
+  option(FEATURE_ELF "Support ELF files." OFF)
+endif (PTXED)
+
 # PTT tests require all the optional tools and use a bash script as test driver
 #
 set(PTT OFF)
@@ -94,6 +98,12 @@ if (PTUNIT)
     ptunit/include
   )
 endif (PTUNIT)
+
+if (FEATURE_ELF)
+  add_definitions(
+    -DFEATURE_ELF
+  )
+endif (FEATURE_ELF)
 
 if (CMAKE_HOST_WIN32)
   include_directories(

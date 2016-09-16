@@ -27,11 +27,6 @@
 set(XED_INCLUDE "" CACHE PATH "")
 set(XED_LIBDIR  "" CACHE PATH "")
 
-option(FEATURE_ELF "Support loading ELF files in ptxed." OFF)
-if (FEATURE_ELF)
-  add_definitions(-DFEATURE_ELF)
-endif (FEATURE_ELF)
-
 include_directories(
   include
   ../libipt/internal/include
