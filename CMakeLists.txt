@@ -108,6 +108,10 @@ if (FEATURE_ELF)
   add_definitions(
     -DFEATURE_ELF
   )
+
+  include_directories(
+    elf/include
+  )
 endif (FEATURE_ELF)
 
 if (SIDEBAND)
@@ -298,3 +302,6 @@ endif (SIDEBAND)
 if (PEVENT)
   add_subdirectory(pevent)
 endif (PEVENT)
+if (FEATURE_ELF)
+  add_subdirectory(elf)
+endif (FEATURE_ELF)

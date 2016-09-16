@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2018, Intel Corporation
+# Copyright (c) 2017-2018, Intel Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -24,57 +24,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-set(XED_INCLUDE "" CACHE PATH "")
-set(XED_LIBDIR  "" CACHE PATH "")
-
-include_directories(
-  include
-  ../libipt/internal/include
+add_library(libipt-elf STATIC
+  src/pt_elf.c
 )
 
-include_directories(SYSTEM
-  ${XED_INCLUDE}
+set_target_properties(libipt-elf PROPERTIES
+  PREFIX ""
 )
-
-link_directories(
-  ${XED_LIBDIR}
-)
-
-set(PTXED_FILES
-  src/ptxed.c
-  ../libipt/src/pt_cpu.c
-)
-
-if (CMAKE_HOST_UNIX)
-  set(PTXED_FILES ${PTXED_FILES} ../libipt/src/posix/pt_cpuid.c)
-endif (CMAKE_HOST_UNIX)
-
-if (CMAKE_HOST_WIN32)
-  set(PTXED_FILES ${PTXED_FILES} ../libipt/src/windows/pt_cpuid.c)
-endif (CMAKE_HOST_WIN32)
-
-add_executable(ptxed
-  ${PTXED_FILES}
-)
-target_link_libraries(ptxed libipt)
-target_link_libraries(ptxed xed)
-
-if (SIDEBAND)
-  target_link_libraries(ptxed libipt-sb)
-endif (SIDEBAND)
-
-if (FEATURE_ELF)
-  target_link_libraries(ptxed libipt-elf)
-  target_link_libraries(ptxed elf)
-endif (FEATURE_ELF)
-
-if (CMAKE_HOST_WIN32)
-  # suppress warnings from XED header files
-  #
-  #   w4127: conditional expression is constant
-  #   w4244: conversion: possible loss of data
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4244")
-
-endif (CMAKE_HOST_WIN32)

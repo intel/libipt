@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, Intel Corporation
+ * Copyright (c) 2017-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LOAD_ELF_H
-#define LOAD_ELF_H
+#ifndef PT_ELF_H
+#define PT_ELF_H
 
 #include <stdint.h>
 
@@ -35,30 +35,32 @@ struct pt_image_section_cache;
 struct pt_image;
 
 
-/* Load an ELF file.
+/* A collection of flags. */
+enum pt_elf_flags {
+	/* Print information about loaded segments. */
+	pte_verbose	= 1 << 0
+};
+
+/* Load executable segments from an ELF file.
  *
- * Adds sections for all ELF LOAD segments.
+ * Adds a section to @image for each executable segment in @filename.
  *
- * The sections are loaded relative to their virtual addresses specified
- * in the ELF program header with the lowest address section loaded at @base.
+ * If @base is non-zero, the load addresses are modified such that the first
+ * segment is loaded at @base.
  *
- * The name of the program in @prog is used for error reporting.
- * If @verbose is non-zero, prints information about loaded sections.
+ * If pte_verbose is set in @flags, prints information about the loaded
+ * segments to stdout.
  *
- * Does not load dependent files.
- * Does not support dynamic relocations.
+ * If @iscache is not NULL, adds sections to @iscache and from there to @image.
  *
- * Successfully loaded segments are not unloaded in case of errors.
- *
- * If @iscache is not NULL, use it to cache image sections.
- *
- * Returns 0 on success, a negative error code otherwise.
- * Returns -pte_invalid if @image or @file are NULL.
- * Returns -pte_bad_config if @file can't be processed.
+ * Returns the number of added image sections on success, a negative
+ * pt_error_code otherwise.
+ * Returns -pte_internal if @image or @filename is NULL.
+ * Returns -pte_bad_file if @filename is not an ELF file.
  * Returns -pte_nomem if not enough memory can be allocated.
  */
-extern int load_elf(struct pt_image_section_cache *iscache,
-		    struct pt_image *image, const char *file,
-		    uint64_t base, const char *prog, int verbose);
+extern int pt_elf_load_segments(struct pt_image_section_cache *iscache,
+				struct pt_image *image, const char *filename,
+				uint64_t base, uint32_t flags);
 
-#endif /* LOAD_ELF_H */
+#endif /* PT_ELF_H */

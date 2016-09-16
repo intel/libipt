@@ -37,6 +37,8 @@ Optional Contents and Samples
 
   pevent        A library for reading/writing Linux perf event records
 
+  elf           Code for handling ELF files
+
   script        A collection of scripts
 
   test          A collection of tests
@@ -77,3 +79,10 @@ Other packages you need for some of the above optional components.
                 http://pandoc.org
 
                 This is needed for man pages.
+
+  libelf        A library for handling ELF files.
+
+                It is part of elfutils.
+                https://fedorahosted.org/elfutils/
+
+                This is needed for ELF support.

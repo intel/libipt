@@ -27,7 +27,7 @@
  */
 
 #if defined(FEATURE_ELF)
-# include "load_elf.h"
+# include "pt_elf.h"
 #endif /* defined(FEATURE_ELF) */
 
 #include "pt_cpu.h"
@@ -2208,6 +2208,7 @@ extern int main(int argc, char *argv[])
 #if defined(FEATURE_ELF)
 		if (strcmp(arg, "--elf") == 0) {
 			uint64_t base;
+			uint32_t flags;
 
 			if (argc <= i) {
 				fprintf(stderr,
@@ -2220,10 +2221,21 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			errcode = load_elf(decoder.iscache, image, arg, base,
-					   prog, options.track_image);
-			if (errcode < 0)
+			if (!arg)
 				goto err;
+
+			flags = 0;
+			if (options.track_image)
+				flags |= pte_verbose;
+
+			errcode = pt_elf_load_segments(decoder.iscache, image,
+						       arg, base, flags);
+			if (errcode < 0) {
+				fprintf(stderr, "%s: error reading %s: %s.\n",
+					prog, arg,
+					pt_errstr(pt_errcode(errcode)));
+				goto err;
+			}
 
 			continue;
 		}
@@ -2591,6 +2603,7 @@ extern int main(int argc, char *argv[])
 		if (strcmp(arg, "--pevent:kcore") == 0) {
 			struct pt_image *kernel;
 			uint64_t base;
+			uint32_t flags;
 
 			arg = argv[i++];
 			if (!arg) {
@@ -2604,10 +2617,17 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
+			if (!arg)
+				goto err;
+
 			kernel = pt_sb_kernel_image(decoder.session);
 
-			errcode = load_elf(decoder.iscache, kernel, arg, base,
-					   prog, options.track_image);
+			flags = 0;
+			if (options.track_image)
+				flags |= pte_verbose;
+
+			errcode = pt_elf_load_segments(decoder.iscache, kernel,
+						       arg, base, flags);
 			if (errcode < 0)
 				goto err;
 
