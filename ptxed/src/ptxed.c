@@ -214,94 +214,130 @@ static int parse_range(const char *arg, uint64_t *begin, uint64_t *end)
 	return 2;
 }
 
-static int load_file(uint8_t **buffer, size_t *size, char *arg,
-		     const char *prog)
+/* Preprocess a filename argument.
+ *
+ * A filename may optionally be followed by a file offset or a file range
+ * argument separated by ':'.  Split the original argument into the filename
+ * part and the offset/range part.
+ *
+ * If no end address is specified, set @size to zero.
+ * If no offset is specified, set @offset to zero.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int preprocess_filename(char *filename, uint64_t *offset, uint64_t *size)
 {
-	uint64_t begin_arg, end_arg;
+	uint64_t begin, end;
+	char *range;
+	int parts;
+
+	if (!filename || !offset || !size)
+		return -pte_internal;
+
+	/* Search from the end as the filename may also contain ':'. */
+	range = strrchr(filename, ':');
+	if (!range) {
+		*offset = 0ull;
+		*size = 0ull;
+
+		return 0;
+	}
+
+	/* Let's try to parse an optional range suffix.
+	 *
+	 * If we can, remove it from the filename argument.
+	 * If we can not, assume that the ':' is part of the filename, e.g. a
+	 * drive letter on Windows.
+	 */
+	parts = parse_range(range + 1, &begin, &end);
+	if (parts <= 0) {
+		*offset = 0ull;
+		*size = 0ull;
+
+		return 0;
+	}
+
+	if (parts == 1) {
+		*offset = begin;
+		*size = 0ull;
+
+		*range = 0;
+
+		return 0;
+	}
+
+	if (parts == 2) {
+		if (end <= begin)
+			return -pte_invalid;
+
+		*offset = begin;
+		*size = end - begin;
+
+		*range = 0;
+
+		return 0;
+	}
+
+	return -pte_internal;
+}
+
+static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
+		     uint64_t offset, uint64_t size, const char *prog)
+{
 	uint8_t *content;
 	size_t read;
 	FILE *file;
 	long fsize, begin, end;
-	int errcode, range_parts;
-	char *range;
+	int errcode;
 
-	if (!buffer || !size || !arg || !prog) {
+	if (!buffer || !psize || !filename || !prog) {
 		fprintf(stderr, "%s: internal error.\n", prog ? prog : "");
 		return -1;
 	}
 
-	range_parts = 0;
-	begin_arg = 0ull;
-	end_arg = UINT64_MAX;
-
-	range = strrchr(arg, ':');
-	if (range) {
-		/* Let's try to parse an optional range suffix.
-		 *
-		 * If we can, remove it from the filename argument.
-		 * If we can not, assume that the ':' is part of the filename,
-		 * e.g. a drive letter on Windows.
-		 */
-		range_parts = parse_range(range + 1, &begin_arg, &end_arg);
-		if (range_parts <= 0) {
-			begin_arg = 0ull;
-			end_arg = UINT64_MAX;
-
-			range_parts = 0;
-		} else
-			*range = 0;
-	}
-
 	errno = 0;
-	file = fopen(arg, "rb");
+	file = fopen(filename, "rb");
 	if (!file) {
 		fprintf(stderr, "%s: failed to open %s: %d.\n",
-			prog, arg, errno);
+			prog, filename, errno);
 		return -1;
 	}
 
 	errcode = fseek(file, 0, SEEK_END);
 	if (errcode) {
 		fprintf(stderr, "%s: failed to determine size of %s: %d.\n",
-			prog, arg, errno);
+			prog, filename, errno);
 		goto err_file;
 	}
 
 	fsize = ftell(file);
 	if (fsize < 0) {
 		fprintf(stderr, "%s: failed to determine size of %s: %d.\n",
-			prog, arg, errno);
+			prog, filename, errno);
 		goto err_file;
 	}
 
-	/* Truncate the range to fit into the file unless an explicit range end
-	 * was provided.
-	 */
-	if (range_parts < 2)
-		end_arg = (uint64_t) fsize;
-
-	begin = (long) begin_arg;
-	end = (long) end_arg;
-	if ((uint64_t) begin != begin_arg || (uint64_t) end != end_arg) {
-		fprintf(stderr, "%s: invalid offset/range argument.\n", prog);
+	begin = (long) offset;
+	if (((uint64_t) begin != offset) || (fsize <= begin)) {
+		fprintf(stderr,
+			"%s: bad offset 0x%" PRIx64 " into %s.\n",
+			prog, offset, filename);
 		goto err_file;
 	}
 
-	if (fsize <= begin) {
-		fprintf(stderr, "%s: offset 0x%lx outside of %s.\n",
-			prog, begin, arg);
-		goto err_file;
-	}
+	end = fsize;
+	if (size) {
+		uint64_t range_end;
 
-	if (fsize < end) {
-		fprintf(stderr, "%s: range 0x%lx outside of %s.\n",
-			prog, end, arg);
-		goto err_file;
-	}
+		range_end = offset + size;
+		if ((uint64_t) end < range_end) {
+			fprintf(stderr,
+				"%s: bad range 0x%" PRIx64 " in %s.\n",
+				prog, range_end, filename);
+			goto err_file;
+		}
 
-	if (end <= begin) {
-		fprintf(stderr, "%s: bad range.\n", prog);
-		goto err_file;
+		end = (long) range_end;
 	}
 
 	fsize = end - begin;
@@ -309,28 +345,28 @@ static int load_file(uint8_t **buffer, size_t *size, char *arg,
 	content = malloc(fsize);
 	if (!content) {
 		fprintf(stderr, "%s: failed to allocated memory %s.\n",
-			prog, arg);
+			prog, filename);
 		goto err_file;
 	}
 
 	errcode = fseek(file, begin, SEEK_SET);
 	if (errcode) {
 		fprintf(stderr, "%s: failed to load %s: %d.\n",
-			prog, arg, errno);
+			prog, filename, errno);
 		goto err_content;
 	}
 
 	read = fread(content, fsize, 1, file);
 	if (read != 1) {
 		fprintf(stderr, "%s: failed to load %s: %d.\n",
-			prog, arg, errno);
+			prog, filename, errno);
 		goto err_content;
 	}
 
 	fclose(file);
 
 	*buffer = content;
-	*size = fsize;
+	*psize = fsize;
 
 	return 0;
 
@@ -344,11 +380,19 @@ err_file:
 
 static int load_pt(struct pt_config *config, char *arg, const char *prog)
 {
+	uint64_t foffset, fsize;
 	uint8_t *buffer;
 	size_t size;
 	int errcode;
 
-	errcode = load_file(&buffer, &size, arg, prog);
+	errcode = preprocess_filename(arg, &foffset, &fsize);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
+			pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	errcode = load_file(&buffer, &size, arg, foffset, fsize, prog);
 	if (errcode < 0)
 		return errcode;
 
