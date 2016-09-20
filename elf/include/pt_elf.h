@@ -30,9 +30,11 @@
 #define PT_ELF_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 struct pt_image_section_cache;
 struct pt_image;
+struct pt_config;
 
 
 /* A collection of flags. */
@@ -48,8 +50,8 @@ enum pt_elf_flags {
  * If @base is non-zero, the load addresses are modified such that the first
  * segment is loaded at @base.
  *
- * If pte_verbose is set in @flags, prints information about the loaded
- * segments to stdout.
+ * If pte_verbose is set in @flags, prints information about the loaded segments
+ * to stdout.
  *
  * If @iscache is not NULL, adds sections to @iscache and from there to @image.
  *
@@ -62,5 +64,66 @@ enum pt_elf_flags {
 extern int pt_elf_load_segments(struct pt_image_section_cache *iscache,
 				struct pt_image *image, const char *filename,
 				uint64_t base, uint32_t flags);
+
+/* Load trace from a coredump note of an ELF file.
+ *
+ * Searches for a /perf/intel_pt-task:@task file in @filename's NT_FILE notes
+ * and, if found, copies the trace data and the PMU configuration into @config.
+ *
+ * The caller is responsible for freeing the trace buffer.
+ *
+ * If @offset is non-zero, skips @offset bytes at the beginning of the trace.
+ * If @size is non-zero, copies at most @size bytes of trace data.
+ *
+ * Returns 0 on success, a negative pt_error_code otherwise.
+ * Returns -pte_internal if @config or @filename is NULL.
+ * Returns -pte_invalid if @filename does not contain trace for @task.
+ * Returns -pte_invalid if @offset is outside the bounds of the trace.
+ * Returns -pte_bad_file if @filename is not an ELF file.
+ * Returns -pte_not_supported if the feature is not supported.
+ * Returns -pte_nomem if not enough memory can be allocated.
+ */
+extern int pt_elf_load_trace(struct pt_config *config, const char *filename,
+			     uint64_t offset, uint64_t size, uint32_t task);
+
+/* Load trace and executable segments from a coredump note of an ELF file.
+ *
+ * Searches for a /perf/intel_pt-task:@task file in @filename's NT_FILE notes
+ * and, if found, copies the trace data and the PMU configuration into @config.
+ *
+ * The caller is responsible for freeing the trace buffer.
+ *
+ * If @offset is non-zero, skips @offset bytes at the beginning of the trace.
+ * If @size is non-zero, copies at most @size bytes of trace data.
+ *
+ * Adds a section to @image for each executable segment in @filename.
+ *
+ * If pte_verbose is set in @flags, prints information about the loaded segments
+ * to stdout.
+ *
+ * If @iscache is not NULL, adds sections to @iscache and from there to @image.
+ *
+ * Returns 0 on success, a negative pt_error_code otherwise.
+ * Returns -pte_internal if @config or @filename is NULL.
+ * Returns -pte_invalid if @filename does not contain trace for @task.
+ * Returns -pte_invalid if @offset is outside the bounds of the trace.
+ * Returns -pte_bad_file if @filename is not an ELF file.
+ * Returns -pte_not_supported if the feature is not supported.
+ * Returns -pte_nomem if not enough memory can be allocated.
+ */
+extern int pt_elf_load_core(struct pt_image_section_cache *iscache,
+			    struct pt_image *image, struct pt_config *config,
+			    const char *filename, uint64_t offset,
+			    uint64_t size, uint32_t task, uint32_t flags);
+
+/* Print tasks for which trace is available in @filename into @stream.
+ *
+ * Returns the number of tasks that were printed on success, a negative
+ * pt_error_code otherwise.
+ * Returns -pte_internal if @stream or @filename is NULL.
+ * Returns -pte_bad_file if @filename is not an ELF file.
+ * Returns -pte_not_supported if the feature is not supported.
+ */
+extern int pt_elf_print_tasks_with_trace(FILE *stream, const char *filename);
 
 #endif /* PT_ELF_H */
