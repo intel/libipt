@@ -1880,6 +1880,13 @@ struct pt_insn {
 	/** - tracing was stopped after this instruction. */
 	uint32_t stopped:1;
 
+	/** - this instruction is truncated in its image section.
+	 *
+	 *    It starts in the image section identified by \@isid and continues
+	 *    in one or more other sections.
+	 */
+	uint32_t truncated:1;
+
 	/** The image section identifier for the section containing this
 	 * instruction.
 	 *
