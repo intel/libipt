@@ -273,34 +273,26 @@ static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
+	struct pt_image *image;
+	const struct pt_asid *asid;
 
 	if (!decoder)
 		return 0;
+
+	image = decoder->image;
+	asid = &decoder->asid;
 
 	/* We do not expect execution mode changes. */
 	insn.mode = decoder->mode;
 	insn.ip = decoder->ip;
 
 	while (insn.ip != ip) {
-		int size, errcode;
+		int errcode;
 
 		if (!steps--)
 			return 0;
 
-		/* If we can't read the memory for the instruction, we can't
-		 * reach it.
-		 */
-		size = pt_image_read(decoder->image, &insn.isid, insn.raw,
-				     sizeof(insn.raw), &decoder->asid, insn.ip);
-		if (size < 0)
-			return 0;
-
-		/* We initialize @insn.size to the maximal possible size.  It
-		 * will be set to the actual size during instruction decode.
-		 */
-		insn.size = (uint8_t) size;
-
-		errcode = pt_ild_decode(&insn, &iext);
+		errcode = decode_insn(&insn, &iext, image, asid);
 		if (errcode < 0)
 			return 0;
 
@@ -637,7 +629,7 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
-	int size, errcode, isid;
+	int errcode;
 
 	if (!decoder)
 		return -pte_internal;
@@ -645,17 +637,7 @@ static int check_erratum_skd022(struct pt_insn_decoder *decoder)
 	insn.mode = decoder->mode;
 	insn.ip = decoder->ip;
 
-	size = pt_image_read(decoder->image, &isid, insn.raw, sizeof(insn.raw),
-			     &decoder->asid, insn.ip);
-	if (size < 0)
-		return 0;
-
-	/* We initialize @insn.size to the maximal possible size.  It will be
-	 * set to the actual size during instruction decode.
-	 */
-	insn.size = (uint8_t) size;
-
-	errcode = pt_ild_decode(&insn, &iext);
+	errcode = decode_insn(&insn, &iext, decoder->image, &decoder->asid);
 	if (errcode < 0)
 		return 0;
 
