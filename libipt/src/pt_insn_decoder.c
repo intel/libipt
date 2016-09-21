@@ -232,31 +232,22 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 
 /* Decode and analyze one instruction.
  *
- * Decodes the instructruction at @decoder->ip into @insn and @iext and updates
- * @decoder->ip.
+ * Decodes the instructruction at @insn->ip into @insn and @iext.
  *
  * Returns zero on success, a negative error code otherwise.
  * Returns -pte_bad_insn if the instruction could not be decoded.
  */
 static int decode_insn(struct pt_insn *insn, struct pt_insn_ext *iext,
-		       struct pt_insn_decoder *decoder)
+		       struct pt_image *image, const struct pt_asid *asid)
 {
 	int size;
 
-	if (!insn || !iext || !decoder)
+	if (!insn)
 		return -pte_internal;
 
-	/* Fill in as much as we can as early as we can so we have the
-	 * information available in case of errors.
-	 */
-	if (decoder->speculative)
-		insn->speculative = 1;
-	insn->ip = decoder->ip;
-	insn->mode = decoder->mode;
-
 	/* Read the memory at the current IP in the current address space. */
-	size = pt_image_read(decoder->image, &insn->isid, insn->raw,
-			     sizeof(insn->raw), &decoder->asid, decoder->ip);
+	size = pt_image_read(image, &insn->isid, insn->raw, sizeof(insn->raw),
+			     asid, insn->ip);
 	if (size < 0)
 		return size;
 
@@ -1304,7 +1295,13 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		goto err;
 	}
 
-	errcode = decode_insn(pinsn, &iext, decoder);
+	/* Decode the current instruction. */
+	if (decoder->speculative)
+		pinsn->speculative = 1;
+	pinsn->ip = decoder->ip;
+	pinsn->mode = decoder->mode;
+
+	errcode = decode_insn(pinsn, &iext, decoder->image, &decoder->asid);
 	if (errcode < 0)
 		goto err;
 
