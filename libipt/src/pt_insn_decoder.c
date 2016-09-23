@@ -229,51 +229,6 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 	return pt_qry_core_bus_ratio(&decoder->query, cbr);
 }
 
-/* Check whether @ip is ahead of us.
- *
- * Tries to reach @ip from @decoder->ip in @decoder->mode without Intel PT for
- * at most @steps steps.
- *
- * Does not update @decoder except for its image LRU cache.
- *
- * Returns non-zero if @ip can be reached, zero otherwise.
- */
-static int pt_ip_is_ahead(struct pt_insn_decoder *decoder, uint64_t ip,
-			  size_t steps)
-{
-	struct pt_insn_ext iext;
-	struct pt_insn insn;
-	struct pt_image *image;
-	const struct pt_asid *asid;
-
-	if (!decoder)
-		return 0;
-
-	image = decoder->image;
-	asid = &decoder->asid;
-
-	/* We do not expect execution mode changes. */
-	insn.mode = decoder->mode;
-	insn.ip = decoder->ip;
-
-	while (insn.ip != ip) {
-		int errcode;
-
-		if (!steps--)
-			return 0;
-
-		errcode = pt_insn_decode(&insn, &iext, image, asid);
-		if (errcode < 0)
-			return 0;
-
-		errcode = pt_insn_next_ip(&insn.ip, &insn, &iext);
-		if (errcode < 0)
-			return 0;
-	}
-
-	return 1;
-}
-
 static inline int event_pending(struct pt_insn_decoder *decoder)
 {
 	int status;
@@ -915,6 +870,62 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 	}
 }
 
+enum {
+	/* The maximum number of steps to take when determining whether the
+	 * event location can be reached.
+	 */
+	bdm64_max_steps	= 0x100
+};
+
+/* Try to work around erratum BDM64.
+ *
+ * If we got a transaction abort immediately following a branch that produced
+ * trace, the trace for that branch might have been corrupted.
+ *
+ * Returns a positive integer if the erratum was handled.
+ * Returns zero if the erratum does not seem to apply.
+ * Returns a negative error code otherwise.
+ */
+static int handle_erratum_bdm64(struct pt_insn_decoder *decoder,
+				const struct pt_event *ev,
+				const struct pt_insn *insn,
+				const struct pt_insn_ext *iext)
+{
+	int status;
+
+	if (!decoder || !ev || !insn || !iext)
+		return -pte_internal;
+
+	/* This only affects aborts. */
+	if (!ev->variant.tsx.aborted)
+		return 0;
+
+	/* This only affects branches. */
+	if (!pt_insn_is_branch(insn, iext))
+		return 0;
+
+	/* Let's check if we can reach the event location from here.
+	 *
+	 * If we can, let's assume the erratum did not hit.  We might still be
+	 * wrong but we're not able to tell.
+	 */
+	status = pt_insn_range_is_contiguous(decoder->ip, ev->variant.tsx.ip,
+					     decoder->mode, decoder->image,
+					     &decoder->asid, bdm64_max_steps);
+	if (status > 0)
+		return 0;
+
+	/* We can't reach the event location.  This could either mean that we
+	 * stopped too early (and status is zero) or that the erratum hit.
+	 *
+	 * We assume the latter and pretend that the previous branch brought us
+	 * to the event location, instead.
+	 */
+	decoder->ip = ev->variant.tsx.ip;
+
+	return 1;
+}
+
 static int process_one_event_peek(struct pt_insn_decoder *decoder,
 				  struct pt_insn *insn,
 				  const struct pt_insn_ext *iext)
@@ -945,27 +956,17 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_tsx:
+		if (decoder->query.config.errata.bdm64) {
+			int errcode;
+
+			errcode = handle_erratum_bdm64(decoder, ev, insn, iext);
+			if (errcode < 0)
+				return errcode;
+		}
+
 		if (ev->ip_suppressed ||
 		    ev->variant.tsx.ip == decoder->ip)
 			return process_tsx_event(decoder, insn);
-
-		/* If we got the TSX event after a bogus branch, we might
-		 * be on the wrong track.
-		 *
-		 * Check if we can reach the TSX event IP from here.  If we
-		 * can't, assume that this is due to erratum BDM64.  We
-		 * pretend that we're already at the TSX event IP and process
-		 * the event.
-		 *
-		 * If we can reach the TSX event IP from here, we migth still
-		 * be wrong, but we won't be able to tell.
-		 */
-		if (decoder->query.config.errata.bdm64 &&
-		    ev->variant.tsx.aborted && pt_insn_is_branch(insn, iext) &&
-		    !pt_ip_is_ahead(decoder, ev->variant.tsx.ip, 0x1000)) {
-			decoder->ip = ev->variant.tsx.ip;
-			return process_tsx_event(decoder, insn);
-		}
 
 		return 0;
 
