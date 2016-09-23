@@ -317,3 +317,33 @@ int pt_insn_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 
 	return errcode;
 }
+
+int pt_insn_range_is_contiguous(uint64_t begin, uint64_t end,
+				enum pt_exec_mode mode, struct pt_image *image,
+				const struct pt_asid *asid, size_t steps)
+{
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+
+	memset(&insn, 0, sizeof(insn));
+
+	insn.mode = mode;
+	insn.ip = begin;
+
+	while (insn.ip != end) {
+		int errcode;
+
+		if (!steps--)
+			return 0;
+
+		errcode = pt_insn_decode(&insn, &iext, image, asid);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_insn_next_ip(&insn.ip, &insn, &iext);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return 1;
+}

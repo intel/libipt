@@ -31,10 +31,9 @@
 
 #include <inttypes.h>
 
-struct pt_insn;
+#include "intel-pt.h"
+
 struct pt_insn_ext;
-struct pt_asid;
-struct pt_image;
 
 
 /* A finer-grain classification of instructions used internally. */
@@ -186,5 +185,19 @@ extern int pt_insn_next_ip(uint64_t *ip, const struct pt_insn *insn,
  */
 extern int pt_insn_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 			  struct pt_image *image, const struct pt_asid *asid);
+
+/* Determine if a range of instructions is contiguous.
+ *
+ * Try to proceed from IP @begin to IP @end in @asid without using trace.
+ *
+ * Returns a positive integer if we reach @end from @begin.
+ * Returns zero if we couldn't reach @end within @nsteps steps.
+ * Returns a negative error code otherwise.
+ */
+extern int pt_insn_range_is_contiguous(uint64_t begin, uint64_t end,
+				       enum pt_exec_mode mode,
+				       struct pt_image *image,
+				       const struct pt_asid *asid,
+				       size_t nsteps);
 
 #endif /* PT_INSN_H */
