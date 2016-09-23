@@ -32,6 +32,9 @@
 #include <inttypes.h>
 
 struct pt_insn;
+struct pt_insn_ext;
+struct pt_asid;
+struct pt_image;
 
 
 /* A finer-grain classification of instructions used internally. */
@@ -168,5 +171,20 @@ extern int pt_insn_binds_to_vmcs(const struct pt_insn *insn,
  */
 extern int pt_insn_next_ip(uint64_t *ip, const struct pt_insn *insn,
 			   const struct pt_insn_ext *iext);
+
+/* Decode and analyze one instruction.
+ *
+ * Decodes the instructruction at @insn->ip in @insn->mode into @insn and @iext.
+ *
+ * If the instruction can not be decoded using a single memory read in a single
+ * section, sets @insn->truncated and reads the missing bytes from one or more
+ * other sections until either the instruction can be decoded or we're sure it
+ * is invalid.
+ *
+ * Returns the size in bytes on success, a negative error code otherwise.
+ * Returns -pte_bad_insn if the instruction could not be decoded.
+ */
+extern int pt_insn_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
+			  struct pt_image *image, const struct pt_asid *asid);
 
 #endif /* PT_INSN_H */
