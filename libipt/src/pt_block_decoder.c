@@ -1174,58 +1174,6 @@ static int pt_blk_process_trailing_stop(struct pt_block_decoder *decoder,
 	return pt_blk_process_trailing_events(decoder, block);
 }
 
-/* Check if we can reach a particular IP from the current location.
- *
- * Try to proceed to @ip without using trace.  Do not update any internal state
- * on our way and ignore errors.
- *
- * Returns non-zero if @ip was reached.
- * Returns zero if @ip could not be reached.
- */
-static int pt_blk_ip_is_reachable(struct pt_block_decoder *decoder, uint64_t ip,
-				  size_t steps)
-{
-	struct pt_insn_ext iext;
-	struct pt_insn insn;
-
-	if (!decoder)
-		return 0;
-
-	memset(&insn, 0, sizeof(insn));
-	memset(&iext, 0, sizeof(iext));
-
-	/* We do not expect execution mode changes. */
-	insn.mode = decoder->mode;
-	insn.ip = decoder->ip;
-
-	for (; steps && (insn.ip != ip); --steps) {
-		int size, errcode;
-
-		/* If we can't read the memory for the instruction, we can't
-		 * reach it.
-		 */
-		size = pt_image_read(decoder->image, &insn.isid, insn.raw,
-				     sizeof(insn.raw), &decoder->asid, insn.ip);
-		if (size < 0)
-			return 0;
-
-		/* We initialize @insn.size to the maximal possible size.  It
-		 * will be set to the actual size during instruction decode.
-		 */
-		insn.size = (uint8_t) size;
-
-		errcode = pt_ild_decode(&insn, &iext);
-		if (errcode < 0)
-			return 0;
-
-		errcode = pt_insn_next_ip(&insn.ip, &insn, &iext);
-		if (errcode < 0)
-			return 0;
-	}
-
-	return 1;
-}
-
 /* Proceed to the next IP using trace.
  *
  * We failed to proceed without trace.  This ends the current block.  Now use
@@ -2495,6 +2443,13 @@ static int pt_blk_status(const struct pt_block_decoder *decoder)
 	return flags;
 }
 
+enum {
+	/* The maximum number of steps to take when determining whether the
+	 * event location can be reached.
+	 */
+	bdm64_max_steps	= 0x100
+};
+
 /* Try to work around erratum BDM64.
  *
  * If we got a transaction abort immediately following a branch that produced
@@ -2505,13 +2460,36 @@ static int pt_blk_status(const struct pt_block_decoder *decoder)
  * Returns a negative error code otherwise.
  */
 static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
+				       const struct pt_block *block,
 				       const struct pt_event *ev)
 {
-	if (!decoder || !ev)
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+	int status;
+
+	if (!decoder || !block || !ev)
 		return -pte_internal;
 
 	/* This only affects aborts. */
 	if (!ev->variant.tsx.aborted)
+		return 0;
+
+	/* This only affects branches that require trace.
+	 *
+	 * If the erratum hits, that branch ended the current block and brought
+	 * us to the trailing event flow.
+	 */
+	if (pt_blk_block_is_empty(block))
+		return 0;
+
+	insn.mode = block->mode;
+	insn.ip = block->end_ip;
+
+	status = pt_insn_decode(&insn, &iext, decoder->image, &decoder->asid);
+	if (status < 0)
+		return 0;
+
+	if (!pt_insn_is_branch(&insn, &iext))
 		return 0;
 
 	/* Let's check if we can reach the event location from here.
@@ -2519,7 +2497,10 @@ static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
 	 * If we can, let's assume the erratum did not hit.  We might still be
 	 * wrong but we're not able to tell.
 	 */
-	if (pt_blk_ip_is_reachable(decoder, ev->variant.tsx.ip, 0x1000))
+	status = pt_insn_range_is_contiguous(decoder->ip, ev->variant.tsx.ip,
+					     decoder->mode, decoder->image,
+					     &decoder->asid, bdm64_max_steps);
+	if (status > 0)
 		return 0;
 
 	/* We can't reach the event location.  This could either mean that we
@@ -2616,7 +2597,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 		if (!ev->ip_suppressed) {
 			if (decoder->query.config.errata.bdm64) {
 				status = pt_blk_handle_erratum_bdm64(decoder,
-								     ev);
+								     block, ev);
 				if (status < 0)
 					break;
 			}
