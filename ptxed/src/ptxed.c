@@ -129,32 +129,33 @@ static void help(const char *name)
 {
 	printf("usage: %s [<options>]\n\n"
 	       "options:\n"
-	       "  --help|-h                     this text.\n"
-	       "  --version                     display version information and exit.\n"
-	       "  --att                         print instructions in att format.\n"
-	       "  --no-inst                     do not print instructions (only addresses).\n"
-	       "  --quiet|-q                    do not print anything (except errors).\n"
-	       "  --offset                      print the offset into the trace file.\n"
-	       "  --raw-insn                    print the raw bytes of each instruction.\n"
-	       "  --stat                        print statistics (even when quiet).\n"
-	       "  --verbose|-v                  print various information (even when quiet).\n"
-	       "  --pt <file>[:<from>[-<to>]]   load the processor trace data from <file>.\n"
-	       "                                an optional offset or range can be given.\n"
+	       "  --help|-h                            this text.\n"
+	       "  --version                            display version information and exit.\n"
+	       "  --att                                print instructions in att format.\n"
+	       "  --no-inst                            do not print instructions (only addresses).\n"
+	       "  --quiet|-q                           do not print anything (except errors).\n"
+	       "  --offset                             print the offset into the trace file.\n"
+	       "  --raw-insn                           print the raw bytes of each instruction.\n"
+	       "  --stat                               print statistics (even when quiet).\n"
+	       "  --verbose|-v                         print various information (even when quiet).\n"
+	       "  --pt <file>[:<from>[-<to>]]          load the processor trace data from <file>.\n"
+	       "                                       an optional offset or range can be given.\n"
 #if defined(FEATURE_ELF)
-	       "  --elf <<file>[:<base>]        load an ELF from <file> at address <base>.\n"
-	       "                                use the default load address if <base> is omitted.\n"
+	       "  --elf <<file>[:<base>]               load an ELF from <file> at address <base>.\n"
+	       "                                       use the default load address if <base> is omitted.\n"
 #endif /* defined(FEATURE_ELF) */
-	       "  --raw <file>:<base>           load a raw binary from <file> at address <base>.\n"
-	       "  --cpu none|auto|f/m[/s]       set cpu to the given value and decode according to:\n"
-	       "                                  none     spec (default)\n"
-	       "                                  auto     current cpu\n"
-	       "                                  f/m[/s]  family/model[/stepping]\n"
-	       "  --mtc-freq <n>                set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n"
-	       "  --nom-freq <n>                set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n"
-	       "  --cpuid-0x15.eax              set the value of cpuid[0x15].eax.\n"
-	       "  --cpuid-0x15.ebx              set the value of cpuid[0x15].ebx.\n"
-	       "  --insn-decoder                use the instruction flow decoder (default).\n"
-	       "  --block-decoder               use the block decoder.\n"
+	       "  --raw <file>[:<from>[-<to>]]:<base>  load a raw binary from <file> at address <base>.\n"
+	       "                                       an optional offset or range can be given.\n"
+	       "  --cpu none|auto|f/m[/s]              set cpu to the given value and decode according to:\n"
+	       "                                         none     spec (default)\n"
+	       "                                         auto     current cpu\n"
+	       "                                         f/m[/s]  family/model[/stepping]\n"
+	       "  --mtc-freq <n>                       set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n"
+	       "  --nom-freq <n>                       set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n"
+	       "  --cpuid-0x15.eax                     set the value of cpuid[0x15].eax.\n"
+	       "  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n"
+	       "  --insn-decoder                       use the instruction flow decoder (default).\n"
+	       "  --block-decoder                      use the block decoder.\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -405,14 +406,24 @@ static int load_pt(struct pt_config *config, char *arg, const char *prog)
 static int load_raw(struct pt_image_section_cache *iscache,
 		    struct pt_image *image, char *arg, const char *prog)
 {
-	uint64_t base;
+	uint64_t base, foffset, fsize;
 	int isid, errcode, has_base;
 
 	has_base = extract_base(arg, &base);
 	if (has_base <= 0)
 		return 1;
 
-	isid = pt_iscache_add_file(iscache, arg, 0, UINT64_MAX, base);
+	errcode = preprocess_filename(arg, &foffset, &fsize);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
+			pt_errstr(pt_errcode(errcode)));
+		return 1;
+	}
+
+	if (!fsize)
+		fsize = UINT64_MAX;
+
+	isid = pt_iscache_add_file(iscache, arg, foffset, fsize, base);
 	if (isid < 0) {
 		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
 			prog, arg, base, pt_errstr(pt_errcode(isid)));
