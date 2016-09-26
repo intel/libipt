@@ -168,7 +168,7 @@ run-ptt-test() {
 				continue
 			fi
 			local opts=`ptt-ptxed-opts $ptt`
-			run $ptxed_cmd $cpu $opts --pt $pt --raw $bin:$addr --no-inst > $out
+			run $ptxed_cmd --raw $bin:$addr $cpu $opts --pt $pt --no-inst > $out
 			;;
 		ptdump)
 			local opts=`ptt-ptdump-opts $ptt`
