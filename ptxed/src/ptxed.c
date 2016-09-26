@@ -850,20 +850,21 @@ static void decode_block(struct pt_block_decoder *decoder,
 				 * in decoding some instructions.
 				 */
 				if (block.ninsn) {
+					if (stats)
+						stats->insn += block.ninsn;
+
 					if (!options->quiet)
 						print_block(&block, iscache,
 							    options, offset);
-					if (stats)
-						stats->insn += block.ninsn;
 				}
 				break;
 			}
 
-			if (!options->quiet)
-				print_block(&block, iscache, options, offset);
-
 			if (stats)
 				stats->insn += block.ninsn;
+
+			if (!options->quiet)
+				print_block(&block, iscache, options, offset);
 
 			if (errcode & pts_eos) {
 				if (!block.disabled && !options->quiet)
