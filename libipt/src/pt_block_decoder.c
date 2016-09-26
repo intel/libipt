@@ -1513,7 +1513,7 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
-	int size, errcode;
+	int errcode;
 
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -1521,17 +1521,7 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 	insn.mode = decoder->mode;
 	insn.ip = ev->variant.async_disabled.at;
 
-	size = pt_image_read(decoder->image, &insn.isid, insn.raw,
-			     sizeof(insn.raw), &decoder->asid, insn.ip);
-	if (size < 0)
-		return 0;
-
-	/* We initialize @insn.size to the maximal possible size.  It will be
-	 * set to the actual size during instruction decode.
-	 */
-	insn.size = (uint8_t) size;
-
-	errcode = pt_ild_decode(&insn, &iext);
+	errcode = pt_insn_decode(&insn, &iext, decoder->image, &decoder->asid);
 	if (errcode < 0)
 		return 0;
 
