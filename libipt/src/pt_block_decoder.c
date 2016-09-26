@@ -2034,6 +2034,9 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	uint16_t binsn, ninsn;
 	int status;
 
+	if (!decoder || !block)
+		return -pte_internal;
+
 	status = pt_bcache_lookup(&bce, bcache, decoder->ip - laddr);
 	if (status < 0)
 		return status;
