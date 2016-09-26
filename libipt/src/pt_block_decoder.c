@@ -1298,11 +1298,17 @@ static int pt_blk_proceed_one_insn(struct pt_block_decoder *decoder,
 	if (!ninsn)
 		return 0;
 
+	/* The truncated instruction must be last. */
+	if (block->truncated)
+		return 0;
+
+	memset(&insn, 0, sizeof(insn));
+	memset(&iext, 0, sizeof(iext));
+
 	insn.mode = decoder->mode;
 	insn.ip = decoder->ip;
 
-	status = pt_image_read(decoder->image, &insn.isid, insn.raw,
-			       sizeof(insn.raw), &decoder->asid, insn.ip);
+	status = pt_insn_decode(&insn, &iext, decoder->image, &decoder->asid);
 	if (status < 0)
 		return status;
 
@@ -1314,11 +1320,14 @@ static int pt_blk_proceed_one_insn(struct pt_block_decoder *decoder,
 		block->isid = insn.isid;
 	}
 
-	insn.size = (uint8_t) status;
-
-	status = pt_ild_decode(&insn, &iext);
-	if (status < 0)
-		return status;
+	/* If we couldn't read @insn's memory in one chunk from @insn.isid, we
+	 * provide the memory in @block.
+	 */
+	if (insn.truncated) {
+		memcpy(block->raw, insn.raw, insn.size);
+		block->size = insn.size;
+		block->truncated = 1;
+	}
 
 	/* Log calls' return addresses for return compression. */
 	status = pt_blk_log_call(decoder, &insn, &iext);
@@ -1875,6 +1884,16 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 			break;
 		}
 
+		/* If the block was truncated, we have to decode its last
+		 * instruction each time.
+		 *
+		 * We could have skipped the above switch and size assignment in
+		 * this case but this is already a slow and hopefully infrequent
+		 * path.
+		 */
+		if (block->truncated)
+			bce.qualifier = ptbq_decode;
+
 		status = pt_bcache_add(bcache, insn.ip - laddr, bce);
 		if (status < 0)
 			return status;
@@ -1907,9 +1926,21 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 *
 	 *     We need to re-decode @insn in order to determine the start IP of
 	 *     the next block.
+	 *
+	 *   - if the block is truncated
+	 *
+	 *     We need to read the last instruction's memory from multiple
+	 *     sections and provide it to the user.
+	 *
+	 *     We could still use the block cache but then we'd have to handle
+	 *     this case for each qualifier.  Truncation is hopefully rare and
+	 *     having to read the memory for the instruction from multiple
+	 *     sections is already slow.  Let's rather keep things simple and
+	 *     route it through the decode flow, where we already have
+	 *     everything in place.
 	 */
 	if (insn.iclass == ptic_call ||
-	    !pt_blk_is_in_section(nip, section, laddr)) {
+	    !pt_blk_is_in_section(nip, section, laddr) || block->truncated) {
 
 		memset(&bce, 0, sizeof(bce));
 		bce.ninsn = 1;
@@ -2006,6 +2037,67 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * identical, we wouldn't care because they are both correct.
 	 */
 	return pt_bcache_add(bcache, insn.ip - laddr, bce);
+}
+
+/* Proceed at a potentially truncated instruction.
+ *
+ * We were not able to decode the instruction at @decoder->ip in @decoder's
+ * cached section.  This is typically caused by not having enough bytes.
+ *
+ * Try to decode the instruction again using the entire image.  If this succeeds
+ * we expect to end up with an instruction that was truncated in the section it
+ * started.  We provide the full instruction in this case and end the block.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_proceed_truncated(struct pt_block_decoder *decoder,
+				    struct pt_block *block)
+{
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+	int errcode;
+
+	if (!decoder || !block)
+		return -pte_internal;
+
+	memset(&iext, 0, sizeof(iext));
+	memset(&insn, 0, sizeof(insn));
+
+	insn.mode = decoder->mode;
+	insn.ip = decoder->ip;
+
+	errcode = pt_insn_decode(&insn, &iext, decoder->image, &decoder->asid);
+	if (errcode < 0)
+		return errcode;
+
+	/* We shouldn't use this function if the instruction isn't truncated. */
+	if (!insn.truncated)
+		return -pte_internal;
+
+	/* Provide the instruction in the block.  This ends the block. */
+	memcpy(block->raw, insn.raw, insn.size);
+	block->size = insn.size;
+	block->truncated = 1;
+
+	/* Log calls' return addresses for return compression. */
+	errcode = pt_blk_log_call(decoder, &insn, &iext);
+	if (errcode < 0)
+		return errcode;
+
+	/* Let's see if we can proceed to the next IP without trace.
+	 *
+	 * The truncated instruction ends the block but we still need to get the
+	 * next block's start IP.
+	 */
+	errcode = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+	if (errcode < 0) {
+		if (errcode != -pte_bad_query)
+			return errcode;
+
+		return pt_blk_proceed_with_trace(decoder, &insn, &iext);
+	}
+
+	return 0;
 }
 
 /* Proceed to the next decision point using the block cache.
@@ -2153,8 +2245,12 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		insn.ip = decoder->ip;
 
 		status = pt_blk_decode_in_section(&insn, &iext, section, laddr);
-		if (status < 0)
-			return status;
+		if (status < 0) {
+			if (status != -pte_bad_insn)
+				return status;
+
+			return pt_blk_proceed_truncated(decoder, block);
+		}
 
 		/* Log calls' return addresses for return compression. */
 		status = pt_blk_log_call(decoder, &insn, &iext);

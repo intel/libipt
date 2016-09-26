@@ -918,6 +918,11 @@ the instructions in the block.  This also allows mapping the instructions back
 to source code using the debug information contained in or reachable via the
 binary file.
 
+In some cases, the last instruction in a block may cross image section
+boundaries.  This can happen when a code segment is split into more than one
+image section.  The block is marked truncated in this case and provides the raw
+bytes of the last instruction.
+
 The following example shows how instructions can be reconstructed from a block:
 
 ~~~{.c}
@@ -932,9 +937,14 @@ The following example shows how instructions can be reconstructed from a block:
         <struct insn> insn;
         int size;
 
-        size = pt_iscache_read(iscache, raw, sizeof(raw), block->isid, ip);
-        if (size < 0)
-            break;
+        if (block->truncated && ((ninsn +1) == block->ninsn)) {
+            memcpy(raw, block->raw, block->size);
+            size = block->size;
+        } else {
+            size = pt_iscache_read(iscache, raw, sizeof(raw), block->isid, ip);
+            if (size < 0)
+                break;
+        }
 
         errcode = <decode instruction>(&insn, raw, size, block->mode);
         if (errcode < 0)

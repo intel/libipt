@@ -95,6 +95,19 @@ struct pt_block {
     /** The number of instructions in this block. */
     uint16_t ninsn;
 
+    /** The raw bytes of the last instruction in this block in case the
+     * instruction does not fit entirely into this block's section.
+     *
+     * This field is only valid if \@truncated is set.
+     */
+    uint8_t raw[pt_max_insn_size];
+
+    /** The size of the last instruction in this block in bytes.
+     *
+     * This field is only valid if \@truncated is set.
+     */
+    uint8_t size;
+
     /** A collection of flags giving additional information about the
      * instructions in this block.
      *
@@ -133,6 +146,16 @@ struct pt_block {
 
     /** - tracing was stopped after this block. */
     uint32_t stopped:1;
+
+    /** - the last instruction in this block is truncated.
+     *
+     *    It starts in this block's section but continues in one or more
+     *    other sections depending on how fragmented the memory image is.
+     *
+     *    The raw bytes for the last instruction are provided in \@raw and
+     *    its size in \@size in this case.
+     */
+    uint32_t truncated:1;
 };
 ~~~
 
@@ -182,6 +205,18 @@ ninsn
     The IP of the first instruction is given in the *ip* field and the IP of
     other instructions can be determined by decoding and examining the previous
     instruction.
+
+raw
+:   If the last instruction of this block can not be read entirely from this
+    block's section, this field provides the instruction's raw bytes.
+
+    It is only valid if the *truncated* flag is set.
+
+size
+:   If the last instruction of this block can not be read entirely from this
+    block's section, this field provides the instruction's size in bytes.
+
+    It is only valid if the *truncated* flag is set.
 
 speculative
 :   A flag giving the speculative execution status of all instructions in the
@@ -237,6 +272,15 @@ stopped
 :   A flag saying whether tracing was stopped after the last instruction in this
     block.  If set, this is the last block of instructions that retired before
     tracing was stopped due to a TraceStop condition.
+
+truncated
+:   A flag saying whether the last instruction in this block can not be read
+    entirely from this block's section.  Some bytes need to be read from one or
+    more other sections.  This can happen when an image section is partially
+    overwritten by another image section.
+
+    If set, the last instruction's memory is provided in *raw* and its size in
+    *size*.
 
 
 # RETURN VALUE

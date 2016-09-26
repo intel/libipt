@@ -2113,6 +2113,19 @@ struct pt_block {
 	/** The number of instructions in this block. */
 	uint16_t ninsn;
 
+	/** The raw bytes of the last instruction in this block in case the
+	 * instruction does not fit entirely into this block's section.
+	 *
+	 * This field is only valid if \@truncated is set.
+	 */
+	uint8_t raw[pt_max_insn_size];
+
+	/** The size of the last instruction in this block in bytes.
+	 *
+	 * This field is only valid if \@truncated is set.
+	 */
+	uint8_t size;
+
 	/** A collection of flags giving additional information about the
 	 * instructions in this block.
 	 *
@@ -2151,6 +2164,16 @@ struct pt_block {
 
 	/** - tracing was stopped after this block. */
 	uint32_t stopped:1;
+
+	/** - the last instruction in this block is truncated.
+	 *
+	 *    It starts in this block's section but continues in one or more
+	 *    other sections depending on how fragmented the memory image is.
+	 *
+	 *    The raw bytes for the last instruction are provided in \@raw and
+	 *    its size in \@size in this case.
+	 */
+	uint32_t truncated:1;
 };
 
 /** Allocate an Intel PT block decoder.
