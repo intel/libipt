@@ -728,15 +728,25 @@ static void print_block(struct pt_block *block,
 	for (; block->ninsn; --block->ninsn) {
 		xed_decoded_inst_t inst;
 		xed_error_enum_t xederrcode;
-		uint8_t raw[pt_max_insn_size];
+		uint8_t raw[pt_max_insn_size], *praw;
 		int size, errcode;
 
-		size = pt_iscache_read(iscache, raw, sizeof(raw), block->isid,
-				       block->ip);
-		if (size < 0) {
-			printf(" [error reading insn: (%d) %s]\n", size,
-			       pt_errstr(pt_errcode(size)));
-			break;
+		/* For truncated block, the last instruction is provided in the
+		 * block since it can't be read entirely from the image section
+		 * cache.
+		 */
+		if (block->truncated && (block->ninsn == 1)) {
+			praw = block->raw;
+			size = block->size;
+		} else {
+			praw = raw;
+			size = pt_iscache_read(iscache, raw, sizeof(raw),
+					       block->isid, block->ip);
+			if (size < 0) {
+				printf(" [error reading insn: (%d) %s]\n", size,
+				       pt_errstr(pt_errcode(size)));
+				break;
+			}
 		}
 
 		xed_decoded_inst_zero_set_mode(&inst, &xed);
@@ -749,7 +759,7 @@ static void print_block(struct pt_block *block,
 
 		printf("%016" PRIx64, block->ip);
 
-		xederrcode = xed_decode(&inst, raw, size);
+		xederrcode = xed_decode(&inst, praw, size);
 		if (xederrcode != XED_ERROR_NONE) {
 			printf(" [xed decode error: (%u) %s]\n", xederrcode,
 			       xed_error_enum_t2str(xederrcode));
