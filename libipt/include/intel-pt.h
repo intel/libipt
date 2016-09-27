@@ -584,6 +584,12 @@ struct pt_errata {
 struct pt_conf_flags {
 	/** The decoder variant. */
 	union {
+		/** Flags for the block decoder. */
+		struct {
+			/** End a block after a call instruction. */
+			uint32_t end_on_call:1;
+		} block;
+
 		/* Reserve a few bytes for future extensions. */
 		uint32_t reserved[4];
 	} variant;

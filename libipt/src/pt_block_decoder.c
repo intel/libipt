@@ -1207,7 +1207,7 @@ static int pt_blk_proceed_to_insn(struct pt_block_decoder *decoder,
 {
 	int status;
 
-	if (!decoder || !predicate)
+	if (!decoder || !insn || !predicate)
 		return -pte_internal;
 
 	for (;;) {
@@ -1226,6 +1226,15 @@ static int pt_blk_proceed_to_insn(struct pt_block_decoder *decoder,
 		status = pt_insn_next_ip(&decoder->ip, insn, iext);
 		if (status < 0)
 			return status;
+
+		/* End the block if the user asked us to.
+		 *
+		 * We only need to take care about direct near calls.  Indirect
+		 * and far calls require trace and will naturally end a block.
+		 */
+		if (decoder->flags.variant.block.end_on_call &&
+		    (insn->iclass == ptic_call))
+			return 0;
 	}
 }
 
@@ -1254,7 +1263,7 @@ static int pt_blk_proceed_to_ip(struct pt_block_decoder *decoder,
 {
 	int status;
 
-	if (!decoder)
+	if (!decoder || !insn)
 		return -pte_internal;
 
 	for (;;) {
@@ -1272,6 +1281,15 @@ static int pt_blk_proceed_to_ip(struct pt_block_decoder *decoder,
 		status = pt_insn_next_ip(&decoder->ip, insn, iext);
 		if (status < 0)
 			return status;
+
+		/* End the block if the user asked us to.
+		 *
+		 * We only need to take care about direct near calls.  Indirect
+		 * and far calls require trace and will naturally end a block.
+		 */
+		if (decoder->flags.variant.block.end_on_call &&
+		    (insn->iclass == ptic_call))
+			return 0;
 	}
 }
 
@@ -1978,7 +1996,8 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 *     displacement.
 	 *
 	 *     We could proceed after a near direct call but we migh as well
-	 *     postpone it to the next iteration.
+	 *     postpone it to the next iteration.  Make sure to end the block if
+	 *     @decoder->flags.variant.block.end_on_call is set, though.
 	 *
 	 *   - if we switched sections
 	 *
@@ -2334,6 +2353,15 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			 */
 			return pt_blk_proceed_with_trace(decoder, &insn, &iext);
 		}
+
+		/* End the block if the user asked us to.
+		 *
+		 * We only need to take care about direct near calls.  Indirect
+		 * and far calls require trace and will naturally end a block.
+		 */
+		if (decoder->flags.variant.block.end_on_call &&
+		    (insn.iclass == ptic_call))
+			break;
 
 		/* If we can proceed without trace and we stay in @section we
 		 * may proceed further.
