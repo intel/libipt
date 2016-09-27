@@ -91,13 +91,22 @@ struct ptxed_options {
 /* A collection of flags selecting which stats to collect/print. */
 enum ptxed_stats_flag {
 	/* Collect number of instructions. */
-	ptxed_stat_insn		= (1 << 0)
+	ptxed_stat_insn		= (1 << 0),
+
+	/* Collect number of blocks. */
+	ptxed_stat_blocks	= (1 << 1)
 };
 
 /* A collection of statistics. */
 struct ptxed_stats {
 	/* The number of instructions. */
 	uint64_t insn;
+
+	/* The number of blocks.
+	 *
+	 * This only applies to the block decoder.
+	 */
+	uint64_t blocks;
 
 	/* A collection of flags saying which statistics to collect/print. */
 	uint32_t flags;
@@ -926,8 +935,10 @@ static void decode_block(struct pt_block_decoder *decoder,
 				 * in decoding some instructions.
 				 */
 				if (block.ninsn) {
-					if (stats)
+					if (stats) {
 						stats->insn += block.ninsn;
+						stats->blocks += 1;
+					}
 
 					if (!options->quiet)
 						print_block(&block, iscache,
@@ -936,8 +947,10 @@ static void decode_block(struct pt_block_decoder *decoder,
 				break;
 			}
 
-			if (stats)
+			if (stats) {
 				stats->insn += block.ninsn;
+				stats->blocks += 1;
+			}
 
 			if (!options->quiet)
 				print_block(&block, iscache, options, offset);
@@ -993,6 +1006,9 @@ static void print_stats(struct ptxed_stats *stats)
 
 	if (stats->flags & ptxed_stat_insn)
 		printf("insn: %" PRIu64 ".\n", stats->insn);
+
+	if (stats->flags & ptxed_stat_blocks)
+		printf("blocks:\t%" PRIu64 ".\n", stats->blocks);
 }
 
 static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
@@ -1245,6 +1261,10 @@ extern int main(int argc, char *argv[])
 			stats.flags |= ptxed_stat_insn;
 			continue;
 		}
+		if (strcmp(arg, "--stat:blocks") == 0) {
+			stats.flags |= ptxed_stat_blocks;
+			continue;
+		}
 		if (strcmp(arg, "--cpu") == 0) {
 			/* override cpu information before the decoder
 			 * is initialized.
@@ -1358,9 +1378,15 @@ extern int main(int argc, char *argv[])
 
 	xed_tables_init();
 
-	/* If we didn't select any statistics, select them all. */
-	if (options.print_stats && !stats.flags)
+	/* If we didn't select any statistics, select them all depending on the
+	 * decoder type.
+	 */
+	if (options.print_stats && !stats.flags) {
 		stats.flags |= ptxed_stat_insn;
+
+		if (decoder.type == pdt_block_decoder)
+			stats.flags |= ptxed_stat_blocks;
+	}
 
 	decode(&decoder, iscache, &options,
 	       options.print_stats ? &stats : NULL);
