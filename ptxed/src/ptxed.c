@@ -183,6 +183,7 @@ static void help(const char *name)
 	printf("  --insn-decoder                       use the instruction flow decoder (default).\n");
 	printf("  --block-decoder                      use the block decoder.\n");
 	printf("  --block:show-blocks                  show blocks in the output.\n");
+	printf("  --block:end-on-call                  set the end-on-call block decoder flag.\n");
 	printf("\n");
 #if defined(FEATURE_ELF)
 	printf("You must specify at least one binary or ELF file (--raw|--elf).\n");
@@ -1386,6 +1387,11 @@ extern int main(int argc, char *argv[])
 
 		if (strcmp(arg, "--block:show-blocks") == 0) {
 			options.track_blocks = 1;
+			continue;
+		}
+
+		if (strcmp(arg, "--block:end-on-call") == 0) {
+			config.flags.variant.block.end_on_call = 1;
 			continue;
 		}
 
