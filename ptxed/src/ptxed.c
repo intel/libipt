@@ -78,6 +78,12 @@ struct ptxed_options {
 	/* Print information about section loads and unloads. */
 	uint32_t track_image:1;
 
+	/* Track blocks in the output.
+	 *
+	 * This only applies to the block decoder.
+	 */
+	uint32_t track_blocks:1;
+
 	/* Print in AT&T format. */
 	uint32_t att_format:1;
 
@@ -176,6 +182,7 @@ static void help(const char *name)
 	       "  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n"
 	       "  --insn-decoder                       use the instruction flow decoder (default).\n"
 	       "  --block-decoder                      use the block decoder.\n"
+	       "  --block:show-blocks                  show blocks in the output.\n"
 	       "\n"
 #if defined(FEATURE_ELF)
 	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
@@ -776,7 +783,9 @@ static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
 
 static void print_block(struct pt_block *block,
 			struct pt_image_section_cache *iscache,
-			const struct ptxed_options *options, uint64_t offset)
+			const struct ptxed_options *options,
+			const struct ptxed_stats *stats,
+			uint64_t offset)
 {
 	xed_machine_mode_enum_t mode;
 	xed_state_t xed;
@@ -795,6 +804,13 @@ static void print_block(struct pt_block *block,
 
 	if (block->resumed)
 		printf("[resumed]\n");
+
+	if (options->track_blocks) {
+		printf("[block");
+		if (stats)
+			printf(" %" PRIx64, stats->blocks);
+		printf("]\n");
+	}
 
 	mode = translate_mode(block->mode);
 	xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
@@ -942,7 +958,8 @@ static void decode_block(struct pt_block_decoder *decoder,
 
 					if (!options->quiet)
 						print_block(&block, iscache,
-							    options, offset);
+							    options, stats,
+							    offset);
 				}
 				break;
 			}
@@ -953,7 +970,8 @@ static void decode_block(struct pt_block_decoder *decoder,
 			}
 
 			if (!options->quiet)
-				print_block(&block, iscache, options, offset);
+				print_block(&block, iscache, options, stats,
+					    offset);
 
 			if (errcode & pts_eos) {
 				if (!block.disabled && !options->quiet)
@@ -1364,6 +1382,11 @@ extern int main(int argc, char *argv[])
 			}
 
 			decoder.type = pdt_block_decoder;
+			continue;
+		}
+
+		if (strcmp(arg, "--block:show-blocks") == 0) {
+			options.track_blocks = 1;
 			continue;
 		}
 
