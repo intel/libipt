@@ -411,13 +411,13 @@ static int load_raw(struct pt_image_section_cache *iscache,
 
 	has_base = extract_base(arg, &base);
 	if (has_base <= 0)
-		return 1;
+		return -1;
 
 	errcode = preprocess_filename(arg, &foffset, &fsize);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
 			pt_errstr(pt_errcode(errcode)));
-		return 1;
+		return -1;
 	}
 
 	if (!fsize)
@@ -427,14 +427,14 @@ static int load_raw(struct pt_image_section_cache *iscache,
 	if (isid < 0) {
 		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
 			prog, arg, base, pt_errstr(pt_errcode(isid)));
-		return 1;
+		return -1;
 	}
 
 	errcode = pt_image_add_cached(image, iscache, isid, NULL);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: failed to add %s at 0x%" PRIx64 ": %s.\n",
 			prog, arg, base, pt_errstr(pt_errcode(errcode)));
-		return 1;
+		return -1;
 	}
 
 	return 0;
