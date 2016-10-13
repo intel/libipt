@@ -1342,7 +1342,8 @@ extern int main(int argc, char *argv[])
 
 	xed_tables_init();
 
-	decode(&decoder, iscache, &options, &stats);
+	decode(&decoder, iscache, &options,
+	       options.print_stats ? &stats : NULL);
 
 	if (options.print_stats)
 		print_stats(&stats);
