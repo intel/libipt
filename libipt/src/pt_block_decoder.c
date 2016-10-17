@@ -1678,6 +1678,50 @@ static inline int pt_blk_is_in_section(uint64_t ip,
 	return (begin <= ip && ip < end);
 }
 
+/* Insert a trampoline block cache entry.
+ *
+ * Add a trampoline block cache entry at @ip to continue at @nip, where @nip
+ * must be the next instruction after @ip.
+ *
+ * Both @ip and @nip must be section-relative
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static inline int pt_blk_add_trampoline(struct pt_block_cache *bcache,
+					uint64_t ip, uint64_t nip,
+					enum pt_exec_mode mode)
+{
+	struct pt_bcache_entry bce;
+	int64_t disp;
+
+	/* The displacement from @ip to @nip for the trampoline. */
+	disp = (int64_t) (nip - ip);
+
+	memset(&bce, 0, sizeof(bce));
+	bce.displacement = (int32_t) disp;
+	bce.ninsn = 1;
+	bce.mode = mode;
+	bce.qualifier = ptbq_again;
+
+	/* If we can't reach @nip without overflowing the displacement field, we
+	 * have to stop and re-decode the instruction at @ip.
+	 */
+	if ((int64_t) bce.displacement != disp) {
+
+		memset(&bce, 0, sizeof(bce));
+		bce.ninsn = 1;
+		bce.mode = mode;
+		bce.qualifier = ptbq_decode;
+	}
+
+	return pt_bcache_add(bcache, ip, bce);
+}
+
+enum {
+	/* The maximum number of steps when filling the block cache. */
+	bcache_fill_steps	= 0x400
+};
+
 /* Proceed to the next instruction and fill the block cache for @decoder->ip.
  *
  * Tracing is enabled and we don't have an event pending.  The current IP is not
@@ -1687,8 +1731,8 @@ static inline int pt_blk_is_in_section(uint64_t ip,
  * further using the block cache.
  *
  * On our way back, add a block cache entry for the IP before proceeding.  Note
- * that the recursion is bounded by the maximum number of instructions in a
- * block.
+ * that the recursion is bounded by @steps and ultimately by the maximum number
+ * of instructions in a block.
  *
  * Returns zero on success, a negative error code otherwise.
  */
@@ -1696,7 +1740,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 					      struct pt_block *block,
 					      struct pt_block_cache *bcache,
 					      struct pt_section *section,
-					      uint64_t laddr)
+					      uint64_t laddr, size_t steps)
 {
 	struct pt_bcache_entry bce;
 	struct pt_insn_ext iext;
@@ -1704,6 +1748,9 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	uint64_t nip, dip;
 	int64_t disp;
 	int status;
+
+	if (!decoder || !steps)
+		return -pte_internal;
 
 	/* Proceed one instruction by decoding and examining it.
 	 *
@@ -1847,9 +1894,21 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * the cache entry of the succeeding instruction.
 	 */
 	if (!pt_bce_is_valid(bce)) {
+		/* If we exceeded the maximum number of allowed steps, we insert
+		 * a trampoline to the next instruction.
+		 *
+		 * The next time we encounter the same code, we will use the
+		 * trampoline to jump directly to where we left off this time
+		 * and continue from there.
+		 */
+		steps -= 1;
+		if (!steps)
+			return pt_blk_add_trampoline(bcache, insn.ip - laddr,
+						     nip - laddr, insn.mode);
+
 		status = pt_blk_proceed_no_event_fill_cache(decoder, block,
 							    bcache, section,
-							    laddr);
+							    laddr, steps);
 		if (status < 0)
 			return status;
 
@@ -1896,27 +1955,9 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * If one or both overflowed, let's try to insert a trampoline, i.e. we
 	 * try to reach @dip via a ptbq_again entry to @nip.
 	 */
-	if (!bce.ninsn || ((int64_t) bce.displacement != disp)) {
-		/* The displacement from @ip to @nip for the trampoline. */
-		disp = (int64_t) (nip - insn.ip);
-
-		memset(&bce, 0, sizeof(bce));
-		bce.displacement = (int32_t) disp;
-		bce.ninsn = 1;
-		bce.mode = insn.mode;
-		bce.qualifier = ptbq_again;
-
-		/* If we can't even reach @nip without overflowing the
-		 * displacement field, we have to stop and re-decode @insn.
-		 */
-		if ((int64_t) bce.displacement != disp) {
-
-			memset(&bce, 0, sizeof(bce));
-			bce.ninsn = 1;
-			bce.mode = insn.mode;
-			bce.qualifier = ptbq_decode;
-		}
-	}
+	if (!bce.ninsn || ((int64_t) bce.displacement != disp))
+		return pt_blk_add_trampoline(bcache, insn.ip - laddr,
+					     nip - laddr, insn.mode);
 
 	/* We're done.  Add the cache entry.
 	 *
@@ -2028,7 +2069,8 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	if (!pt_bce_is_valid(bce))
 		return pt_blk_proceed_no_event_fill_cache(decoder, block,
 							  bcache, section,
-							  laddr);
+							  laddr,
+							  bcache_fill_steps);
 
 	/* We have a valid cache entry.  Let's first check if the way to the
 	 * decision point still fits into @block.
