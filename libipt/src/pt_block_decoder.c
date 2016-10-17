@@ -38,7 +38,8 @@
 #include <string.h>
 
 
-static int pt_blk_proceed(struct pt_block_decoder *, struct pt_block *);
+static int pt_blk_proceed_no_event(struct pt_block_decoder *,
+				   struct pt_block *);
 static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *,
 					  struct pt_block *,
 					  struct pt_block_cache *,
@@ -529,9 +530,9 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
  * Determines whether the enabled event can be processed in this iteration or
  * has to be postponed.
  *
- * If the event can be processed, do so and proceed.
- *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive integer if the event has been processed.
+ * Returns zero if the event shall be postponed.
+ * Returns a negative error code otherwise.
  */
 static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
 				  struct pt_block *block,
@@ -573,7 +574,7 @@ static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
 	decoder->enabled = 1;
 	decoder->process_event = 0;
 
-	return pt_blk_proceed(decoder, block);
+	return 1;
 }
 
 /* Apply a disabled event.
@@ -617,7 +618,9 @@ static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
  * and disabled on the same IP without any trace in between.  We ignore the
  * disabled event in this case and proceed.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive integer if the event has been processed.
+ * Returns zero if the event shall be postponed.
+ * Returns a negative error code otherwise.
  */
 static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 				   struct pt_block *block,
@@ -639,7 +642,7 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 	/* Ignore the disable if the block is empty. */
 	block->disabled = 0;
 
-	return pt_blk_proceed(decoder, block);
+	return 1;
 }
 
 /* Apply an asynchronous branch event.
@@ -685,7 +688,9 @@ static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
  * look like tracing started at the asynchronous branch destination instead of
  * at its source.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive integer if the event has been processed.
+ * Returns zero if the event shall be postponed.
+ * Returns a negative error code otherwise.
  */
 static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
 				       struct pt_block *block,
@@ -709,7 +714,7 @@ static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
 	block->interrupted = 0;
 	block->ip = decoder->ip;
 
-	return pt_blk_proceed(decoder, block);
+	return 1;
 }
 
 /* Apply a paging event.
@@ -733,25 +738,6 @@ static int pt_blk_apply_paging(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process a paging event.
- *
- * We reached the location of a paging event.  Update CR3 and proceed.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_paging(struct pt_block_decoder *decoder,
-				 struct pt_block *block,
-				 const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_paging(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_proceed(decoder, block);
-}
-
 /* Apply a vmcs event.
  *
  * This is used for proceed events and for trailing events.
@@ -773,31 +759,14 @@ static int pt_blk_apply_vmcs(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process a vmcs event.
- *
- * We reached the location of a vmcs event.  Update VMCS base and proceed.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
-			       struct pt_block *block,
-			       const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_vmcs(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_proceed(decoder, block);
-}
-
 /* Process an overflow event.
  *
  * An overflow ends a non-empty block.  The overflow itself is indicated in the
  * next block.  Indicate the overflow and resume in this case.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive integer if the event has been processed.
+ * Returns zero if the event shall be postponed.
+ * Returns a negative error code otherwise.
  */
 static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 				   struct pt_block *block,
@@ -862,7 +831,7 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 	decoder->speculative = 0;
 	decoder->process_event = 0;
 
-	return pt_blk_proceed(decoder, block);
+	return 1;
 }
 
 /* Apply an exec mode event.
@@ -897,7 +866,9 @@ static int pt_blk_apply_exec_mode(struct pt_block_decoder *decoder,
  * We reached the location of an exec mode event.  Update the exec mode and
  * proceed.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive integer if the event has been processed.
+ * Returns zero if the event shall be postponed.
+ * Returns a negative error code otherwise.
  */
 static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
 				    struct pt_block *block,
@@ -919,7 +890,7 @@ static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
 	/* We may still change the execution mode of an empty block. */
 	block->mode = decoder->mode;
 
-	return pt_blk_proceed(decoder, block);
+	return 1;
 }
 
 /* Apply a tsx event.
@@ -957,7 +928,9 @@ static int pt_blk_apply_tsx(struct pt_block_decoder *decoder,
  * tracing was just enabled.  In this case we do not indicate the abort or
  * commit.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive integer if the event has been processed.
+ * Returns zero if the event shall be postponed.
+ * Returns a negative error code otherwise.
  */
 static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
 			      struct pt_block *block,
@@ -979,7 +952,7 @@ static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
 	/* We may still change the speculation mode of an empty block. */
 	block->speculative = decoder->speculative;
 
-	return pt_blk_proceed(decoder, block);
+	return 1;
 }
 
 /* Apply a stop event.
@@ -1009,25 +982,6 @@ static int pt_blk_apply_stop(struct pt_block_decoder *decoder,
 	block->stopped = 1;
 
 	return 0;
-}
-
-/* Process a stop event.
- *
- * We got a stop event.  This always succeeds a disabled event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_stop(struct pt_block_decoder *decoder,
-			       struct pt_block *block,
-			       const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_stop(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_proceed(decoder, block);
 }
 
 /* Proceed to the next IP using trace.
@@ -1333,37 +1287,6 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 					    ev->variant.disabled.ip);
 }
 
-/* Proceed from an instruction at which we stopped previously.
- *
- * We proceeded to @insn/@iext and stopped after decoding and accounting for the
- * instruction but before determining the next IP.
- *
- * Determine the next IP then proceed normally.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_proceed_from_insn(struct pt_block_decoder *decoder,
-				    struct pt_block *block,
-				    const struct pt_insn *insn,
-				    const struct pt_insn_ext *iext)
-{
-	int status;
-
-	if (!decoder)
-		return -pte_internal;
-
-	/* Let's see if we can proceed to the next IP without trace. */
-	status = pt_insn_next_ip(&decoder->ip, insn, iext);
-	if (status < 0) {
-		if (status != -pte_bad_query)
-			return status;
-
-		return pt_blk_proceed_with_trace(decoder, insn, iext);
-	}
-
-	return pt_blk_proceed(decoder, block);
-}
-
 /* Try to work around erratum SKD022.
  *
  * If we get an asynchronous disable on VMLAUNCH or VMRESUME, the FUP that
@@ -1424,171 +1347,280 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				struct pt_block *block)
 {
-	struct pt_insn_ext iext;
-	struct pt_insn insn;
-	struct pt_event *ev;
-	uint64_t ip;
-	int status;
-
 	if (!decoder || !block)
 		return -pte_internal;
 
-	if (!decoder->process_event)
-		return -pte_internal;
+	for (;;) {
+		struct pt_insn_ext iext;
+		struct pt_insn insn;
+		struct pt_event *ev;
+		uint64_t ip;
+		int status;
 
-	status = 0;
+		if (!decoder->process_event)
+			return -pte_internal;
 
-	ev = &decoder->event;
-	switch (ev->type) {
-	case ptev_enabled:
-		return pt_blk_process_enabled(decoder, block, ev);
+		ev = &decoder->event;
+		switch (ev->type) {
+		case ptev_enabled:
+			status = pt_blk_process_enabled(decoder, block, ev);
+			if (status <= 0)
+				return status;
 
-	case ptev_disabled:
-		status = pt_blk_proceed_to_disabled(decoder, block, &insn,
-						    &iext, ev);
-		if (status <= 0) {
-			/* A synchronous disable event also binds to the next
-			 * indirect or conditional branch, i.e. to any branch
-			 * that would have required trace.
-			 */
-			if (status != -pte_bad_query)
-				break;
-
-			/* The @decoder->ip still points to the indirect or
-			 * conditional branch instruction that caused us to
-			 * error out.  That's not where we expect tracing to
-			 * resume since the instruction already retired.
-			 *
-			 * For calls, a fair assumption is that tracing resumes
-			 * after returning from the called function.  For other
-			 * types of instructions, we simply don't know.
-			 */
-			switch (insn.iclass) {
-			case ptic_call:
-			case ptic_far_call:
-				decoder->ip = insn.ip + insn.size;
-				break;
-
-			default:
-				decoder->ip = 0ull;
-				break;
-			}
-		}
-
-		return pt_blk_process_disabled(decoder, block, ev);
-
-	case ptev_async_disabled:
-		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
-					      ev->variant.async_disabled.at);
-		if (status <= 0)
 			break;
 
-		if (decoder->query.config.errata.skd022) {
-			status = pt_blk_handle_erratum_skd022(decoder, ev);
-			if (status != 0) {
-				if (status < 0)
+		case ptev_disabled:
+			status = pt_blk_proceed_to_disabled(decoder, block,
+							    &insn, &iext, ev);
+			if (status <= 0) {
+				/* A synchronous disable event also binds to the
+				 * next indirect or conditional branch, i.e. to
+				 * any branch that would have required trace.
+				 */
+				if (status != -pte_bad_query)
+					return status;
+
+				/* The @decoder->ip still points to the indirect
+				 * or conditional branch instruction that caused
+				 * us to error out.  That's not where we expect
+				 * tracing to resume since the instruction
+				 * already retired.
+				 *
+				 * For calls, a fair assumption is that tracing
+				 * resumes after returning from the called
+				 * function.  For other types of instructions,
+				 * we simply don't know.
+				 */
+				switch (insn.iclass) {
+				case ptic_call:
+				case ptic_far_call:
+					decoder->ip = insn.ip + insn.size;
 					break;
 
-				return pt_blk_proceed_event(decoder, block);
+				default:
+					decoder->ip = 0ull;
+					break;
+				}
 			}
-		}
 
-		return pt_blk_process_disabled(decoder, block, ev);
+			status = pt_blk_process_disabled(decoder, block, ev);
+			if (status <= 0)
+				return status;
 
-	case ptev_async_branch:
-		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
-					      ev->variant.async_branch.from);
-		if (status <= 0)
 			break;
 
-		return pt_blk_process_async_branch(decoder, block, ev);
-
-	case ptev_paging:
-		if (!decoder->enabled)
-			return pt_blk_process_paging(decoder, block, ev);
-
-		status = pt_blk_proceed_to_insn(decoder, block, &insn, &iext,
-						pt_insn_binds_to_pip);
-		if (status <= 0)
-			break;
-
-		status = pt_blk_apply_paging(decoder, block, ev);
-		if (status < 0)
-			break;
-
-		return pt_blk_proceed_from_insn(decoder, block, &insn, &iext);
-
-	case ptev_async_paging:
-		if (!ev->ip_suppressed) {
-			ip = ev->variant.async_paging.ip;
+		case ptev_async_disabled:
+			ip = ev->variant.async_disabled.at;
 
 			status = pt_blk_proceed_to_ip(decoder, block, &insn,
 						      &iext, ip);
 			if (status <= 0)
-				break;
-		}
+				return status;
 
-		return pt_blk_process_paging(decoder, block, ev);
+			if (decoder->query.config.errata.skd022) {
+				status = pt_blk_handle_erratum_skd022(decoder,
+								      ev);
+				if (status != 0) {
+					if (status < 0)
+						return status;
 
-	case ptev_vmcs:
-		if (!decoder->enabled)
-			return pt_blk_process_vmcs(decoder, block, ev);
+					/* If the erratum hits, we modify the
+					 * event.  Try again.
+					 */
+					continue;
+				}
+			}
 
-		status = pt_blk_proceed_to_insn(decoder, block, &insn, &iext,
-						pt_insn_binds_to_vmcs);
-		if (status <= 0)
+			status = pt_blk_process_disabled(decoder, block, ev);
+			if (status <= 0)
+				return status;
+
 			break;
 
-		status = pt_blk_apply_vmcs(decoder, block, ev);
-		if (status < 0)
+		case ptev_async_branch:
+			ip = ev->variant.async_branch.from;
+
+			status = pt_blk_proceed_to_ip(decoder, block, &insn,
+						      &iext, ip);
+			if (status <= 0)
+				return status;
+
+			status = pt_blk_process_async_branch(decoder, block,
+							     ev);
+			if (status <= 0)
+				return status;
+
 			break;
 
-		return pt_blk_proceed_from_insn(decoder, block, &insn, &iext);
+		case ptev_paging:
+			if (!decoder->enabled) {
+				status = pt_blk_apply_paging(decoder, block,
+							     ev);
+				if (status < 0)
+					return status;
 
-	case ptev_async_vmcs:
-		if (!ev->ip_suppressed) {
-			ip = ev->variant.async_vmcs.ip;
-
-			status = pt_blk_proceed_to_ip(decoder, block, &insn,
-						      &iext, ip);
-			if (status <= 0)
 				break;
+			}
+
+			status = pt_blk_proceed_to_insn(decoder, block, &insn,
+							&iext,
+							pt_insn_binds_to_pip);
+			if (status <= 0)
+				return status;
+
+			status = pt_blk_apply_paging(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			/* We accounted for @insn in @block but we have not
+			 * updated @decoder->ip, yet.  Let's do so now.
+			 *
+			 * If we can't, we have to proceed with trace.  This
+			 * ends event processing.
+			 */
+			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+			if (status < 0) {
+				if (status != -pte_bad_query)
+					return status;
+
+				return pt_blk_proceed_with_trace(decoder, &insn,
+								 &iext);
+			}
+
+			break;
+
+		case ptev_async_paging:
+			if (!ev->ip_suppressed) {
+				ip = ev->variant.async_paging.ip;
+
+				status = pt_blk_proceed_to_ip(decoder, block,
+							      &insn, &iext, ip);
+				if (status <= 0)
+					return status;
+			}
+
+			status = pt_blk_apply_paging(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			break;
+
+		case ptev_vmcs:
+			if (!decoder->enabled) {
+				status = pt_blk_apply_vmcs(decoder, block, ev);
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			status = pt_blk_proceed_to_insn(decoder, block, &insn,
+							&iext,
+							pt_insn_binds_to_vmcs);
+			if (status <= 0)
+				return status;
+
+			status = pt_blk_apply_vmcs(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			/* We accounted for @insn in @block but we have not
+			 * updated @decoder->ip, yet.  Let's do so now.
+			 *
+			 * If we can't, we have to proceed with trace.  This
+			 * ends event processing.
+			 */
+			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+			if (status < 0) {
+				if (status != -pte_bad_query)
+					return status;
+
+				return pt_blk_proceed_with_trace(decoder, &insn,
+								 &iext);
+			}
+
+			break;
+
+		case ptev_async_vmcs:
+			if (!ev->ip_suppressed) {
+				ip = ev->variant.async_vmcs.ip;
+
+				status = pt_blk_proceed_to_ip(decoder, block,
+							      &insn, &iext, ip);
+				if (status <= 0)
+					return status;
+			}
+
+			status = pt_blk_apply_vmcs(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			break;
+
+		case ptev_overflow:
+			status = pt_blk_process_overflow(decoder, block, ev);
+			if (status <= 0)
+				return status;
+
+			break;
+
+		case ptev_exec_mode:
+			if (!ev->ip_suppressed) {
+				ip = ev->variant.exec_mode.ip;
+
+				status = pt_blk_proceed_to_ip(decoder, block,
+							      &insn, &iext, ip);
+				if (status <= 0)
+					return status;
+			}
+
+			status = pt_blk_process_exec_mode(decoder, block, ev);
+			if (status <= 0)
+				return status;
+
+			break;
+
+		case ptev_tsx:
+			if (!ev->ip_suppressed) {
+				ip = ev->variant.tsx.ip;
+
+				status = pt_blk_proceed_to_ip(decoder, block,
+							      &insn, &iext, ip);
+				if (status <= 0)
+					return status;
+			}
+
+			status = pt_blk_process_tsx(decoder, block, ev);
+			if (status <= 0)
+				return status;
+
+			break;
+
+		case ptev_stop:
+			status = pt_blk_apply_stop(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			break;
 		}
 
-		return pt_blk_process_vmcs(decoder, block, ev);
+		/* We should have processed the event.  If we have not, we might
+		 * spin here forever.
+		 */
+		if (decoder->process_event)
+			return -pte_internal;
 
-	case ptev_overflow:
-		return pt_blk_process_overflow(decoder, block, ev);
+		/* Check if we have more events pending. */
+		status = pt_blk_fetch_event(decoder);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
 
-	case ptev_exec_mode:
-		if (!ev->ip_suppressed) {
-			ip = ev->variant.exec_mode.ip;
-
-			status = pt_blk_proceed_to_ip(decoder, block, &insn,
-						      &iext, ip);
-			if (status <= 0)
-				break;
+			break;
 		}
-
-		return pt_blk_process_exec_mode(decoder, block, ev);
-
-	case ptev_tsx:
-		if (!ev->ip_suppressed) {
-			ip = ev->variant.tsx.ip;
-
-			status = pt_blk_proceed_to_ip(decoder, block, &insn,
-						      &iext, ip);
-			if (status <= 0)
-				break;
-		}
-
-		return pt_blk_process_tsx(decoder, block, ev);
-
-	case ptev_stop:
-		return pt_blk_process_stop(decoder, block, ev);
 	}
 
-	return status;
+	return pt_blk_proceed_no_event(decoder, block);
 }
 
 /* Proceed to the next decision point without using the block cache.
@@ -2249,7 +2281,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Proceed to the next decision point.
+/* Proceed to the next decision point - try using the cache.
  *
  * Tracing is enabled and we don't have an event pending.  Proceed as far as
  * we get without trace.  Stop when we either:
@@ -2262,8 +2294,8 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
-				   struct pt_block *block)
+static int pt_blk_proceed_no_event_trycache(struct pt_block_decoder *decoder,
+					    struct pt_block *block)
 {
 	struct pt_block_cache *bcache;
 	struct pt_section *section;
@@ -2329,23 +2361,16 @@ out_put:
 	return errcode;
 }
 
-/* Proceed to the next event or decision point.
+/* Proceed to the next decision point.
+ *
+ * We don't have an event pending.  Ensure that tracing is enabled and proceed
+ * as far as we get.  Try using the cache, if possible.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_proceed(struct pt_block_decoder *decoder,
-			  struct pt_block *block)
+static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
+				   struct pt_block *block)
 {
-	int event_pending;
-
-	event_pending = pt_blk_fetch_event(decoder);
-	if (event_pending != 0) {
-		if (event_pending < 0)
-			return event_pending;
-
-		return pt_blk_proceed_event(decoder, block);
-	}
-
 	/* The end of the trace ends a non-empty block.
 	 *
 	 * If we're called again, we will proceed until we really need trace.
@@ -2364,6 +2389,26 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 	 */
 	if (!decoder->enabled)
 		return -pte_no_enable;
+
+	return pt_blk_proceed_no_event_trycache(decoder, block);
+}
+
+/* Proceed to the next event or decision point.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_proceed(struct pt_block_decoder *decoder,
+			  struct pt_block *block)
+{
+	int event_pending;
+
+	event_pending = pt_blk_fetch_event(decoder);
+	if (event_pending != 0) {
+		if (event_pending < 0)
+			return event_pending;
+
+		return pt_blk_proceed_event(decoder, block);
+	}
 
 	return pt_blk_proceed_no_event(decoder, block);
 }
