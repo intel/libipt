@@ -39,8 +39,6 @@
 
 
 static int pt_blk_proceed(struct pt_block_decoder *, struct pt_block *);
-static int pt_blk_process_trailing_events(struct pt_block_decoder *,
-					  struct pt_block *);
 static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *,
 					  struct pt_block *,
 					  struct pt_block_cache *,
@@ -644,26 +642,6 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 	return pt_blk_proceed(decoder, block);
 }
 
-/* Process a trailing disabled event.
- *
- * We reached the location of a disabled event after completing a block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_process_trailing_disabled(struct pt_block_decoder *decoder,
-					    struct pt_block *block,
-					    const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_disabled(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 /* Apply an asynchronous branch event.
  *
  * This is used for proceed events and for trailing events.
@@ -734,28 +712,6 @@ static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
 	return pt_blk_proceed(decoder, block);
 }
 
-/* Process a trailing asynchronous branch event.
- *
- * We reached the source location of an asynchronous branch after completing a
- * block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int
-pt_blk_process_trailing_async_branch(struct pt_block_decoder *decoder,
-				     struct pt_block *block,
-				     const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_async_branch(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 /* Apply a paging event.
  *
  * This is used for proceed events and for trailing events.
@@ -796,26 +752,6 @@ static int pt_blk_process_paging(struct pt_block_decoder *decoder,
 	return pt_blk_proceed(decoder, block);
 }
 
-/* Process a trailing paging event.
- *
- * We reached the location of a paging event after completing a block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_process_trailing_paging(struct pt_block_decoder *decoder,
-					  struct pt_block *block,
-					  const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_paging(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 /* Apply a vmcs event.
  *
  * This is used for proceed events and for trailing events.
@@ -854,26 +790,6 @@ static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
 		return errcode;
 
 	return pt_blk_proceed(decoder, block);
-}
-
-/* Process a trailing vmcs event.
- *
- * We reached the location of a vmcs event after completing a block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_process_trailing_vmcs(struct pt_block_decoder *decoder,
-					struct pt_block *block,
-					const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_vmcs(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
 }
 
 /* Process an overflow event.
@@ -1006,26 +922,6 @@ static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
 	return pt_blk_proceed(decoder, block);
 }
 
-/* Process a trailing exec mode event.
- *
- * We reached the location of an exec mode event after completing a block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_process_trailing_exec_mode(struct pt_block_decoder *decoder,
-					     struct pt_block *block,
-					     const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_exec_mode(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 /* Apply a tsx event.
  *
  * This is used for proceed events and for trailing events.
@@ -1086,26 +982,6 @@ static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
 	return pt_blk_proceed(decoder, block);
 }
 
-/* Process a trailing tsx event.
- *
- * We reached the location of a tsx event after completing a block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_process_trailing_tsx(struct pt_block_decoder *decoder,
-				       struct pt_block *block,
-				       const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_tsx(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 /* Apply a stop event.
  *
  * This is used for proceed events and for trailing events.
@@ -1152,26 +1028,6 @@ static int pt_blk_process_stop(struct pt_block_decoder *decoder,
 		return errcode;
 
 	return pt_blk_proceed(decoder, block);
-}
-
-/* Process a trailing stop event.
- *
- * We got a stop event.  This always succeeds a disabled event.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_process_trailing_stop(struct pt_block_decoder *decoder,
-					struct pt_block *block,
-					const struct pt_event *ev)
-{
-	int errcode;
-
-	errcode = pt_blk_apply_stop(decoder, block, ev);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
 }
 
 /* Proceed to the next IP using trace.
@@ -2603,6 +2459,38 @@ static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
 	return 1;
 }
 
+/* Handle a trailing TSX event.
+ *
+ * This involves handling erratum BDM64.
+ *
+ * Returns a positive integer if the event is to be postponed.
+ * Returns zero if the event was handled successfully.
+ * Returns a negative error code otherwise.
+ */
+static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
+					     struct pt_block *block,
+					     const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	if (!ev->ip_suppressed) {
+		if (decoder->query.config.errata.bdm64) {
+			int status;
+
+			status = pt_blk_handle_erratum_bdm64(decoder, block,
+							     ev);
+			if (status < 0)
+				return 1;
+		}
+
+		if (decoder->ip != ev->variant.tsx.ip)
+			return 1;
+	}
+
+	return pt_blk_apply_tsx(decoder, block, ev);
+}
+
 /* Process events that bind to the current decoder IP.
  *
  * We filled a block and proceeded to the next IP, which will become the start
@@ -2615,90 +2503,115 @@ static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
 static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 					  struct pt_block *block)
 {
-	struct pt_event *ev;
-	int event_pending, status;
-
 	if (!decoder)
 		return -pte_internal;
 
-	event_pending = pt_blk_fetch_event(decoder);
-	if (event_pending <= 0) {
-		if (event_pending < 0)
-			return event_pending;
+	for (;;) {
+		struct pt_event *ev;
+		int status;
 
-		return pt_blk_status(decoder);
-	}
+		status = pt_blk_fetch_event(decoder);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
 
-	ev = &decoder->event;
-	switch (ev->type) {
-	case ptev_enabled:
-	case ptev_disabled:
-	case ptev_paging:
-	case ptev_vmcs:
-	case ptev_overflow:
-		break;
-
-	case ptev_async_disabled:
-		if (decoder->ip != ev->variant.async_disabled.at)
 			break;
-
-		if (decoder->query.config.errata.skd022) {
-			status = pt_blk_handle_erratum_skd022(decoder, ev);
-			if (status != 0) {
-				if (status < 0)
-					break;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
 		}
 
-		return pt_blk_process_trailing_disabled(decoder, block, ev);
-
-	case ptev_async_branch:
-		if (decoder->ip != ev->variant.async_branch.from)
+		ev = &decoder->event;
+		switch (ev->type) {
+		case ptev_enabled:
+		case ptev_disabled:
+		case ptev_paging:
+		case ptev_vmcs:
+		case ptev_overflow:
 			break;
 
-		return pt_blk_process_trailing_async_branch(decoder, block, ev);
-
-	case ptev_async_paging:
-		if (!ev->ip_suppressed &&
-		    decoder->ip != ev->variant.async_paging.ip)
-			break;
-
-		return pt_blk_process_trailing_paging(decoder, block, ev);
-
-	case ptev_async_vmcs:
-		if (!ev->ip_suppressed &&
-		    decoder->ip != ev->variant.async_vmcs.ip)
-			break;
-
-		return pt_blk_process_trailing_vmcs(decoder, block, ev);
-
-	case ptev_exec_mode:
-		if (!ev->ip_suppressed &&
-		    decoder->ip != ev->variant.exec_mode.ip)
-			break;
-
-		return pt_blk_process_trailing_exec_mode(decoder, block, ev);
-
-	case ptev_tsx:
-		if (!ev->ip_suppressed) {
-			if (decoder->query.config.errata.bdm64) {
-				status = pt_blk_handle_erratum_bdm64(decoder,
-								     block, ev);
-				if (status < 0)
-					break;
-			}
-
-			if (decoder->ip != ev->variant.tsx.ip)
+		case ptev_async_disabled:
+			if (decoder->ip != ev->variant.async_disabled.at)
 				break;
+
+			if (decoder->query.config.errata.skd022) {
+				status = pt_blk_handle_erratum_skd022(decoder,
+								      ev);
+				if (status != 0) {
+					if (status < 0)
+						break;
+
+					continue;
+				}
+			}
+
+
+			status = pt_blk_apply_disabled(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_async_branch:
+			if (decoder->ip != ev->variant.async_branch.from)
+				break;
+
+			status = pt_blk_apply_async_branch(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_async_paging:
+			if (!ev->ip_suppressed &&
+			    decoder->ip != ev->variant.async_paging.ip)
+				break;
+
+			status = pt_blk_apply_paging(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_async_vmcs:
+			if (!ev->ip_suppressed &&
+			    decoder->ip != ev->variant.async_vmcs.ip)
+				break;
+
+			status = pt_blk_apply_vmcs(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_exec_mode:
+			if (!ev->ip_suppressed &&
+			    decoder->ip != ev->variant.exec_mode.ip)
+				break;
+
+			status = pt_blk_apply_exec_mode(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_tsx:
+			status = pt_blk_handle_trailing_tsx(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			if (status > 0)
+				break;
+
+			continue;
+
+		case ptev_stop:
+			status = pt_blk_apply_stop(decoder, block, ev);
+			if (status < 0)
+				return status;
+
+			continue;
 		}
 
-		return pt_blk_process_trailing_tsx(decoder, block, ev);
-
-	case ptev_stop:
-		return pt_blk_process_trailing_stop(decoder, block, ev);
+		/* If we fall out of the switch, we're done. */
+		break;
 	}
 
 	return pt_blk_status(decoder);
