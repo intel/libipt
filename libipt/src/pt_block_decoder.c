@@ -40,10 +40,6 @@
 
 static int pt_blk_proceed_no_event(struct pt_block_decoder *,
 				   struct pt_block *);
-static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *,
-					  struct pt_block *,
-					  struct pt_block_cache *,
-					  struct pt_section *, uint64_t);
 
 
 /* Release a cached section.
@@ -1838,30 +1834,37 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 		return pt_bcache_add(bcache, insn.ip - laddr, bce);
 	}
 
-	/* We proceeded one instruction.  Let's proceed normally with caching.
-	 * This may fill the block cache for @nip.
-	 */
-	status = pt_blk_proceed_no_event_cached(decoder, block, bcache,
-						section, laddr);
-	if (status < 0)
-		return status;
-
-	/* On our way back, we add a cache entry for this instruction based on
-	 * the cache entry of the succeeding instruction.
+	/* We proceeded one instruction.  Let's see if we have a cache entry for
+	 * the next instruction.
 	 */
 	status = pt_bcache_lookup(&bce, bcache, nip - laddr);
 	if (status < 0)
 		return status;
 
-	/* If the cache entry for @nip isn't valid, @block overflowed before we
-	 * could reach a decision point in this iteration.
+	/* If we don't have a valid cache entry, yet, fill the cache some more.
 	 *
-	 * We will proceed from @decoder->ip in the next iteration.  Eventually,
-	 * we will find a decision point and, on our way back, populate the
-	 * block cache entries preceding it.
+	 * On our way back, we add a cache entry for this instruction based on
+	 * the cache entry of the succeeding instruction.
 	 */
-	if (!pt_bce_is_valid(bce))
-		return 0;
+	if (!pt_bce_is_valid(bce)) {
+		status = pt_blk_proceed_no_event_fill_cache(decoder, block,
+							    bcache, section,
+							    laddr);
+		if (status < 0)
+			return status;
+
+		/* Let's see if we have more luck this time. */
+		status = pt_bcache_lookup(&bce, bcache, nip - laddr);
+		if (status < 0)
+			return status;
+
+		/* If we still don't have a valid cache entry, we're done.  Most
+		 * likely, @block overflowed and we couldn't proceed past the
+		 * next instruction.
+		 */
+		if (!pt_bce_is_valid(bce))
+			return 0;
+	}
 
 	/* We must not have switched execution modes.
 	 *
