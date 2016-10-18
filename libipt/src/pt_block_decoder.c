@@ -43,6 +43,8 @@
 
 static int pt_blk_proceed_no_event(struct pt_block_decoder *,
 				   struct pt_block *);
+static int pt_blk_process_trailing_events(struct pt_block_decoder *,
+					  struct pt_block *);
 
 
 /* Release a cached section.
@@ -254,7 +256,13 @@ static int pt_blk_start(struct pt_block_decoder *decoder, int status)
 	if (!(status & pts_ip_suppressed))
 		decoder->enabled = 1;
 
-	return 0;
+	/* Process any initial 'trailing' events.
+	 *
+	 * Some events make sense at the end of a block and will be ignored in
+	 * pt_blk_proceed_event() when encountered at an empty block,
+	 * e.g. async-branch or tsx.  We might as well discard them here.
+	 */
+	return pt_blk_process_trailing_events(decoder, NULL);
 }
 
 static int pt_blk_sync_reset(struct pt_block_decoder *decoder)
@@ -2780,11 +2788,11 @@ static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
 {
 	int status;
 
-	if (!decoder || !block || !ev)
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	if (!ev->ip_suppressed) {
-		if (decoder->query.config.errata.bdm64) {
+		if (block && decoder->query.config.errata.bdm64) {
 			status = pt_blk_handle_erratum_bdm64(decoder, block,
 							     ev);
 			if (status < 0)
@@ -2808,7 +2816,7 @@ static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
 	 * number of instructions or due to some internal reason right at the
 	 * location of a transaction end.
 	 */
-	if (decoder->enabled) {
+	if (block && decoder->enabled) {
 		if (ev->variant.tsx.aborted)
 			block->aborted = 1;
 		else if (block->speculative && !ev->variant.tsx.speculative)
@@ -2830,7 +2838,7 @@ static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
 static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 					  struct pt_block *block)
 {
-	if (!decoder || !block)
+	if (!decoder)
 		return -pte_internal;
 
 	for (;;) {
@@ -2871,7 +2879,8 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (status < 0)
 				return status;
 
-			block->disabled = 1;
+			if (block)
+				block->disabled = 1;
 
 			continue;
 
@@ -2883,7 +2892,8 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (status < 0)
 				return status;
 
-			block->interrupted = 1;
+			if (block)
+				block->interrupted = 1;
 
 			continue;
 
@@ -2955,7 +2965,8 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (status < 0)
 				return status;
 
-			block->stopped = 1;
+			if (block)
+				block->stopped = 1;
 
 			continue;
 		}
