@@ -1632,7 +1632,7 @@ extern pt_export int pt_iscache_add_file(struct pt_image_section_cache *iscache,
  * The caller is responsible for allocating a \@buffer of at least \@size bytes.
  *
  * The read request may be truncated if it crosses section boundaries or if
- * @size is getting too big.  We support reading at least 4Kbyte in one chunk
+ * \@size is getting too big.  We support reading at least 4Kbyte in one chunk
  * unless the read would cross a section boundary.
  *
  * Returns the number of bytes read on success, a negative error code otherwise.
