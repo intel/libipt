@@ -261,6 +261,10 @@ static int pt_blk_start(struct pt_block_decoder *decoder, int status)
 	 * Some events make sense at the end of a block and will be ignored in
 	 * pt_blk_proceed_event() when encountered at an empty block,
 	 * e.g. async-branch or tsx.  We might as well discard them here.
+	 *
+	 * This will also indicate any events that shall be forwarded to the
+	 * user by setting the pts_event_pending bit in the returned status
+	 * bit-vector.
 	 */
 	return pt_blk_process_trailing_events(decoder, NULL);
 }
@@ -2683,15 +2687,14 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 	return pt_blk_proceed_no_event(decoder, block);
 }
 
-static int pt_blk_status(const struct pt_block_decoder *decoder)
+static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
 {
-	int status, flags;
+	int status;
 
 	if (!decoder)
 		return -pte_internal;
 
 	status = decoder->status;
-	flags = 0;
 
 	/* Forward end-of-trace indications.
 	 *
@@ -2761,7 +2764,7 @@ static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
 					     decoder->mode, decoder->image,
 					     &decoder->asid, bdm64_max_steps);
 	if (status > 0)
-		return 0;
+		return status;
 
 	/* We can't reach the event location.  This could either mean that we
 	 * stopped too early (and status is zero) or that the erratum hit.
@@ -2774,54 +2777,34 @@ static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
 	return 1;
 }
 
-/* Handle a trailing TSX event.
+/* Check whether a trailing TSX event should be postponed.
  *
  * This involves handling erratum BDM64.
  *
  * Returns a positive integer if the event is to be postponed.
- * Returns zero if the event was handled successfully.
+ * Returns zero if the event should be processed.
  * Returns a negative error code otherwise.
  */
-static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
-					     struct pt_block *block,
-					     const struct pt_event *ev)
+static inline int pt_blk_postpone_trailing_tsx(struct pt_block_decoder *decoder,
+					       struct pt_block *block,
+					       const struct pt_event *ev)
 {
 	int status;
 
 	if (!decoder || !ev)
 		return -pte_internal;
 
-	if (!ev->ip_suppressed) {
-		if (block && decoder->query.config.errata.bdm64) {
-			status = pt_blk_handle_erratum_bdm64(decoder, block,
-							     ev);
-			if (status < 0)
-				return 1;
-		}
+	if (ev->ip_suppressed)
+		return 0;
 
-		if (decoder->ip != ev->variant.tsx.ip)
+	if (block && decoder->query.config.errata.bdm64) {
+		status = pt_blk_handle_erratum_bdm64(decoder, block, ev);
+		if (status < 0)
 			return 1;
 	}
 
-	status = pt_blk_apply_tsx(decoder, ev);
-	if (status < 0)
-		return status;
-
-	/* Indicate an abort or commit unless tracing is disabled or we don't
-	 * have a block to indicate it in.
-	 *
-	 * This event is typically processed in the proceed event flow, not in
-	 * the trailing event flow.  We process it here, as well, to handle
-	 * cases where we have ended the block due to reaching the maximum
-	 * number of instructions or due to some internal reason right at the
-	 * location of a transaction end.
-	 */
-	if (block && decoder->enabled) {
-		if (ev->variant.tsx.aborted)
-			block->aborted = 1;
-		else if (block->speculative && !ev->variant.tsx.speculative)
-			block->committed = 1;
-	}
+	if (decoder->ip != ev->variant.tsx.ip)
+		return 1;
 
 	return 0;
 }
@@ -2875,12 +2858,18 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 				}
 			}
 
+			/* Turn the block flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 */
+			if (!block)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+
 			status = pt_blk_apply_disabled(decoder, ev);
 			if (status < 0)
 				return status;
 
-			if (block)
-				block->disabled = 1;
+			block->disabled = 1;
 
 			continue;
 
@@ -2888,12 +2877,19 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (decoder->ip != ev->variant.async_branch.from)
 				break;
 
+			/* Turn the block flag indication into a user event if
+			 * we encounter this event in the user event flow or if
+			 * we already indicated a previous async branch.
+			 */
+			if (!block || block->interrupted)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+
 			status = pt_blk_apply_async_branch(decoder, ev);
 			if (status < 0)
 				return status;
 
-			if (block)
-				block->interrupted = 1;
+			block->interrupted = 1;
 
 			continue;
 
@@ -2951,22 +2947,64 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			continue;
 
 		case ptev_tsx:
-			status = pt_blk_handle_trailing_tsx(decoder, block, ev);
+			status = pt_blk_postpone_trailing_tsx(decoder, block,
+							      ev);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			/* Turn the block flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 *
+			 * We do not indicate TSX events that are marked as
+			 * status updates or while tracing is disabled.  There
+			 * can be a real lot of them and it seems kind of
+			 * pointless to tell the user about them.
+			 */
+			if (!block && !ev->status_update && decoder->enabled)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+
+			status = pt_blk_apply_tsx(decoder, ev);
 			if (status < 0)
 				return status;
 
-			if (status > 0)
-				break;
+			/* Indicate an abort or commit unless tracing is
+			 * disabled or we don't have a block.
+			 *
+			 * This event is typically processed in the proceed
+			 * event flow, not in the trailing event flow.  We
+			 * process it here, as well, to handle cases where we
+			 * have ended the block due to reaching the maximum
+			 * number of instructions or due to some internal reason
+			 * right at the location of a transaction end.
+			 */
+			if (block && decoder->enabled) {
+				if (ev->variant.tsx.aborted)
+					block->aborted = 1;
+				else if (block->speculative &&
+					 !ev->variant.tsx.speculative)
+					block->committed = 1;
+			}
 
 			continue;
 
 		case ptev_stop:
+			/* Turn the block flag indication into a user event if
+			 * we encounter this event in the user event flow.
+			 */
+			if (!block)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+
 			status = pt_blk_apply_stop(decoder, ev);
 			if (status < 0)
 				return status;
 
-			if (block)
-				block->stopped = 1;
+			block->stopped = 1;
 
 			continue;
 		}
@@ -2975,7 +3013,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 		break;
 	}
 
-	return pt_blk_status(decoder);
+	return pt_blk_status(decoder, 0);
 }
 
 /* Collect one block.
@@ -3040,4 +3078,80 @@ int pt_blk_next(struct pt_block_decoder *decoder, struct pt_block *ublock,
 		return errcode;
 
 	return status;
+}
+
+int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
+		 size_t size)
+{
+	const struct pt_event *ev;
+	int status;
+
+	if (!decoder || !uevent)
+		return -pte_invalid;
+
+	/* We must currently process an event. */
+	if (!decoder->process_event)
+		return -pte_bad_query;
+
+	ev = &decoder->event;
+	switch (ev->type) {
+	default:
+		/* This is not a user event.
+		 *
+		 * We either indicated it wrongly or the user called
+		 * pt_blk_event() without a pts_event_pending indication.
+		 */
+		return -pte_bad_query;
+
+	case ptev_async_disabled:
+		if (decoder->ip != ev->variant.async_disabled.at)
+			return -pte_bad_query;
+
+		status = pt_blk_apply_disabled(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_async_branch:
+		if (decoder->ip != ev->variant.async_branch.from)
+			return -pte_bad_query;
+
+		status = pt_blk_apply_async_branch(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_tsx:
+		if (decoder->ip != ev->variant.tsx.ip)
+			return -pte_bad_query;
+
+		status = pt_blk_apply_tsx(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_stop:
+		status = pt_blk_apply_stop(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+	}
+
+	/* Copy the event to the user.  Make sure we're not writing beyond the
+	 * memory provided by the user.
+	 *
+	 * We might truncate details of an event but only for those events the
+	 * user can't know about, anyway.
+	 */
+	if (sizeof(*ev) < size)
+		size = sizeof(*ev);
+
+	memcpy(uevent, ev, size);
+
+	/* Indicate further events. */
+	return pt_blk_process_trailing_events(decoder, NULL);
 }

@@ -321,6 +321,10 @@ enum pt_status_flag {
 };
 ~~~
 
+The *pts_event_pending* flag indicates that one or more events are pending.  Use
+**pt_blk_event**(3) to process pending events before calling **pt_blk_next**()
+again.
+
 The *pt_eos* flag indicates that the information contained in the Intel PT
 stream has been consumed.  Further calls to **pt_blk_next**() will continue to
 provide blocks for instructions as long as the instruction's addresses can be
@@ -359,4 +363,5 @@ pte_bad_query
 
 **pt_blk_alloc_decoder**(3), **pt_blk_free_decoder**(3),
 **pt_blk_sync_forward**(3), **pt_blk_sync_backward**(3),
-**pt_blk_sync_set**(3), **pt_blk_time**(3), **pt_blk_core_bus_ratio**(3)
+**pt_blk_sync_set**(3), **pt_blk_time**(3), **pt_blk_core_bus_ratio**(3),
+**pt_blk_event**(3)

@@ -988,20 +988,24 @@ shown in the following example:
 
 ~~~{.c}
     struct pt_block_decoder *decoder;
-    int errcode;
+    int status;
 
     for (;;) {
         struct pt_block block;
 
-        errcode = pt_blk_next(decoder, &block, sizeof(block));
+        status = pt_blk_next(decoder, &block, sizeof(block));
 
         if (block.ninsn > 0)
             <process block>(&block);
 
-        if (errcode < 0)
+        if (status < 0)
             break;
+
+        ...
     }
 ~~~
+
+Note that the example ignores non-error status returns.
 
 A block contains enough information to reconstruct the instructions.  See
 `struct pt_block` in `intel-pt.h` for details.  Note that errors returned by
@@ -1048,6 +1052,144 @@ The following example shows how instructions can be reconstructed from a block:
         <process instruction>(&insn);
 
         ip = <determine next ip>(&insn);
+    }
+~~~
+
+
+#### Events
+
+The block decoder uses an event system similar to the query decoder's.  Pending
+events are indicated by the `pts_event_pending` flag in the status flag
+bit-vector returned from `pt_blk_sync_<where>()`, `pt_blk_next()` and
+`pt_blk_event()`.
+
+When the `pts_event_pending` flag is set on return from `pt_blk_sync_<where>()`
+or `pt_blk_next()`, use repeated calls to `pt_blk_event()` to drain all queued
+events.  Then switch back to calling `pt_blk_next()` to resume with block decode
+as shown in the following example:
+
+~~~{.c}
+    struct pt_block_decoder *decoder;
+    int status;
+
+    for (;;) {
+        struct pt_block block;
+
+        status = pt_blk_next(decoder, &block, sizeof(block));
+        if (status < 0)
+            break;
+
+        <process block>(&block);
+
+        while (status & pts_event) {
+            struct pt_event event;
+
+            status = pt_blk_event(decoder, &event, sizeof(event));
+            if (status < 0)
+                <handle error>(status);
+
+            <process event>(&event);
+        }
+    }
+~~~
+
+
+#### The Block Decode Loop
+
+If we put all of the above examples together, we end up with a decode loop as
+shown below:
+
+~~~{.c}
+    int process_block(struct pt_block *block,
+                      struct pt_image_section_cache *iscache)
+    {
+        uint16_t ninsn;
+        uint64_t ip;
+
+        ip = block->ip;
+        for (ninsn = 0; ninsn < block->ninsn; ++ninsn) {
+            struct pt_insn insn;
+
+            memset(&insn, 0, sizeof(insn));
+            insn->speculative = block->speculative;
+            insn->isid = block->isid;
+            insn->mode = block->mode;
+            insn->ip = ip;
+
+            if (block->truncated && ((ninsn +1) == block->ninsn)) {
+                insn.truncated = 1;
+                insn.size = block->size;
+
+                memcpy(insn.raw, block->raw, insn.size);
+            } else {
+                int size;
+
+                size = pt_iscache_read(iscache, insn.raw, sizeof(insn.raw),
+                                       insn.isid, insn.ip);
+                if (size < 0)
+                    return size;
+
+                insn.size = (uint8_t) size;
+            }
+
+            <decode instruction>(&insn);
+            <process instruction>(&insn);
+
+            ip = <determine next ip>(&insn);
+        }
+
+        return 0;
+    }
+
+    int handle_events(struct pt_blk_decoder *decoder, int status)
+    {
+        while (status & pts_event) {
+            struct pt_event event;
+
+            status = pt_blk_event(decoder, &event, sizeof(event));
+            if (status < 0)
+                break;
+
+            <process event>(&event);
+        }
+
+        return status;
+    }
+
+    int decode(struct pt_blk_decoder *decoder,
+               struct pt_image_section_cache *iscache)
+    {
+        int status;
+
+        for (;;) {
+            status = pt_blk_sync_forward(decoder);
+            if (status < 0)
+                break;
+
+            for (;;) {
+                struct pt_block block;
+                int errcode;
+
+                status = handle_events(decoder, status);
+                if (status < 0)
+                    break;
+
+                status = pt_blk_next(decoder, &block, sizeof(block));
+
+                errcode = process_block(&block, iscache);
+                if (errcode < 0)
+                    status = errcode;
+
+                if (status < 0)
+                    break;
+            }
+
+            <handle error>(status);
+        }
+
+        <handle error>(status);
+
+        return status;
     }
 ~~~
 

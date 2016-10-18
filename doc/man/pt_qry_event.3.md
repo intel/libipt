@@ -30,7 +30,8 @@
 
 # NAME
 
-pt_qry_event, pt_insn_event - query an Intel(R) Processor Trace decoder for an asynchronous event
+pt_qry_event, pt_insn_event, pt_blk_event - query an Intel(R) Processor Trace
+decoder for an asynchronous event
 
 
 # SYNOPSIS
@@ -42,15 +43,18 @@ pt_qry_event, pt_insn_event - query an Intel(R) Processor Trace decoder for an a
 |
 | **int pt_insn_event(struct pt_insn_decoder \**decoder*,**
 |                   **struct pt_event \**event*, size_t *size*);**
+|
+| **int pt_blk_event(struct pt_block_decoder \**decoder*,**
+|                  **struct pt_event \**event*, size_t *size*);**
 
 Link with *-lipt*.
 
 
 # DESCRIPTION
 
-**pt_qry_event**() and **pt_insn_event**() provide the next pending asynchronous
-event in *decoder*'s Intel Processor Trace (Intel PT) decode in the *pt_event*
-object pointed to by the *event* argument.
+**pt_qry_event**(), **pt_insn_event**(), and **pt_blk_event**() provide the next
+pending asynchronous event in *decoder*'s Intel Processor Trace (Intel PT)
+decode in the *pt_event* object pointed to by the *event* argument.
 
 The *size* argument must be set to *sizeof(struct pt_event)*.  The function will
 provide at most *size* bytes of the *pt_event* structure.  A newer decoder
@@ -205,14 +209,16 @@ variant
     file for details.
 
 
-Note that the instruction flow decoder only forwards events it does not process
-itself or indicates otherwise, e.g. via a flag in *struct pt_insn*.
+Note that the instruction flow and block decoder only forward events they do not
+process themselves or indicates otherwise, e.g. via a flag in *struct pt_insn*
+or *struct pt_block*.
 
 
 # RETURN VALUE
 
-**pt_qry_event**() and **pt_insn_event**() return zero or a positive value on
-*success or a negative pt_error_code* enumeration constant in case of an error.
+**pt_qry_event**(), **pt_insn_event**(), and **pt_blk_event**() return zero or a
+*positive value on success or a negative pt_error_code* enumeration constant in
+*case of an error.
 
 On success, a bit-vector of *pt_status_flag* enumeration constants is returned.
 The *pt_status_flag* enumeration is declared as:
@@ -263,4 +269,4 @@ pte_bad_query
 
 **pt_qry_alloc_decoder**(3), **pt_qry_free_decoder**(3),
 **pt_qry_cond_branch**(3), **pt_qry_indirect_branch**(3), **pt_qry_time**(3),
-**pt_qry_core_bus_ratio**(3), **pt_insn_next**(3)
+**pt_qry_core_bus_ratio**(3), **pt_insn_next**(3), **pt_blk_next**(3)
