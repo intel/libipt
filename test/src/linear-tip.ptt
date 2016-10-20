@@ -27,7 +27,7 @@
 ; Test a rather long linear trace.  To keep the test file small, we only check
 ; the number of instructions.
 ;
-;   opt:ptxed --quiet --stat
+;   opt:ptxed --quiet --stat --stat:insn
 ;
 ; Variant:  linear trace ends with an indirect branch.
 ;
