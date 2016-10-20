@@ -88,10 +88,19 @@ struct ptxed_options {
 	uint32_t print_raw_insn:1;
 };
 
+/* A collection of flags selecting which stats to collect/print. */
+enum ptxed_stats_flag {
+	/* Collect number of instructions. */
+	ptxed_stat_insn		= (1 << 0)
+};
+
 /* A collection of statistics. */
 struct ptxed_stats {
 	/* The number of instructions. */
 	uint64_t insn;
+
+	/* A collection of flags saying which statistics to collect/print. */
+	uint32_t flags;
 };
 
 static int ptxed_have_decoder(const struct ptxed_decoder *decoder)
@@ -137,6 +146,8 @@ static void help(const char *name)
 	       "  --offset                             print the offset into the trace file.\n"
 	       "  --raw-insn                           print the raw bytes of each instruction.\n"
 	       "  --stat                               print statistics (even when quiet).\n"
+	       "                                       collects all statistics unless one or more are selected.\n"
+	       "  --stat:insn                          collect number of instructions.\n"
 	       "  --verbose|-v                         print various information (even when quiet).\n"
 	       "  --pt <file>[:<from>[-<to>]]          load the processor trace data from <file>.\n"
 	       "                                       an optional offset or range can be given.\n"
@@ -980,7 +991,8 @@ static void print_stats(struct ptxed_stats *stats)
 		return;
 	}
 
-	printf("insn: %" PRIu64 ".\n", stats->insn);
+	if (stats->flags & ptxed_stat_insn)
+		printf("insn: %" PRIu64 ".\n", stats->insn);
 }
 
 static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
@@ -1229,6 +1241,10 @@ extern int main(int argc, char *argv[])
 			options.print_stats = 1;
 			continue;
 		}
+		if (strcmp(arg, "--stat:insn") == 0) {
+			stats.flags |= ptxed_stat_insn;
+			continue;
+		}
 		if (strcmp(arg, "--cpu") == 0) {
 			/* override cpu information before the decoder
 			 * is initialized.
@@ -1341,6 +1357,10 @@ extern int main(int argc, char *argv[])
 	}
 
 	xed_tables_init();
+
+	/* If we didn't select any statistics, select them all. */
+	if (options.print_stats && !stats.flags)
+		stats.flags |= ptxed_stat_insn;
 
 	decode(&decoder, iscache, &options,
 	       options.print_stats ? &stats : NULL);
