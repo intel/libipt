@@ -682,10 +682,9 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
-				     struct pt_block *block,
 				     const struct pt_event *ev)
 {
-	if (!decoder || !block || !ev)
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* This event can't be a status update. */
@@ -695,9 +694,6 @@ static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
 	/* We must currently be enabled. */
 	if (!decoder->enabled)
 		return -pte_bad_context;
-
-	/* Indicate the async branch as an interrupt.  This ends the block. */
-	block->interrupted = 1;
 
 	/* Jump to the branch destination.  We will continue from there in the
 	 * next iteration.
@@ -718,8 +714,8 @@ static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
  * look like tracing started at the asynchronous branch destination instead of
  * at its source.
  *
- * Returns a positive integer if the event has been processed.
- * Returns zero if the event shall be postponed.
+ * Returns a positive integer if we shall continue processing events.
+ * Returns zero if the event ends the block.
  * Returns a negative error code otherwise.
  */
 static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
@@ -731,20 +727,21 @@ static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
 	if (!block)
 		return -pte_internal;
 
-	errcode = pt_blk_apply_async_branch(decoder, block, ev);
+	errcode = pt_blk_apply_async_branch(decoder, ev);
 	if (errcode < 0)
 		return errcode;
-
-	if (!pt_blk_block_is_empty(block))
-		return 0;
 
 	/* We may still change the start IP for an empty block.  Do not indicate
 	 * the interrupt in this case.
 	 */
-	block->interrupted = 0;
-	block->ip = decoder->ip;
+	if (pt_blk_block_is_empty(block)) {
+		block->ip = decoder->ip;
+		return 1;
+	}
 
-	return 1;
+	/* Indicate the interrupt and end the block. */
+	block->interrupted = 1;
+	return 0;
 }
 
 /* Apply a paging event.
@@ -2839,9 +2836,11 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (decoder->ip != ev->variant.async_branch.from)
 				break;
 
-			status = pt_blk_apply_async_branch(decoder, block, ev);
+			status = pt_blk_apply_async_branch(decoder, ev);
 			if (status < 0)
 				return status;
+
+			block->interrupted = 1;
 
 			continue;
 
