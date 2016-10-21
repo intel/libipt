@@ -618,10 +618,9 @@ static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
-				 struct pt_block *block,
 				 const struct pt_event *ev)
 {
-	if (!decoder || !block || !ev)
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* This event can't be a status update. */
@@ -639,8 +638,6 @@ static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 
-	block->disabled = 1;
-
 	return 0;
 }
 
@@ -652,8 +649,8 @@ static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
  * and disabled on the same IP without any trace in between.  We ignore the
  * disabled event in this case and proceed.
  *
- * Returns a positive integer if the event has been processed.
- * Returns zero if the event shall be postponed.
+ * Returns a positive integer if we shall continue processing events.
+ * Returns zero if the event ends the block.
  * Returns a negative error code otherwise.
  */
 static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
@@ -665,18 +662,17 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 	if (!block)
 		return -pte_internal;
 
-	errcode = pt_blk_apply_disabled(decoder, block, ev);
+	errcode = pt_blk_apply_disabled(decoder, ev);
 	if (errcode < 0)
 		return errcode;
 
-	/* The event completes a non-empty block. */
-	if (!pt_blk_block_is_empty(block))
-		return 0;
+	/* Discard the disable if the block is empty. */
+	if (pt_blk_block_is_empty(block))
+		return 1;
 
-	/* Ignore the disable if the block is empty. */
-	block->disabled = 0;
-
-	return 1;
+	/* Indicate the disable and end the block. */
+	block->disabled = 1;
+	return 0;
 }
 
 /* Apply an asynchronous branch event.
@@ -2792,7 +2788,7 @@ static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
 static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 					  struct pt_block *block)
 {
-	if (!decoder)
+	if (!decoder || !block)
 		return -pte_internal;
 
 	for (;;) {
@@ -2831,10 +2827,11 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 				}
 			}
 
-
-			status = pt_blk_apply_disabled(decoder, block, ev);
+			status = pt_blk_apply_disabled(decoder, ev);
 			if (status < 0)
 				return status;
+
+			block->disabled = 1;
 
 			continue;
 
