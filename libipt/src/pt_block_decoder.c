@@ -862,12 +862,11 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_exec_mode(struct pt_block_decoder *decoder,
-				  struct pt_block *block,
 				  const struct pt_event *ev)
 {
 	enum pt_exec_mode mode;
 
-	if (!decoder || !block || !ev)
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* Use status update events to diagnose inconsistencies. */
@@ -900,7 +899,7 @@ static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
 	if (!decoder || !block)
 		return -pte_internal;
 
-	errcode = pt_blk_apply_exec_mode(decoder, block, ev);
+	errcode = pt_blk_apply_exec_mode(decoder, ev);
 	if (errcode < 0)
 		return errcode;
 
@@ -2864,7 +2863,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			    decoder->ip != ev->variant.exec_mode.ip)
 				break;
 
-			status = pt_blk_apply_exec_mode(decoder, block, ev);
+			status = pt_blk_apply_exec_mode(decoder, ev);
 			if (status < 0)
 				return status;
 
