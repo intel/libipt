@@ -920,21 +920,13 @@ static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_tsx(struct pt_block_decoder *decoder,
-			    struct pt_block *block,
 			    const struct pt_event *ev)
 {
-	if (!decoder || !block || !ev)
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	decoder->speculative = ev->variant.tsx.speculative;
 	decoder->process_event = 0;
-
-	if (decoder->enabled && !pt_blk_block_is_empty(block)) {
-		if (ev->variant.tsx.aborted)
-			block->aborted = 1;
-		else if (block->speculative && !ev->variant.tsx.speculative)
-			block->committed = 1;
-	}
 
 	return 0;
 }
@@ -948,8 +940,8 @@ static int pt_blk_apply_tsx(struct pt_block_decoder *decoder,
  * tracing was just enabled.  In this case we do not indicate the abort or
  * commit.
  *
- * Returns a positive integer if the event has been processed.
- * Returns zero if the event shall be postponed.
+ * Returns a positive integer if we shall continue processing events.
+ * Returns zero if the event ends the block.
  * Returns a negative error code otherwise.
  */
 static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
@@ -961,18 +953,35 @@ static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
 	if (!decoder || !block)
 		return -pte_internal;
 
-	errcode = pt_blk_apply_tsx(decoder, block, ev);
+	errcode = pt_blk_apply_tsx(decoder, ev);
 	if (errcode < 0)
 		return errcode;
 
-	/* A speculation mode change ends a non-empty block. */
-	if (!pt_blk_block_is_empty(block))
-		return 0;
+	/* We may still change the speculation mode of an empty block.
+	 *
+	 * Do not indicate an abort or commit in this case.  It occured before
+	 * this block.
+	 */
+	if (pt_blk_block_is_empty(block)) {
+		block->speculative = decoder->speculative;
+		return 1;
+	}
 
-	/* We may still change the speculation mode of an empty block. */
-	block->speculative = decoder->speculative;
+	/* The block is not empty so tracing must be enabled.
+	 *
+	 * A tracing disabled event would have ended the block.  And if tracing
+	 * were already disabled, the block would still be empty.
+	 */
+	if (!decoder->enabled)
+		return -pte_internal;
 
-	return 1;
+	/* Indicate an abort or commit and end the block. */
+	if (ev->variant.tsx.aborted)
+		block->aborted = 1;
+	else if (block->speculative && !ev->variant.tsx.speculative)
+		block->committed = 1;
+
+	return 0;
 }
 
 /* Apply a stop event.
@@ -2745,13 +2754,13 @@ static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
 					     struct pt_block *block,
 					     const struct pt_event *ev)
 {
-	if (!decoder || !ev)
+	int status;
+
+	if (!decoder || !block || !ev)
 		return -pte_internal;
 
 	if (!ev->ip_suppressed) {
 		if (decoder->query.config.errata.bdm64) {
-			int status;
-
 			status = pt_blk_handle_erratum_bdm64(decoder, block,
 							     ev);
 			if (status < 0)
@@ -2762,7 +2771,27 @@ static inline int pt_blk_handle_trailing_tsx(struct pt_block_decoder *decoder,
 			return 1;
 	}
 
-	return pt_blk_apply_tsx(decoder, block, ev);
+	status = pt_blk_apply_tsx(decoder, ev);
+	if (status < 0)
+		return status;
+
+	/* Indicate an abort or commit unless tracing is disabled or we don't
+	 * have a block to indicate it in.
+	 *
+	 * This event is typically processed in the proceed event flow, not in
+	 * the trailing event flow.  We process it here, as well, to handle
+	 * cases where we have ended the block due to reaching the maximum
+	 * number of instructions or due to some internal reason right at the
+	 * location of a transaction end.
+	 */
+	if (decoder->enabled) {
+		if (ev->variant.tsx.aborted)
+			block->aborted = 1;
+		else if (block->speculative && !ev->variant.tsx.speculative)
+			block->committed = 1;
+	}
+
+	return 0;
 }
 
 /* Process events that bind to the current decoder IP.
