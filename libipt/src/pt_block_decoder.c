@@ -991,10 +991,9 @@ static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_stop(struct pt_block_decoder *decoder,
-			     struct pt_block *block,
 			     const struct pt_event *ev)
 {
-	if (!decoder || !block || !ev)
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* This event can't be a status update. */
@@ -1006,9 +1005,6 @@ static int pt_blk_apply_stop(struct pt_block_decoder *decoder,
 		return -pte_bad_context;
 
 	decoder->process_event = 0;
-
-	/* Indicate the stop. */
-	block->stopped = 1;
 
 	return 0;
 }
@@ -1746,10 +1742,11 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_stop:
-			status = pt_blk_apply_stop(decoder, block, ev);
+			status = pt_blk_apply_stop(decoder, ev);
 			if (status < 0)
 				return status;
 
+			block->stopped = 1;
 			break;
 		}
 
@@ -2909,9 +2906,11 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			continue;
 
 		case ptev_stop:
-			status = pt_blk_apply_stop(decoder, block, ev);
+			status = pt_blk_apply_stop(decoder, ev);
 			if (status < 0)
 				return status;
+
+			block->stopped = 1;
 
 			continue;
 		}
