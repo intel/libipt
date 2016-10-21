@@ -751,11 +751,8 @@ static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_paging(struct pt_block_decoder *decoder,
-			       struct pt_block *block,
 			       const struct pt_event *ev)
 {
-	(void) block;
-
 	if (!decoder || !ev)
 		return -pte_internal;
 
@@ -772,11 +769,8 @@ static int pt_blk_apply_paging(struct pt_block_decoder *decoder,
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_apply_vmcs(struct pt_block_decoder *decoder,
-			     struct pt_block *block,
 			     const struct pt_event *ev)
 {
-	(void) block;
-
 	if (!decoder || !ev)
 		return -pte_internal;
 
@@ -1614,8 +1608,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 		case ptev_paging:
 			if (!decoder->enabled) {
-				status = pt_blk_apply_paging(decoder, block,
-							     ev);
+				status = pt_blk_apply_paging(decoder, ev);
 				if (status < 0)
 					return status;
 
@@ -1628,7 +1621,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_paging(decoder, block, ev);
+			status = pt_blk_apply_paging(decoder, ev);
 			if (status < 0)
 				return status;
 
@@ -1655,7 +1648,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_paging(decoder, block, ev);
+			status = pt_blk_apply_paging(decoder, ev);
 			if (status < 0)
 				return status;
 
@@ -1663,7 +1656,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 		case ptev_vmcs:
 			if (!decoder->enabled) {
-				status = pt_blk_apply_vmcs(decoder, block, ev);
+				status = pt_blk_apply_vmcs(decoder, ev);
 				if (status < 0)
 					return status;
 
@@ -1676,7 +1669,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_vmcs(decoder, block, ev);
+			status = pt_blk_apply_vmcs(decoder, ev);
 			if (status < 0)
 				return status;
 
@@ -1703,7 +1696,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_vmcs(decoder, block, ev);
+			status = pt_blk_apply_vmcs(decoder, ev);
 			if (status < 0)
 				return status;
 
@@ -2849,7 +2842,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			    decoder->ip != ev->variant.async_paging.ip)
 				break;
 
-			status = pt_blk_apply_paging(decoder, block, ev);
+			status = pt_blk_apply_paging(decoder, ev);
 			if (status < 0)
 				return status;
 
@@ -2860,7 +2853,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			    decoder->ip != ev->variant.async_vmcs.ip)
 				break;
 
-			status = pt_blk_apply_vmcs(decoder, block, ev);
+			status = pt_blk_apply_vmcs(decoder, ev);
 			if (status < 0)
 				return status;
 
