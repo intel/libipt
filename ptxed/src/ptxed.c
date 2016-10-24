@@ -151,46 +151,45 @@ static void version(const char *name)
 
 static void help(const char *name)
 {
-	printf("usage: %s [<options>]\n\n"
-	       "options:\n"
-	       "  --help|-h                            this text.\n"
-	       "  --version                            display version information and exit.\n"
-	       "  --att                                print instructions in att format.\n"
-	       "  --no-inst                            do not print instructions (only addresses).\n"
-	       "  --quiet|-q                           do not print anything (except errors).\n"
-	       "  --offset                             print the offset into the trace file.\n"
-	       "  --raw-insn                           print the raw bytes of each instruction.\n"
-	       "  --stat                               print statistics (even when quiet).\n"
-	       "                                       collects all statistics unless one or more are selected.\n"
-	       "  --stat:insn                          collect number of instructions.\n"
-	       "  --verbose|-v                         print various information (even when quiet).\n"
-	       "  --pt <file>[:<from>[-<to>]]          load the processor trace data from <file>.\n"
-	       "                                       an optional offset or range can be given.\n"
+	printf("usage: %s [<options>]\n\n", name);
+	printf("options:\n");
+	printf("  --help|-h                            this text.\n");
+	printf("  --version                            display version information and exit.\n");
+	printf("  --att                                print instructions in att format.\n");
+	printf("  --no-inst                            do not print instructions (only addresses).\n");
+	printf("  --quiet|-q                           do not print anything (except errors).\n");
+	printf("  --offset                             print the offset into the trace file.\n");
+	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
+	printf("  --stat                               print statistics (even when quiet).\n");
+	printf("                                       collects all statistics unless one or more are selected.\n");
+	printf("  --stat:insn                          collect number of instructions.\n");
+	printf("  --verbose|-v                         print various information (even when quiet).\n");
+	printf("  --pt <file>[:<from>[-<to>]]          load the processor trace data from <file>.\n");
+	printf("                                       an optional offset or range can be given.\n");
 #if defined(FEATURE_ELF)
-	       "  --elf <<file>[:<base>]               load an ELF from <file> at address <base>.\n"
-	       "                                       use the default load address if <base> is omitted.\n"
+	printf("  --elf <<file>[:<base>]               load an ELF from <file> at address <base>.\n");
+	printf("                                       use the default load address if <base> is omitted.\n");
 #endif /* defined(FEATURE_ELF) */
-	       "  --raw <file>[:<from>[-<to>]]:<base>  load a raw binary from <file> at address <base>.\n"
-	       "                                       an optional offset or range can be given.\n"
-	       "  --cpu none|auto|f/m[/s]              set cpu to the given value and decode according to:\n"
-	       "                                         none     spec (default)\n"
-	       "                                         auto     current cpu\n"
-	       "                                         f/m[/s]  family/model[/stepping]\n"
-	       "  --mtc-freq <n>                       set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n"
-	       "  --nom-freq <n>                       set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n"
-	       "  --cpuid-0x15.eax                     set the value of cpuid[0x15].eax.\n"
-	       "  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n"
-	       "  --insn-decoder                       use the instruction flow decoder (default).\n"
-	       "  --block-decoder                      use the block decoder.\n"
-	       "  --block:show-blocks                  show blocks in the output.\n"
-	       "\n"
+	printf("  --raw <file>[:<from>[-<to>]]:<base>  load a raw binary from <file> at address <base>.\n");
+	printf("                                       an optional offset or range can be given.\n");
+	printf("  --cpu none|auto|f/m[/s]              set cpu to the given value and decode according to:\n");
+	printf("                                         none     spec (default)\n");
+	printf("                                         auto     current cpu\n");
+	printf("                                         f/m[/s]  family/model[/stepping]\n");
+	printf("  --mtc-freq <n>                       set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n");
+	printf("  --nom-freq <n>                       set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n");
+	printf("  --cpuid-0x15.eax                     set the value of cpuid[0x15].eax.\n");
+	printf("  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n");
+	printf("  --insn-decoder                       use the instruction flow decoder (default).\n");
+	printf("  --block-decoder                      use the block decoder.\n");
+	printf("  --block:show-blocks                  show blocks in the output.\n");
+	printf("\n");
 #if defined(FEATURE_ELF)
-	       "You must specify at least one binary or ELF file (--raw|--elf).\n"
+	printf("You must specify at least one binary or ELF file (--raw|--elf).\n");
 #else /* defined(FEATURE_ELF) */
-	       "You must specify at least one binary file (--raw).\n"
+	printf("You must specify at least one binary file (--raw).\n");
 #endif /* defined(FEATURE_ELF) */
-	       "You must specify exactly one processor trace file (--pt).\n",
-	       name);
+	printf("You must specify exactly one processor trace file (--pt).\n");
 }
 
 static int extract_base(char *arg, uint64_t *base)
