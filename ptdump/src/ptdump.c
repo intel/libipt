@@ -170,38 +170,35 @@ static int unknown_option_error(const char *arg, const char *name)
 
 static int help(const char *name)
 {
-	fprintf(stderr,
-		"usage: %s [<options>] <ptfile>[:<from>[-<to>]\n\n"
-		"options:\n"
-		"  --help|-h                 this text.\n"
-		"  --version                 display version information and exit.\n"
-		"  --no-sync                 don't try to sync to the first PSB, assume a valid\n"
-		"                            sync point at the beginning of the trace.\n"
-		"  --quiet                   don't print anything but errors.\n"
-		"  --no-pad                  don't show PAD packets.\n"
-		"  --no-timing               don't show timing packets.\n"
-		"  --no-cyc                  don't show CYC packets and ignore them when tracking time.\n"
-		"  --no-offset               don't show the offset as the first column.\n"
-		"  --raw                     show raw packet bytes.\n"
-		"  --lastip                  show last IP updates on packets with IP payloads.\n"
-		"  --exec-mode               show the current execution mode on mode.exec packets.\n"
-		"  --time                    show the estimated TSC on timing packets.\n"
-		"  --tcal                    show time calibration information.\n"
-		"  --time-delta              show timing information as delta.\n"
-		"  --no-tcal                 skip timing calibration.\n"
-		"                            this will result in errors when CYC packets are encountered.\n"
-		"  --no-wall-clock           suppress the no-time error and print relative time.\n"
-		"  --cpu none|auto|f/m[/s]   set cpu to the given value and decode according to:\n"
-		"                              none     spec (default)\n"
-		"                              auto     current cpu\n"
-		"                              f/m[/s]  family/model[/stepping]\n"
-		"  --mtc-freq <n>            set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n"
-		"  --nom-freq <n>            set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n"
-		"  --cpuid-0x15.eax          set the value of cpuid[0x15].eax.\n"
-		"  --cpuid-0x15.ebx          set the value of cpuid[0x15].ebx.\n"
-		"  <ptfile>[:<from>[-<to>]]  load the processor trace data from <ptfile>;\n"
-		"                            an optional offset or range can be given.\n",
-		name);
+	printf("usage: %s [<options>] <ptfile>[:<from>[-<to>]\n\n", name);
+	printf("options:\n");
+	printf("  --help|-h                 this text.\n");
+	printf("  --version                 display version information and exit.\n");
+	printf("  --no-sync                 don't try to sync to the first PSB, assume a valid\n");
+	printf("                            sync point at the beginning of the trace.\n");
+	printf("  --quiet                   don't print anything but errors.\n");
+	printf("  --no-pad                  don't show PAD packets.\n");
+	printf("  --no-timing               don't show timing packets.\n");
+	printf("  --no-cyc                  don't show CYC packets and ignore them when tracking time.\n");
+	printf("  --no-offset               don't show the offset as the first column.\n");
+	printf("  --raw                     show raw packet bytes.\n");
+	printf("  --lastip                  show last IP updates on packets with IP payloads.\n");
+	printf("  --exec-mode               show the current execution mode on mode.exec packets.\n");
+	printf("  --time                    show the estimated TSC on timing packets.\n");
+	printf("  --tcal                    show time calibration information.\n");
+	printf("  --time-delta              show timing information as delta.\n");
+	printf("  --no-tcal                 skip timing calibration.\n");
+	printf("                            this will result in errors when CYC packets are encountered.\n");
+	printf("  --no-wall-clock           suppress the no-time error and print relative time.\n");
+	printf("  --cpu none|auto|f/m[/s]   set cpu to the given value and decode according to:\n");
+	printf("                              none     spec (default)\n");
+	printf("                              auto     current cpu\n");
+	printf("                              f/m[/s]  family/model[/stepping]\n");
+	printf("  --mtc-freq <n>            set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n");
+	printf("  --nom-freq <n>            set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n");
+	printf("  --cpuid-0x15.eax          set the value of cpuid[0x15].eax.\n");
+	printf("  --cpuid-0x15.ebx          set the value of cpuid[0x15].ebx.\n");
+	printf("  <ptfile>[:<from>[-<to>]]  load the processor trace data from <ptfile>;\n");
 
 	return 0;
 }
