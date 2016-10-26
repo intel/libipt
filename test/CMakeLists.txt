@@ -32,8 +32,15 @@ function(add_ptt_test name)
   set(test   ${CMAKE_SOURCE_DIR}/test/src/${name})
 
   add_test(
-    NAME ${name}
-    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x ${ptxed} ${test}
+    NAME insn-${name}
+    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x "${ptxed} --insn-decoder" ${test}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/ptt-insn
+  )
+
+  add_test(
+    NAME block-${name}
+    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x "${ptxed} --block-decoder" ${test}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/ptt-block
   )
 endfunction(add_ptt_test)
 
@@ -43,6 +50,10 @@ file(GLOB TESTS
   src/*.ptt
 )
 
+file(MAKE_DIRECTORY
+  ${CMAKE_CURRENT_BINARY_DIR}/ptt-insn
+  ${CMAKE_CURRENT_BINARY_DIR}/ptt-block
+)
 foreach (test ${TESTS})
   add_ptt_test(${test})
 endforeach ()
