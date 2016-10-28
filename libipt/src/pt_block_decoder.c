@@ -780,6 +780,53 @@ static int pt_blk_apply_vmcs(struct pt_block_decoder *decoder,
 	return 0;
 }
 
+/* Apply an overflow event.
+ *
+ * This is used for proceed events and for trailing events.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_apply_overflow(struct pt_block_decoder *decoder,
+				 const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* If the IP is suppressed, the overflow resolved while tracing was
+	 * disabled.  Otherwise it resolved while tracing was enabled.
+	 */
+	if (ev->ip_suppressed) {
+		/* Tracing is disabled.  It doesn't make sense to preserve the
+		 * previous IP.  This will just be misleading.  Even if tracing
+		 * had been disabled before, as well, we might have missed the
+		 * re-enable in the overflow.
+		 */
+		decoder->enabled = 0;
+		decoder->ip = 0ull;
+	} else {
+		/* Tracing is enabled and we're at the IP at which the overflow
+		 * resolved.
+		 */
+		decoder->enabled = 1;
+		decoder->ip = ev->variant.overflow.ip;
+	}
+
+	/* We don't know the TSX state.  Let's assume we execute normally.
+	 *
+	 * We also don't know the execution mode.  Let's keep what we have
+	 * in case we don't get an update before we have to decode the next
+	 * instruction.
+	 */
+	decoder->speculative = 0;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
 /* Process an overflow event.
  *
  * An overflow ends a non-empty block.  The overflow itself is indicated in the
@@ -793,12 +840,10 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 				   struct pt_block *block,
 				   const struct pt_event *ev)
 {
-	if (!decoder || !block || !ev)
-		return -pte_internal;
+	int status;
 
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
+	if (!block || !ev)
+		return -pte_internal;
 
 	/* The overflow ends a non-empty block.  We will process the event in
 	 * the next iteration.
@@ -806,18 +851,14 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 	if (!pt_blk_block_is_empty(block))
 		return 0;
 
+	status = pt_blk_apply_overflow(decoder, ev);
+	if (status < 0)
+		return status;
+
 	/* If the IP is suppressed, the overflow resolved while tracing was
 	 * disabled.  Otherwise it resolved while tracing was enabled.
 	 */
 	if (ev->ip_suppressed) {
-		/* Tracing is disabled.  It doesn't make sense to preserve the
-		 * previous IP.  This will just be misleading.  Even if tracing
-		 * had been disabled before, as well, we might have missed the
-		 * re-enable in the overflow.
-		 */
-		decoder->enabled = 0;
-		decoder->ip = 0ull;
-
 		/* Indicate the overflow.  Since tracing is disabled, the block
 		 * will remain empty until tracing gets re-enabled again.
 		 *
@@ -827,11 +868,6 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 		 */
 		block->resynced = 1;
 	} else {
-		/* Tracing is enabled and we're at the IP at which the overflow
-		 * resolved.
-		 */
-		decoder->enabled = 1;
-		decoder->ip = ev->variant.overflow.ip;
 
 		/* Indicate the overflow and set the start IP.  The block is
 		 * empty so we may still change it.
@@ -840,17 +876,8 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 		 * disabled before to distinguish this from the above case.
 		 */
 		block->resynced = 1;
-		block->ip = decoder->ip;
+		block->ip = ev->variant.overflow.ip;
 	}
-
-	/* We don't know the TSX state.  Let's assume we execute normally.
-	 *
-	 * We also don't know the execution mode.  Let's keep what we have
-	 * in case we don't get an update before we have to decode the next
-	 * instruction.
-	 */
-	decoder->speculative = 0;
-	decoder->process_event = 0;
 
 	return 1;
 }
