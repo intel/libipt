@@ -1248,6 +1248,45 @@ static int pt_blk_proceed_to_ip(struct pt_block_decoder *decoder,
 	}
 }
 
+/* Proceed to a particular IP with trace, if necessary.
+ *
+ * Proceed until we reach @ip or until:
+ *
+ *   - @block is full:               return zero
+ *   - @block would switch sections: return zero
+ *   - we need trace:                return zero
+ *
+ * Update @decoder->ip to point to the last IP that was reached.
+ *
+ * A return of zero ends @block.
+ *
+ * Returns a positive integer if @ip was reached.
+ * Returns zero if no such instruction was reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_ip_with_trace(struct pt_block_decoder *decoder,
+					   struct pt_block *block,
+					   uint64_t ip)
+{
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+	int status;
+
+	/* Try to reach @ip without trace.
+	 *
+	 * We're also OK if @block overflowed or we switched sections and we
+	 * have to try again in the next iteration.
+	 */
+	status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext, ip);
+	if (status != -pte_bad_query)
+		return status;
+
+	/* Needing trace is not an error.  We use trace to determine the next
+	 * start IP and end the block.
+	 */
+	return pt_blk_proceed_with_trace(decoder, &insn, &iext);
+}
+
 /* Proceed to the event location for a disabled event.
  *
  * We have a (synchronous) disabled event pending.  Proceed to the event
@@ -1281,6 +1320,81 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 	} else
 		return pt_blk_proceed_to_ip(decoder, block, insn, iext,
 					    ev->variant.disabled.ip);
+}
+
+/* Proceed to the event location for an async paging event.
+ *
+ * We have an async paging event pending.  Proceed to the event location and
+ * indicate whether we were able to reach it.  Needing trace in order to proceed
+ * is not an error in this case but ends the block.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_async_paging(struct pt_block_decoder *decoder,
+					  struct pt_block *block,
+					  const struct pt_event *ev)
+{
+	if (!ev)
+		return -pte_internal;
+
+	/* Apply the event immediately if we don't have an IP. */
+	if (ev->ip_suppressed)
+		return 1;
+
+	return pt_blk_proceed_to_ip_with_trace(decoder, block,
+					       ev->variant.async_paging.ip);
+}
+
+/* Proceed to the event location for an async vmcs event.
+ *
+ * We have an async vmcs event pending.  Proceed to the event location and
+ * indicate whether we were able to reach it.  Needing trace in order to proceed
+ * is not an error in this case but ends the block.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_async_vmcs(struct pt_block_decoder *decoder,
+					struct pt_block *block,
+					const struct pt_event *ev)
+{
+	if (!ev)
+		return -pte_internal;
+
+	/* Apply the event immediately if we don't have an IP. */
+	if (ev->ip_suppressed)
+		return 1;
+
+	return pt_blk_proceed_to_ip_with_trace(decoder, block,
+					       ev->variant.async_vmcs.ip);
+}
+
+/* Proceed to the event location for an exec mode event.
+ *
+ * We have an exec mode event pending.  Proceed to the event location and
+ * indicate whether we were able to reach it.  Needing trace in order to proceed
+ * is not an error in this case but ends the block.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_exec_mode(struct pt_block_decoder *decoder,
+				       struct pt_block *block,
+				       const struct pt_event *ev)
+{
+	if (!ev)
+		return -pte_internal;
+
+	/* Apply the event immediately if we don't have an IP. */
+	if (ev->ip_suppressed)
+		return 1;
+
+	return pt_blk_proceed_to_ip_with_trace(decoder, block,
+					       ev->variant.exec_mode.ip);
 }
 
 /* Try to work around erratum SKD022.
@@ -1486,14 +1600,10 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_async_paging:
-			if (!ev->ip_suppressed) {
-				ip = ev->variant.async_paging.ip;
-
-				status = pt_blk_proceed_to_ip(decoder, block,
-							      &insn, &iext, ip);
-				if (status <= 0)
-					return status;
-			}
+			status = pt_blk_proceed_to_async_paging(decoder, block,
+								ev);
+			if (status <= 0)
+				return status;
 
 			status = pt_blk_apply_paging(decoder, block, ev);
 			if (status < 0)
@@ -1538,14 +1648,10 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_async_vmcs:
-			if (!ev->ip_suppressed) {
-				ip = ev->variant.async_vmcs.ip;
-
-				status = pt_blk_proceed_to_ip(decoder, block,
-							      &insn, &iext, ip);
-				if (status <= 0)
-					return status;
-			}
+			status = pt_blk_proceed_to_async_vmcs(decoder, block,
+							      ev);
+			if (status <= 0)
+				return status;
 
 			status = pt_blk_apply_vmcs(decoder, block, ev);
 			if (status < 0)
@@ -1561,14 +1667,10 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_exec_mode:
-			if (!ev->ip_suppressed) {
-				ip = ev->variant.exec_mode.ip;
-
-				status = pt_blk_proceed_to_ip(decoder, block,
-							      &insn, &iext, ip);
-				if (status <= 0)
-					return status;
-			}
+			status = pt_blk_proceed_to_exec_mode(decoder, block,
+							     ev);
+			if (status <= 0)
+				return status;
 
 			status = pt_blk_process_exec_mode(decoder, block, ev);
 			if (status <= 0)
