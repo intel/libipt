@@ -883,6 +883,7 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 
 	} else {
 		switch (insn->iclass) {
+		case ptic_ptwrite:
 		case ptic_other:
 			break;
 
@@ -1417,6 +1418,7 @@ static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
 	 * All kinds of branches are handled below the switch.
 	 */
 	switch (insn->iclass) {
+	case ptic_ptwrite:
 	case ptic_other:
 		return 0;
 

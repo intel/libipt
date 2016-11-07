@@ -1187,9 +1187,10 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 
 	case 0xae:
 		if (map == PTI_MAP_1 && ild->u.s.f3 && !ild->u.s.osz &&
-		    pti_get_modrm_reg(ild) == 4)
+		    pti_get_modrm_reg(ild) == 4) {
+			insn->iclass = ptic_ptwrite;
 			iext->iclass = PTI_INST_PTWRITE;
-
+		}
 		return 0;
 
 	default:

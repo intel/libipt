@@ -556,6 +556,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	case ptic_far_jump:
 		break;
 
+	case ptic_ptwrite:
 	case ptic_other:
 		return -pte_internal;
 
@@ -2019,6 +2020,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 			bce.isize = 0;
 
 		switch (insn.iclass) {
+		case ptic_ptwrite:
 		case ptic_error:
 		case ptic_other:
 			return -pte_internal;

@@ -531,6 +531,9 @@ static const char *visualize_iclass(enum pt_insn_class iclass)
 
 	case ptic_far_jump:
 		return "far jump";
+
+	case ptic_ptwrite:
+		return "ptwrite";
 	}
 
 	return "undefined";
@@ -554,6 +557,7 @@ static void check_insn_iclass(const xed_inst_t *inst,
 	case ptic_error:
 		break;
 
+	case ptic_ptwrite:
 	case ptic_other:
 		switch (category) {
 		default:

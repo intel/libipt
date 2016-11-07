@@ -151,6 +151,23 @@ int pt_insn_binds_to_vmcs(const struct pt_insn *insn,
 	}
 }
 
+int pt_insn_is_ptwrite(const struct pt_insn *insn,
+		       const struct pt_insn_ext *iext)
+{
+	(void) iext;
+
+	if (!insn)
+		return 0;
+
+	switch (insn->iclass) {
+	default:
+		return 0;
+
+	case ptic_ptwrite:
+		return 1;
+	}
+}
+
 int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 		    const struct pt_insn_ext *iext)
 {
@@ -162,6 +179,7 @@ int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 	ip = insn->ip + insn->size;
 
 	switch (insn->iclass) {
+	case ptic_ptwrite:
 	case ptic_other:
 		break;
 
