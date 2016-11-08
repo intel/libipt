@@ -1218,6 +1218,11 @@ struct pt_event {
 		struct {
 			/** The address at which tracing resumes. */
 			uint64_t ip;
+
+			/** A flag indicating that tracing resumes from the IP
+			 * at which tracing had been disabled before.
+			 */
+			uint32_t resumed:1;
 		} enabled;
 
 		/** Event: disabled. */
