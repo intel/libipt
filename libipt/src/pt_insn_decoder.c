@@ -344,7 +344,7 @@ static int process_disabled_event(struct pt_insn_decoder *decoder,
 {
 	struct pt_event *ev;
 
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
 
 	ev = &decoder->event;
@@ -358,7 +358,9 @@ static int process_disabled_event(struct pt_insn_decoder *decoder,
 		return -pte_bad_context;
 
 	decoder->enabled = 0;
-	insn->disabled = 1;
+
+	if (insn)
+		insn->disabled = 1;
 
 	return 1;
 }
