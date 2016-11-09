@@ -1312,24 +1312,24 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	if (errcode < 0)
 		goto err;
 
-	/* If event processing disabled tracing, we're done for this
-	 * iteration - we will process the re-enable event on the next.
+	/* Determine the next instruction's IP so we can indicate async disable
+	 * events already in this instruction.
 	 *
-	 * Otherwise, we determine the next instruction and peek ahead.
-	 *
-	 * This may indicate an event already in this instruction.
+	 * This only makes sense as long as tracing is enabled, of course.  If
+	 * it isn't, we're either done or we will process the corresponding
+	 * enabled event in the next iteration.
 	 */
 	if (decoder->enabled) {
 		/* Proceed errors are signaled one instruction too early. */
 		errcode = proceed(decoder, pinsn, &iext);
 		if (errcode < 0)
 			goto err;
-
-		/* Peek errors are ignored.  We will run into them again
-		 * in the next iteration.
-		 */
-		(void) process_events_peek(decoder, pinsn, &iext);
 	}
+
+	/* Peek errors are ignored.  We will run into them again in the next
+	 * iteration.
+	 */
+	(void) process_events_peek(decoder, pinsn, &iext);
 
 	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
