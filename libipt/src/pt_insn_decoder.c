@@ -358,6 +358,9 @@ static int process_async_disabled_event(struct pt_insn_decoder *decoder,
 {
 	int errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	errcode = process_disabled_event(decoder, insn);
 	if (errcode <= 0)
 		return errcode;
@@ -372,6 +375,9 @@ static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
 				       const struct pt_insn_ext *iext)
 {
 	int errcode, iperr;
+
+	if (!decoder || !insn)
+		return -pte_internal;
 
 	errcode = process_disabled_event(decoder, insn);
 	if (errcode <= 0)
