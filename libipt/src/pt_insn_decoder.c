@@ -785,133 +785,167 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
-static int process_one_event_after(struct pt_insn_decoder *decoder,
-				   struct pt_insn *insn,
-				   const struct pt_insn_ext *iext)
+static int pt_insn_at_disabled_event(const struct pt_event *ev,
+				     const struct pt_insn *insn,
+				     const struct pt_insn_ext *iext)
 {
-	struct pt_event *ev;
-
-	if (!decoder)
+	if (!ev || !insn || !iext)
 		return -pte_internal;
 
-	ev = &decoder->event;
-	switch (ev->type) {
-	case ptev_enabled:
-	case ptev_overflow:
-	case ptev_async_paging:
-	case ptev_async_vmcs:
-	case ptev_async_disabled:
-	case ptev_async_branch:
-	case ptev_exec_mode:
-	case ptev_tsx:
-		/* We will process those events on the next iteration. */
-		return 0;
+	if (ev->ip_suppressed) {
+		if (pt_insn_is_far_branch(insn, iext) ||
+		    pt_insn_changes_cpl(insn, iext) ||
+		    pt_insn_changes_cr3(insn, iext))
+			return 1;
 
-	case ptev_disabled:
-		if (ev->ip_suppressed) {
-			if (pt_insn_is_far_branch(insn, iext) ||
-			    pt_insn_changes_cpl(insn, iext) ||
-			    pt_insn_changes_cr3(insn, iext))
-				return process_sync_disabled_event(decoder,
-								   insn, iext);
+	} else {
+		switch (insn->iclass) {
+		case ptic_other:
+			break;
 
-		} else {
-			switch (insn->iclass) {
-			case ptic_other:
-				break;
+		case ptic_call:
+		case ptic_jump:
+			/* If we got an IP with the disabled event, we may
+			 * ignore direct branches that go to a different IP.
+			 */
+			if (iext->variant.branch.is_direct) {
+				uint64_t ip;
 
-			case ptic_call:
-			case ptic_jump:
-				/* If we got an IP with the disabled event, we
-				 * may ignore direct branches that go to a
-				 * different IP.
-				 */
-				if (iext->variant.branch.is_direct) {
-					uint64_t ip;
+				ip = insn->ip;
+				ip += insn->size;
+				ip += iext->variant.branch.displacement;
 
-					ip = insn->ip;
-					ip += insn->size;
-					ip += iext->variant.branch.displacement;
-
-					if (ip != ev->variant.disabled.ip)
-						break;
-				}
-
-				/* Fall through. */
-			case ptic_return:
-			case ptic_far_call:
-			case ptic_far_return:
-			case ptic_far_jump:
-			case ptic_cond_jump:
-				return process_sync_disabled_event(decoder,
-								   insn, iext);
-
-			case ptic_error:
-				return -pte_bad_insn;
+				if (ip != ev->variant.disabled.ip)
+					break;
 			}
+
+			/* Fall through. */
+		case ptic_return:
+		case ptic_far_call:
+		case ptic_far_return:
+		case ptic_far_jump:
+		case ptic_cond_jump:
+			return 1;
+
+		case ptic_error:
+			return -pte_bad_insn;
 		}
-
-		return 0;
-
-	case ptev_paging:
-		if (pt_insn_binds_to_pip(insn, iext) &&
-		    !decoder->paging_event_bound) {
-			/* Each instruction only binds to one paging event. */
-			decoder->paging_event_bound = 1;
-
-			return process_paging_event(decoder);
-		}
-
-		return 0;
-
-	case ptev_vmcs:
-		if (pt_insn_binds_to_vmcs(insn, iext) &&
-		    !decoder->vmcs_event_bound) {
-			/* Each instruction only binds to one vmcs event. */
-			decoder->vmcs_event_bound = 1;
-
-			return process_vmcs_event(decoder);
-		}
-
-		return 0;
-
-	case ptev_stop:
-		return process_stop_event(decoder, insn);
 	}
 
-	return -pte_internal;
+	return 0;
 }
 
 static int process_events_after(struct pt_insn_decoder *decoder,
 				struct pt_insn *insn,
 				const struct pt_insn_ext *iext)
 {
-	int pending, processed;
-
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
-
-	pending = event_pending(decoder);
-	if (pending <= 0)
-		return pending;
 
 	decoder->paging_event_bound = 0;
 	decoder->vmcs_event_bound = 0;
 
 	for (;;) {
-		processed = process_one_event_after(decoder, insn, iext);
-		if (processed < 0)
-			return processed;
+		struct pt_event *ev;
+		int status;
 
-		if (!processed)
-			return 0;
+		status = event_pending(decoder);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
 
-		decoder->process_event = 0;
+			break;
+		}
 
-		pending = event_pending(decoder);
-		if (pending <= 0)
-			return pending;
+		ev = &decoder->event;
+		switch (ev->type) {
+		case ptev_enabled:
+		case ptev_overflow:
+		case ptev_async_paging:
+		case ptev_async_vmcs:
+		case ptev_async_disabled:
+		case ptev_async_branch:
+		case ptev_exec_mode:
+		case ptev_tsx:
+			break;
+
+		case ptev_disabled:
+			status = pt_insn_at_disabled_event(ev, insn, iext);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			status = process_sync_disabled_event(decoder, insn,
+							     iext);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_paging:
+			if (!pt_insn_binds_to_pip(insn, iext) ||
+			    decoder->paging_event_bound)
+				break;
+
+			/* Each instruction only binds to one paging event. */
+			decoder->paging_event_bound = 1;
+
+			status = process_paging_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_vmcs:
+			if (!pt_insn_binds_to_vmcs(insn, iext) ||
+			    decoder->vmcs_event_bound)
+				break;
+
+			/* Each instruction only binds to one vmcs event. */
+			decoder->vmcs_event_bound = 1;
+
+			status = process_vmcs_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_stop:
+			status = process_stop_event(decoder, insn);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+		}
+
+		/* If we fall out of the switch, we're done. */
+		break;
 	}
+
+	return 0;
 }
 
 enum {
