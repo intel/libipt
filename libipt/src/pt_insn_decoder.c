@@ -1004,111 +1004,6 @@ static int handle_erratum_bdm64(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
-static int process_one_event_peek(struct pt_insn_decoder *decoder,
-				  struct pt_insn *insn,
-				  const struct pt_insn_ext *iext)
-{
-	struct pt_event *ev;
-
-	if (!decoder)
-		return -pte_internal;
-
-	ev = &decoder->event;
-	switch (ev->type) {
-	case ptev_async_disabled:
-		if (ev->variant.async_disabled.at == decoder->ip) {
-			if (decoder->query.config.errata.skd022) {
-				int errcode;
-
-				errcode = handle_erratum_skd022(decoder);
-				if (errcode < 0)
-					return errcode;
-
-				if (errcode)
-					return 0;
-			}
-
-			return process_async_disabled_event(decoder, insn);
-		}
-
-		return 0;
-
-	case ptev_tsx:
-		if (insn && iext && decoder->query.config.errata.bdm64) {
-			int errcode;
-
-			errcode = handle_erratum_bdm64(decoder, ev, insn, iext);
-			if (errcode < 0)
-				return errcode;
-		}
-
-		if (ev->ip_suppressed ||
-		    ev->variant.tsx.ip == decoder->ip)
-			return process_tsx_event(decoder, insn);
-
-		return 0;
-
-	case ptev_async_branch:
-		/* We indicate the interrupt in the preceding instruction.
-		 */
-		if (ev->variant.async_branch.from == decoder->ip) {
-			insn->interrupted = 1;
-
-			return process_async_branch_event(decoder);
-		}
-
-		return 0;
-
-	case ptev_enabled:
-	case ptev_overflow:
-	case ptev_disabled:
-	case ptev_paging:
-	case ptev_vmcs:
-		return 0;
-
-	case ptev_exec_mode:
-		/* We would normally process this event in the next iteration.
-		 *
-		 * We process it here, as well, in case we have a peek event
-		 * hiding behind.
-		 */
-		if (ev->ip_suppressed ||
-		    ev->variant.exec_mode.ip == decoder->ip)
-			return process_exec_mode_event(decoder);
-
-		return 0;
-
-	case ptev_async_paging:
-		/* We would normally process this event in the next iteration.
-		 *
-		 * We process it here, as well, in case we have a peek event
-		 * hiding behind.
-		 */
-		if (ev->ip_suppressed ||
-		    ev->variant.async_paging.ip == decoder->ip)
-			return process_paging_event(decoder);
-
-		return 0;
-
-	case ptev_async_vmcs:
-		/* We would normally process this event in the next iteration.
-		 *
-		 * We process it here, as well, in case we have a peek event
-		 * hiding behind.
-		 */
-		if (ev->ip_suppressed ||
-		    ev->variant.async_vmcs.ip == decoder->ip)
-			return process_vmcs_event(decoder);
-
-		return 0;
-
-	case ptev_stop:
-		return process_stop_event(decoder, insn);
-	}
-
-	return -pte_internal;
-}
-
 static int process_events_peek(struct pt_insn_decoder *decoder,
 			       struct pt_insn *insn,
 			       const struct pt_insn_ext *iext)
@@ -1117,23 +1012,183 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		return -pte_internal;
 
 	for (;;) {
-		int pending, processed;
+		struct pt_event *ev;
+		int status;
 
-		pending = event_pending(decoder);
-		if (pending < 0)
-			return pending;
+		status = event_pending(decoder);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
 
-		if (!pending)
+			break;
+		}
+
+		ev = &decoder->event;
+		switch (ev->type) {
+		case ptev_enabled:
+		case ptev_overflow:
+		case ptev_disabled:
+		case ptev_paging:
+		case ptev_vmcs:
 			break;
 
-		processed = process_one_event_peek(decoder, insn, iext);
-		if (processed < 0)
-			return processed;
+		case ptev_async_disabled:
+			if (ev->variant.async_disabled.at != decoder->ip)
+				break;
 
-		if (!processed)
-			break;
+			if (decoder->query.config.errata.skd022) {
+				int errcode;
 
-		decoder->process_event = 0;
+				errcode = handle_erratum_skd022(decoder);
+				if (errcode != 0) {
+					if (errcode < 0)
+						return errcode;
+
+					/* If the erratum applies, we postpone
+					 * the modified event to the next call
+					 * to pt_insn_next().
+					 */
+					break;
+				}
+			}
+
+			status = process_async_disabled_event(decoder, insn);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_tsx:
+			if (insn && iext &&
+			    decoder->query.config.errata.bdm64) {
+				int errcode;
+
+				errcode = handle_erratum_bdm64(decoder, ev,
+							       insn, iext);
+				if (errcode < 0)
+					return errcode;
+			}
+
+			if (!ev->ip_suppressed &&
+			    ev->variant.tsx.ip != decoder->ip)
+				break;
+
+			status = process_tsx_event(decoder, insn);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_async_branch:
+			/* We indicate the interrupt in the preceding
+			 * instruction.
+			 */
+			if (ev->variant.async_branch.from != decoder->ip)
+				break;
+
+			status = process_async_branch_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			insn->interrupted = 1;
+			continue;
+
+		case ptev_exec_mode:
+			/* We would normally process this event in the next
+			 * iteration.
+			 *
+			 * We process it here, as well, in case we have a peek
+			 * event hiding behind.
+			 */
+			if (!ev->ip_suppressed &&
+			    ev->variant.exec_mode.ip != decoder->ip)
+				break;
+
+			status = process_exec_mode_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_async_paging:
+			/* We would normally process this event in the next
+			 * iteration.
+			 *
+			 * We process it here, as well, in case we have a peek
+			 * event hiding behind.
+			 */
+			if (!ev->ip_suppressed &&
+			    ev->variant.async_paging.ip != decoder->ip)
+				break;
+
+			status = process_paging_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_async_vmcs:
+			/* We would normally process this event in the next
+			 * iteration.
+			 *
+			 * We process it here, as well, in case we have a peek
+			 * event hiding behind.
+			 */
+			if (!ev->ip_suppressed &&
+			    ev->variant.async_vmcs.ip != decoder->ip)
+				break;
+
+			status = process_vmcs_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_stop:
+			status = process_stop_event(decoder, insn);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+		}
+
+		/* If we fall out of the switch, we're done. */
+		break;
 	}
 
 	return 0;
