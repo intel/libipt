@@ -55,6 +55,26 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	pt_asid_init(&decoder->asid);
 }
 
+static int pt_insn_status(const struct pt_insn_decoder *decoder)
+{
+	int status, flags;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = decoder->status;
+	flags = 0;
+
+	/* Forward end-of-trace indications.
+	 *
+	 * Postpone it as long as we're still processing events, though.
+	 */
+	if ((status & pts_eos) && !decoder->process_event)
+		flags |= pts_eos;
+
+	return flags;
+}
+
 /* Initialize the query decoder flags based on our flags. */
 
 static int pt_insn_init_qry_flags(struct pt_conf_flags *qflags,
@@ -1191,7 +1211,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		break;
 	}
 
-	return 0;
+	return pt_insn_status(decoder);
 }
 
 static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
@@ -1296,26 +1316,6 @@ static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
 	return 0;
 }
 
-static int pt_insn_status(const struct pt_insn_decoder *decoder)
-{
-	int status, flags;
-
-	if (!decoder)
-		return -pte_internal;
-
-	status = decoder->status;
-	flags = 0;
-
-	/* Forward end-of-trace indications.
-	 *
-	 * Postpone it as long as we're still processing events, though.
-	 */
-	if ((status & pts_eos) && !decoder->process_event)
-		flags |= pts_eos;
-
-	return flags;
-}
-
 static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 			       const struct pt_insn *insn)
 {
@@ -1342,7 +1342,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn, *pinsn;
-	int errcode;
+	int status, errcode;
 
 	if (!uinsn || !decoder)
 		return -pte_invalid;
@@ -1418,9 +1418,11 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	/* Peek at events for the next IP.  Some will be indicated already in
 	 * @pinsn.
 	 */
-	errcode = process_events_peek(decoder, pinsn, &iext);
-	if (errcode < 0)
+	status = process_events_peek(decoder, pinsn, &iext);
+	if (status < 0) {
+		errcode = status;
 		goto err;
+	}
 
 	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
@@ -1429,7 +1431,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	/* We're done with this instruction.  Now we may change the IP again. */
 	decoder->event_may_change_ip = 1;
 
-	return pt_insn_status(decoder);
+	return status;
 
 err:
 	/* We provide the (incomplete) instruction also in case of errors.
