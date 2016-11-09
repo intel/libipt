@@ -26,7 +26,7 @@
 
 ; Test that TraceStop is applied to the same instruction as a preceding TIP.PGD.
 ;
-; Variant: encountered during normal tracing, sync disable.
+; Variant: encountered during normal tracing.
 ;
 
 org 0x100000
@@ -34,26 +34,27 @@ bits 64
 
 ; @pt p1: psb()
 ; @pt p2: mode.exec(64bit)
-; @pt p3: fup(3: %l0)
+; @pt p3: fup(3: %l1)
 ; @pt p4: psbend()
-l0:   jmp far [rax]
+l1:     nop
 
 
-; @pt p5: tip.pgd(0: %l1)
-; @pt p6: stop()
-l1:   hlt
+; @pt p5: fup(1: %l2)
+; @pt p6: tip.pgd(0: %l3)
+; @pt p7: stop()
+l2:     nop
+l3:     hlt
 
+; @pt .exp(ptxed)
+;%0l1 # nop
+;[disabled]
+;[stopped]
 
 ; @pt .exp(ptdump)
 ;%0p1  psb
 ;%0p2  mode.exec  cs.l
-;%0p3  fup        3: %?l0
+;%0p3  fup        3: %0l1
 ;%0p4  psbend
-;%0p5  tip.pgd    0: %?l1.0
-;%0p6  stop
-
-
-; @pt .exp(ptxed)
-;%0l0
-;[disabled]
-;[stopped]
+;%0p5  fup        1: %?l2.2
+;%0p6  tip.pgd    0: %?l3.0
+;%0p7  stop

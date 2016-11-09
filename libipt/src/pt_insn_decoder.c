@@ -804,7 +804,6 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 	case ptev_async_branch:
 	case ptev_exec_mode:
 	case ptev_tsx:
-	case ptev_stop:
 		/* We will process those events on the next iteration. */
 		return 0;
 
@@ -875,6 +874,9 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 		}
 
 		return 0;
+
+	case ptev_stop:
+		return process_stop_event(decoder, insn);
 	}
 
 	return -pte_internal;
@@ -884,7 +886,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 				struct pt_insn *insn,
 				const struct pt_insn_ext *iext)
 {
-	int pending, processed, errcode;
+	int pending, processed;
 
 	if (!decoder || !insn)
 		return -pte_internal;
@@ -905,10 +907,6 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 			return 0;
 
 		decoder->process_event = 0;
-
-		errcode = process_events_before(decoder, insn);
-		if (errcode < 0)
-			return errcode;
 
 		pending = event_pending(decoder);
 		if (pending <= 0)
