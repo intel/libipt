@@ -1415,10 +1415,12 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 			goto err;
 	}
 
-	/* Peek errors are ignored.  We will run into them again in the next
-	 * iteration.
+	/* Peek at events for the next IP.  Some will be indicated already in
+	 * @pinsn.
 	 */
-	(void) process_events_peek(decoder, pinsn, &iext);
+	errcode = process_events_peek(decoder, pinsn, &iext);
+	if (errcode < 0)
+		goto err;
 
 	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
