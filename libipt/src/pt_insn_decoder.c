@@ -996,7 +996,7 @@ static int process_one_event_peek(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_tsx:
-		if (decoder->query.config.errata.bdm64) {
+		if (insn && iext && decoder->query.config.errata.bdm64) {
 			int errcode;
 
 			errcode = handle_erratum_bdm64(decoder, ev, insn, iext);
