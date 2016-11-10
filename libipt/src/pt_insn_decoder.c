@@ -1028,7 +1028,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			       struct pt_insn *insn,
 			       const struct pt_insn_ext *iext)
 {
-	if (!decoder || !insn)
+	if (!decoder)
 		return -pte_internal;
 
 	for (;;) {
@@ -1125,7 +1125,8 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			}
 
 			decoder->process_event = 0;
-			insn->interrupted = 1;
+			if (insn)
+				insn->interrupted = 1;
 			continue;
 
 		case ptev_exec_mode:
