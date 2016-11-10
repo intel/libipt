@@ -965,7 +965,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		break;
 	}
 
-	return 0;
+	return pt_insn_status(decoder);
 }
 
 enum {
@@ -1397,9 +1397,14 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 */
 	decoder->event_may_change_ip = 0;
 
-	errcode = process_events_after(decoder, pinsn, &iext);
-	if (errcode < 0)
+	/* We may already indicate user-relevant events, here.  We will ignore
+	 * all other status bits.
+	 */
+	status = process_events_after(decoder, pinsn, &iext);
+	if (status < 0) {
+		errcode = status;
 		goto err;
+	}
 
 	/* Determine the next instruction's IP so we can indicate async disable
 	 * events already in this instruction.
@@ -1417,11 +1422,18 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 
 	/* Peek at events for the next IP.  Some will be indicated already in
 	 * @pinsn.
+	 *
+	 * If we already have a user-event indicated by previous event
+	 * processing, we can skip this.  In the best case, we would just
+	 * indicate the same event again.  Or we might erroneously not indicate
+	 * it since we're at a different IP.
 	 */
-	status = process_events_peek(decoder, pinsn, &iext);
-	if (status < 0) {
-		errcode = status;
-		goto err;
+	if (!(status & pts_event_pending)) {
+		status = process_events_peek(decoder, pinsn, &iext);
+		if (status < 0) {
+			errcode = status;
+			goto err;
+		}
 	}
 
 	errcode = insn_to_user(uinsn, size, pinsn);
