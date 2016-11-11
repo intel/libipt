@@ -37,6 +37,10 @@
 #include <stdlib.h>
 
 
+static int process_events_peek(struct pt_insn_decoder *, struct pt_insn *,
+			       const struct pt_insn_ext *);
+
+
 static void pt_insn_reset(struct pt_insn_decoder *decoder)
 {
 	if (!decoder)
@@ -50,6 +54,8 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->process_event = 0;
 	decoder->speculative = 0;
 	decoder->event_may_change_ip = 1;
+	decoder->paging_event_bound = 0;
+	decoder->vmcs_event_bound = 0;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -170,7 +176,17 @@ static int pt_insn_start(struct pt_insn_decoder *decoder, int status)
 	if (!(status & pts_ip_suppressed))
 		decoder->enabled = 1;
 
-	return 0;
+	/* Process any initial events.
+	 *
+	 * Some events are processed after proceeding to the next IP in order to
+	 * indicate things like tracing disable or trace stop in the preceding
+	 * instruction.  Those events will be processed without such an
+	 * indication before decoding the current instruction.
+	 *
+	 * We do this already here so we can indicate user-events that precede
+	 * the first instruction.
+	 */
+	return process_events_peek(decoder, NULL, NULL);
 }
 
 int pt_insn_sync_forward(struct pt_insn_decoder *decoder)
