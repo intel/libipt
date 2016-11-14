@@ -2822,8 +2822,6 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 		switch (ev->type) {
 		case ptev_enabled:
 		case ptev_disabled:
-		case ptev_paging:
-		case ptev_vmcs:
 		case ptev_overflow:
 			break;
 
@@ -2862,12 +2860,32 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 
 			continue;
 
+		case ptev_paging:
+			if (decoder->enabled)
+				break;
+
+			status = pt_blk_apply_paging(decoder, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
 		case ptev_async_paging:
 			if (!ev->ip_suppressed &&
 			    decoder->ip != ev->variant.async_paging.ip)
 				break;
 
 			status = pt_blk_apply_paging(decoder, ev);
+			if (status < 0)
+				return status;
+
+			continue;
+
+		case ptev_vmcs:
+			if (decoder->enabled)
+				break;
+
+			status = pt_blk_apply_vmcs(decoder, ev);
 			if (status < 0)
 				return status;
 
