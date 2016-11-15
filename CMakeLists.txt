@@ -86,7 +86,7 @@ endif()
 
 include_directories(
   include
-  libipt/include
+  ${CMAKE_CURRENT_BINARY_DIR}/libipt/include
 )
 
 if (PTUNIT)

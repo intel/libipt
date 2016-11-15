@@ -88,9 +88,16 @@ add_library(libipt SHARED
   ${LIBIPT_FILES}
 )
 
+# put the version into the intel-pt header
+#
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/intel-pt.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/include/intel-pt.h
+)
+
 set_target_properties(libipt PROPERTIES
   PREFIX ""
-  PUBLIC_HEADER include/intel-pt.h
+  PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/include/intel-pt.h
   VERSION   ${PT_VERSION}
   SOVERSION ${PT_VERSION_MAJOR}
 )
