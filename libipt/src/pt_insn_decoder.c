@@ -70,6 +70,14 @@ static int pt_insn_status(const struct pt_insn_decoder *decoder, int flags)
 
 	status = decoder->status;
 
+	/* Indicate whether tracing is disabled or enabled.
+	 *
+	 * This duplicates the indication in struct pt_insn and covers the case
+	 * where we indicate the status after synchronizing.
+	 */
+	if (!decoder->enabled)
+		flags |= pts_ip_suppressed;
+
 	/* Forward end-of-trace indications.
 	 *
 	 * Postpone it as long as we're still processing events, though.
