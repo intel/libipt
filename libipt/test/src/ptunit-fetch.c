@@ -30,6 +30,7 @@
 
 #include "pt_decoder_function.h"
 #include "pt_encoder.h"
+#include "pt_opcodes.h"
 
 #include "intel-pt.h"
 

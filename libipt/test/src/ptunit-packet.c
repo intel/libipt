@@ -30,6 +30,7 @@
 
 #include "pt_packet_decoder.h"
 #include "pt_encoder.h"
+#include "pt_opcodes.h"
 
 #include "intel-pt.h"
 

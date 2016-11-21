@@ -31,6 +31,7 @@
 #include "pt_packet.h"
 #include "pt_sync.h"
 #include "pt_config.h"
+#include "pt_opcodes.h"
 
 #include <string.h>
 #include <stdlib.h>

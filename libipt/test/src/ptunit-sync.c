@@ -29,6 +29,7 @@
 #include "ptunit.h"
 
 #include "pt_sync.h"
+#include "pt_opcodes.h"
 
 #include "intel-pt.h"
 

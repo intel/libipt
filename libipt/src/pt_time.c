@@ -27,6 +27,7 @@
  */
 
 #include "pt_time.h"
+#include "pt_opcodes.h"
 
 #include "intel-pt.h"
 

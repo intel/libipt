@@ -28,6 +28,7 @@
 
 #include "pt_encoder.h"
 #include "pt_config.h"
+#include "pt_opcodes.h"
 
 #include <string.h>
 #include <stdlib.h>

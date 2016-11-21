@@ -32,6 +32,7 @@
 #include "pt_decoder_function.h"
 #include "pt_query_decoder.h"
 #include "pt_encoder.h"
+#include "pt_opcodes.h"
 
 
 /* A query testing fixture. */

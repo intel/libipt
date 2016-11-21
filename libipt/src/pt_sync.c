@@ -28,6 +28,7 @@
 
 #include "pt_sync.h"
 #include "pt_packet.h"
+#include "pt_opcodes.h"
 
 #include "intel-pt.h"
 
