@@ -800,52 +800,40 @@ extern pt_export int pt_cpu_errata(struct pt_errata *errata,
 
 
 
-/* We define a few abbreviations outside of the below enum as we don't
- * want to handle those in switches.
- */
-enum {
-	ppt_ext			= pt_opc_ext << 8,
-	ppt_ext2		= ppt_ext << 8 | pt_ext_ext2 << 8
-};
-
 /** Intel PT packet types. */
 enum pt_packet_type {
-	/* 1-byte header packets. */
-	ppt_pad			= pt_opc_pad,
-	ppt_tip			= pt_opc_tip,
-	ppt_tnt_8		= pt_opc_tnt_8 | 0xFE,
-	ppt_tip_pge		= pt_opc_tip_pge,
-	ppt_tip_pgd		= pt_opc_tip_pgd,
-	ppt_fup			= pt_opc_fup,
-	ppt_mode		= pt_opc_mode,
-	ppt_tsc			= pt_opc_tsc,
-	ppt_mtc			= pt_opc_mtc,
-	ppt_cyc			= pt_opc_cyc,
-
-	/* 2-byte header packets. */
-	ppt_psb			= ppt_ext | pt_ext_psb,
-	ppt_tnt_64		= ppt_ext | pt_ext_tnt_64,
-	ppt_pip			= ppt_ext | pt_ext_pip,
-	ppt_stop		= ppt_ext | pt_ext_stop,
-	ppt_ovf			= ppt_ext | pt_ext_ovf,
-	ppt_psbend		= ppt_ext | pt_ext_psbend,
-	ppt_cbr			= ppt_ext | pt_ext_cbr,
-	ppt_tma			= ppt_ext | pt_ext_tma,
-	ppt_vmcs		= ppt_ext | pt_ext_vmcs,
-	ppt_exstop		= ppt_ext | pt_ext_exstop,
-	ppt_mwait		= ppt_ext | pt_ext_mwait,
-	ppt_pwre		= ppt_ext | pt_ext_pwre,
-	ppt_pwrx		= ppt_ext | pt_ext_pwrx,
-	ppt_ptw			= ppt_ext | pt_ext_ptw,
-
-	/* 3-byte header packets. */
-	ppt_mnt			= ppt_ext2 | pt_ext2_mnt,
+	/* An invalid packet. */
+	ppt_invalid,
 
 	/* A packet decodable by the optional decoder callback. */
-	ppt_unknown		= 0x7ffffffe,
+	ppt_unknown,
 
-	/* An invalid packet. */
-	ppt_invalid		= 0x7fffffff
+	/* Actual packets supported by this library. */
+	ppt_pad,
+	ppt_psb,
+	ppt_psbend,
+	ppt_fup,
+	ppt_tip,
+	ppt_tip_pge,
+	ppt_tip_pgd,
+	ppt_tnt_8,
+	ppt_tnt_64,
+	ppt_mode,
+	ppt_pip,
+	ppt_vmcs,
+	ppt_cbr,
+	ppt_tsc,
+	ppt_tma,
+	ppt_mtc,
+	ppt_cyc,
+	ppt_stop,
+	ppt_ovf,
+	ppt_mnt,
+	ppt_exstop,
+	ppt_mwait,
+	ppt_pwre,
+	ppt_pwrx,
+	ppt_ptw
 };
 
 /** A TNT-8 or TNT-64 packet. */
