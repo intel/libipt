@@ -90,6 +90,9 @@ struct ptxed_options {
 	/* Print the offset into the trace file. */
 	uint32_t print_offset:1;
 
+	/* Print the current timestamp. */
+	uint32_t print_time:1;
+
 	/* Print the raw bytes for an insn. */
 	uint32_t print_raw_insn:1;
 };
@@ -159,6 +162,7 @@ static void help(const char *name)
 	printf("  --no-inst                            do not print instructions (only addresses).\n");
 	printf("  --quiet|-q                           do not print anything (except errors).\n");
 	printf("  --offset                             print the offset into the trace file.\n");
+	printf("  --time                               print the current timestamp.\n");
 	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
@@ -528,7 +532,8 @@ static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
 }
 
 static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
-		       const struct ptxed_options *options, uint64_t offset)
+		       const struct ptxed_options *options, uint64_t offset,
+		       uint64_t time)
 {
 	if (!insn || !options) {
 		printf("[internal error]\n");
@@ -549,6 +554,9 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 
 	if (options->print_offset)
 		printf("%016" PRIx64 "  ", offset);
+
+	if (options->print_time)
+		printf("%016" PRIx64 "  ", time);
 
 	printf("%016" PRIx64, insn->ip);
 
@@ -615,7 +623,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 			struct ptxed_stats *stats)
 {
 	xed_state_t xed;
-	uint64_t offset, sync;
+	uint64_t offset, sync, time;
 
 	if (!options) {
 		printf("[internal error]\n");
@@ -626,6 +634,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 
 	offset = 0ull;
 	sync = 0ull;
+	time = 0ull;
 	for (;;) {
 		struct pt_insn insn;
 		int errcode;
@@ -663,6 +672,13 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 					break;
 			}
 
+			if (options->print_time) {
+				errcode = pt_insn_time(decoder, &time, NULL,
+						       NULL);
+				if (errcode < 0)
+					break;
+			}
+
 			errcode = pt_insn_next(decoder, &insn, sizeof(insn));
 			if (errcode < 0) {
 				/* Even in case of errors, we may have succeeded
@@ -671,7 +687,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 				if (insn.iclass != ptic_error) {
 					if (!options->quiet)
 						print_insn(&insn, &xed, options,
-							   offset);
+							   offset, time);
 					if (stats)
 						stats->insn += 1;
 				}
@@ -679,7 +695,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 			}
 
 			if (!options->quiet)
-				print_insn(&insn, &xed, options, offset);
+				print_insn(&insn, &xed, options, offset, time);
 
 			if (stats)
 				stats->insn += 1;
@@ -785,7 +801,7 @@ static void print_block(struct pt_block *block,
 			struct pt_image_section_cache *iscache,
 			const struct ptxed_options *options,
 			const struct ptxed_stats *stats,
-			uint64_t offset)
+			uint64_t offset, uint64_t time)
 {
 	xed_machine_mode_enum_t mode;
 	xed_state_t xed;
@@ -848,6 +864,9 @@ static void print_block(struct pt_block *block,
 		if (options->print_offset)
 			printf("%016" PRIx64 "  ", offset);
 
+		if (options->print_time)
+			printf("%016" PRIx64 "  ", time);
+
 		printf("%016" PRIx64, block->ip);
 
 		xederrcode = xed_decode(&inst, praw, size);
@@ -898,7 +917,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 			 const struct ptxed_options *options,
 			 struct ptxed_stats *stats)
 {
-	uint64_t offset, sync;
+	uint64_t offset, sync, time;
 
 	if (!options) {
 		printf("[internal error]\n");
@@ -907,6 +926,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 
 	offset = 0ull;
 	sync = 0ull;
+	time = 0ull;
 	for (;;) {
 		struct pt_block block;
 		int errcode;
@@ -945,6 +965,13 @@ static void decode_block(struct pt_block_decoder *decoder,
 					break;
 			}
 
+			if (options->print_time) {
+				errcode = pt_blk_time(decoder, &time, NULL,
+						      NULL);
+				if (errcode < 0)
+					break;
+			}
+
 			errcode = pt_blk_next(decoder, &block, sizeof(block));
 			if (errcode < 0) {
 				/* Even in case of errors, we may have succeeded
@@ -959,7 +986,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 					if (!options->quiet)
 						print_block(&block, iscache,
 							    options, stats,
-							    offset);
+							    offset, time);
 				}
 				break;
 			}
@@ -971,7 +998,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 
 			if (!options->quiet)
 				print_block(&block, iscache, options, stats,
-					    offset);
+					    offset, time);
 
 			if (errcode & pts_eos) {
 				if (!block.disabled && !options->quiet)
@@ -1265,6 +1292,10 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--offset") == 0) {
 			options.print_offset = 1;
+			continue;
+		}
+		if (strcmp(arg, "--time") == 0) {
+			options.print_time = 1;
 			continue;
 		}
 		if (strcmp(arg, "--raw-insn") == 0) {
