@@ -1157,17 +1157,17 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (map == PTI_MAP_1) {
 			switch (ild->modrm_byte) {
 			case 0xc1:
-				insn->iclass = ptic_far_return;
+				insn->iclass = ptic_far_call;
 				iext->iclass = PTI_INST_VMCALL;
 				break;
 
 			case 0xc2:
-				insn->iclass = ptic_far_call;
+				insn->iclass = ptic_far_return;
 				iext->iclass = PTI_INST_VMLAUNCH;
 				break;
 
 			case 0xc3:
-				insn->iclass = ptic_far_call;
+				insn->iclass = ptic_far_return;
 				iext->iclass = PTI_INST_VMRESUME;
 				break;
 
