@@ -95,6 +95,9 @@ struct ptxed_options {
 
 	/* Print the raw bytes for an insn. */
 	uint32_t print_raw_insn:1;
+
+	/* Perform checks. */
+	uint32_t check:1;
 };
 
 /* A collection of flags selecting which stats to collect/print. */
@@ -164,6 +167,7 @@ static void help(const char *name)
 	printf("  --offset                             print the offset into the trace file.\n");
 	printf("  --time                               print the current timestamp.\n");
 	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
+	printf("  --check                              perform checks (expensive).\n");
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
@@ -490,6 +494,203 @@ static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 	return XED_MACHINE_MODE_INVALID;
 }
 
+static const char *visualize_iclass(enum pt_insn_class iclass)
+{
+	switch (iclass) {
+	case ptic_error:
+		return "unknown/error";
+
+	case ptic_other:
+		return "other";
+
+	case ptic_call:
+		return "near call";
+
+	case ptic_return:
+		return "near return";
+
+	case ptic_jump:
+		return "near jump";
+
+	case ptic_cond_jump:
+		return "cond jump";
+
+	case ptic_far_call:
+		return "far call";
+
+	case ptic_far_return:
+		return "far return";
+
+	case ptic_far_jump:
+		return "far jump";
+	}
+
+	return "undefined";
+}
+
+static void check_insn_iclass(const xed_inst_t *inst,
+			      const struct pt_insn *insn, uint64_t offset)
+{
+	xed_category_enum_t category;
+	xed_iclass_enum_t iclass;
+
+	if (!inst || !insn) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	category = xed_inst_category(inst);
+	iclass = xed_inst_iclass(inst);
+
+	switch (insn->iclass) {
+	case ptic_error:
+		break;
+
+	case ptic_other:
+		switch (category) {
+		default:
+			return;
+
+		case XED_CATEGORY_CALL:
+		case XED_CATEGORY_RET:
+		case XED_CATEGORY_COND_BR:
+		case XED_CATEGORY_UNCOND_BR:
+		case XED_CATEGORY_INTERRUPT:
+		case XED_CATEGORY_SYSCALL:
+		case XED_CATEGORY_SYSRET:
+			break;
+		}
+		break;
+
+	case ptic_call:
+		if (iclass == XED_ICLASS_CALL_NEAR)
+			return;
+
+		break;
+
+	case ptic_return:
+		if (iclass == XED_ICLASS_RET_NEAR)
+			return;
+
+		break;
+
+	case ptic_jump:
+		if (iclass == XED_ICLASS_JMP)
+			return;
+
+		break;
+
+	case ptic_cond_jump:
+		if (category == XED_CATEGORY_COND_BR)
+			return;
+
+		break;
+
+	case ptic_far_call:
+		switch (iclass) {
+		default:
+			break;
+
+		case XED_ICLASS_CALL_FAR:
+		case XED_ICLASS_INT:
+		case XED_ICLASS_INT1:
+		case XED_ICLASS_INT3:
+		case XED_ICLASS_INTO:
+		case XED_ICLASS_SYSCALL:
+		case XED_ICLASS_SYSCALL_AMD:
+		case XED_ICLASS_SYSENTER:
+		case XED_ICLASS_VMCALL:
+			return;
+		}
+		break;
+
+	case ptic_far_return:
+		switch (iclass) {
+		default:
+			break;
+
+		case XED_ICLASS_RET_FAR:
+		case XED_ICLASS_IRET:
+		case XED_ICLASS_IRETD:
+		case XED_ICLASS_IRETQ:
+		case XED_ICLASS_SYSRET:
+		case XED_ICLASS_SYSRET_AMD:
+		case XED_ICLASS_SYSEXIT:
+		case XED_ICLASS_VMLAUNCH:
+		case XED_ICLASS_VMRESUME:
+			return;
+		}
+		break;
+
+	case ptic_far_jump:
+		if (iclass == XED_ICLASS_JMP_FAR)
+			return;
+
+		break;
+	}
+
+	/* If we get here, @insn->iclass doesn't match XED's classification. */
+	printf("[%" PRIx64 ", %" PRIx64 ": iclass error: iclass: %s, "
+	       "xed iclass: %s, category: %s]\n", offset, insn->ip,
+	       visualize_iclass(insn->iclass), xed_iclass_enum_t2str(iclass),
+	       xed_category_enum_t2str(category));
+
+}
+
+static void check_insn_decode(xed_decoded_inst_t *inst,
+			      const struct pt_insn *insn, uint64_t offset)
+{
+	xed_error_enum_t errcode;
+
+	if (!inst || !insn) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	xed_decoded_inst_set_mode(inst, translate_mode(insn->mode),
+				  XED_ADDRESS_WIDTH_INVALID);
+
+	/* Decode the instruction (again).
+	 *
+	 * We may have decoded the instruction already for printing.  In this
+	 * case, we will decode it twice.
+	 *
+	 * The more common use-case, however, is to check the instruction class
+	 * while not printing instructions since the latter is too expensive for
+	 * regular use with long traces.
+	 */
+	errcode = xed_decode(inst, insn->raw, insn->size);
+	if (errcode != XED_ERROR_NONE) {
+		printf("[%" PRIx64 ", %" PRIx64 ": xed error: (%u) %s]\n",
+		       offset, insn->ip, errcode,
+		       xed_error_enum_t2str(errcode));
+		return;
+	}
+
+	if (!xed_decoded_inst_valid(inst)) {
+		printf("[%" PRIx64 ", %" PRIx64 ": xed error: "
+		       "invalid instruction]\n", offset, insn->ip);
+		return;
+	}
+}
+
+static void check_insn(const struct pt_insn *insn, uint64_t offset)
+{
+	xed_decoded_inst_t inst;
+
+	xed_decoded_inst_zero(&inst);
+	check_insn_decode(&inst, insn, offset);
+
+	/* We need a valid instruction in order to do further checks.
+	 *
+	 * Invalid instructions have already been diagnosed.
+	 */
+	if (!xed_decoded_inst_valid(&inst))
+		return;
+
+	check_insn_iclass(xed_decoded_inst_inst(&inst), insn, offset);
+}
+
 static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
 			   const struct ptxed_options *options)
 {
@@ -666,7 +867,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 		}
 
 		for (;;) {
-			if (options->print_offset) {
+			if (options->print_offset || options->check) {
 				errcode = pt_insn_get_offset(decoder, &offset);
 				if (errcode < 0)
 					break;
@@ -690,6 +891,9 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 							   offset, time);
 					if (stats)
 						stats->insn += 1;
+
+					if (options->check)
+						check_insn(&insn, offset);
 				}
 				break;
 			}
@@ -699,6 +903,9 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 
 			if (stats)
 				stats->insn += 1;
+
+			if (options->check)
+				check_insn(&insn, offset);
 
 			if (errcode & pts_eos) {
 				if (!insn.disabled && !options->quiet)
@@ -982,6 +1189,69 @@ static void print_block(const struct pt_block *block,
 		printf("[stopped]\n");
 }
 
+static void check_block(const struct pt_block *block,
+			struct pt_image_section_cache *iscache,
+			uint64_t offset)
+{
+	struct pt_insn insn;
+	xed_decoded_inst_t inst;
+	uint64_t ip;
+	uint16_t ninsn;
+	int errcode;
+
+	if (!block) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	/* There's nothing to check for an empty block. */
+	ninsn = block->ninsn;
+	if (!ninsn)
+		return;
+
+	ip = block->ip;
+	do {
+		errcode = block_fetch_insn(&insn, block, ip, iscache);
+		if (errcode < 0) {
+			printf("[%" PRIx64 ", %" PRIx64 ": fetch error: %s]\n",
+			       offset, ip, pt_errstr(pt_errcode(errcode)));
+			return;
+		}
+
+		xed_decoded_inst_zero(&inst);
+		check_insn_decode(&inst, &insn, offset);
+
+		/* We need a valid instruction in order to do further checks.
+		 *
+		 * Invalid instructions have already been diagnosed.
+		 */
+		if (!xed_decoded_inst_valid(&inst))
+			return;
+
+		errcode = xed_next_ip(&ip, &inst, ip);
+		if (errcode < 0) {
+			printf("[%" PRIx64 ", %" PRIx64 ": error: %s]\n",
+			       offset, ip, pt_errstr(pt_errcode(errcode)));
+			return;
+		}
+	} while (--ninsn);
+
+	/* We reached the end of the block.  Both @insn and @inst refer to the
+	 * last instruction in @block.
+	 *
+	 * Check that we reached the end IP of the block.
+	 */
+	if (insn.ip != block->end_ip) {
+		printf("[%" PRIx64 ", %" PRIx64 ": error: did not reach end: %"
+		       PRIx64 "]\n", offset, insn.ip, block->end_ip);
+	}
+
+	/* Check the last instruction's classification, if available. */
+	insn.iclass = block->iclass;
+	if (insn.iclass)
+		check_insn_iclass(xed_decoded_inst_inst(&inst), &insn, offset);
+}
+
 static void decode_block(struct pt_block_decoder *decoder,
 			 struct pt_image_section_cache *iscache,
 			 const struct ptxed_options *options,
@@ -1030,7 +1300,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 		}
 
 		for (;;) {
-			if (options->print_offset) {
+			if (options->print_offset || options->check) {
 				errcode = pt_blk_get_offset(decoder, &offset);
 				if (errcode < 0)
 					break;
@@ -1059,6 +1329,10 @@ static void decode_block(struct pt_block_decoder *decoder,
 							    iscache, options,
 							    stats, offset,
 							    time);
+
+					if (options->check)
+						check_block(&block, iscache,
+							    offset);
 				}
 				break;
 			}
@@ -1071,6 +1345,9 @@ static void decode_block(struct pt_block_decoder *decoder,
 			if (!options->quiet)
 				print_block(&block, decoder, iscache, options,
 					    stats, offset, time);
+
+			if (options->check)
+				check_block(&block, iscache, offset);
 
 			if (errcode & pts_eos) {
 				if (!block.disabled && !options->quiet)
@@ -1372,6 +1649,10 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--raw-insn") == 0) {
 			options.print_raw_insn = 1;
+			continue;
+		}
+		if (strcmp(arg, "--check") == 0) {
+			options.check = 1;
 			continue;
 		}
 		if (strcmp(arg, "--stat") == 0) {
