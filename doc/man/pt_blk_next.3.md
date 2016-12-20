@@ -92,6 +92,14 @@ struct pt_block {
     /** The execution mode for all instructions in this block. */
     enum pt_exec_mode mode;
 
+    /** The instruction class for the last instruction in this block.
+     *
+     * This field may be set to ptic_error to indicate that the instruction
+     * class is not available.  The block decoder may choose to not provide
+     * the instruction class in some cases for performance reasons.
+     */
+    enum pt_insn_class iclass;
+
     /** The number of instructions in this block. */
     uint16_t ninsn;
 
@@ -195,6 +203,14 @@ enum pt_exec_mode {
     ptem_64bit
 };
 ~~~
+
+iclass
+:   A coarse classification of the last instruction in the block.  This may be
+    *ptic_error* to indicate that the classification is not available.
+
+    The block decoder knows the instruction class of the instruction that ended
+    the block most of the time.  If it does, it provides this information to
+    save the caller the effort of decoding the instruction in some cases.
 
 ninsn
 :   The number of instructions contained in this block.
