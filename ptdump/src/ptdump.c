@@ -1263,8 +1263,12 @@ static int dump_sync(struct pt_packet_decoder *decoder,
 			return diag("sync error", 0ull, errcode);
 	} else {
 		errcode = pt_pkt_sync_forward(decoder);
-		if (errcode < 0)
+		if (errcode < 0) {
+			if (errcode == -pte_eos)
+				return 0;
+
 			return diag("sync error", 0ull, errcode);
+		}
 	}
 
 	for (;;) {
@@ -1273,8 +1277,12 @@ static int dump_sync(struct pt_packet_decoder *decoder,
 			break;
 
 		errcode = pt_pkt_sync_forward(decoder);
-		if (errcode < 0)
+		if (errcode < 0) {
+			if (errcode == -pte_eos)
+				return 0;
+
 			return diag("sync error", 0ull, errcode);
+		}
 
 		ptdump_tracking_reset(tracking);
 	}
