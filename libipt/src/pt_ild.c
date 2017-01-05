@@ -989,26 +989,34 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xCD:
-		if (map == PTI_MAP_0)
+		if (map == PTI_MAP_0) {
+			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_INT;
+		}
 
 		return 0;
 
 	case 0xCC:
-		if (map == PTI_MAP_0)
+		if (map == PTI_MAP_0) {
+			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_INT3;
+		}
 
 		return 0;
 
 	case 0xCE:
-		if (map == PTI_MAP_0)
+		if (map == PTI_MAP_0) {
+			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_INTO;
+		}
 
 		return 0;
 
 	case 0xF1:
-		if (map == PTI_MAP_0)
+		if (map == PTI_MAP_0) {
+			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_INT1;
+		}
 
 		return 0;
 
