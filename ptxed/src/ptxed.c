@@ -874,15 +874,6 @@ static void print_block(struct pt_block *block,
 		xed_error_enum_t xederrcode;
 		int errcode;
 
-		errcode = block_fetch_insn(&insn, block, block->ip, iscache);
-		if (errcode < 0) {
-			printf(" [fetch error: %s]\n",
-			       pt_errstr(pt_errcode(errcode)));
-			break;
-		}
-
-		xed_decoded_inst_zero_set_mode(&inst, &xed);
-
 		if (block->speculative)
 			printf("? ");
 
@@ -893,6 +884,15 @@ static void print_block(struct pt_block *block,
 			printf("%016" PRIx64 "  ", time);
 
 		printf("%016" PRIx64, block->ip);
+
+		errcode = block_fetch_insn(&insn, block, block->ip, iscache);
+		if (errcode < 0) {
+			printf(" [fetch error: %s]\n",
+			       pt_errstr(pt_errcode(errcode)));
+			break;
+		}
+
+		xed_decoded_inst_zero_set_mode(&inst, &xed);
 
 		xederrcode = xed_decode(&inst, insn.raw, insn.size);
 		if (xederrcode != XED_ERROR_NONE) {
