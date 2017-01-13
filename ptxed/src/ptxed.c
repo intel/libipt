@@ -797,6 +797,42 @@ static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
 	return 0;
 }
 
+static int block_fetch_insn(struct pt_insn *insn, const struct pt_block *block,
+			    uint64_t ip, struct pt_image_section_cache *iscache)
+{
+	if (!insn || !block)
+		return -pte_internal;
+
+	/* We can't read from an empty block. */
+	if (!block->ninsn)
+		return -pte_invalid;
+
+	memset(insn, 0, sizeof(*insn));
+	insn->mode = block->mode;
+	insn->ip = ip;
+
+	/* The last instruction in a block may be truncated. */
+	if ((ip == block->end_ip) && block->truncated) {
+		if (!block->size || (sizeof(insn->raw) < (size_t) block->size))
+			return -pte_bad_insn;
+
+		insn->size = block->size;
+		memcpy(insn->raw, block->raw, insn->size);
+	} else {
+		int size;
+
+		size = pt_iscache_read(iscache, insn->raw, sizeof(insn->raw),
+				       block->isid, ip);
+		if (size < 0)
+			return size;
+
+		insn->isid = block->isid;
+		insn->size = (uint8_t) size;
+	}
+
+	return 0;
+}
+
 static void print_block(struct pt_block *block,
 			struct pt_image_section_cache *iscache,
 			const struct ptxed_options *options,
@@ -833,27 +869,16 @@ static void print_block(struct pt_block *block,
 
 	last_ip = 0ull;
 	for (; block->ninsn; --block->ninsn) {
+		struct pt_insn insn;
 		xed_decoded_inst_t inst;
 		xed_error_enum_t xederrcode;
-		uint8_t raw[pt_max_insn_size], *praw;
-		int size, errcode;
+		int errcode;
 
-		/* For truncated block, the last instruction is provided in the
-		 * block since it can't be read entirely from the image section
-		 * cache.
-		 */
-		if (block->truncated && (block->ninsn == 1)) {
-			praw = block->raw;
-			size = block->size;
-		} else {
-			praw = raw;
-			size = pt_iscache_read(iscache, raw, sizeof(raw),
-					       block->isid, block->ip);
-			if (size < 0) {
-				printf(" [error reading insn: (%d) %s]\n", size,
-				       pt_errstr(pt_errcode(size)));
-				break;
-			}
+		errcode = block_fetch_insn(&insn, block, block->ip, iscache);
+		if (errcode < 0) {
+			printf(" [fetch error: %s]\n",
+			       pt_errstr(pt_errcode(errcode)));
+			break;
 		}
 
 		xed_decoded_inst_zero_set_mode(&inst, &xed);
@@ -869,7 +894,7 @@ static void print_block(struct pt_block *block,
 
 		printf("%016" PRIx64, block->ip);
 
-		xederrcode = xed_decode(&inst, praw, size);
+		xederrcode = xed_decode(&inst, insn.raw, insn.size);
 		if (xederrcode != XED_ERROR_NONE) {
 			printf(" [xed decode error: (%u) %s]\n", xederrcode,
 			       xed_error_enum_t2str(xederrcode));
@@ -877,11 +902,11 @@ static void print_block(struct pt_block *block,
 		}
 
 		if (!options->dont_print_insn)
-			xed_print_insn(&inst, block->ip, options);
+			xed_print_insn(&inst, insn.ip, options);
 
 		printf("\n");
 
-		last_ip = block->ip;
+		last_ip = insn.ip;
 
 		errcode = xed_next_ip(&block->ip, &inst, last_ip);
 		if (errcode < 0) {
