@@ -721,51 +721,6 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 	}
 }
 
-static void diagnose_block_at(const char *errtype, uint64_t pos,
-			      struct pt_block *block, int errcode)
-{
-	if (!block) {
-		printf("ptxed: internal error");
-		return;
-	}
-
-	if (block->ninsn)
-		printf("[%" PRIx64 ", %" PRIx64 "(+%x): %s: %s]\n", pos,
-		       block->ip, block->ninsn, errtype,
-		       pt_errstr(pt_errcode(errcode)));
-	else
-		printf("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos,
-		       block->ip, errtype,
-		       pt_errstr(pt_errcode(errcode)));
-}
-
-static void diagnose_block(const char *errtype,
-			   struct pt_block_decoder *decoder,
-			   struct pt_block *block, int errcode)
-{
-	int err;
-	uint64_t pos;
-
-	if (!block) {
-		printf("ptxed: internal error");
-		return;
-	}
-
-	err = pt_blk_get_offset(decoder, &pos);
-	if (err < 0) {
-		printf("could not determine offset: %s\n",
-		       pt_errstr(pt_errcode(err)));
-		if (block->ninsn)
-			printf("[?, %" PRIx64 "(+%x): %s: %s]\n", block->ip,
-			       block->ninsn, errtype,
-			       pt_errstr(pt_errcode(errcode)));
-		else
-			printf("[?, %" PRIx64 ": %s: %s]\n", block->ip, errtype,
-			       pt_errstr(pt_errcode(errcode)));
-	} else
-		diagnose_block_at(errtype, pos, block, errcode);
-}
-
 static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
 		       uint64_t ip)
 {
@@ -833,7 +788,93 @@ static int block_fetch_insn(struct pt_insn *insn, const struct pt_block *block,
 	return 0;
 }
 
+static void diagnose_block_at(const char *errtype, int errcode,
+			      struct pt_block_decoder *decoder, uint64_t ip)
+{
+	uint64_t pos;
+	int err;
+
+	err = pt_blk_get_offset(decoder, &pos);
+	if (err < 0) {
+		printf("[could not determine offset: %s]\n",
+		       pt_errstr(pt_errcode(err)));
+
+		printf("[?, %" PRIx64 ": %s: %s]\n", ip, errtype,
+		       pt_errstr(pt_errcode(errcode)));
+	} else
+		printf("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos, ip,
+		       errtype, pt_errstr(pt_errcode(errcode)));
+}
+
+static void diagnose_block(const char *errtype, int errcode,
+			   const struct pt_block *block,
+			   struct pt_block_decoder *decoder,
+			   struct pt_image_section_cache *iscache)
+{
+	uint64_t ip;
+	int err;
+
+	if (!block) {
+		printf("ptxed: internal error");
+		return;
+	}
+
+	/* Determine the IP at which to report the error.
+	 *
+	 * Depending on the type of error, the IP varies between that of the
+	 * last instruction in @block or the next instruction outside of @block.
+	 *
+	 * When the block is empty, we use the IP of the block itself,
+	 * i.e. where the first instruction should have been.
+	 */
+	if (!block->ninsn)
+		ip = block->ip;
+	else {
+		ip = block->end_ip;
+
+		switch (errcode) {
+		case -pte_nomap:
+		case -pte_bad_insn: {
+			struct pt_insn insn;
+			xed_decoded_inst_t inst;
+			xed_error_enum_t xederr;
+
+			/* Decode failed when trying to fetch or decode the next
+			 * instruction.  Since indirect or conditional branches
+			 * end a block and don't cause an additional fetch, we
+			 * should be able to reach that IP from the last
+			 * instruction in @block.
+			 *
+			 * We ignore errors and fall back to the IP of the last
+			 * instruction.
+			 */
+			err = block_fetch_insn(&insn, block, ip, iscache);
+			if (err < 0)
+				break;
+
+			xed_decoded_inst_zero(&inst);
+			xed_decoded_inst_set_mode(&inst,
+						  translate_mode(insn.mode),
+						  XED_ADDRESS_WIDTH_INVALID);
+
+			xederr = xed_decode(&inst, insn.raw, insn.size);
+			if (xederr != XED_ERROR_NONE)
+				break;
+
+			(void) xed_next_ip(&ip, &inst, insn.ip);
+		}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	diagnose_block_at(errtype, errcode, decoder, ip);
+}
+
 static void print_block(struct pt_block *block,
+			struct pt_block_decoder *decoder,
 			struct pt_image_section_cache *iscache,
 			const struct ptxed_options *options,
 			const struct ptxed_stats *stats,
@@ -910,16 +951,16 @@ static void print_block(struct pt_block *block,
 
 		errcode = xed_next_ip(&block->ip, &inst, last_ip);
 		if (errcode < 0) {
-			diagnose_block_at("reconstruct error", offset, block,
-					  errcode);
+			diagnose_block_at("reconstruct error", errcode,
+					  decoder, last_ip);
 			break;
 		}
 	}
 
 	/* Decode should have brought us to @block->end_ip. */
 	if (last_ip != block->end_ip)
-		diagnose_block_at("reconstruct error", offset, block,
-				  -pte_nosync);
+		diagnose_block_at("reconstruct error", -pte_nosync, decoder,
+				  last_ip);
 
 	if (block->interrupted)
 		printf("[interrupt]\n");
@@ -967,7 +1008,8 @@ static void decode_block(struct pt_block_decoder *decoder,
 			if (errcode == -pte_eos)
 				break;
 
-			diagnose_block("sync error", decoder, &block, errcode);
+			diagnose_block("sync error", errcode, &block, decoder,
+				       iscache);
 
 			/* Let's see if we made any progress.  If we haven't,
 			 * we likely never will.  Bail out.
@@ -1009,9 +1051,10 @@ static void decode_block(struct pt_block_decoder *decoder,
 					}
 
 					if (!options->quiet)
-						print_block(&block, iscache,
-							    options, stats,
-							    offset, time);
+						print_block(&block, decoder,
+							    iscache, options,
+							    stats, offset,
+							    time);
 				}
 				break;
 			}
@@ -1022,8 +1065,8 @@ static void decode_block(struct pt_block_decoder *decoder,
 			}
 
 			if (!options->quiet)
-				print_block(&block, iscache, options, stats,
-					    offset, time);
+				print_block(&block, decoder, iscache, options,
+					    stats, offset, time);
 
 			if (errcode & pts_eos) {
 				if (!block.disabled && !options->quiet)
@@ -1042,7 +1085,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 		if (errcode == -pte_eos)
 			break;
 
-		diagnose_block("error", decoder, &block, errcode);
+		diagnose_block("error", errcode, &block, decoder, iscache);
 	}
 }
 
