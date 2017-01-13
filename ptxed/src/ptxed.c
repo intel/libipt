@@ -873,7 +873,7 @@ static void diagnose_block(const char *errtype, int errcode,
 	diagnose_block_at(errtype, errcode, decoder, ip);
 }
 
-static void print_block(struct pt_block *block,
+static void print_block(const struct pt_block *block,
 			struct pt_block_decoder *decoder,
 			struct pt_image_section_cache *iscache,
 			const struct ptxed_options *options,
@@ -882,7 +882,8 @@ static void print_block(struct pt_block *block,
 {
 	xed_machine_mode_enum_t mode;
 	xed_state_t xed;
-	uint64_t last_ip;
+	uint64_t ip;
+	uint16_t ninsn;
 
 	if (!block || !options) {
 		printf("[internal error]\n");
@@ -908,8 +909,9 @@ static void print_block(struct pt_block *block,
 	mode = translate_mode(block->mode);
 	xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
 
-	last_ip = 0ull;
-	for (; block->ninsn; --block->ninsn) {
+	ip = block->ip;
+	ninsn = block->ninsn;
+	for (;;) {
 		struct pt_insn insn;
 		xed_decoded_inst_t inst;
 		xed_error_enum_t xederrcode;
@@ -924,9 +926,9 @@ static void print_block(struct pt_block *block,
 		if (options->print_time)
 			printf("%016" PRIx64 "  ", time);
 
-		printf("%016" PRIx64, block->ip);
+		printf("%016" PRIx64, ip);
 
-		errcode = block_fetch_insn(&insn, block, block->ip, iscache);
+		errcode = block_fetch_insn(&insn, block, ip, iscache);
 		if (errcode < 0) {
 			printf(" [fetch error: %s]\n",
 			       pt_errstr(pt_errcode(errcode)));
@@ -947,20 +949,22 @@ static void print_block(struct pt_block *block,
 
 		printf("\n");
 
-		last_ip = insn.ip;
+		ninsn -= 1;
+		if (!ninsn)
+			break;
 
-		errcode = xed_next_ip(&block->ip, &inst, last_ip);
+		errcode = xed_next_ip(&ip, &inst, ip);
 		if (errcode < 0) {
 			diagnose_block_at("reconstruct error", errcode,
-					  decoder, last_ip);
+					  decoder, ip);
 			break;
 		}
 	}
 
 	/* Decode should have brought us to @block->end_ip. */
-	if (last_ip != block->end_ip)
+	if (ip != block->end_ip)
 		diagnose_block_at("reconstruct error", -pte_nosync, decoder,
-				  last_ip);
+				  ip);
 
 	if (block->interrupted)
 		printf("[interrupt]\n");
