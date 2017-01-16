@@ -696,6 +696,7 @@ void yasm_free(struct yasm *y)
 	if (!y)
 		return;
 
+	free(y->fileroot);
 	free(y->pttfile);
 	free(y->lstfile);
 	free(y->binfile);
