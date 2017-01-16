@@ -1457,11 +1457,13 @@ out:
 	ptxed_free_decoder(&decoder);
 	pt_image_free(image);
 	pt_iscache_free(iscache);
+	free(config.begin);
 	return 0;
 
 err:
 	ptxed_free_decoder(&decoder);
 	pt_image_free(image);
 	pt_iscache_free(iscache);
+	free(config.begin);
 	return 1;
 }
