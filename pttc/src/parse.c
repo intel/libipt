@@ -52,6 +52,7 @@ static void p_free(struct parser *p)
 
 	yasm_free(p->y);
 	pd_free(p->pd);
+	l_free(p->pt_labels);
 	free(p->ptfilename);
 
 	free(p);
