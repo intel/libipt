@@ -190,7 +190,10 @@ enum pt_event_type {
 	ptev_pwrx,
 
 	/* A PTWRITE event. */
-	ptev_ptwrite
+	ptev_ptwrite,
+
+	/* A timing event. */
+	ptev_tick
 };
 ~~~
 

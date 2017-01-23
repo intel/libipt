@@ -974,6 +974,13 @@ static void print_event(const struct pt_event *event,
 		if (options->print_event_ip && !event->ip_suppressed)
 			printf(", ip: %016" PRIx64, event->variant.ptwrite.ip);
 		break;
+
+	case ptev_tick:
+		printf("tick");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.tick.ip);
+		break;
 	}
 
 	printf("]\n");

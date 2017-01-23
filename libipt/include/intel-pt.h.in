@@ -1029,7 +1029,10 @@ enum pt_event_type {
 	ptev_pwrx,
 
 	/* A PTWRITE event. */
-	ptev_ptwrite
+	ptev_ptwrite,
+
+	/* A timing event. */
+	ptev_tick
 };
 
 /** An event. */
@@ -1305,6 +1308,19 @@ struct pt_event {
 			/** The ptwrite payload. */
 			uint64_t payload;
 		} ptwrite;
+
+		/** Event: tick. */
+		struct {
+			/** The instruction address near which the tick occured.
+			 *
+			 * A timestamp can sometimes be attributed directly to
+			 * an instruction (e.g. to an indirect branch that
+			 * receives CYC + TIP) and sometimes not (e.g. MTC).
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} tick;
 	} variant;
 };
 
