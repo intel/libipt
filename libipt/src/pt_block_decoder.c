@@ -177,6 +177,7 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->process_event = 0;
 	decoder->speculative = 0;
 
+	memset(&decoder->event, 0, sizeof(decoder->event));
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
 }
@@ -269,6 +270,126 @@ void pt_blk_free_decoder(struct pt_block_decoder *decoder)
 	free(decoder);
 }
 
+/* Maybe synthesize a tick event.
+ *
+ * If we're not already processing events, check the current time against the
+ * last event's time.  If it changed, synthesize a tick event with the new time.
+ *
+ * Returns zero if no tick event has been created.
+ * Returns a positive integer if a tick event has been created.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_tick(struct pt_block_decoder *decoder, uint64_t ip)
+{
+	struct pt_event *ev;
+	uint64_t tsc;
+	uint32_t lost_mtc, lost_cyc;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	/* We're not generating tick events if tracing is disabled. */
+	if (!decoder->enabled)
+		return -pte_internal;
+
+	/* Events already provide a timestamp so there is no need to synthesize
+	 * an artificial tick event.  There's no room, either, since this would
+	 * overwrite the in-progress event.
+	 *
+	 * In rare cases where we need to proceed to an event location using
+	 * trace this may cause us to miss a timing update if the event is not
+	 * forwarded to the user.
+	 *
+	 * The only case I can come up with at the moment is a MODE.EXEC binding
+	 * to the TIP IP of a far branch.
+	 */
+	if (decoder->process_event)
+		return 0;
+
+	errcode = pt_qry_time(&decoder->query, &tsc, &lost_mtc, &lost_cyc);
+	if (errcode < 0) {
+		/* If we don't have wall-clock time, we use relative time. */
+		if (errcode != -pte_no_time)
+			return errcode;
+	}
+
+	ev = &decoder->event;
+
+	/* We're done if time has not changed since the last event. */
+	if (tsc == ev->tsc)
+		return 0;
+
+	/* Time has changed so we create a new tick event. */
+	memset(ev, 0, sizeof(*ev));
+	ev->type = ptev_tick;
+	ev->variant.tick.ip = ip;
+
+	/* Indicate if we have wall-clock time or only relative time. */
+	if (errcode != -pte_no_time)
+		ev->has_tsc = 1;
+	ev->tsc = tsc;
+	ev->lost_mtc = lost_mtc;
+	ev->lost_cyc = lost_cyc;
+
+	/* We now have an event to process. */
+	decoder->process_event = 1;
+
+	return 1;
+}
+
+/* Query an indirect branch.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_indirect_branch(struct pt_block_decoder *decoder,
+				  uint64_t *ip)
+{
+	uint64_t evip;
+	int status, errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	evip = decoder->ip;
+
+	status = pt_qry_indirect_branch(&decoder->query, ip);
+	if (status < 0)
+		return status;
+
+	if (decoder->flags.variant.block.enable_tick_events) {
+		errcode = pt_blk_tick(decoder, evip);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return status;
+}
+
+/* Query a conditional branch.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_cond_branch(struct pt_block_decoder *decoder, int *taken)
+{
+	int status, errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = pt_qry_cond_branch(&decoder->query, taken);
+	if (status < 0)
+		return status;
+
+	if (decoder->flags.variant.block.enable_tick_events) {
+		errcode = pt_blk_tick(decoder, decoder->ip);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return status;
+}
+
 static int pt_blk_start(struct pt_block_decoder *decoder, int status)
 {
 	if (!decoder)
@@ -281,6 +402,14 @@ static int pt_blk_start(struct pt_block_decoder *decoder, int status)
 	if (!(status & pts_ip_suppressed))
 		decoder->enabled = 1;
 
+	/* We will always have an event.
+	 *
+	 * If we synchronized onto an empty PSB+, tracing is disabled and we'll
+	 * process events until the enabled event.
+	 *
+	 * If tracing is enabled, PSB+ must at least provide the execution mode,
+	 * which we're going to forward to the user.
+	 */
 	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
 
@@ -506,7 +635,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 			  const struct pt_insn *insn,
 			  const struct pt_insn_ext *iext)
 {
-	int status;
+	int status, errcode;
 
 	if (!pip || !decoder || !insn || !iext)
 		return -pte_internal;
@@ -521,7 +650,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 		uint64_t ip;
 		int taken;
 
-		status = pt_qry_cond_branch(&decoder->query, &taken);
+		status = pt_blk_cond_branch(decoder, &taken);
 		if (status < 0)
 			return status;
 
@@ -534,10 +663,10 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	}
 
 	case ptic_return: {
-		int taken, errcode;
+		int taken;
 
 		/* Check for a compressed return. */
-		status = pt_qry_cond_branch(&decoder->query, &taken);
+		status = pt_blk_cond_branch(decoder, &taken);
 		if (status < 0) {
 			if (status != -pte_bad_query)
 				return status;
@@ -584,7 +713,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	 * This covers indirect jumps and calls, non-compressed returns, and all
 	 * flavors of far transfers.
 	 */
-	return pt_qry_indirect_branch(&decoder->query, pip);
+	return pt_blk_indirect_branch(decoder, pip);
 }
 
 /* Proceed to the next IP using trace.
@@ -1929,7 +2058,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			 * We can't use the normal decode and proceed-with-trace
 			 * flow since we already consumed the TNT bit.
 			 */
-			status = pt_qry_cond_branch(&decoder->query, &taken);
+			status = pt_blk_cond_branch(decoder, &taken);
 			if (status < 0)
 				return status;
 
@@ -2072,7 +2201,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		if (status < 0)
 			return status;
 
-		status = pt_qry_indirect_branch(&decoder->query, &decoder->ip);
+		status = pt_blk_indirect_branch(decoder, &decoder->ip);
 		if (status < 0)
 			return status;
 
@@ -2090,7 +2219,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		block->iclass = ptic_return;
 
 		/* Check for a compressed return. */
-		status = pt_qry_cond_branch(&decoder->query, &taken);
+		status = pt_blk_cond_branch(decoder, &taken);
 		if (status < 0) {
 			if (status != -pte_bad_query)
 				return status;
@@ -2098,8 +2227,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			/* The return is not compressed.  We need another query
 			 * to determine the destination IP.
 			 */
-			status = pt_qry_indirect_branch(&decoder->query,
-							&decoder->ip);
+			status = pt_blk_indirect_branch(decoder, &decoder->ip);
 			if (status < 0)
 				return status;
 
@@ -2140,7 +2268,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		 *
 		 * Just query the destination IP.
 		 */
-		status = pt_qry_indirect_branch(&decoder->query, &decoder->ip);
+		status = pt_blk_indirect_branch(decoder, &decoder->ip);
 		if (status < 0)
 			return status;
 

@@ -300,6 +300,9 @@ struct pt_conf_flags {
 		struct {
 			/** End a block after a call instruction. */
 			uint32_t end_on_call:1;
+
+			/** Enable tick events for timing updates. */
+			uint32_t enable_tick_events:1;
 		} block;
 
 		/* Reserve a few bytes for future extensions. */
