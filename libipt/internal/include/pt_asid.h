@@ -29,6 +29,8 @@
 #ifndef PT_ASID_H
 #define PT_ASID_H
 
+#include <stddef.h>
+
 struct pt_asid;
 
 
@@ -45,6 +47,17 @@ struct pt_asid;
  * Returns -pte_internal, if @asid is NULL.
  */
 extern int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user);
+
+/* Provide an asid to the user.
+ *
+ * Translate @asid into a potentially older or newer version in @user.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal, if @user or @asid is NULL.
+ * Returns -pte_invalid, if @size is too small.
+ */
+extern int pt_asid_to_user(struct pt_asid *user, const struct pt_asid *asid,
+			   size_t size);
 
 /* Match two asids.
  *

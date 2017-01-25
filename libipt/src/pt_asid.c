@@ -59,6 +59,29 @@ int pt_asid_from_user(struct pt_asid *asid, const struct pt_asid *user)
 	return 0;
 }
 
+int pt_asid_to_user(struct pt_asid *user, const struct pt_asid *asid,
+		    size_t size)
+{
+	if (!user || !asid)
+		return -pte_internal;
+
+	/* We need at least space for the size field. */
+	if (size < sizeof(asid->size))
+		return -pte_invalid;
+
+	/* Only provide the fields we actually have. */
+	if (sizeof(*asid) < size)
+		size = sizeof(*asid);
+
+	/* Copy (portions of) our asid to the user's. */
+	memcpy(user, asid, size);
+
+	/* We copied our size - fix it. */
+	user->size = size;
+
+	return 0;
+}
+
 int pt_asid_match(const struct pt_asid *lhs, const struct pt_asid *rhs)
 {
 	uint64_t lcr3, rcr3, lvmcs, rvmcs;

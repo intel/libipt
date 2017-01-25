@@ -29,6 +29,7 @@
 #include "pt_insn_decoder.h"
 #include "pt_insn.h"
 #include "pt_config.h"
+#include "pt_asid.h"
 
 #include "intel-pt.h"
 
@@ -254,6 +255,15 @@ int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder, uint32_t *cbr)
 		return -pte_invalid;
 
 	return pt_qry_core_bus_ratio(&decoder->query, cbr);
+}
+
+int pt_insn_asid(const struct pt_insn_decoder *decoder, struct pt_asid *asid,
+		 size_t size)
+{
+	if (!decoder || !asid)
+		return -pte_invalid;
+
+	return pt_asid_to_user(asid, &decoder->asid, size);
 }
 
 static inline int event_pending(struct pt_insn_decoder *decoder)

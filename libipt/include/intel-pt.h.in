@@ -2077,6 +2077,21 @@ extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
 extern pt_export int pt_insn_core_bus_ratio(struct pt_insn_decoder *decoder,
 					    uint32_t *cbr);
 
+/** Return the current address space identifier.
+ *
+ * On success, provides the current address space identifier in \@asid.
+ *
+ * The \@size argument must be set to sizeof(struct pt_asid).  At most \@size
+ * bytes will be copied and \@asid->size will be set to the actual size of the
+ * provided address space identifier.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@asid is NULL.
+ */
+extern pt_export int pt_insn_asid(const struct pt_insn_decoder *decoder,
+				  struct pt_asid *asid, size_t size);
+
 /** Determine the next instruction.
  *
  * On success, provides the next instruction in execution order in \@insn.
@@ -2361,6 +2376,21 @@ extern pt_export int pt_blk_time(struct pt_block_decoder *decoder,
  */
 extern pt_export int pt_blk_core_bus_ratio(struct pt_block_decoder *decoder,
 					   uint32_t *cbr);
+
+/** Return the current address space identifier.
+ *
+ * On success, provides the current address space identifier in \@asid.
+ *
+ * The \@size argument must be set to sizeof(struct pt_asid).  At most \@size
+ * bytes will be copied and \@asid->size will be set to the actual size of the
+ * provided address space identifier.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@asid is NULL.
+ */
+extern pt_export int pt_blk_asid(const struct pt_block_decoder *decoder,
+				 struct pt_asid *asid, size_t size);
 
 /** Determine the next block of instructions.
  *

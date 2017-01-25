@@ -135,6 +135,111 @@ static struct ptunit_result from_user_cr3(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result to_user_null(void)
+{
+	struct pt_asid asid;
+	int errcode;
+
+	pt_asid_init(&asid);
+
+	errcode = pt_asid_to_user(NULL, NULL, sizeof(asid));
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_asid_to_user(NULL, &asid, sizeof(asid));
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result to_user_too_small(void)
+{
+	struct pt_asid asid, user;
+	int errcode;
+
+	pt_asid_init(&asid);
+
+	errcode = pt_asid_to_user(&user, &asid, 0);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	errcode = pt_asid_to_user(&user, &asid, sizeof(user.size) - 1);
+	ptu_int_eq(errcode, -pte_invalid);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result to_user_small(void)
+{
+	struct pt_asid asid, user;
+	int errcode;
+
+	memset(&user, 0xcc, sizeof(user));
+	pt_asid_init(&asid);
+
+	errcode = pt_asid_to_user(&user, &asid, sizeof(user.size));
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(user.size, sizeof(user.size));
+	ptu_uint_eq(user.cr3, 0xccccccccccccccccull);
+	ptu_uint_eq(user.vmcs, 0xccccccccccccccccull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result to_user_big(void)
+{
+	struct pt_asid asid, user;
+	int errcode;
+
+	memset(&user, 0xcc, sizeof(user));
+	pt_asid_init(&asid);
+	asid.cr3 = 0x4200ull;
+	asid.vmcs = 0x23000ull;
+
+	errcode = pt_asid_to_user(&user, &asid, sizeof(user) + 8);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(user.size, sizeof(asid));
+	ptu_uint_eq(user.cr3, 0x4200ull);
+	ptu_uint_eq(user.vmcs, 0x23000ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result to_user(void)
+{
+	struct pt_asid asid, user;
+	int errcode;
+
+	memset(&user, 0xcc, sizeof(user));
+	pt_asid_init(&asid);
+	asid.cr3 = 0x4200ull;
+	asid.vmcs = 0x23000ull;
+
+	errcode = pt_asid_to_user(&user, &asid, sizeof(user));
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(user.size, sizeof(asid));
+	ptu_uint_eq(user.cr3, 0x4200ull);
+	ptu_uint_eq(user.vmcs, 0x23000ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result to_user_cr3(void)
+{
+	struct pt_asid asid, user;
+	int errcode;
+
+	memset(&user, 0xcc, sizeof(user));
+	pt_asid_init(&asid);
+	asid.cr3 = 0x4200ull;
+
+	errcode = pt_asid_to_user(&user, &asid, offsetof(struct pt_asid, vmcs));
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(user.size, offsetof(struct pt_asid, vmcs));
+	ptu_uint_eq(user.cr3, 0x4200ull);
+	ptu_uint_eq(user.vmcs, 0xccccccccccccccccull);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result match_null(void)
 {
 	struct pt_asid asid;
@@ -299,6 +404,13 @@ int main(int argc, char **argv)
 	ptu_run(suite, from_user_big);
 	ptu_run(suite, from_user);
 	ptu_run(suite, from_user_cr3);
+
+	ptu_run(suite, to_user_null);
+	ptu_run(suite, to_user_too_small);
+	ptu_run(suite, to_user_small);
+	ptu_run(suite, to_user_big);
+	ptu_run(suite, to_user);
+	ptu_run(suite, to_user_cr3);
 
 	ptu_run(suite, match_null);
 	ptu_run(suite, match_default);
