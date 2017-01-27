@@ -39,7 +39,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/user.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -111,7 +110,7 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	offset = section->offset;
 	size = section->size;
 
-	adjustment = offset % PAGE_SIZE;
+	adjustment = offset % sysconf(_SC_PAGESIZE);
 
 	offset -= adjustment;
 	size += adjustment;
