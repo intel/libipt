@@ -64,20 +64,21 @@ static void init_has_disp_regular_table(void)
 	}
 }
 
-static uint8_t eamode_table[2][4];
+static const uint8_t eamode_table[2][4] = {
+	/* Default: */ {
+		/* ptem_unknown = */	ptem_unknown,
+		/* ptem_16bit = */	ptem_16bit,
+		/* ptem_32bit = */	ptem_32bit,
+		/* ptem_64bit = */	ptem_64bit
+	},
 
-static void init_eamode_table(void)
-{
-	eamode_table[0][ptem_unknown] = ptem_unknown;
-	eamode_table[0][ptem_16bit] = ptem_16bit;
-	eamode_table[0][ptem_32bit] = ptem_32bit;
-	eamode_table[0][ptem_64bit] = ptem_64bit;
-
-	eamode_table[1][ptem_unknown] = ptem_unknown;
-	eamode_table[1][ptem_16bit] = ptem_32bit;
-	eamode_table[1][ptem_32bit] = ptem_16bit;
-	eamode_table[1][ptem_64bit] = ptem_32bit;
-}
+	/* With Address-size prefix (0x67): */ {
+		/* ptem_unknown = */	ptem_unknown,
+		/* ptem_16bit = */	ptem_32bit,
+		/* ptem_32bit = */	ptem_16bit,
+		/* ptem_64bit = */	ptem_32bit
+	}
+};
 
 static uint8_t has_sib_table[4][4][8];
 
@@ -891,7 +892,6 @@ void pt_ild_init(void)
 {	/* initialization */
 	init_has_disp_regular_table();
 	init_has_sib_table();
-	init_eamode_table();
 	init_prefix_table();
 }
 
