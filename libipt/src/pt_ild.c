@@ -33,36 +33,10 @@
 #include "pti-modrm.h"
 #include "pti-disp-defs.h"
 #include "pti-disp.h"
+#include "pti-disp_default.h"
 
 #include <string.h>
 
-/* SET UP 3 TABLES */
-
-static uint8_t has_disp_regular[4][4][8];
-
-static void init_has_disp_regular_table(void)
-{
-	uint8_t mod, rm;
-
-	memset(has_disp_regular, 0, sizeof(has_disp_regular));
-
-	/*fill eamode16 */
-	has_disp_regular[ptem_16bit][0][6] = 2;
-	for (rm = 0; rm < 8; rm++)
-		for (mod = 1; mod <= 2; mod++)
-			has_disp_regular[ptem_16bit][mod][rm] = mod;
-
-	/*fill eamode32/64 */
-	has_disp_regular[ptem_32bit][0][5] = 4;
-	has_disp_regular[ptem_64bit][0][5] = 4;
-	for (rm = 0; rm < 8; rm++) {
-		has_disp_regular[ptem_32bit][1][rm] = 1;
-		has_disp_regular[ptem_32bit][2][rm] = 4;
-
-		has_disp_regular[ptem_64bit][1][rm] = 1;
-		has_disp_regular[ptem_64bit][2][rm] = 4;
-	}
-}
 
 static const uint8_t eamode_table[2][4] = {
 	/* Default: */ {
@@ -482,7 +456,7 @@ static int modrm_dec(struct pt_ild *ild, uint8_t length)
 		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
 		uint8_t has_sib;
 
-		ild->disp_bytes = has_disp_regular[eamode][mod][rm];
+		ild->disp_bytes = disp_default[eamode][mod][rm];
 
 		has_sib = has_sib_table[eamode][mod][rm];
 		if (has_sib)
@@ -890,7 +864,6 @@ static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 
 void pt_ild_init(void)
 {	/* initialization */
-	init_has_disp_regular_table();
 	init_has_sib_table();
 	init_prefix_table();
 }
