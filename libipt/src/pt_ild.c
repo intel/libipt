@@ -1101,12 +1101,6 @@ static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 	return 0;
 }
 
-/*  MAIN ENTRY POINTS */
-
-void pt_ild_init(void)
-{	/* initialization */
-}
-
 static int pt_instruction_length_decode(struct pt_ild *ild)
 {
 	if (!ild)

@@ -690,8 +690,6 @@ int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
 
-	pt_ild_init();
-
 	suite = ptunit_mk_suite(argc, argv);
 
 	ptu_run(suite, push);

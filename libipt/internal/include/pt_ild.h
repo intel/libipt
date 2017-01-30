@@ -97,11 +97,6 @@ static inline uint8_t pti_get_modrm_rm(const struct pt_ild *ild)
 	return ild->modrm_byte & 7;
 }
 
-/* MAIN ENTRANCE POINTS */
-
-/* one time call. not thread safe init. call when single threaded. */
-extern void pt_ild_init(void);
-
 /* all decoding is multithread safe. */
 
 /* Decode one instruction.

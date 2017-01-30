@@ -64,7 +64,6 @@ if (CMAKE_HOST_UNIX)
     internal/include/posix
   )
 
-  set(LIBIPT_FILES ${LIBIPT_FILES} src/posix/init.c)
   set(LIBIPT_SECTION_FILES ${LIBIPT_SECTION_FILES} src/posix/pt_section_posix.c)
 endif (CMAKE_HOST_UNIX)
 
@@ -81,7 +80,6 @@ if (CMAKE_HOST_WIN32)
     internal/include/windows
   )
 
-  set(LIBIPT_FILES ${LIBIPT_FILES} src/windows/init.c)
   set(LIBIPT_SECTION_FILES ${LIBIPT_SECTION_FILES} src/windows/pt_section_windows.c)
 endif (CMAKE_HOST_WIN32)
 
