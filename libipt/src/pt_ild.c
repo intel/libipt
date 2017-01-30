@@ -34,6 +34,7 @@
 #include "pti-disp-defs.h"
 #include "pti-disp.h"
 #include "pti-disp_default.h"
+#include "pti-sib.h"
 
 #include <string.h>
 
@@ -53,21 +54,6 @@ static const uint8_t eamode_table[2][4] = {
 		/* ptem_64bit = */	ptem_32bit
 	}
 };
-
-static uint8_t has_sib_table[4][4][8];
-
-static void init_has_sib_table(void)
-{
-	uint8_t mod;
-
-	memset(has_sib_table, 0, sizeof(has_sib_table));
-
-	/*for eamode32/64 there is sib byte for mod!=3 and rm==4 */
-	for (mod = 0; mod <= 2; mod++) {
-		has_sib_table[ptem_32bit][mod][4] = 1;
-		has_sib_table[ptem_64bit][mod][4] = 1;
-	}
-}
 
 /* SOME ACCESSORS */
 
@@ -454,12 +440,12 @@ static int modrm_dec(struct pt_ild *ild, uint8_t length)
 		uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
 		uint8_t mod = (uint8_t) pti_get_modrm_mod(ild);
 		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
-		uint8_t has_sib;
+		uint8_t sib;
 
 		ild->disp_bytes = disp_default[eamode][mod][rm];
 
-		has_sib = has_sib_table[eamode][mod][rm];
-		if (has_sib)
+		sib = has_sib[eamode][mod][rm];
+		if (sib)
 			return sib_dec(ild, length + 1);
 	}
 
@@ -864,7 +850,6 @@ static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 
 void pt_ild_init(void)
 {	/* initialization */
-	init_has_sib_table();
 	init_prefix_table();
 }
 
