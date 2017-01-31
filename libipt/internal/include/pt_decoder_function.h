@@ -30,7 +30,6 @@
 #define PT_DECODER_FUNCTION_H
 
 #include <stdint.h>
-#include <stdio.h>
 
 struct pt_query_decoder;
 struct pt_packet_decoder;
