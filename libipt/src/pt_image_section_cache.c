@@ -31,6 +31,8 @@
 
 #include "intel-pt.h"
 
+#include <stdlib.h>
+
 
 static char *dupstr(const char *str)
 {

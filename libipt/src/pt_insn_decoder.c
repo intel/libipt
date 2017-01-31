@@ -33,6 +33,7 @@
 #include "intel-pt.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 
 static void pt_insn_reset(struct pt_insn_decoder *decoder)
