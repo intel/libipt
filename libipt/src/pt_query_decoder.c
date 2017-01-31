@@ -37,6 +37,7 @@
 
 #include <string.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 
 /* Find a FUP in a PSB+ header.

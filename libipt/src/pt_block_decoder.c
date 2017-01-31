@@ -38,6 +38,7 @@
 #include "intel-pt.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 
 static int pt_blk_proceed_no_event(struct pt_block_decoder *,

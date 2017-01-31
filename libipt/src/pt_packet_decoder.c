@@ -33,6 +33,7 @@
 #include "pt_config.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 
 int pt_pkt_decoder_init(struct pt_packet_decoder *decoder,

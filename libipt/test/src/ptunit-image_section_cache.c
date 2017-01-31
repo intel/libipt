@@ -32,6 +32,8 @@
 
 #include "intel-pt.h"
 
+#include <stdlib.h>
+
 
 struct pt_section {
 	/* The filename.  We only support string literals for testing. */

@@ -30,6 +30,7 @@
 #include "pt_config.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 
 int pt_encoder_init(struct pt_encoder *encoder, const struct pt_config *config)
