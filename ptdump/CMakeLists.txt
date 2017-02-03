@@ -48,4 +48,4 @@ add_executable(ptdump
   ${PTDUMP_FILES}
 )
 
-target_link_libraries(ptdump libipt)
+target_link_libraries(ptdump ipt)
