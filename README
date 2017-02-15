@@ -60,7 +60,7 @@ We use cmake for building.
 Other packages you need for some of the above optional components.
 
   xed           The Intel x86 instruction encoder and decoder.
-                http://www.intel.com/software/xed
+                https://github.com/intelxed/xed
 
                 This is needed to build and run ptxed.
 
