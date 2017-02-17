@@ -50,7 +50,7 @@ struct bcache_fixture {
 
 enum {
 	/* The number of entries in fixture-provided caches. */
-	bfix_nentries = 0x100000,
+	bfix_nentries = 0x10000,
 
 #if defined(FEATURE_THREADS)
 
