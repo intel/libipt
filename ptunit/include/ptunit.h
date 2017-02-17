@@ -356,14 +356,15 @@ extern void ptunit_report(const struct ptunit_suite *);
 		if ((F)->init)					\
 			*pr = (F)->init(F);			\
 								\
-		if (pr->type == ptur_passed)			\
+		if (pr->type == ptur_passed) {			\
 			*pr = (T)(__VA_ARGS__);			\
 								\
-		if ((F)->fini) {				\
-			if (pr->type == ptur_passed)		\
-				*pr = (F)->fini(F);		\
-			else					\
-				(void) (F)->fini(F);		\
+			if ((F)->fini) {			\
+				if (pr->type == ptur_passed)	\
+					*pr = (F)->fini(F);	\
+				else				\
+					(void) (F)->fini(F);	\
+			}					\
 		}						\
 	} while (0)
 
