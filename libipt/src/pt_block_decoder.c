@@ -631,49 +631,6 @@ static int pt_blk_apply_enabled(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process an enabled event.
- *
- * Determines whether the enabled event can be processed in this iteration or
- * has to be postponed.
- *
- * Returns a positive integer if the event has been processed.
- * Returns zero if the event shall be postponed.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
-				  struct pt_block *block,
-				  const struct pt_event *ev)
-{
-	int status;
-
-	if (!decoder || !block || !ev)
-		return -pte_internal;
-
-	/* Delay processing of the event if the block is alredy in progress. */
-	if (!pt_blk_block_is_empty(block))
-		return 0;
-
-	status = pt_blk_apply_enabled(decoder, ev);
-	if (status < 0)
-		return status;
-
-	/* Clear an indication of a preceding disable. */
-	block->disabled = 0;
-	block->ip = decoder->ip;
-
-	/* Check if we resumed from a preceding disable or if we enabled at a
-	 * different position.
-	 */
-	if (ev->variant.enabled.ip == block->ip && !block->enabled)
-		block->resumed = 1;
-	else {
-		block->enabled = 1;
-		block->resumed = 0;
-	}
-
-	return 1;
-}
-
 /* Apply a disabled event.
  *
  * This is used for proceed events and for trailing events.
@@ -1733,11 +1690,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		ev = &decoder->event;
 		switch (ev->type) {
 		case ptev_enabled:
-			status = pt_blk_process_enabled(decoder, block, ev);
-			if (status <= 0)
-				return status;
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_disabled:
 			status = pt_blk_proceed_to_disabled(decoder, block,
@@ -3087,23 +3040,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_enabled:
-			/* Forward the event to the user if we have further
-			 * events pending.
-			 *
-			 * We would really like to read ahead to see if we have
-			 * a user-relevant event on the same IP.  But that would
-			 * need more infrastructure like queueing events or
-			 * instantiating another decoder to read ahed.
-			 *
-			 * Users are expected to cope with events so they
-			 * shouldn't mind a not strictly necessary enabled
-			 * event instead of the usual insn flag.
-			 */
-			if (decoder->status & pts_event_pending)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_disabled:
 			if (decoder->ip != ev->variant.async_disabled.at)
@@ -3400,9 +3337,6 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		/* Indicate that tracing resumes from the IP at which tracing
 		 * had been disabled before (with some special treatment for
 		 * calls).
-		 *
-		 * This duplicates what we're doing for an instruction's
-		 * enabled/resumed indication.
 		 */
 		if (ev->variant.enabled.ip == decoder->ip)
 			ev->variant.enabled.resumed = 1;
