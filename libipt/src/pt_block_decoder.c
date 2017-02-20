@@ -47,6 +47,33 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *,
 					  struct pt_block *);
 
 
+static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = decoder->status;
+
+	/* Indicate whether tracing is disabled or enabled.
+	 *
+	 * This duplicates the indication in struct pt_insn and covers the case
+	 * where we indicate the status after synchronizing.
+	 */
+	if (!decoder->enabled)
+		flags |= pts_ip_suppressed;
+
+	/* Forward end-of-trace indications.
+	 *
+	 * Postpone it as long as we're still processing events, though.
+	 */
+	if ((status & pts_eos) && !decoder->process_event)
+		flags |= pts_eos;
+
+	return flags;
+}
+
 /* Release a cached section.
  *
  * If @scache does not contain a section, this does noting.
@@ -2865,33 +2892,6 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 	}
 
 	return pt_blk_proceed_no_event(decoder, block);
-}
-
-static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
-{
-	int status;
-
-	if (!decoder)
-		return -pte_internal;
-
-	status = decoder->status;
-
-	/* Indicate whether tracing is disabled or enabled.
-	 *
-	 * This duplicates the indication in struct pt_insn and covers the case
-	 * where we indicate the status after synchronizing.
-	 */
-	if (!decoder->enabled)
-		flags |= pts_ip_suppressed;
-
-	/* Forward end-of-trace indications.
-	 *
-	 * Postpone it as long as we're still processing events, though.
-	 */
-	if ((status & pts_eos) && !decoder->process_event)
-		flags |= pts_eos;
-
-	return flags;
 }
 
 enum {
