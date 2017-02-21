@@ -841,6 +841,25 @@ static void print_event(const struct pt_event *event,
 		return;
 	}
 
+	/* We traditionally don't print all notifications. */
+	switch (event->type) {
+	default:
+		break;
+
+	case ptev_tsx:
+		if (event->variant.tsx.speculative)
+			return;
+
+		break;
+
+	case ptev_exec_mode:
+	case ptev_paging:
+	case ptev_async_paging:
+	case ptev_vmcs:
+	case ptev_async_vmcs:
+		return;
+	}
+
 	printf("[");
 
 	if (options->print_offset)
