@@ -849,59 +849,6 @@ static int pt_blk_apply_tsx(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process a tsx event.
- *
- * We reached the location of a tsx event.  A speculation mode change ends a
- * non-empty block.  Indicate commit or abort in the ended block.
- *
- * We might see tsx event while tracing is disabled or for empty blocks, e.g. if
- * tracing was just enabled.  In this case we do not indicate the abort or
- * commit.
- *
- * Returns a positive integer if we shall continue processing events.
- * Returns zero if the event ends the block.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
-			      struct pt_block *block,
-			      const struct pt_event *ev)
-{
-	int errcode;
-
-	if (!decoder || !block)
-		return -pte_internal;
-
-	errcode = pt_blk_apply_tsx(decoder, ev);
-	if (errcode < 0)
-		return errcode;
-
-	/* We may still change the speculation mode of an empty block.
-	 *
-	 * Do not indicate an abort or commit in this case.  It occured before
-	 * this block.
-	 */
-	if (pt_blk_block_is_empty(block)) {
-		block->speculative = decoder->speculative;
-		return 1;
-	}
-
-	/* The block is not empty so tracing must be enabled.
-	 *
-	 * A tracing disabled event would have ended the block.  And if tracing
-	 * were already disabled, the block would still be empty.
-	 */
-	if (!decoder->enabled)
-		return -pte_internal;
-
-	/* Indicate an abort or commit and end the block. */
-	if (ev->variant.tsx.aborted)
-		block->aborted = 1;
-	else if (block->speculative && !ev->variant.tsx.speculative)
-		block->committed = 1;
-
-	return 0;
-}
-
 /* Apply a stop event.
  *
  * This is used for proceed events and for trailing events.
@@ -1771,16 +1718,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 					return status;
 			}
 
-			status = pt_blk_process_tsx(decoder, block, ev);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_stop:
 			status = pt_blk_apply_stop(decoder, ev);
@@ -2971,40 +2909,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 				break;
 			}
 
-			/* Turn the block flag indication into a user event if
-			 * we encounter this event in the user event flow or
-			 * while tracing is disabled.
-			 *
-			 * We do not indicate TSX events that are marked as
-			 * status updates.
-			 */
-			if (!ev->status_update && (!block || !decoder->enabled))
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_apply_tsx(decoder, ev);
-			if (status < 0)
-				return status;
-
-			/* Indicate an abort or commit unless tracing is
-			 * disabled or we don't have a block.
-			 *
-			 * This event is typically processed in the proceed
-			 * event flow, not in the trailing event flow.  We
-			 * process it here, as well, to handle cases where we
-			 * have ended the block due to reaching the maximum
-			 * number of instructions or due to some internal reason
-			 * right at the location of a transaction end.
-			 */
-			if (block && decoder->enabled) {
-				if (ev->variant.tsx.aborted)
-					block->aborted = 1;
-				else if (block->speculative &&
-					 !ev->variant.tsx.speculative)
-					block->committed = 1;
-			}
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_stop:
 			/* Turn the block flag indication into a user event if
