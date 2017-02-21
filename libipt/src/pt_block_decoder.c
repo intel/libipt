@@ -661,40 +661,6 @@ static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process a disabled event.
- *
- * We reached the location of a disabled event.  This ends a non-empty block.
- *
- * We may see disabled events for empty blocks when we have a series of enables
- * and disabled on the same IP without any trace in between.  We ignore the
- * disabled event in this case and proceed.
- *
- * Returns a positive integer if we shall continue processing events.
- * Returns zero if the event ends the block.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
-				   struct pt_block *block,
-				   const struct pt_event *ev)
-{
-	int errcode;
-
-	if (!block)
-		return -pte_internal;
-
-	errcode = pt_blk_apply_disabled(decoder, ev);
-	if (errcode < 0)
-		return errcode;
-
-	/* Discard the disable if the block is empty. */
-	if (pt_blk_block_is_empty(block))
-		return 1;
-
-	/* Indicate the disable and end the block. */
-	block->disabled = 1;
-	return 0;
-}
-
 /* Apply an asynchronous branch event.
  *
  * This is used for proceed events and for trailing events.
@@ -1726,16 +1692,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				}
 			}
 
-			status = pt_blk_process_disabled(decoder, block, ev);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_disabled:
 			ip = ev->variant.async_disabled.at;
@@ -1759,16 +1716,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				}
 			}
 
-			status = pt_blk_process_disabled(decoder, block, ev);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_branch:
 			ip = ev->variant.async_branch.from;
@@ -3037,6 +2985,12 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 		ev = &decoder->event;
 		switch (ev->type) {
 		case ptev_disabled:
+			/* Synchronous disable events are indicated on the event
+			 * flow.  We can't simply run into them after updating
+			 * the IP when proceeding with trace.
+			 *
+			 * Leave it to be handled in pt_blk_next().
+			 */
 			break;
 
 		case ptev_enabled:
@@ -3057,20 +3011,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 				}
 			}
 
-			/* Turn the block flag indication into a user event if
-			 * we encounter this event in the user event flow.
-			 */
-			if (!block)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_apply_disabled(decoder, ev);
-			if (status < 0)
-				return status;
-
-			block->disabled = 1;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_branch:
 			if (decoder->ip != ev->variant.async_branch.from)
@@ -3350,6 +3291,9 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	case ptev_async_disabled:
 		if (decoder->ip != ev->variant.async_disabled.at)
 			return -pte_bad_query;
+
+		/* Fall through. */
+	case ptev_disabled:
 
 		status = pt_blk_apply_disabled(decoder, ev);
 		if (status < 0)
