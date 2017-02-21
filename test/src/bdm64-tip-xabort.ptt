@@ -91,7 +91,7 @@ l7:     hlt
 
 ; @pt .exp(ptxed)
 ;? %0l1 # jmp [rax]
-;[interrupt]
 ;[aborted]
+;[interrupt]
 ;%0l5 # nop
 ;[disabled]

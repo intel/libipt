@@ -55,8 +55,8 @@ l7:     hlt
 ; @pt .exp(ptxed)
 ;%0l1 # nop
 ;? %0l2 # nop
-;[interrupt]
 ;[aborted]
+;[interrupt]
 ;%0l5 # nop
 ;[disabled]
 

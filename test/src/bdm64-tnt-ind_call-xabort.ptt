@@ -101,7 +101,7 @@ l9:     hlt
 ; @pt .exp(ptxed)
 ;? %0l1 # test [rax], rbx
 ;? %0l2 # je l5
-;[interrupt]
 ;[aborted]
+;[interrupt]
 ;%0l7 # nop
 ;[disabled]

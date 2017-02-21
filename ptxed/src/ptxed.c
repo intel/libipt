@@ -798,11 +798,11 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 
 	printf("\n");
 
-	if (insn->interrupted)
-		printf("[interrupt]\n");
-
 	if (insn->aborted)
 		printf("[aborted]\n");
+
+	if (insn->interrupted)
+		printf("[interrupt]\n");
 
 	if (insn->committed)
 		printf("[committed]\n");
@@ -1413,11 +1413,11 @@ static void print_block(const struct pt_block *block,
 		diagnose_block_at("reconstruct error", -pte_nosync, decoder,
 				  ip);
 
-	if (block->interrupted)
-		printf("[interrupt]\n");
-
 	if (block->aborted)
 		printf("[aborted]\n");
+
+	if (block->interrupted)
+		printf("[interrupt]\n");
 
 	if (block->committed)
 		printf("[committed]\n");
