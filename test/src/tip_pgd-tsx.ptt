@@ -71,6 +71,7 @@ l6:     hlt
 ;[enabled]
 ;? %0l1 # nop
 ;[disabled]
+;[aborted]
 ;[enabled]
 ;%0l4 # nop
 ;[disabled]

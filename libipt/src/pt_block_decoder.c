@@ -3179,14 +3179,13 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			}
 
 			/* Turn the block flag indication into a user event if
-			 * we encounter this event in the user event flow.
+			 * we encounter this event in the user event flow or
+			 * while tracing is disabled.
 			 *
 			 * We do not indicate TSX events that are marked as
-			 * status updates or while tracing is disabled.  There
-			 * can be a real lot of them and it seems kind of
-			 * pointless to tell the user about them.
+			 * status updates.
 			 */
-			if (!block && !ev->status_update && decoder->enabled)
+			if (!ev->status_update && (!block || !decoder->enabled))
 				return pt_blk_status(decoder,
 						     pts_event_pending);
 
@@ -3415,7 +3414,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_tsx:
-		if (decoder->ip != ev->variant.tsx.ip)
+		if (!ev->ip_suppressed && decoder->ip != ev->variant.tsx.ip)
 			return -pte_bad_query;
 
 		status = pt_blk_apply_tsx(decoder, ev);

@@ -1260,14 +1260,13 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			}
 
 			/* Turn the insn flag indication into a user event if
-			 * we encounter this event in the user event flow.
+			 * we encounter this event in the user event flow or
+			 * while tracing is disabled.
 			 *
 			 * We do not indicate TSX events that are marked as
-			 * status updates or while tracing is disabled.  There
-			 * can be a real lot of them and it seems kind of
-			 * pointless to tell the user about them.
+			 * status updates.
 			 */
-			if (!insn && !ev->status_update && decoder->enabled)
+			if (!ev->status_update && (!insn || !decoder->enabled))
 				return pt_insn_status(decoder,
 						      pts_event_pending);
 
@@ -1788,7 +1787,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_tsx:
-		if (decoder->ip != ev->variant.tsx.ip)
+		if (!ev->ip_suppressed && decoder->ip != ev->variant.tsx.ip)
 			return -pte_bad_query;
 
 		status = process_tsx_event(decoder, NULL);
