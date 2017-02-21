@@ -690,46 +690,6 @@ static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process an asynchronous branch event.
- *
- * We reached the source location of an asynchronous branch.  This ends a
- * non-empty block.
- *
- * We may come across an asynchronous branch for an empty block, e.g. when
- * tracing just started.  We ignore the event in that case and proceed.  It will
- * look like tracing started at the asynchronous branch destination instead of
- * at its source.
- *
- * Returns a positive integer if we shall continue processing events.
- * Returns zero if the event ends the block.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
-				       struct pt_block *block,
-				       const struct pt_event *ev)
-{
-	int errcode;
-
-	if (!block)
-		return -pte_internal;
-
-	errcode = pt_blk_apply_async_branch(decoder, ev);
-	if (errcode < 0)
-		return errcode;
-
-	/* We may still change the start IP for an empty block.  Do not indicate
-	 * the interrupt in this case.
-	 */
-	if (pt_blk_block_is_empty(block)) {
-		block->ip = decoder->ip;
-		return 1;
-	}
-
-	/* Indicate the interrupt and end the block. */
-	block->interrupted = 1;
-	return 0;
-}
-
 /* Apply a paging event.
  *
  * This is used for proceed events and for trailing events.
@@ -1726,17 +1686,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_process_async_branch(decoder, block,
-							     ev);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_paging:
 			if (!decoder->enabled) {
@@ -3017,21 +2967,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (decoder->ip != ev->variant.async_branch.from)
 				break;
 
-			/* Turn the block flag indication into a user event if
-			 * we encounter this event in the user event flow or if
-			 * we already indicated a previous async branch.
-			 */
-			if (!block || block->interrupted)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_apply_async_branch(decoder, ev);
-			if (status < 0)
-				return status;
-
-			block->interrupted = 1;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_paging:
 			if (decoder->enabled)
