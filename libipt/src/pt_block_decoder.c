@@ -773,61 +773,6 @@ static int pt_blk_apply_overflow(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process an overflow event.
- *
- * An overflow ends a non-empty block.  The overflow itself is indicated in the
- * next block.  Indicate the overflow and resume in this case.
- *
- * Returns a positive integer if the event has been processed.
- * Returns zero if the event shall be postponed.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
-				   struct pt_block *block,
-				   const struct pt_event *ev)
-{
-	int status;
-
-	if (!block || !ev)
-		return -pte_internal;
-
-	/* The overflow ends a non-empty block.  We will process the event in
-	 * the next iteration.
-	 */
-	if (!pt_blk_block_is_empty(block))
-		return 0;
-
-	status = pt_blk_apply_overflow(decoder, ev);
-	if (status < 0)
-		return status;
-
-	/* If the IP is suppressed, the overflow resolved while tracing was
-	 * disabled.  Otherwise it resolved while tracing was enabled.
-	 */
-	if (ev->ip_suppressed) {
-		/* Indicate the overflow.  Since tracing is disabled, the block
-		 * will remain empty until tracing gets re-enabled again.
-		 *
-		 * When the block is eventually returned it will have the resync
-		 * and the enabled bit set to indicate the the overflow resolved
-		 * before tracing was enabled.
-		 */
-		block->resynced = 1;
-	} else {
-
-		/* Indicate the overflow and set the start IP.  The block is
-		 * empty so we may still change it.
-		 *
-		 * We do not indicate a tracing enable if tracing had been
-		 * disabled before to distinguish this from the above case.
-		 */
-		block->resynced = 1;
-		block->ip = ev->variant.overflow.ip;
-	}
-
-	return 1;
-}
-
 /* Apply an exec mode event.
  *
  * This is used for proceed events and for trailing events.
@@ -1797,16 +1742,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_overflow:
-			status = pt_blk_process_overflow(decoder, block, ev);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_exec_mode:
 			status = pt_blk_proceed_to_exec_mode(decoder, block,
@@ -3012,21 +2948,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			continue;
 
 		case ptev_overflow:
-			if (!ev->ip_suppressed)
-				break;
-
-			/* Turn the block flag indication into a user event if
-			 * we encounter this event in the user event flow.
-			 */
-			if (!block)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_apply_overflow(decoder, ev);
-			if (status < 0)
-				return status;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_exec_mode:
 			if (!ev->ip_suppressed &&
@@ -3248,9 +3170,6 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_overflow:
-		if (!ev->ip_suppressed)
-			return -pte_bad_query;
-
 		status = pt_blk_apply_overflow(decoder, ev);
 		if (status < 0)
 			return status;
