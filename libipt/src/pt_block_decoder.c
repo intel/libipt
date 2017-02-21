@@ -1705,7 +1705,14 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
  * to the next block, e.g. if we overflow the number of instructions in the
  * block or if we need trace in order to reach the event location.
  *
- * Returns zero on success, a negative error code otherwise.
+ * If we're not able to reach the event location, we return zero.  This is what
+ * pt_blk_status() would return since:
+ *
+ *   - we suppress pts_eos as long as we're processing events
+ *   - we do not set pts_ip_suppressed since tracing must be enabled
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
  */
 static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				struct pt_block *block)
@@ -1767,8 +1774,13 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			}
 
 			status = pt_blk_process_disabled(decoder, block, ev);
-			if (status <= 0)
-				return status;
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
+			}
 
 			break;
 
@@ -1795,8 +1807,13 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			}
 
 			status = pt_blk_process_disabled(decoder, block, ev);
-			if (status <= 0)
-				return status;
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
+			}
 
 			break;
 
@@ -1810,8 +1827,13 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 			status = pt_blk_process_async_branch(decoder, block,
 							     ev);
-			if (status <= 0)
-				return status;
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
+			}
 
 			break;
 
@@ -1845,8 +1867,14 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				if (status != -pte_bad_query)
 					return status;
 
-				return pt_blk_proceed_with_trace(decoder, &insn,
-								 &iext);
+				status = pt_blk_proceed_with_trace(decoder,
+								   &insn,
+								   &iext);
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
 			}
 
 			break;
@@ -1893,8 +1921,14 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				if (status != -pte_bad_query)
 					return status;
 
-				return pt_blk_proceed_with_trace(decoder, &insn,
-								 &iext);
+				status = pt_blk_proceed_with_trace(decoder,
+								   &insn,
+								   &iext);
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
 			}
 
 			break;
@@ -1913,8 +1947,13 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 		case ptev_overflow:
 			status = pt_blk_process_overflow(decoder, block, ev);
-			if (status <= 0)
-				return status;
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
+			}
 
 			break;
 
@@ -1925,8 +1964,13 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				return status;
 
 			status = pt_blk_process_exec_mode(decoder, block, ev);
-			if (status <= 0)
-				return status;
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
+			}
 
 			break;
 
@@ -1941,8 +1985,13 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			}
 
 			status = pt_blk_process_tsx(decoder, block, ev);
-			if (status <= 0)
-				return status;
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				return pt_blk_process_trailing_events(decoder,
+								      block);
+			}
 
 			break;
 
@@ -1964,7 +2013,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 					return status;
 			}
 
-			return 0;
+			return pt_blk_process_trailing_events(decoder, block);
 
 		case ptev_mwait:
 			if (!ev->ip_suppressed && decoder->enabled) {
@@ -1976,11 +2025,11 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 					return status;
 			}
 
-			return 0;
+			return pt_blk_process_trailing_events(decoder, block);
 
 		case ptev_pwre:
 		case ptev_pwrx:
-			return 0;
+			return pt_blk_process_trailing_events(decoder, block);
 
 		case ptev_ptwrite:
 			status = pt_blk_proceed_to_ptwrite(decoder, block, ev);
@@ -1992,7 +2041,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			 */
 			decoder->pending_ptwrite = 1;
 
-			return 0;
+			return pt_blk_process_trailing_events(decoder, block);
 		}
 
 		/* We should have processed the event.  If we have not, we might
@@ -2847,11 +2896,14 @@ out_put:
  * We don't have an event pending.  Ensure that tracing is enabled and proceed
  * as far as we get.  Try using the cache, if possible.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
  */
 static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 				   struct pt_block *block)
 {
+	int errcode;
+
 	/* The end of the trace ends a non-empty block.
 	 *
 	 * If we're called again, we will proceed until we really need trace.
@@ -2859,7 +2911,7 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 	 */
 	if (decoder->status & pts_eos) {
 		if (!pt_blk_block_is_empty(block))
-			return 0;
+			return pt_blk_process_trailing_events(decoder, block);
 
 		if (!decoder->enabled)
 			return -pte_eos;
@@ -2871,12 +2923,17 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 	if (!decoder->enabled)
 		return -pte_no_enable;
 
-	return pt_blk_proceed_no_event_trycache(decoder, block);
+	errcode = pt_blk_proceed_no_event_trycache(decoder, block);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_blk_process_trailing_events(decoder, block);
 }
 
 /* Proceed to the next event or decision point.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
  */
 static int pt_blk_proceed(struct pt_block_decoder *decoder,
 			  struct pt_block *block)
@@ -3279,50 +3336,6 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 	return pt_blk_status(decoder, 0);
 }
 
-/* Collect one block.
- *
- * Fill a new, empty block.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_collect(struct pt_block_decoder *decoder,
-			  struct pt_block *block)
-{
-	int errcode;
-
-	if (!decoder || !block)
-		return -pte_internal;
-
-	/* Zero-initialize the block in case of error returns. */
-	memset(block, 0, sizeof(*block));
-
-	/* Fill in a few things from the current decode state.
-	 *
-	 * This reflects the state of the last pt_blk_next() or pt_blk_start()
-	 * call.  Note that, unless we stop with tracing disabled, we proceed
-	 * already to the start IP of the next block.
-	 *
-	 * Some of the state may later be overwritten as we process events.
-	 */
-	block->ip = decoder->ip;
-	block->mode = decoder->mode;
-	if (decoder->speculative)
-		block->speculative = 1;
-
-	/* Proceed one block. */
-	errcode = pt_blk_proceed(decoder, block);
-	if (errcode < 0)
-		return errcode;
-
-	/* We may still have events left that trigger on the current IP.
-	 *
-	 * This IP lies outside of @block but events typically bind to the IP of
-	 * the last instruction that did not retire.
-	 */
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 int pt_blk_next(struct pt_block_decoder *decoder, struct pt_block *ublock,
 		size_t size)
 {
@@ -3334,7 +3347,24 @@ int pt_blk_next(struct pt_block_decoder *decoder, struct pt_block *ublock,
 
 	pblock = size == sizeof(block) ? ublock : &block;
 
-	status = pt_blk_collect(decoder, pblock);
+	/* Zero-initialize the block in case of error returns. */
+	memset(pblock, 0, sizeof(*pblock));
+
+	/* Fill in a few things from the current decode state.
+	 *
+	 * This reflects the state of the last pt_blk_next() or pt_blk_start()
+	 * call.  Note that, unless we stop with tracing disabled, we proceed
+	 * already to the start IP of the next block.
+	 *
+	 * Some of the state may later be overwritten as we process events.
+	 */
+	pblock->ip = decoder->ip;
+	pblock->mode = decoder->mode;
+	if (decoder->speculative)
+		pblock->speculative = 1;
+
+	/* Proceed one block. */
+	status = pt_blk_proceed(decoder, pblock);
 
 	errcode = block_to_user(ublock, size, pblock);
 	if (errcode < 0)
