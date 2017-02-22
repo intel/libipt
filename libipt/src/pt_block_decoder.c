@@ -2398,8 +2398,8 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_proceed_no_event_trycache(struct pt_block_decoder *decoder,
-					    struct pt_block *block)
+static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
+				   struct pt_block *block)
 {
 	struct pt_block_cache *bcache;
 	struct pt_section *section;
@@ -2465,26 +2465,6 @@ out_put:
 	return errcode;
 }
 
-/* Proceed to the next decision point.
- *
- * We don't have an event pending.  Proceed as far as we get.  Try using the
- * cache, if possible.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
- */
-static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
-				   struct pt_block *block)
-{
-	int errcode;
-
-	errcode = pt_blk_proceed_no_event_trycache(decoder, block);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_blk_process_trailing_events(decoder, block);
-}
-
 /* Proceed to the next event or decision point.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
@@ -2493,12 +2473,12 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 static int pt_blk_proceed(struct pt_block_decoder *decoder,
 			  struct pt_block *block)
 {
-	int event_pending;
+	int status;
 
-	event_pending = pt_blk_fetch_event(decoder);
-	if (event_pending != 0) {
-		if (event_pending < 0)
-			return event_pending;
+	status = pt_blk_fetch_event(decoder);
+	if (status != 0) {
+		if (status < 0)
+			return status;
 
 		return pt_blk_proceed_event(decoder, block);
 	}
@@ -2513,7 +2493,11 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 		return -pte_no_enable;
 	}
 
-	return pt_blk_proceed_no_event(decoder, block);
+	status = pt_blk_proceed_no_event(decoder, block);
+	if (status < 0)
+		return status;
+
+	return pt_blk_process_trailing_events(decoder, block);
 }
 
 enum {
