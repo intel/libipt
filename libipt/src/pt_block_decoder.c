@@ -41,8 +41,8 @@
 #include <stdlib.h>
 
 
-static int pt_blk_process_trailing_events(struct pt_block_decoder *,
-					  struct pt_block *);
+static int pt_blk_proceed_trailing_event(struct pt_block_decoder *,
+					 struct pt_block *);
 
 
 static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
@@ -281,17 +281,7 @@ static int pt_blk_start(struct pt_block_decoder *decoder, int status)
 	if (!(status & pts_ip_suppressed))
 		decoder->enabled = 1;
 
-	/* Process any initial 'trailing' events.
-	 *
-	 * Some events make sense at the end of a block and will be ignored in
-	 * pt_blk_proceed_event() when encountered at an empty block,
-	 * e.g. async-branch or tsx.  We might as well discard them here.
-	 *
-	 * This will also indicate any events that shall be forwarded to the
-	 * user by setting the pts_event_pending bit in the returned status
-	 * bit-vector.
-	 */
-	return pt_blk_process_trailing_events(decoder, NULL);
+	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
 
 static int pt_blk_sync_reset(struct pt_block_decoder *decoder)
@@ -2497,7 +2487,7 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 	if (status < 0)
 		return status;
 
-	return pt_blk_process_trailing_events(decoder, block);
+	return pt_blk_proceed_trailing_event(decoder, block);
 }
 
 enum {
@@ -2603,7 +2593,7 @@ static inline int pt_blk_postpone_trailing_tsx(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process events that bind to the current decoder IP.
+/* Proceed with events that bind to the current decoder IP.
  *
  * This function is used in the following scenarios:
  *
@@ -2617,8 +2607,8 @@ static inline int pt_blk_postpone_trailing_tsx(struct pt_block_decoder *decoder,
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
  */
-static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
-					  struct pt_block *block)
+static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
+					 struct pt_block *block)
 {
 	struct pt_event *ev;
 	int status;
@@ -2948,5 +2938,5 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	memcpy(uevent, ev, size);
 
 	/* Indicate further events. */
-	return pt_blk_process_trailing_events(decoder, NULL);
+	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
