@@ -2467,8 +2467,8 @@ out_put:
 
 /* Proceed to the next decision point.
  *
- * We don't have an event pending.  Ensure that tracing is enabled and proceed
- * as far as we get.  Try using the cache, if possible.
+ * We don't have an event pending.  Proceed as far as we get.  Try using the
+ * cache, if possible.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
@@ -2477,25 +2477,6 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 				   struct pt_block *block)
 {
 	int errcode;
-
-	/* The end of the trace ends a non-empty block.
-	 *
-	 * If we're called again, we will proceed until we really need trace.
-	 * For example, if tracing is currently disabled.
-	 */
-	if (decoder->status & pts_eos) {
-		if (!pt_blk_block_is_empty(block))
-			return pt_blk_process_trailing_events(decoder, block);
-
-		if (!decoder->enabled)
-			return -pte_eos;
-	}
-
-	/* If tracing is disabled and we have still trace left but no event,
-	 * something is wrong.
-	 */
-	if (!decoder->enabled)
-		return -pte_no_enable;
 
 	errcode = pt_blk_proceed_no_event_trycache(decoder, block);
 	if (errcode < 0)
@@ -2520,6 +2501,16 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 			return event_pending;
 
 		return pt_blk_proceed_event(decoder, block);
+	}
+
+	/* If tracing is disabled we should either be out of trace or we should
+	 * have taken the event flow above.
+	 */
+	if (!decoder->enabled) {
+		if (decoder->status & pts_eos)
+			return -pte_eos;
+
+		return -pte_no_enable;
 	}
 
 	return pt_blk_proceed_no_event(decoder, block);
