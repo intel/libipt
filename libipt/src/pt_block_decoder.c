@@ -799,38 +799,6 @@ static int pt_blk_apply_exec_mode(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Process an exec mode event.
- *
- * We reached the location of an exec mode event.  Update the exec mode and
- * proceed.
- *
- * Returns a positive integer if the event has been processed.
- * Returns zero if the event shall be postponed.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
-				    struct pt_block *block,
-				    const struct pt_event *ev)
-{
-	int errcode;
-
-	if (!decoder || !block)
-		return -pte_internal;
-
-	errcode = pt_blk_apply_exec_mode(decoder, ev);
-	if (errcode < 0)
-		return errcode;
-
-	/* An execution mode change ends a non-empty block. */
-	if (!pt_blk_block_is_empty(block))
-		return 0;
-
-	/* We may still change the execution mode of an empty block. */
-	block->mode = decoder->mode;
-
-	return 1;
-}
-
 /* Apply a tsx event.
  *
  * This is used for proceed events and for trailing events.
@@ -1337,15 +1305,22 @@ static int pt_blk_proceed_to_exec_mode(struct pt_block_decoder *decoder,
 				       struct pt_block *block,
 				       const struct pt_event *ev)
 {
-	if (!ev)
+	int status;
+
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* Apply the event immediately if we don't have an IP. */
 	if (ev->ip_suppressed)
 		return 1;
 
-	return pt_blk_proceed_to_ip_with_trace(decoder, block,
-					       ev->variant.exec_mode.ip);
+	status = pt_blk_proceed_to_ip_with_trace(decoder, block,
+						 ev->variant.exec_mode.ip);
+	if (status < 0)
+		return status;
+
+	/* We may have reached the IP. */
+	return (decoder->ip == ev->variant.exec_mode.ip ? 1 : 0);
 }
 
 /* Proceed to the event location for a ptwrite event.
@@ -1675,16 +1650,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_process_exec_mode(decoder, block, ev);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
-			}
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_tsx:
 			if (!ev->ip_suppressed) {
@@ -2855,11 +2821,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			    decoder->ip != ev->variant.exec_mode.ip)
 				break;
 
-			status = pt_blk_apply_exec_mode(decoder, ev);
-			if (status < 0)
-				return status;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_tsx:
 			status = pt_blk_postpone_trailing_tsx(decoder, block,
@@ -3064,6 +3026,17 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 	case ptev_overflow:
 		status = pt_blk_apply_overflow(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_exec_mode:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.exec_mode.ip)
+			return -pte_bad_query;
+
+		status = pt_blk_apply_exec_mode(decoder, ev);
 		if (status < 0)
 			return status;
 
