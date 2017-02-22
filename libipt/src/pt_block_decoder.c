@@ -1665,12 +1665,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_stop:
-			status = pt_blk_apply_stop(decoder, ev);
-			if (status < 0)
-				return status;
-
-			block->stopped = 1;
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_exstop:
 			if (!ev->ip_suppressed && decoder->enabled) {
@@ -2836,20 +2831,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_stop:
-			/* Turn the block flag indication into a user event if
-			 * we encounter this event in the user event flow.
-			 */
-			if (!block)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_apply_stop(decoder, ev);
-			if (status < 0)
-				return status;
-
-			block->stopped = 1;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_exstop:
 			if (!ev->ip_suppressed && decoder->enabled &&
