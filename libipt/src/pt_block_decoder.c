@@ -178,7 +178,6 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
-	decoder->pending_ptwrite = 0;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -837,30 +836,6 @@ static int pt_blk_apply_stop(struct pt_block_decoder *decoder,
 	if (decoder->enabled)
 		return -pte_bad_context;
 
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Apply a ptwrite event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_apply_ptwrite(struct pt_block_decoder *decoder,
-				const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
-
-	/* The event must be pending. */
-	if (!decoder->pending_ptwrite)
-		return -pte_internal;
-
-	decoder->pending_ptwrite = 0;
 	decoder->process_event = 0;
 
 	return 0;
@@ -1700,12 +1675,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			/* We pend the event to be delivered to the user when
-			 * processing trailing events later on.
-			 */
-			decoder->pending_ptwrite = 1;
-
-			return pt_blk_process_trailing_events(decoder, block);
+			return pt_blk_status(decoder, pts_event_pending);
 		}
 
 		/* We should have processed the event.  If we have not, we might
@@ -2853,12 +2823,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 
 		case ptev_ptwrite:
 			/* The event is reported after the corresponding PTWRITE
-			 * instruction.
-			 *
-			 * We set @decoder->pending_ptwrite when we proceed past
-			 * that instruction in pt_blk_proceed_event() and clear
-			 * it again in pt_blk_apply_ptwrite() when we actually
-			 * process the event.
+			 * instruction and indicated in pt_blk_proceed_event().
 			 *
 			 * Any subsequent ptwrite event binds to a different
 			 * instruction and must wait until the next iteration -
@@ -2867,10 +2832,7 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			 * When tracing is disabled, we forward all ptwrite
 			 * events immediately to the user.
 			 */
-			if (!decoder->enabled)
-				decoder->pending_ptwrite = 1;
-
-			if (!decoder->pending_ptwrite)
+			if (decoder->enabled)
 				break;
 
 			return pt_blk_status(decoder, pts_event_pending);
@@ -3059,17 +3021,8 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 	case ptev_pwre:
 	case ptev_pwrx:
-		decoder->process_event = 0;
-		break;
-
 	case ptev_ptwrite:
-		if (!decoder->pending_ptwrite)
-			return -pte_bad_query;
-
-		status = pt_blk_apply_ptwrite(decoder, ev);
-		if (status < 0)
-			return status;
-
+		decoder->process_event = 0;
 		break;
 	}
 
