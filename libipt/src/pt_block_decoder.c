@@ -1273,15 +1273,22 @@ static int pt_blk_proceed_to_async_paging(struct pt_block_decoder *decoder,
 					  struct pt_block *block,
 					  const struct pt_event *ev)
 {
-	if (!ev)
+	int status;
+
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* Apply the event immediately if we don't have an IP. */
 	if (ev->ip_suppressed)
 		return 1;
 
-	return pt_blk_proceed_to_ip_with_trace(decoder, block,
-					       ev->variant.async_paging.ip);
+	status = pt_blk_proceed_to_ip_with_trace(decoder, block,
+						 ev->variant.async_paging.ip);
+	if (status < 0)
+		return status;
+
+	/* We may have reached the IP. */
+	return (decoder->ip == ev->variant.async_paging.ip ? 1 : 0);
 }
 
 /* Proceed to the event location for an async vmcs event.
@@ -1298,15 +1305,22 @@ static int pt_blk_proceed_to_async_vmcs(struct pt_block_decoder *decoder,
 					struct pt_block *block,
 					const struct pt_event *ev)
 {
-	if (!ev)
+	int status;
+
+	if (!decoder || !ev)
 		return -pte_internal;
 
 	/* Apply the event immediately if we don't have an IP. */
 	if (ev->ip_suppressed)
 		return 1;
 
-	return pt_blk_proceed_to_ip_with_trace(decoder, block,
-					       ev->variant.async_vmcs.ip);
+	status = pt_blk_proceed_to_ip_with_trace(decoder, block,
+						 ev->variant.async_vmcs.ip);
+	if (status < 0)
+		return status;
+
+	/* We may have reached the IP. */
+	return (decoder->ip == ev->variant.async_vmcs.ip ? 1 : 0);
 }
 
 /* Proceed to the event location for an exec mode event.
@@ -1581,13 +1595,9 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_paging:
-			if (!decoder->enabled) {
-				status = pt_blk_apply_paging(decoder, ev);
-				if (status < 0)
-					return status;
-
-				break;
-			}
+			if (!decoder->enabled)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
 
 			status = pt_blk_proceed_to_insn(decoder, block, &insn,
 							&iext,
@@ -1595,15 +1605,8 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_paging(decoder, ev);
-			if (status < 0)
-				return status;
-
 			/* We accounted for @insn in @block but we have not
 			 * updated @decoder->ip, yet.  Let's do so now.
-			 *
-			 * If we can't, we have to proceed with trace.  This
-			 * ends event processing.
 			 */
 			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
 			if (status < 0) {
@@ -1615,12 +1618,9 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 								   &iext);
 				if (status < 0)
 					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
 			}
 
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_paging:
 			status = pt_blk_proceed_to_async_paging(decoder, block,
@@ -1628,20 +1628,12 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_paging(decoder, ev);
-			if (status < 0)
-				return status;
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_vmcs:
-			if (!decoder->enabled) {
-				status = pt_blk_apply_vmcs(decoder, ev);
-				if (status < 0)
-					return status;
-
-				break;
-			}
+			if (!decoder->enabled)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
 
 			status = pt_blk_proceed_to_insn(decoder, block, &insn,
 							&iext,
@@ -1649,15 +1641,8 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_vmcs(decoder, ev);
-			if (status < 0)
-				return status;
-
 			/* We accounted for @insn in @block but we have not
 			 * updated @decoder->ip, yet.  Let's do so now.
-			 *
-			 * If we can't, we have to proceed with trace.  This
-			 * ends event processing.
 			 */
 			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
 			if (status < 0) {
@@ -1669,12 +1654,9 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 								   &iext);
 				if (status < 0)
 					return status;
-
-				return pt_blk_process_trailing_events(decoder,
-								      block);
 			}
 
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_vmcs:
 			status = pt_blk_proceed_to_async_vmcs(decoder, block,
@@ -1682,11 +1664,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status <= 0)
 				return status;
 
-			status = pt_blk_apply_vmcs(decoder, ev);
-			if (status < 0)
-				return status;
-
-			break;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_overflow:
 			return pt_blk_status(decoder, pts_event_pending);
@@ -2847,43 +2825,27 @@ static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 			if (decoder->enabled)
 				break;
 
-			status = pt_blk_apply_paging(decoder, ev);
-			if (status < 0)
-				return status;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_paging:
 			if (!ev->ip_suppressed &&
 			    decoder->ip != ev->variant.async_paging.ip)
 				break;
 
-			status = pt_blk_apply_paging(decoder, ev);
-			if (status < 0)
-				return status;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_vmcs:
 			if (decoder->enabled)
 				break;
 
-			status = pt_blk_apply_vmcs(decoder, ev);
-			if (status < 0)
-				return status;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_async_vmcs:
 			if (!ev->ip_suppressed &&
 			    decoder->ip != ev->variant.async_vmcs.ip)
 				break;
 
-			status = pt_blk_apply_vmcs(decoder, ev);
-			if (status < 0)
-				return status;
-
-			continue;
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_overflow:
 			return pt_blk_status(decoder, pts_event_pending);
@@ -3069,6 +3031,32 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 			return -pte_bad_query;
 
 		status = pt_blk_apply_async_branch(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_async_paging:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_paging.ip)
+			return -pte_bad_query;
+
+		/* Fall through. */
+	case ptev_paging:
+		status = pt_blk_apply_paging(decoder, ev);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_async_vmcs:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_vmcs.ip)
+			return -pte_bad_query;
+
+		/* Fall through. */
+	case ptev_vmcs:
+		status = pt_blk_apply_vmcs(decoder, ev);
 		if (status < 0)
 			return status;
 
