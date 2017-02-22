@@ -1677,7 +1677,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 					return status;
 			}
 
-			return pt_blk_process_trailing_events(decoder, block);
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_mwait:
 			if (!ev->ip_suppressed && decoder->enabled) {
@@ -1689,11 +1689,11 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 					return status;
 			}
 
-			return pt_blk_process_trailing_events(decoder, block);
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_pwre:
 		case ptev_pwrx:
-			return pt_blk_process_trailing_events(decoder, block);
+			return pt_blk_status(decoder, pts_event_pending);
 
 		case ptev_ptwrite:
 			status = pt_blk_proceed_to_ptwrite(decoder, block, ev);
