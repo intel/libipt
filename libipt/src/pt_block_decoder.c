@@ -599,14 +599,12 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	return pt_qry_indirect_branch(&decoder->query, pip);
 }
 
-/* Apply an enabled event.
- *
- * This is used for proceed events and for user events.
+/* Process an enabled event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_enabled(struct pt_block_decoder *decoder,
-				const struct pt_event *ev)
+static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
+				  const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -630,14 +628,12 @@ static int pt_blk_apply_enabled(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply a disabled event.
- *
- * This is used for proceed events and for trailing events.
+/* Process a disabled event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
-				 const struct pt_event *ev)
+static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
+				   const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -660,14 +656,12 @@ static int pt_blk_apply_disabled(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply an asynchronous branch event.
- *
- * This is used for proceed events and for trailing events.
+/* Process an asynchronous branch event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
-				     const struct pt_event *ev)
+static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
+				       const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -689,14 +683,12 @@ static int pt_blk_apply_async_branch(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply a paging event.
- *
- * This is used for proceed events and for trailing events.
+/* Process a paging event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_paging(struct pt_block_decoder *decoder,
-			       const struct pt_event *ev)
+static int pt_blk_process_paging(struct pt_block_decoder *decoder,
+				 const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -707,14 +699,12 @@ static int pt_blk_apply_paging(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply a vmcs event.
- *
- * This is used for proceed events and for trailing events.
+/* Process a vmcs event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_vmcs(struct pt_block_decoder *decoder,
-			     const struct pt_event *ev)
+static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
+			       const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -725,14 +715,12 @@ static int pt_blk_apply_vmcs(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply an overflow event.
- *
- * This is used for proceed events and for trailing events.
+/* Process an overflow event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_overflow(struct pt_block_decoder *decoder,
-				 const struct pt_event *ev)
+static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
+				   const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -772,14 +760,12 @@ static int pt_blk_apply_overflow(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply an exec mode event.
- *
- * This is used for proceed events and for trailing events.
+/* Process an exec mode event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_exec_mode(struct pt_block_decoder *decoder,
-				  const struct pt_event *ev)
+static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
+				    const struct pt_event *ev)
 {
 	enum pt_exec_mode mode;
 
@@ -798,14 +784,12 @@ static int pt_blk_apply_exec_mode(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply a tsx event.
- *
- * This is used for proceed events and for trailing events.
+/* Process a tsx event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_tsx(struct pt_block_decoder *decoder,
-			    const struct pt_event *ev)
+static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
+			      const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -816,14 +800,12 @@ static int pt_blk_apply_tsx(struct pt_block_decoder *decoder,
 	return 0;
 }
 
-/* Apply a stop event.
- *
- * This is used for proceed events and for trailing events.
+/* Process a stop event.
  *
  * Returns zero on success, a negative error code otherwise.
  */
-static int pt_blk_apply_stop(struct pt_block_decoder *decoder,
-			     const struct pt_event *ev)
+static int pt_blk_process_stop(struct pt_block_decoder *decoder,
+			       const struct pt_event *ev)
 {
 	if (!decoder || !ev)
 		return -pte_internal;
@@ -2865,7 +2847,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (ev->variant.enabled.ip == decoder->ip)
 			ev->variant.enabled.resumed = 1;
 
-		status = pt_blk_apply_enabled(decoder, ev);
+		status = pt_blk_process_enabled(decoder, ev);
 		if (status < 0)
 			return status;
 
@@ -2878,7 +2860,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		/* Fall through. */
 	case ptev_disabled:
 
-		status = pt_blk_apply_disabled(decoder, ev);
+		status = pt_blk_process_disabled(decoder, ev);
 		if (status < 0)
 			return status;
 
@@ -2888,7 +2870,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (decoder->ip != ev->variant.async_branch.from)
 			return -pte_bad_query;
 
-		status = pt_blk_apply_async_branch(decoder, ev);
+		status = pt_blk_process_async_branch(decoder, ev);
 		if (status < 0)
 			return status;
 
@@ -2901,7 +2883,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 		/* Fall through. */
 	case ptev_paging:
-		status = pt_blk_apply_paging(decoder, ev);
+		status = pt_blk_process_paging(decoder, ev);
 		if (status < 0)
 			return status;
 
@@ -2914,14 +2896,14 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 		/* Fall through. */
 	case ptev_vmcs:
-		status = pt_blk_apply_vmcs(decoder, ev);
+		status = pt_blk_process_vmcs(decoder, ev);
 		if (status < 0)
 			return status;
 
 		break;
 
 	case ptev_overflow:
-		status = pt_blk_apply_overflow(decoder, ev);
+		status = pt_blk_process_overflow(decoder, ev);
 		if (status < 0)
 			return status;
 
@@ -2932,7 +2914,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.exec_mode.ip)
 			return -pte_bad_query;
 
-		status = pt_blk_apply_exec_mode(decoder, ev);
+		status = pt_blk_process_exec_mode(decoder, ev);
 		if (status < 0)
 			return status;
 
@@ -2942,14 +2924,14 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (!ev->ip_suppressed && decoder->ip != ev->variant.tsx.ip)
 			return -pte_bad_query;
 
-		status = pt_blk_apply_tsx(decoder, ev);
+		status = pt_blk_process_tsx(decoder, ev);
 		if (status < 0)
 			return status;
 
 		break;
 
 	case ptev_stop:
-		status = pt_blk_apply_stop(decoder, ev);
+		status = pt_blk_process_stop(decoder, ev);
 		if (status < 0)
 			return status;
 
