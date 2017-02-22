@@ -41,8 +41,6 @@
 #include <stdlib.h>
 
 
-static int pt_blk_proceed_no_event(struct pt_block_decoder *,
-				   struct pt_block *);
 static int pt_blk_process_trailing_events(struct pt_block_decoder *,
 					  struct pt_block *);
 
