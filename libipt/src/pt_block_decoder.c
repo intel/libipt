@@ -2857,14 +2857,6 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 	ev = &decoder->event;
 	switch (ev->type) {
-	default:
-		/* This is not a user event.
-		 *
-		 * We either indicated it wrongly or the user called
-		 * pt_blk_event() without a pts_event_pending indication.
-		 */
-		return -pte_bad_query;
-
 	case ptev_enabled:
 		/* Indicate that tracing resumes from the IP at which tracing
 		 * had been disabled before (with some special treatment for
