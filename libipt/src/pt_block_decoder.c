@@ -1437,8 +1437,8 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 
 /* Proceed to the next event.
  *
- * We have an event pending.  Proceed to the event location and either process
- * the event and continue or postpone the event to the next block.
+ * We have an event pending.  Proceed to the event location and indicate the
+ * event to the user.
  *
  * On our way to the event location we may also be forced to postpone the event
  * to the next block, e.g. if we overflow the number of instructions in the
@@ -1456,245 +1456,205 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				struct pt_block *block)
 {
-	if (!decoder || !block)
+	struct pt_insn_ext iext;
+	struct pt_insn insn;
+	struct pt_event *ev;
+	int status;
+
+	if (!decoder || !decoder->process_event || !block)
 		return -pte_internal;
 
-	for (;;) {
-		struct pt_insn_ext iext;
-		struct pt_insn insn;
-		struct pt_event *ev;
-		uint64_t ip;
-		int status;
+	ev = &decoder->event;
+	switch (ev->type) {
+	case ptev_enabled:
+		break;
 
-		if (!decoder->process_event)
-			return -pte_internal;
-
-		ev = &decoder->event;
-		switch (ev->type) {
-		case ptev_enabled:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_disabled:
-			status = pt_blk_proceed_to_disabled(decoder, block,
-							    &insn, &iext, ev);
-			if (status <= 0) {
-				/* A synchronous disable event also binds to the
-				 * next indirect or conditional branch, i.e. to
-				 * any branch that would have required trace.
-				 */
-				if (status != -pte_bad_query)
-					return status;
-
-				/* The @decoder->ip still points to the indirect
-				 * or conditional branch instruction that caused
-				 * us to error out.  That's not where we expect
-				 * tracing to resume since the instruction
-				 * already retired.
-				 *
-				 * For calls, a fair assumption is that tracing
-				 * resumes after returning from the called
-				 * function.  For other types of instructions,
-				 * we simply don't know.
-				 */
-				switch (insn.iclass) {
-				case ptic_call:
-				case ptic_far_call:
-					decoder->ip = insn.ip + insn.size;
-					break;
-
-				default:
-					decoder->ip = 0ull;
-					break;
-				}
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_async_disabled:
-			ip = ev->variant.async_disabled.at;
-
-			status = pt_blk_proceed_to_ip(decoder, block, &insn,
-						      &iext, ip);
-			if (status <= 0)
-				return status;
-
-			if (decoder->query.config.errata.skd022) {
-				status = pt_blk_handle_erratum_skd022(decoder,
-								      ev);
-				if (status != 0) {
-					if (status < 0)
-						return status;
-
-					/* If the erratum hits, we modify the
-					 * event.  Try again.
-					 */
-					continue;
-				}
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_async_branch:
-			ip = ev->variant.async_branch.from;
-
-			status = pt_blk_proceed_to_ip(decoder, block, &insn,
-						      &iext, ip);
-			if (status <= 0)
-				return status;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_paging:
-			if (!decoder->enabled)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_proceed_to_insn(decoder, block, &insn,
-							&iext,
-							pt_insn_binds_to_pip);
-			if (status <= 0)
-				return status;
-
-			/* We accounted for @insn in @block but we have not
-			 * updated @decoder->ip, yet.  Let's do so now.
+	case ptev_disabled:
+		status = pt_blk_proceed_to_disabled(decoder, block, &insn,
+						    &iext, ev);
+		if (status <= 0) {
+			/* A synchronous disable event also binds to the next
+			 * indirect or conditional branch, i.e. to any branch
+			 * that would have required trace.
 			 */
-			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-			if (status < 0) {
-				if (status != -pte_bad_query)
-					return status;
-
-				status = pt_blk_proceed_with_trace(decoder,
-								   &insn,
-								   &iext);
-				if (status < 0)
-					return status;
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_async_paging:
-			status = pt_blk_proceed_to_async_paging(decoder, block,
-								ev);
-			if (status <= 0)
+			if (status != -pte_bad_query)
 				return status;
 
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_vmcs:
-			if (!decoder->enabled)
-				return pt_blk_status(decoder,
-						     pts_event_pending);
-
-			status = pt_blk_proceed_to_insn(decoder, block, &insn,
-							&iext,
-							pt_insn_binds_to_vmcs);
-			if (status <= 0)
-				return status;
-
-			/* We accounted for @insn in @block but we have not
-			 * updated @decoder->ip, yet.  Let's do so now.
+			/* The @decoder->ip still points to the indirect or
+			 * conditional branch instruction that caused us to
+			 * error out.  That's not where we expect tracing to
+			 * resume since the instruction already retired.
+			 *
+			 * For calls, a fair assumption is that tracing resumes
+			 * after returning from the called function.  For other
+			 * types of instructions, we simply don't know.
 			 */
-			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-			if (status < 0) {
-				if (status != -pte_bad_query)
-					return status;
+			switch (insn.iclass) {
+			case ptic_call:
+			case ptic_far_call:
+				decoder->ip = insn.ip + insn.size;
+				break;
 
-				status = pt_blk_proceed_with_trace(decoder,
-								   &insn,
-								   &iext);
-				if (status < 0)
-					return status;
+			default:
+				decoder->ip = 0ull;
+				break;
 			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_async_vmcs:
-			status = pt_blk_proceed_to_async_vmcs(decoder, block,
-							      ev);
-			if (status <= 0)
-				return status;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_overflow:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_exec_mode:
-			status = pt_blk_proceed_to_exec_mode(decoder, block,
-							     ev);
-			if (status <= 0)
-				return status;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_tsx:
-			if (!ev->ip_suppressed) {
-				ip = ev->variant.tsx.ip;
-
-				status = pt_blk_proceed_to_ip(decoder, block,
-							      &insn, &iext, ip);
-				if (status <= 0)
-					return status;
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_stop:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_exstop:
-			if (!ev->ip_suppressed && decoder->enabled) {
-				ip = ev->variant.exstop.ip;
-
-				status = pt_blk_proceed_to_ip(decoder, block,
-							      &insn, &iext, ip);
-				if (status <= 0)
-					return status;
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_mwait:
-			if (!ev->ip_suppressed && decoder->enabled) {
-				ip = ev->variant.mwait.ip;
-
-				status = pt_blk_proceed_to_ip(decoder, block,
-							      &insn, &iext, ip);
-				if (status <= 0)
-					return status;
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_pwre:
-		case ptev_pwrx:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_ptwrite:
-			status = pt_blk_proceed_to_ptwrite(decoder, block, ev);
-			if (status <= 0)
-				return status;
-
-			return pt_blk_status(decoder, pts_event_pending);
 		}
 
-		/* We should have processed the event.  If we have not, we might
-		 * spin here forever.
-		 */
-		if (decoder->process_event)
-			return -pte_internal;
+		break;
 
-		/* Check if we have more events pending. */
-		status = pt_blk_fetch_event(decoder);
-		if (status <= 0) {
+	case ptev_async_disabled:
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.async_disabled.at);
+		if (status <= 0)
+			return status;
+
+		if (decoder->query.config.errata.skd022) {
+			status = pt_blk_handle_erratum_skd022(decoder, ev);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				/* If the erratum hits, we modify the event.
+				 * Try again.
+				 */
+				return pt_blk_proceed_event(decoder, block);
+			}
+		}
+
+		break;
+
+	case ptev_async_branch:
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.async_branch.from);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_paging:
+		if (!decoder->enabled)
+			break;
+
+		status = pt_blk_proceed_to_insn(decoder, block, &insn, &iext,
+						pt_insn_binds_to_pip);
+		if (status <= 0)
+			return status;
+
+		/* We accounted for @insn in @block but we have not updated
+		 * @decoder->ip, yet.  Let's do so now.
+		 */
+		status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+		if (status < 0) {
+			if (status != -pte_bad_query)
+				return status;
+
+			status = pt_blk_proceed_with_trace(decoder, &insn,
+							   &iext);
 			if (status < 0)
 				return status;
-
-			break;
 		}
+
+		break;
+
+	case ptev_async_paging:
+		status = pt_blk_proceed_to_async_paging(decoder, block, ev);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_vmcs:
+		if (!decoder->enabled)
+			break;
+
+		status = pt_blk_proceed_to_insn(decoder, block, &insn, &iext,
+						pt_insn_binds_to_vmcs);
+		if (status <= 0)
+			return status;
+
+		/* We accounted for @insn in @block but we have not updated
+		 * @decoder->ip, yet.  Let's do so now.
+		 */
+		status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
+		if (status < 0) {
+			if (status != -pte_bad_query)
+				return status;
+
+			status = pt_blk_proceed_with_trace(decoder, &insn,
+							   &iext);
+			if (status < 0)
+				return status;
+		}
+
+		break;
+
+	case ptev_async_vmcs:
+		status = pt_blk_proceed_to_async_vmcs(decoder, block, ev);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_overflow:
+		break;
+
+	case ptev_exec_mode:
+		status = pt_blk_proceed_to_exec_mode(decoder, block, ev);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_tsx:
+		if (ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.tsx.ip);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_stop:
+		break;
+
+	case ptev_exstop:
+		if (!decoder->enabled || ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.exstop.ip);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_mwait:
+		if (!decoder->enabled || ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.mwait.ip);
+		if (status <= 0)
+			return status;
+
+		break;
+
+	case ptev_pwre:
+	case ptev_pwrx:
+		break;
+
+	case ptev_ptwrite:
+		status = pt_blk_proceed_to_ptwrite(decoder, block, ev);
+		if (status <= 0)
+			return status;
+
+		break;
 	}
 
-	return pt_blk_proceed_no_event(decoder, block);
+	return pt_blk_status(decoder, pts_event_pending);
 }
 
 /* Proceed to the next decision point without using the block cache.
