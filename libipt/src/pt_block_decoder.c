@@ -2632,9 +2632,14 @@ static inline int pt_blk_postpone_trailing_tsx(struct pt_block_decoder *decoder,
 
 /* Process events that bind to the current decoder IP.
  *
- * We filled a block and proceeded to the next IP, which will become the start
- * IP of the next block.  Process any pending events that bind to that IP so we
- * can indicate their effect in the current block.
+ * This function is used in the following scenarios:
+ *
+ *   - we just synchronized onto the trace stream
+ *   - we ended a block and proceeded to the next IP
+ *   - we processed an event that was indicated by this function
+ *
+ * Check if there is an event at the current IP that needs to be indicated to
+ * the user.
  *
  * Returns a non-negative pt_status_flag bit-vector on success, a negative error
  * code otherwise.
@@ -2642,146 +2647,144 @@ static inline int pt_blk_postpone_trailing_tsx(struct pt_block_decoder *decoder,
 static int pt_blk_process_trailing_events(struct pt_block_decoder *decoder,
 					  struct pt_block *block)
 {
+	struct pt_event *ev;
+	int status;
+
 	if (!decoder)
 		return -pte_internal;
 
-	for (;;) {
-		struct pt_event *ev;
-		int status;
+	status = pt_blk_fetch_event(decoder);
+	if (status <= 0) {
+		if (status < 0)
+			return status;
 
-		status = pt_blk_fetch_event(decoder);
-		if (status <= 0) {
+		return pt_blk_status(decoder, 0);
+	}
+
+	ev = &decoder->event;
+	switch (ev->type) {
+	case ptev_disabled:
+		/* Synchronous disable events are indicated on the event flow.
+		 * We can't simply run into them after updating the IP when
+		 * proceeding with trace.
+		 *
+		 * Leave it to be handled in pt_blk_next().
+		 */
+		break;
+
+	case ptev_enabled:
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_async_disabled:
+		if (decoder->ip != ev->variant.async_disabled.at)
+			break;
+
+		if (decoder->query.config.errata.skd022) {
+			status = pt_blk_handle_erratum_skd022(decoder, ev);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				/* If the erratum applies, the event is modified
+				 * to a synchronous disable event that will be
+				 * processed on the next pt_blk_proceed_event()
+				 * call.  We're done.
+				 */
+				break;
+			}
+		}
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_async_branch:
+		if (decoder->ip != ev->variant.async_branch.from)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_paging:
+		if (decoder->enabled)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_async_paging:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_paging.ip)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_vmcs:
+		if (decoder->enabled)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_async_vmcs:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_vmcs.ip)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_overflow:
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_exec_mode:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.exec_mode.ip)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_tsx:
+		status = pt_blk_postpone_trailing_tsx(decoder, block, ev);
+		if (status != 0) {
 			if (status < 0)
 				return status;
 
 			break;
 		}
 
-		ev = &decoder->event;
-		switch (ev->type) {
-		case ptev_disabled:
-			/* Synchronous disable events are indicated on the event
-			 * flow.  We can't simply run into them after updating
-			 * the IP when proceeding with trace.
-			 *
-			 * Leave it to be handled in pt_blk_next().
-			 */
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_stop:
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_exstop:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.exstop.ip)
 			break;
 
-		case ptev_enabled:
-			return pt_blk_status(decoder, pts_event_pending);
+		return pt_blk_status(decoder, pts_event_pending);
 
-		case ptev_async_disabled:
-			if (decoder->ip != ev->variant.async_disabled.at)
-				break;
+	case ptev_mwait:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.mwait.ip)
+			break;
 
-			if (decoder->query.config.errata.skd022) {
-				status = pt_blk_handle_erratum_skd022(decoder,
-								      ev);
-				if (status != 0) {
-					if (status < 0)
-						break;
+		return pt_blk_status(decoder, pts_event_pending);
 
-					continue;
-				}
-			}
+	case ptev_pwre:
+	case ptev_pwrx:
+		return pt_blk_status(decoder, pts_event_pending);
 
-			return pt_blk_status(decoder, pts_event_pending);
+	case ptev_ptwrite:
+		/* The event is reported after the corresponding PTWRITE
+		 * instruction and indicated in pt_blk_proceed_event().
+		 *
+		 * Any subsequent ptwrite event binds to a different instruction
+		 * and must wait until the next iteration - as long as tracing
+		 * is enabled.
+		 *
+		 * When tracing is disabled, we forward all ptwrite events
+		 * immediately to the user.
+		 */
+		if (decoder->enabled)
+			break;
 
-		case ptev_async_branch:
-			if (decoder->ip != ev->variant.async_branch.from)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_paging:
-			if (decoder->enabled)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_async_paging:
-			if (!ev->ip_suppressed &&
-			    decoder->ip != ev->variant.async_paging.ip)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_vmcs:
-			if (decoder->enabled)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_async_vmcs:
-			if (!ev->ip_suppressed &&
-			    decoder->ip != ev->variant.async_vmcs.ip)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_overflow:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_exec_mode:
-			if (!ev->ip_suppressed &&
-			    decoder->ip != ev->variant.exec_mode.ip)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_tsx:
-			status = pt_blk_postpone_trailing_tsx(decoder, block,
-							      ev);
-			if (status != 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_stop:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_exstop:
-			if (!ev->ip_suppressed && decoder->enabled &&
-			    decoder->ip != ev->variant.exstop.ip)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_mwait:
-			if (!ev->ip_suppressed && decoder->enabled &&
-			    decoder->ip != ev->variant.mwait.ip)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_pwre:
-		case ptev_pwrx:
-			return pt_blk_status(decoder, pts_event_pending);
-
-		case ptev_ptwrite:
-			/* The event is reported after the corresponding PTWRITE
-			 * instruction and indicated in pt_blk_proceed_event().
-			 *
-			 * Any subsequent ptwrite event binds to a different
-			 * instruction and must wait until the next iteration -
-			 * as long as tracing is enabled.
-			 *
-			 * When tracing is disabled, we forward all ptwrite
-			 * events immediately to the user.
-			 */
-			if (decoder->enabled)
-				break;
-
-			return pt_blk_status(decoder, pts_event_pending);
-		}
-
-		/* If we fall out of the switch, we're done. */
-		break;
+		return pt_blk_status(decoder, pts_event_pending);
 	}
 
 	return pt_blk_status(decoder, 0);
