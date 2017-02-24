@@ -335,8 +335,7 @@ static inline int event_pending(struct pt_insn_decoder *decoder)
 	return 1;
 }
 
-static int process_enabled_event(struct pt_insn_decoder *decoder,
-				 struct pt_insn *insn)
+static int pt_insn_process_enabled(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -357,33 +356,16 @@ static int process_enabled_event(struct pt_insn_decoder *decoder,
 	if (decoder->enabled)
 		return -pte_bad_context;
 
-	/* Delay processing of the event if we can't change the IP. */
+	/* We're processing the event outside of pt_insn_next() - we must be
+	 * able to change the IP.
+	 */
 	if (!decoder->event_may_change_ip)
-		return 0;
+		return -pte_internal;
 
 	decoder->ip = ev->variant.enabled.ip;
 	decoder->enabled = 1;
 
-	/* If we have an instruction, indicate the tracing enable. */
-	if (insn) {
-		/* Clear an indication of a preceding disable on the same
-		 * instruction.
-		 */
-		insn->disabled = 0;
-
-		/* Check if we resumed from a preceding disable or if we enabled
-		 * at a different position.  Should we ever get more than one
-		 * enabled event, enabled wins.
-		 */
-		if (decoder->last_disable_ip == decoder->ip && !insn->enabled)
-			insn->resumed = 1;
-		else {
-			insn->enabled = 1;
-			insn->resumed = 0;
-		}
-	}
-
-	return 1;
+	return 0;
 }
 
 static int process_disabled_event(struct pt_insn_decoder *decoder,
@@ -714,7 +696,8 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 	ev = &decoder->event;
 	switch (ev->type) {
 	case ptev_enabled:
-		return process_enabled_event(decoder, insn);
+		/* We should have processed the event before. */
+		return -pte_bad_query;
 
 	case ptev_async_branch:
 		if (ev->variant.async_branch.from == decoder->ip)
@@ -1191,23 +1174,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			break;
 
 		case ptev_enabled:
-			/* Forward the event to the user if we have further
-			 * events pending.
-			 *
-			 * We would really like to read ahead to see if we have
-			 * a user-relevant event on the same IP.  But that would
-			 * need more infrastructure like queueing events or
-			 * instantiating another decoder to read ahed.
-			 *
-			 * Users are expected to cope with events so they
-			 * shouldn't mind a not strictly necessary enabled
-			 * event instead of the usual insn flag.
-			 */
-			if (decoder->status & pts_event_pending)
-				return pt_insn_status(decoder,
-						      pts_event_pending);
-
-			break;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_async_disabled:
 			if (ev->variant.async_disabled.at != decoder->ip)
@@ -1755,20 +1722,13 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		/* Indicate that tracing resumes from the IP at which tracing
 		 * had been disabled before (with some special treatment for
 		 * calls).
-		 *
-		 * This duplicates what we're doing for an instruction's
-		 * enabled/resumed indication.
 		 */
 		if (decoder->last_disable_ip == ev->variant.enabled.ip)
 			ev->variant.enabled.resumed = 1;
 
-		status = process_enabled_event(decoder, NULL);
-		if (status <= 0) {
-			if (!status)
-				status = -pte_internal;
-
+		status = pt_insn_process_enabled(decoder);
+		if (status < 0)
 			return status;
-		}
 
 		break;
 
