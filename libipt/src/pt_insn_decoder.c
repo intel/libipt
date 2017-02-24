@@ -1188,8 +1188,6 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 		ev = &decoder->event;
 		switch (ev->type) {
 		case ptev_disabled:
-		case ptev_paging:
-		case ptev_vmcs:
 			break;
 
 		case ptev_enabled:
@@ -1353,6 +1351,21 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			decoder->process_event = 0;
 			continue;
 
+		case ptev_paging:
+			if (decoder->enabled)
+				break;
+
+			status = process_paging_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
 		case ptev_async_paging:
 			/* We would normally process this event in the next
 			 * iteration.
@@ -1365,6 +1378,21 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 				break;
 
 			status = process_paging_event(decoder);
+			if (status <= 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			decoder->process_event = 0;
+			continue;
+
+		case ptev_vmcs:
+			if (decoder->enabled)
+				break;
+
+			status = process_vmcs_event(decoder);
 			if (status <= 0) {
 				if (status < 0)
 					return status;
