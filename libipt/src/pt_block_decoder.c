@@ -587,230 +587,6 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	return pt_qry_indirect_branch(&decoder->query, pip);
 }
 
-/* Process an enabled event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
-				  const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
-
-	/* We must have an IP in order to start decoding. */
-	if (ev->ip_suppressed)
-		return -pte_noip;
-
-	/* We must currently be disabled. */
-	if (decoder->enabled)
-		return -pte_bad_context;
-
-	decoder->ip = ev->variant.enabled.ip;
-	decoder->enabled = 1;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process a disabled event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
-				   const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
-
-	/* We must currently be enabled. */
-	if (!decoder->enabled)
-		return -pte_bad_context;
-
-	/* We preserve @decoder->ip.  This is where we expect tracing to resume
-	 * and we'll indicate that on the subsequent enabled event if tracing
-	 * actually does resume from there.
-	 */
-	decoder->enabled = 0;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process an asynchronous branch event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
-				       const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
-
-	/* We must currently be enabled. */
-	if (!decoder->enabled)
-		return -pte_bad_context;
-
-	/* Jump to the branch destination.  We will continue from there in the
-	 * next iteration.
-	 */
-	decoder->ip = ev->variant.async_branch.to;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process a paging event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_paging(struct pt_block_decoder *decoder,
-				 const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	decoder->asid.cr3 = ev->variant.paging.cr3;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process a vmcs event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
-			       const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	decoder->asid.vmcs = ev->variant.vmcs.base;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process an overflow event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
-				   const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
-
-	/* If the IP is suppressed, the overflow resolved while tracing was
-	 * disabled.  Otherwise it resolved while tracing was enabled.
-	 */
-	if (ev->ip_suppressed) {
-		/* Tracing is disabled.  It doesn't make sense to preserve the
-		 * previous IP.  This will just be misleading.  Even if tracing
-		 * had been disabled before, as well, we might have missed the
-		 * re-enable in the overflow.
-		 */
-		decoder->enabled = 0;
-		decoder->ip = 0ull;
-	} else {
-		/* Tracing is enabled and we're at the IP at which the overflow
-		 * resolved.
-		 */
-		decoder->enabled = 1;
-		decoder->ip = ev->variant.overflow.ip;
-	}
-
-	/* We don't know the TSX state.  Let's assume we execute normally.
-	 *
-	 * We also don't know the execution mode.  Let's keep what we have
-	 * in case we don't get an update before we have to decode the next
-	 * instruction.
-	 */
-	decoder->speculative = 0;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process an exec mode event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
-				    const struct pt_event *ev)
-{
-	enum pt_exec_mode mode;
-
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* Use status update events to diagnose inconsistencies. */
-	mode = ev->variant.exec_mode.mode;
-	if (ev->status_update && decoder->enabled &&
-	    decoder->mode != ptem_unknown && decoder->mode != mode)
-		return -pte_bad_status_update;
-
-	decoder->mode = mode;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process a tsx event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
-			      const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	decoder->speculative = ev->variant.tsx.speculative;
-	decoder->process_event = 0;
-
-	return 0;
-}
-
-/* Process a stop event.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_process_stop(struct pt_block_decoder *decoder,
-			       const struct pt_event *ev)
-{
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
-
-	/* Tracing is always disabled before it is stopped. */
-	if (decoder->enabled)
-		return -pte_bad_context;
-
-	decoder->process_event = 0;
-
-	return 0;
-}
-
 /* Proceed to the next IP using trace.
  *
  * We failed to proceed without trace.  This ends the current block.  Now use
@@ -2788,6 +2564,230 @@ int pt_blk_next(struct pt_block_decoder *decoder, struct pt_block *ublock,
 		return errcode;
 
 	return status;
+}
+
+/* Process an enabled event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
+				  const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* We must have an IP in order to start decoding. */
+	if (ev->ip_suppressed)
+		return -pte_noip;
+
+	/* We must currently be disabled. */
+	if (decoder->enabled)
+		return -pte_bad_context;
+
+	decoder->ip = ev->variant.enabled.ip;
+	decoder->enabled = 1;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process a disabled event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
+				   const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* We must currently be enabled. */
+	if (!decoder->enabled)
+		return -pte_bad_context;
+
+	/* We preserve @decoder->ip.  This is where we expect tracing to resume
+	 * and we'll indicate that on the subsequent enabled event if tracing
+	 * actually does resume from there.
+	 */
+	decoder->enabled = 0;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process an asynchronous branch event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
+				       const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* We must currently be enabled. */
+	if (!decoder->enabled)
+		return -pte_bad_context;
+
+	/* Jump to the branch destination.  We will continue from there in the
+	 * next iteration.
+	 */
+	decoder->ip = ev->variant.async_branch.to;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process a paging event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_paging(struct pt_block_decoder *decoder,
+				 const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	decoder->asid.cr3 = ev->variant.paging.cr3;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process a vmcs event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
+			       const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	decoder->asid.vmcs = ev->variant.vmcs.base;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process an overflow event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
+				   const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* If the IP is suppressed, the overflow resolved while tracing was
+	 * disabled.  Otherwise it resolved while tracing was enabled.
+	 */
+	if (ev->ip_suppressed) {
+		/* Tracing is disabled.  It doesn't make sense to preserve the
+		 * previous IP.  This will just be misleading.  Even if tracing
+		 * had been disabled before, as well, we might have missed the
+		 * re-enable in the overflow.
+		 */
+		decoder->enabled = 0;
+		decoder->ip = 0ull;
+	} else {
+		/* Tracing is enabled and we're at the IP at which the overflow
+		 * resolved.
+		 */
+		decoder->enabled = 1;
+		decoder->ip = ev->variant.overflow.ip;
+	}
+
+	/* We don't know the TSX state.  Let's assume we execute normally.
+	 *
+	 * We also don't know the execution mode.  Let's keep what we have
+	 * in case we don't get an update before we have to decode the next
+	 * instruction.
+	 */
+	decoder->speculative = 0;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process an exec mode event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
+				    const struct pt_event *ev)
+{
+	enum pt_exec_mode mode;
+
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* Use status update events to diagnose inconsistencies. */
+	mode = ev->variant.exec_mode.mode;
+	if (ev->status_update && decoder->enabled &&
+	    decoder->mode != ptem_unknown && decoder->mode != mode)
+		return -pte_bad_status_update;
+
+	decoder->mode = mode;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process a tsx event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
+			      const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	decoder->speculative = ev->variant.tsx.speculative;
+	decoder->process_event = 0;
+
+	return 0;
+}
+
+/* Process a stop event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_stop(struct pt_block_decoder *decoder,
+			       const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* This event can't be a status update. */
+	if (ev->status_update)
+		return -pte_bad_context;
+
+	/* Tracing is always disabled before it is stopped. */
+	if (decoder->enabled)
+		return -pte_bad_context;
+
+	decoder->process_event = 0;
+
+	return 0;
 }
 
 int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
