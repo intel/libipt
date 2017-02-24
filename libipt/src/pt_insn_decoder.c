@@ -1050,6 +1050,15 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 			/* Each instruction only binds to one ptwrite event. */
 			decoder->ptwrite_event_bound = 1;
 
+			/* We decoded the PTWRITE instruction into @insn/@iext;
+			 * @decoder->ip still points to it.
+			 *
+			 * Determine the next IP - this shouldn't require trace.
+			 */
+			status = pt_insn_next_ip(&decoder->ip, insn, iext);
+			if (status < 0)
+				return status;
+
 			return pt_insn_status(decoder, pts_event_pending);
 		}
 
@@ -1645,29 +1654,30 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		goto err;
 	}
 
-	/* Determine the next instruction's IP so we can indicate async disable
-	 * events already in this instruction.
+	/* We're done if we already have a user-event indicated.
 	 *
-	 * This only makes sense as long as tracing is enabled, of course.  If
-	 * it isn't, we're either done or we will process the corresponding
-	 * enabled event in the next iteration.
-	 */
-	if (decoder->enabled) {
-		/* Proceed errors are signaled one instruction too early. */
-		errcode = proceed(decoder, pinsn, &iext);
-		if (errcode < 0)
-			goto err;
-	}
-
-	/* Peek at events for the next IP.  Some will be indicated already in
-	 * @pinsn.
-	 *
-	 * If we already have a user-event indicated by previous event
-	 * processing, we can skip this.  In the best case, we would just
-	 * indicate the same event again.  Or we might erroneously not indicate
-	 * it since we're at a different IP.
+	 * Event processing takes care to proceed past the eventing instruction.
 	 */
 	if (!(status & pts_event_pending)) {
+		/* Determine the next instruction's IP so we can indicate async
+		 * disable events already in this instruction.
+		 *
+		 * This only makes sense as long as tracing is enabled, of
+		 * course.  If it isn't, we're either done or we will process
+		 * the corresponding enabled event in the next iteration.
+		 */
+		if (decoder->enabled) {
+			/* Proceed errors are signaled one instruction too
+			 * early.
+			 */
+			errcode = proceed(decoder, pinsn, &iext);
+			if (errcode < 0)
+				goto err;
+		}
+
+		/* Peek at events for the next IP.  Some will be indicated
+		 * already in @pinsn.
+		 */
 		status = process_events_peek(decoder, pinsn, &iext);
 		if (status < 0) {
 			errcode = status;
