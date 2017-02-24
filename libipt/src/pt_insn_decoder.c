@@ -368,8 +368,7 @@ static int pt_insn_process_enabled(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
-static int process_disabled_event(struct pt_insn_decoder *decoder,
-				  struct pt_insn *insn)
+static int pt_insn_process_disabled(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -388,70 +387,7 @@ static int process_disabled_event(struct pt_insn_decoder *decoder,
 
 	decoder->enabled = 0;
 
-	if (insn)
-		insn->disabled = 1;
-
-	return 1;
-}
-
-static int process_async_disabled_event(struct pt_insn_decoder *decoder,
-					struct pt_insn *insn)
-{
-	int errcode;
-
-	if (!decoder)
-		return -pte_internal;
-
-	errcode = process_disabled_event(decoder, insn);
-	if (errcode <= 0)
-		return errcode;
-
-	decoder->last_disable_ip = decoder->ip;
-
-	return errcode;
-}
-
-static int process_sync_disabled_event(struct pt_insn_decoder *decoder,
-				       struct pt_insn *insn,
-				       const struct pt_insn_ext *iext)
-{
-	int errcode, iperr;
-
-	if (!decoder || !insn)
-		return -pte_internal;
-
-	errcode = process_disabled_event(decoder, insn);
-	if (errcode <= 0)
-		return errcode;
-
-	iperr = pt_insn_next_ip(&decoder->last_disable_ip, insn, iext);
-	if (iperr < 0) {
-		/* We don't know the IP on error. */
-		decoder->last_disable_ip = 0ull;
-
-		/* For indirect calls, assume that we return to the next
-		 * instruction.
-		 */
-		if (iperr == -pte_bad_query) {
-			switch (insn->iclass) {
-			case ptic_call:
-			case ptic_far_call:
-				/* We only check the instruction class, not the
-				 * is_direct property, since direct calls would
-				 * have been handled by pt_insn_nex_ip() or
-				 * would have provoked a different error.
-				 */
-				decoder->last_disable_ip =
-					insn->ip + insn->size;
-				break;
-
-			default:
-				break;
-			}
-		}
-	}
-
-	return errcode;
+	return 0;
 }
 
 static int process_async_branch_event(struct pt_insn_decoder *decoder)
@@ -706,26 +642,9 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_async_disabled:
-		/* We would normally process the disabled event when peeking
-		 * at the next instruction in order to indicate the disabling
-		 * properly.
-		 * This is to catch the case where we disable tracing before
-		 * we actually started.
-		 */
-		if (ev->variant.async_disabled.at == decoder->ip) {
-			if (decoder->query.config.errata.skd022) {
-				int errcode;
-
-				errcode = handle_erratum_skd022(decoder);
-				if (errcode < 0)
-					return errcode;
-
-				if (errcode)
-					return 0;
-			}
-
-			return process_async_disabled_event(decoder, insn);
-		}
+		/* We should have processed the event before. */
+		if (ev->variant.async_disabled.at == decoder->ip)
+			return -pte_bad_query;
 
 		return 0;
 
@@ -958,17 +877,41 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 				break;
 			}
 
-			status = process_sync_disabled_event(decoder, insn,
-							     iext);
-			if (status <= 0) {
-				if (status < 0)
+			/* We're at a synchronous disable event location.
+			 *
+			 * Let's determine the IP at which we expect tracing to
+			 * resume.
+			 */
+			status = pt_insn_next_ip(&decoder->last_disable_ip,
+						 insn, iext);
+			if (status < 0) {
+				/* We don't know the IP on error. */
+				decoder->last_disable_ip = 0ull;
+
+				/* For indirect calls, assume that we return to
+				 * the next instruction.
+				 *
+				 * We only check the instruction class, not the
+				 * is_direct property, since direct calls would
+				 * have been handled by pt_insn_nex_ip() or
+				 * would have provoked a different error.
+				 */
+				if (status != -pte_bad_query)
 					return status;
 
-				break;
+				switch (insn->iclass) {
+				case ptic_call:
+				case ptic_far_call:
+					decoder->last_disable_ip =
+						insn->ip + insn->size;
+					break;
+
+				default:
+					break;
+				}
 			}
 
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_paging:
 			if (!pt_insn_binds_to_pip(insn, iext) ||
@@ -1205,23 +1148,9 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 				}
 			}
 
-			/* Turn the insn flag indication into a user event if
-			 * we encounter this event in the user event flow.
-			 */
-			if (!insn)
-				return pt_insn_status(decoder,
-						      pts_event_pending);
+			decoder->last_disable_ip = decoder->ip;
 
-			status = process_async_disabled_event(decoder, insn);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_tsx:
 			status = pt_insn_postpone_peek_tsx(decoder, insn, iext,
@@ -1743,16 +1672,15 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_async_disabled:
-		if (decoder->ip != ev->variant.async_disabled.at)
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_disabled.at)
 			return -pte_bad_query;
 
-		status = process_async_disabled_event(decoder, NULL);
-		if (status <= 0) {
-			if (!status)
-				status = -pte_internal;
-
+		/* Fall through. */
+	case ptev_disabled:
+		status = pt_insn_process_disabled(decoder);
+		if (status < 0)
 			return status;
-		}
 
 		break;
 
