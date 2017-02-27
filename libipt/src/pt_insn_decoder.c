@@ -748,141 +748,127 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 				    const struct pt_insn *insn,
 				    const struct pt_insn_ext *iext)
 {
+	struct pt_event *ev;
+	int status;
+
 	if (!decoder)
 		return -pte_internal;
 
-	for (;;) {
-		struct pt_event *ev;
-		int status;
+	status = event_pending(decoder);
+	if (status <= 0)
+		return status;
 
-		status = event_pending(decoder);
-		if (status <= 0) {
-			if (status < 0)
+	ev = &decoder->event;
+	switch (ev->type) {
+	case ptev_enabled:
+	case ptev_overflow:
+	case ptev_async_paging:
+	case ptev_async_vmcs:
+	case ptev_async_disabled:
+	case ptev_async_branch:
+	case ptev_exec_mode:
+	case ptev_tsx:
+	case ptev_stop:
+	case ptev_exstop:
+	case ptev_mwait:
+	case ptev_pwre:
+	case ptev_pwrx:
+		/* We're only interested in events that bind to instructions. */
+		return 0;
+
+	case ptev_disabled:
+		status = pt_insn_at_disabled_event(ev, insn, iext);
+		if (status <= 0)
+			return status;
+
+		/* We're at a synchronous disable event location.
+		 *
+		 * Let's determine the IP at which we expect tracing to resume.
+		 */
+		status = pt_insn_next_ip(&decoder->ip, insn, iext);
+		if (status < 0) {
+			/* We don't know the IP on error. */
+			decoder->ip = 0ull;
+
+			/* For indirect calls, assume that we return to the next
+			 * instruction.
+			 *
+			 * We only check the instruction class, not the
+			 * is_direct property, since direct calls would have
+			 * been handled by pt_insn_nex_ip() or would have
+			 * provoked a different error.
+			 */
+			if (status != -pte_bad_query)
 				return status;
 
-			break;
+			switch (insn->iclass) {
+			case ptic_call:
+			case ptic_far_call:
+				decoder->ip = insn->ip + insn->size;
+				break;
+
+			default:
+				break;
+			}
 		}
 
-		ev = &decoder->event;
-		switch (ev->type) {
-		case ptev_enabled:
-		case ptev_overflow:
-		case ptev_async_paging:
-		case ptev_async_vmcs:
-		case ptev_async_disabled:
-		case ptev_async_branch:
-		case ptev_exec_mode:
-		case ptev_tsx:
-		case ptev_stop:
-		case ptev_exstop:
-		case ptev_mwait:
-		case ptev_pwre:
-		case ptev_pwrx:
-			break;
+		break;
 
-		case ptev_disabled:
-			status = pt_insn_at_disabled_event(ev, insn, iext);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
+	case ptev_paging:
+		if (!pt_insn_binds_to_pip(insn, iext))
+			return 0;
 
-				break;
-			}
+		status = pt_insn_proceed(decoder, insn, iext);
+		if (status < 0)
+			return status;
 
-			/* We're at a synchronous disable event location.
-			 *
-			 * Let's determine the IP at which we expect tracing to
-			 * resume.
+		break;
+
+	case ptev_vmcs:
+		if (!pt_insn_binds_to_vmcs(insn, iext))
+			return 0;
+
+		status = pt_insn_proceed(decoder, insn, iext);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_ptwrite:
+		if (ev->ip_suppressed) {
+			if (insn->iclass != ptic_ptwrite)
+				return 0;
+
+			/* Fill in the event IP.  Our users will need them to
+			 * make sense of the PTWRITE payload.
 			 */
-			status = pt_insn_next_ip(&decoder->ip, insn, iext);
-			if (status < 0) {
-				/* We don't know the IP on error. */
-				decoder->ip = 0ull;
-
-				/* For indirect calls, assume that we return to
-				 * the next instruction.
-				 *
-				 * We only check the instruction class, not the
-				 * is_direct property, since direct calls would
-				 * have been handled by pt_insn_nex_ip() or
-				 * would have provoked a different error.
-				 */
-				if (status != -pte_bad_query)
-					return status;
-
-				switch (insn->iclass) {
-				case ptic_call:
-				case ptic_far_call:
-					decoder->ip = insn->ip + insn->size;
-					break;
-
-				default:
-					break;
-				}
-			}
-
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_paging:
-			if (!pt_insn_binds_to_pip(insn, iext))
-				break;
-
-			status = pt_insn_proceed(decoder, insn, iext);
-			if (status < 0)
-				return status;
-
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_vmcs:
-			if (!pt_insn_binds_to_vmcs(insn, iext))
-				break;
-
-			status = pt_insn_proceed(decoder, insn, iext);
-			if (status < 0)
-				return status;
-
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_ptwrite:
-			if (ev->ip_suppressed) {
-				if (insn->iclass != ptic_ptwrite)
-					break;
-
-				/* Fill in the event IP.  Our users will need
-				 * them to make sense of the PTWRITE payload.
-				 */
-				ev->variant.ptwrite.ip = decoder->ip;
-				ev->ip_suppressed = 0;
-			} else {
-				/* The ptwrite event contains the IP of the
-				 * ptwrite instruction (CLIP) unlike most events
-				 * that contain the IP of the first instruction
-				 * that did not complete (NLIP).
-				 *
-				 * It's easier to handle this case here, as
-				 * well.
-				 */
-				if (decoder->ip != ev->variant.ptwrite.ip)
-					break;
-			}
-
-			/* We decoded the PTWRITE instruction into @insn/@iext;
-			 * @decoder->ip still points to it.
+			ev->variant.ptwrite.ip = decoder->ip;
+			ev->ip_suppressed = 0;
+		} else {
+			/* The ptwrite event contains the IP of the ptwrite
+			 * instruction (CLIP) unlike most events that contain
+			 * the IP of the first instruction that did not complete
+			 * (NLIP).
 			 *
-			 * Determine the next IP - this shouldn't require trace.
+			 * It's easier to handle this case here, as well.
 			 */
-			status = pt_insn_next_ip(&decoder->ip, insn, iext);
-			if (status < 0)
-				return status;
-
-			return pt_insn_status(decoder, pts_event_pending);
+			if (decoder->ip != ev->variant.ptwrite.ip)
+				return 0;
 		}
 
-		/* If we fall out of the switch, we're done. */
+		/* We decoded the PTWRITE instruction into @insn/@iext;
+		 * @decoder->ip still points to it.
+		 *
+		 * Determine the next IP - this shouldn't require trace.
+		 */
+		status = pt_insn_next_ip(&decoder->ip, insn, iext);
+		if (status < 0)
+			return status;
+
 		break;
 	}
 
-	return pt_insn_status(decoder, 0);
+	return pt_insn_status(decoder, pts_event_pending);
 }
 
 enum {
