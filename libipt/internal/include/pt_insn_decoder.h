@@ -62,15 +62,12 @@ struct pt_insn_decoder {
 	/* The call/return stack for ret compression. */
 	struct pt_retstack retstack;
 
-	/* The current IP. */
-	uint64_t ip;
-
-	/* The IP of the last disable.
+	/* The current IP.
 	 *
-	 * This is either zero or the IP of the first instruction that wasn't
-	 * executed due to the disable event.
+	 * If tracing is disabled, this is the IP at which we assume tracing to
+	 * be resumed.
 	 */
-	uint64_t last_disable_ip;
+	uint64_t ip;
 
 	/* The current execution mode. */
 	enum pt_exec_mode mode;

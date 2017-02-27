@@ -48,7 +48,6 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 
 	decoder->mode = ptem_unknown;
 	decoder->ip = 0ull;
-	decoder->last_disable_ip = 0ull;
 	decoder->status = 0;
 	decoder->enabled = 0;
 	decoder->process_event = 0;
@@ -382,6 +381,10 @@ static int pt_insn_process_disabled(struct pt_insn_decoder *decoder)
 	if (!decoder->enabled)
 		return -pte_bad_context;
 
+	/* We preserve @decoder->ip.  This is where we expect tracing to resume
+	 * and we'll indicate that on the subsequent enabled event if tracing
+	 * actually does resume from there.
+	 */
 	decoder->enabled = 0;
 
 	return 0;
@@ -785,11 +788,10 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 			 * Let's determine the IP at which we expect tracing to
 			 * resume.
 			 */
-			status = pt_insn_next_ip(&decoder->last_disable_ip,
-						 insn, iext);
+			status = pt_insn_next_ip(&decoder->ip, insn, iext);
 			if (status < 0) {
 				/* We don't know the IP on error. */
-				decoder->last_disable_ip = 0ull;
+				decoder->ip = 0ull;
 
 				/* For indirect calls, assume that we return to
 				 * the next instruction.
@@ -805,8 +807,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 				switch (insn->iclass) {
 				case ptic_call:
 				case ptic_far_call:
-					decoder->last_disable_ip =
-						insn->ip + insn->size;
+					decoder->ip = insn->ip + insn->size;
 					break;
 
 				default:
@@ -1014,8 +1015,6 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 					break;
 				}
 			}
-
-			decoder->last_disable_ip = decoder->ip;
 
 			return pt_insn_status(decoder, pts_event_pending);
 
@@ -1266,7 +1265,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		 * had been disabled before (with some special treatment for
 		 * calls).
 		 */
-		if (decoder->last_disable_ip == ev->variant.enabled.ip)
+		if (decoder->ip == ev->variant.enabled.ip)
 			ev->variant.enabled.resumed = 1;
 
 		status = pt_insn_process_enabled(decoder);
