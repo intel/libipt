@@ -1300,6 +1300,18 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	if (!uinsn || !decoder)
 		return -pte_invalid;
 
+	/* Tracing must be enabled.
+	 *
+	 * If it isn't we should be processing events until we either run out of
+	 * trace or process a tracing enabled event.
+	 */
+	if (!decoder->enabled) {
+		if (decoder->status & pts_eos)
+			return -pte_eos;
+
+		return -pte_no_enable;
+	}
+
 	pinsn = size == sizeof(insn) ? uinsn : &insn;
 
 	/* Zero-initialize the instruction in case of error returns. */
@@ -1318,21 +1330,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	errcode = process_events_before(decoder, pinsn);
 	if (errcode < 0)
 		goto err;
-
-	/* If tracing is disabled at this point, we should be at the end
-	 * of the trace - otherwise there should have been a re-enable
-	 * event.
-	 */
-	if (!decoder->enabled) {
-		struct pt_event event;
-
-		/* Any query should give us an end of stream, error. */
-		errcode = pt_qry_event(&decoder->query, &event, sizeof(event));
-		if (errcode != -pte_eos)
-			errcode = -pte_no_enable;
-
-		goto err;
-	}
 
 	/* Decode the current instruction. */
 	if (decoder->speculative)
