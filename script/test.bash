@@ -40,7 +40,7 @@ run() {
 
 asm2addr() {
 	local line
-	line=`grep -i ^org $1`
+	line=`grep -i ^org "$1"`
 	[[ $? != 0 ]] && return $?
 	echo $line | sed "s/org *//"
 }
@@ -140,7 +140,7 @@ run-ptt-test() {
 
 	ptt="$1"
 	cpu="$2"
-	base=`basename ${ptt%%.ptt}`
+	base=`basename "${ptt%%.ptt}"`
 
 	if [[ -n "$cpu" ]]; then
 		cpu="--cpu $cpu"
@@ -153,7 +153,7 @@ run-ptt-test() {
 
 
 	# execute pttc
-	exps=`run $pttc_cmd $pttc_arg $cpu $ptt`
+	exps=`run "$pttc_cmd" $pttc_arg $cpu "$ptt"`
 	ret=$?
 	if [[ $ret != 0 ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg failed with $ret" >&2
@@ -176,19 +176,19 @@ run-ptt-test() {
 		tool=${tool%%-cpu_*}
 		case $tool in
 		ptxed)
-			addr=`asm2addr $ptt`
+			addr=`asm2addr "$ptt"`
 			if [[ $? != 0 ]]; then
 				echo "$ptt: org directive not found in test file" >&2
 				status=1
 				continue
 			fi
-			local opts=`ptt-ptxed-opts $ptt`
+			local opts=`ptt-ptxed-opts "$ptt"`
 			opts+=" --no-inst --check"
-			run $ptxed_cmd $ptxed_arg --raw $bin:$addr $cpu $opts --pt $pt > $out
+			run "$ptxed_cmd" $ptxed_arg --raw $bin:$addr $cpu $opts --pt $pt > $out
 			;;
 		ptdump)
-			local opts=`ptt-ptdump-opts $ptt`
-			run $ptdump_cmd $ptdump_arg $cpu $opts $pt > $out
+			local opts=`ptt-ptdump-opts "$ptt"`
+			run "$ptdump_cmd" $ptdump_arg $cpu $opts $pt > $out
 			;;
 		*)
 			echo "$ptt: unknown tool $tool"
@@ -217,29 +217,30 @@ ptt-cpus() {
 }
 
 run-ptt-tests() {
+	local ptt="$1"
 	local cpus=$cpus
 
 	# if no cpus are given on the command-line,
 	# use the cpu directives from the pttfile.
 	if [[ -z $cpus ]]; then
-		cpus=`ptt-cpus $ptt`
+		cpus=`ptt-cpus "$ptt"`
 	fi
 
 	# if there are no cpu directives in the pttfile,
 	# run the test without any cpu settings.
 	if [[ -z $cpus ]]; then
-		run-ptt-test $ptt
+		run-ptt-test "$ptt"
 		continue
 	fi
 
 	# otherwise run for each cpu the test.
 	for i in $cpus; do
-		run-ptt-test $ptt $i
+		run-ptt-test "$ptt" $i
 	done
 }
 
 for ptt in "$@"; do
-	run-ptt-tests $ptt
+	run-ptt-tests "$ptt"
 done
 
 exit $status
