@@ -499,8 +499,7 @@ static int pt_insn_process_tsx(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
-static int process_stop_event(struct pt_insn_decoder *decoder,
-			      struct pt_insn *insn)
+static int pt_insn_process_stop(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -517,10 +516,7 @@ static int process_stop_event(struct pt_insn_decoder *decoder,
 	if (decoder->enabled)
 		return -pte_bad_context;
 
-	if (insn)
-		insn->stopped = 1;
-
-	return 1;
+	return 0;
 }
 
 static int pt_insn_process_vmcs(struct pt_insn_decoder *decoder)
@@ -667,13 +663,8 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_stop:
-		/* We would normally process the stop event when peeking at
-		 * the next instruction in order to indicate the stop
-		 * properly.
-		 * This is to catch the case where we stop before we actually
-		 * started.
-		 */
-		return process_stop_event(decoder, NULL);
+		/* We should have processed the event before. */
+		return -pte_bad_query;
 
 	case ptev_exstop:
 		/* We should have indicated this event at the current location
@@ -931,6 +922,7 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 		case ptev_async_branch:
 		case ptev_exec_mode:
 		case ptev_tsx:
+		case ptev_stop:
 		case ptev_exstop:
 		case ptev_mwait:
 		case ptev_pwre:
@@ -1001,18 +993,6 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 				return status;
 
 			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_stop:
-			status = process_stop_event(decoder, insn);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
 
 		case ptev_ptwrite:
 			if (decoder->ptwrite_event_bound)
@@ -1258,23 +1238,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_stop:
-			/* Turn the insn flag indication into a user event if
-			 * we encounter this event in the user event flow.
-			 */
-			if (!insn)
-				return pt_insn_status(decoder,
-						      pts_event_pending);
-
-			status = process_stop_event(decoder, insn);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_exstop:
 			if (!ev->ip_suppressed && decoder->enabled &&
@@ -1566,13 +1530,9 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_stop:
-		status = process_stop_event(decoder, NULL);
-		if (status <= 0) {
-			if (!status)
-				status = -pte_internal;
-
+		status = pt_insn_process_stop(decoder);
+		if (status < 0)
 			return status;
-		}
 
 		break;
 
