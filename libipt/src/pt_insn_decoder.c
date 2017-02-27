@@ -37,8 +37,9 @@
 #include <stdlib.h>
 
 
-static int process_events_peek(struct pt_insn_decoder *, const struct pt_insn *,
-			       const struct pt_insn_ext *);
+static int pt_insn_check_ip_event(struct pt_insn_decoder *,
+				  const struct pt_insn *,
+				  const struct pt_insn_ext *);
 
 
 static void pt_insn_reset(struct pt_insn_decoder *decoder)
@@ -189,7 +190,7 @@ static int pt_insn_start(struct pt_insn_decoder *decoder, int status)
 	 * We do this already here so we can indicate user-events that precede
 	 * the first instruction.
 	 */
-	return process_events_peek(decoder, NULL, NULL);
+	return pt_insn_check_ip_event(decoder, NULL, NULL);
 }
 
 int pt_insn_sync_forward(struct pt_insn_decoder *decoder)
@@ -948,10 +949,10 @@ static int handle_erratum_bdm64(struct pt_insn_decoder *decoder,
  * Returns zero if the event should be processed.
  * Returns a negative error code otherwise.
  */
-static inline int pt_insn_postpone_peek_tsx(struct pt_insn_decoder *decoder,
-					    const struct pt_insn *insn,
-					    const struct pt_insn_ext *iext,
-					    const struct pt_event *ev)
+static inline int pt_insn_postpone_tsx(struct pt_insn_decoder *decoder,
+				       const struct pt_insn *insn,
+				       const struct pt_insn_ext *iext,
+				       const struct pt_event *ev)
 {
 	int status;
 
@@ -973,9 +974,17 @@ static inline int pt_insn_postpone_peek_tsx(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
-static int process_events_peek(struct pt_insn_decoder *decoder,
-			       const struct pt_insn *insn,
-			       const struct pt_insn_ext *iext)
+/* Check for events that bind to an IP.
+ *
+ * Check whether an event is pending that binds to @decoder->ip, and, if that is
+ * the case, indicate the event by setting pt_pts_event_pending.
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
+ */
+static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
+				  const struct pt_insn *insn,
+				  const struct pt_insn_ext *iext)
 {
 	if (!decoder)
 		return -pte_internal;
@@ -1023,8 +1032,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_tsx:
-			status = pt_insn_postpone_peek_tsx(decoder, insn, iext,
-							   ev);
+			status = pt_insn_postpone_tsx(decoder, insn, iext, ev);
 			if (status != 0) {
 				if (status < 0)
 					return status;
@@ -1221,7 +1229,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 * Although we only look at the IP for binding events, we pass the
 	 * decoded instruction in order to handle errata.
 	 */
-	return process_events_peek(decoder, pinsn, &iext);
+	return pt_insn_check_ip_event(decoder, pinsn, &iext);
 }
 
 int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
@@ -1372,6 +1380,6 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	/* This completes processing of the current event. */
 	decoder->process_event = 0;
 
-	/* Indicate further events. */
-	return process_events_peek(decoder, NULL, NULL);
+	/* Indicate further events that bind to the same IP. */
+	return pt_insn_check_ip_event(decoder, NULL, NULL);
 }
