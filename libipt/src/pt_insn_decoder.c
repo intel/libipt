@@ -37,7 +37,7 @@
 #include <stdlib.h>
 
 
-static int process_events_peek(struct pt_insn_decoder *, struct pt_insn *,
+static int process_events_peek(struct pt_insn_decoder *, const struct pt_insn *,
 			       const struct pt_insn_ext *);
 
 
@@ -729,7 +729,7 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 }
 
 static int process_events_after(struct pt_insn_decoder *decoder,
-				struct pt_insn *insn,
+				const struct pt_insn *insn,
 				const struct pt_insn_ext *iext)
 {
 	if (!decoder)
@@ -960,7 +960,7 @@ static inline int pt_insn_postpone_peek_tsx(struct pt_insn_decoder *decoder,
 }
 
 static int process_events_peek(struct pt_insn_decoder *decoder,
-			       struct pt_insn *insn,
+			       const struct pt_insn *insn,
 			       const struct pt_insn_ext *iext)
 {
 	if (!decoder)
