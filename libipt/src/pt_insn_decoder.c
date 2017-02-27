@@ -54,8 +54,6 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->process_event = 0;
 	decoder->speculative = 0;
 	decoder->event_may_change_ip = 1;
-	decoder->paging_event_bound = 0;
-	decoder->vmcs_event_bound = 0;
 	decoder->ptwrite_event_bound = 0;
 
 	pt_retstack_init(&decoder->retstack);
@@ -412,18 +410,14 @@ static int pt_insn_process_async_branch(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
-static int process_paging_event(struct pt_insn_decoder *decoder)
+static int pt_insn_process_paging(struct pt_insn_decoder *decoder)
 {
-	struct pt_event *ev;
-
 	if (!decoder)
 		return -pte_internal;
 
-	ev = &decoder->event;
+	decoder->asid.cr3 = decoder->event.variant.paging.cr3;
 
-	decoder->asid.cr3 = ev->variant.paging.cr3;
-
-	return 1;
+	return 0;
 }
 
 static int pt_insn_process_overflow(struct pt_insn_decoder *decoder)
@@ -529,18 +523,14 @@ static int process_stop_event(struct pt_insn_decoder *decoder,
 	return 1;
 }
 
-static int process_vmcs_event(struct pt_insn_decoder *decoder)
+static int pt_insn_process_vmcs(struct pt_insn_decoder *decoder)
 {
-	struct pt_event *ev;
-
 	if (!decoder)
 		return -pte_internal;
 
-	ev = &decoder->event;
+	decoder->asid.vmcs = decoder->event.variant.vmcs.base;
 
-	decoder->asid.vmcs = ev->variant.vmcs.base;
-
-	return 1;
+	return 0;
 }
 
 static int check_erratum_skd022(struct pt_insn_decoder *decoder)
@@ -624,16 +614,18 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_async_paging:
+		/* We should have processed the event before. */
 		if (ev->ip_suppressed ||
 		    ev->variant.async_paging.ip == decoder->ip)
-			return process_paging_event(decoder);
+			return -pte_bad_query;
 
 		return 0;
 
 	case ptev_async_vmcs:
+		/* We should have processed the event before. */
 		if (ev->ip_suppressed ||
 		    ev->variant.async_vmcs.ip == decoder->ip)
-			return process_vmcs_event(decoder);
+			return -pte_bad_query;
 
 		return 0;
 
@@ -641,14 +633,16 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_paging:
+		/* We should have processed the event before. */
 		if (!decoder->enabled)
-			return process_paging_event(decoder);
+			return -pte_bad_query;
 
 		return 0;
 
 	case ptev_vmcs:
+		/* We should have processed the event before. */
 		if (!decoder->enabled)
-			return process_vmcs_event(decoder);
+			return -pte_bad_query;
 
 		return 0;
 
@@ -912,8 +906,6 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 	if (!decoder)
 		return -pte_internal;
 
-	decoder->paging_event_bound = 0;
-	decoder->vmcs_event_bound = 0;
 	decoder->ptwrite_event_bound = 0;
 
 	for (;;) {
@@ -990,42 +982,24 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_paging:
-			if (!pt_insn_binds_to_pip(insn, iext) ||
-			    decoder->paging_event_bound)
+			if (!pt_insn_binds_to_pip(insn, iext))
 				break;
 
-			/* Each instruction only binds to one paging event. */
-			decoder->paging_event_bound = 1;
+			status = pt_insn_proceed(decoder, insn, iext);
+			if (status < 0)
+				return status;
 
-			status = process_paging_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_vmcs:
-			if (!pt_insn_binds_to_vmcs(insn, iext) ||
-			    decoder->vmcs_event_bound)
+			if (!pt_insn_binds_to_vmcs(insn, iext))
 				break;
 
-			/* Each instruction only binds to one vmcs event. */
-			decoder->vmcs_event_bound = 1;
+			status = pt_insn_proceed(decoder, insn, iext);
+			if (status < 0)
+				return status;
 
-			status = process_vmcs_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_stop:
 			status = process_stop_event(decoder, insn);
@@ -1275,75 +1249,27 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			if (decoder->enabled)
 				break;
 
-			status = process_paging_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_async_paging:
-			/* We would normally process this event in the next
-			 * iteration.
-			 *
-			 * We process it here, as well, in case we have a peek
-			 * event hiding behind.
-			 */
 			if (!ev->ip_suppressed &&
 			    ev->variant.async_paging.ip != decoder->ip)
 				break;
 
-			status = process_paging_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_vmcs:
 			if (decoder->enabled)
 				break;
 
-			status = process_vmcs_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_async_vmcs:
-			/* We would normally process this event in the next
-			 * iteration.
-			 *
-			 * We process it here, as well, in case we have a peek
-			 * event hiding behind.
-			 */
 			if (!ev->ip_suppressed &&
 			    ev->variant.async_vmcs.ip != decoder->ip)
 				break;
 
-			status = process_vmcs_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_stop:
 			/* Turn the insn flag indication into a user event if
@@ -1601,6 +1527,32 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 			return -pte_bad_query;
 
 		status = pt_insn_process_async_branch(decoder);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_async_paging:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_paging.ip)
+			return -pte_bad_query;
+
+		/* Fall through. */
+	case ptev_paging:
+		status = pt_insn_process_paging(decoder);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_async_vmcs:
+		if (!ev->ip_suppressed &&
+		    decoder->ip != ev->variant.async_vmcs.ip)
+			return -pte_bad_query;
+
+		/* Fall through. */
+	case ptev_vmcs:
+		status = pt_insn_process_vmcs(decoder);
 		if (status < 0)
 			return status;
 
