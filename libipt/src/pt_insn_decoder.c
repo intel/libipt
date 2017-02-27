@@ -468,7 +468,7 @@ static int pt_insn_process_overflow(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
-static int process_exec_mode_event(struct pt_insn_decoder *decoder)
+static int pt_insn_process_exec_mode(struct pt_insn_decoder *decoder)
 {
 	enum pt_exec_mode mode;
 	struct pt_event *ev;
@@ -486,7 +486,7 @@ static int process_exec_mode_event(struct pt_insn_decoder *decoder)
 
 	decoder->mode = mode;
 
-	return 1;
+	return 0;
 }
 
 static int pt_insn_process_tsx(struct pt_insn_decoder *decoder)
@@ -651,9 +651,10 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return -pte_bad_query;
 
 	case ptev_exec_mode:
+		/* We should have processed the event before. */
 		if (ev->ip_suppressed ||
 		    ev->variant.exec_mode.ip == decoder->ip)
-			return process_exec_mode_event(decoder);
+			return -pte_bad_query;
 
 		return 0;
 
@@ -1224,26 +1225,11 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_exec_mode:
-			/* We would normally process this event in the next
-			 * iteration.
-			 *
-			 * We process it here, as well, in case we have a peek
-			 * event hiding behind.
-			 */
 			if (!ev->ip_suppressed &&
 			    ev->variant.exec_mode.ip != decoder->ip)
 				break;
 
-			status = process_exec_mode_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_paging:
 			if (decoder->enabled)
@@ -1560,6 +1546,13 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 
 	case ptev_overflow:
 		status = pt_insn_process_overflow(decoder);
+		if (status < 0)
+			return status;
+
+		break;
+
+	case ptev_exec_mode:
+		status = pt_insn_process_exec_mode(decoder);
 		if (status < 0)
 			return status;
 
