@@ -56,20 +56,26 @@ options:
   -f            exit with 1 if any of the tests failed
   -l            only list .diff files
   -g            specify the pttc command (default: pttc)
+  -G            specify additional arguments to pttc
   -d            specify the ptdump command (default: ptdump)
+  -D            specify additional arguments to ptdump
   -x            specify the ptxed command (default: ptxed)
+  -X            specify additional arguments to ptxed
 
   <pttfile>     annotated yasm file ending in .ptt
 EOF
 }
 
 pttc_cmd=pttc
+pttc_arg=""
 ptdump_cmd=ptdump
+ptdump_arg=""
 ptxed_cmd=ptxed
+ptxed_arg=""
 exit_fails=0
 list=0
 verbose=0
-while getopts "hvc:flg:d:x:" option; do
+while getopts "hvc:flg:G:d:D:x:X:" option; do
 	case $option in
 	h)
 		usage
@@ -90,11 +96,20 @@ while getopts "hvc:flg:d:x:" option; do
 	g)
 		pttc_cmd=$OPTARG
 		;;
+	G)
+		pttc_arg=$OPTARG
+		;;
 	d)
 		ptdump_cmd=$OPTARG
 		;;
+	D)
+		ptdump_arg=$OPTARG
+		;;
 	x)
 		ptxed_cmd=$OPTARG
+		;;
+	X)
+		ptxed_arg=$OPTARG
 		;;
 	\?)
 		exit 1
@@ -138,14 +153,14 @@ run-ptt-test() {
 
 
 	# execute pttc
-	exps=`run $pttc_cmd $cpu $ptt`
+	exps=`run $pttc_cmd $pttc_arg $cpu $ptt`
 	ret=$?
 	if [[ $ret != 0 ]]; then
-		echo "$ptt: $pttc_cmd failed with $ret" >&2
+		echo "$ptt: $pttc_cmd $pttc_arg failed with $ret" >&2
 		status=1
 		continue
 	elif [[ -z $exps ]]; then
-		echo "$ptt: $pttc_cmd did not produce any .exp file" >&2
+		echo "$ptt: $pttc_cmd $pttc_arg did not produce any .exp file" >&2
 		status=1
 		continue
 	fi
@@ -169,11 +184,11 @@ run-ptt-test() {
 			fi
 			local opts=`ptt-ptxed-opts $ptt`
 			opts+=" --no-inst --check"
-			run $ptxed_cmd --raw $bin:$addr $cpu $opts --pt $pt > $out
+			run $ptxed_cmd $ptxed_arg --raw $bin:$addr $cpu $opts --pt $pt > $out
 			;;
 		ptdump)
 			local opts=`ptt-ptdump-opts $ptt`
-			run $ptdump_cmd $cpu $opts $pt > $out
+			run $ptdump_cmd $ptdump_arg $cpu $opts $pt > $out
 			;;
 		*)
 			echo "$ptt: unknown tool $tool"
