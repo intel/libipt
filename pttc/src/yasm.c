@@ -741,8 +741,8 @@ static int yasm_advance_next_line(struct yasm *y)
 		 * state information to this file, line and increment
 		 * and continue.
 		 */
-		if (sscanf(s, "%*d %%line %d+%d %1023s", &asm_line, &asm_inc,
-			   filename) == 3) {
+		if (sscanf(s, "%*d %%line %d+%d %1023[^\r\n]", &asm_line,
+			   &asm_inc, filename) == 3) {
 			st_set_file(y->st_asm, filename, asm_line, asm_inc);
 			continue;
 		}
