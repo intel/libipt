@@ -33,13 +33,13 @@ function(add_ptt_test name)
 
   add_test(
     NAME insn-${name}
-    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x "${ptxed} --insn-decoder" ${test}
+    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x ${ptxed} -X --insn-decoder ${test}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/ptt-insn
   )
 
   add_test(
     NAME block-${name}
-    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x "${ptxed} --block-decoder" ${test}
+    COMMAND ${script} -f -g ${pttc} -d ${ptdump} -x ${ptxed} -X --block-decoder ${test}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/ptt-block
   )
 endfunction(add_ptt_test)
