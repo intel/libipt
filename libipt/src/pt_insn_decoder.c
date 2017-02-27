@@ -580,157 +580,6 @@ static inline int handle_erratum_skd022(struct pt_insn_decoder *decoder)
 	return 1;
 }
 
-static int process_one_event_before(struct pt_insn_decoder *decoder,
-				    struct pt_insn *insn)
-{
-	struct pt_event *ev;
-
-	if (!decoder || !insn)
-		return -pte_internal;
-
-	ev = &decoder->event;
-	switch (ev->type) {
-	case ptev_enabled:
-		/* We should have processed the event before. */
-		return -pte_bad_query;
-
-	case ptev_async_branch:
-		/* We should have processed the event before. */
-		if (decoder->ip == ev->variant.async_branch.from)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_async_disabled:
-		/* We should have processed the event before. */
-		if (ev->variant.async_disabled.at == decoder->ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_async_paging:
-		/* We should have processed the event before. */
-		if (ev->ip_suppressed ||
-		    ev->variant.async_paging.ip == decoder->ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_async_vmcs:
-		/* We should have processed the event before. */
-		if (ev->ip_suppressed ||
-		    ev->variant.async_vmcs.ip == decoder->ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_disabled:
-		return 0;
-
-	case ptev_paging:
-		/* We should have processed the event before. */
-		if (!decoder->enabled)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_vmcs:
-		/* We should have processed the event before. */
-		if (!decoder->enabled)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_overflow:
-		/* We should have processed the event before. */
-		return -pte_bad_query;
-
-	case ptev_exec_mode:
-		/* We should have processed the event before. */
-		if (ev->ip_suppressed ||
-		    ev->variant.exec_mode.ip == decoder->ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_tsx:
-		/* We should have processed the event before. */
-		if (ev->ip_suppressed ||
-		    ev->variant.tsx.ip == decoder->ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_stop:
-		/* We should have processed the event before. */
-		return -pte_bad_query;
-
-	case ptev_exstop:
-		/* We should have indicated this event at the current location
-		 * after the last instruction or the last decoder
-		 * synchronization.
-		 */
-		if (ev->ip_suppressed ||
-		    decoder->ip == ev->variant.exstop.ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_mwait:
-		/* We should have indicated this event at the current location
-		 * after the last instruction or the last decoder
-		 * synchronization.
-		 */
-		if (ev->ip_suppressed ||
-		    decoder->ip == ev->variant.mwait.ip)
-			return -pte_bad_query;
-
-		return 0;
-
-	case ptev_pwre:
-	case ptev_pwrx:
-		/* We should have indicated this event after the last
-		 * instruction or the last decoder synchronization.
-		 */
-		return -pte_bad_query;
-
-	case ptev_ptwrite:
-		return 0;
-	}
-
-	/* Diagnose an unknown event. */
-	return -pte_internal;
-}
-
-static int process_events_before(struct pt_insn_decoder *decoder,
-				 struct pt_insn *insn)
-{
-	if (!decoder || !insn)
-		return -pte_internal;
-
-	for (;;) {
-		int pending, processed;
-
-		pending = event_pending(decoder);
-		if (pending < 0)
-			return pending;
-
-		if (!pending)
-			break;
-
-		processed = process_one_event_before(decoder, insn);
-		if (processed < 0)
-			return processed;
-
-		if (!processed)
-			break;
-
-		decoder->process_event = 0;
-	}
-
-	return 0;
-}
-
 static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 			   const struct pt_insn *insn,
 			   const struct pt_insn_ext *iext)
@@ -1317,21 +1166,12 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	/* Zero-initialize the instruction in case of error returns. */
 	memset(pinsn, 0, sizeof(*pinsn));
 
-	/* We process events three times:
-	 * - once based on the current IP.
-	 * - once based on the instruction at that IP.
-	 * - once based on the next IP.
-	 *
-	 * Between the first and second round of event processing, we decode
-	 * the instruction and fill in @insn.
-	 *
-	 * This is necessary to attribute events to the correct instruction.
-	 */
-	errcode = process_events_before(decoder, pinsn);
-	if (errcode < 0)
-		goto err;
 
-	/* Decode the current instruction. */
+	/* Fill in a few things from the current decode state.
+	 *
+	 * This reflects the state of the last pt_insn_next(), pt_insn_event()
+	 * or pt_insn_start() call.
+	 */
 	if (decoder->speculative)
 		pinsn->speculative = 1;
 	pinsn->ip = decoder->ip;
