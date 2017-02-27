@@ -728,9 +728,24 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 	return 0;
 }
 
-static int process_events_after(struct pt_insn_decoder *decoder,
-				const struct pt_insn *insn,
-				const struct pt_insn_ext *iext)
+/* Check for events that bind to instruction.
+ *
+ * Check whether an event is pending that binds to @insn/@iext, and, if that is
+ * the case, proceed past @insn/@iext and indicate the event by setting
+ * pt_pts_event_pending.
+ *
+ * If that is not the case, we return zero.  This is what pt_insn_status() would
+ * return since:
+ *
+ *   - we suppress pts_eos as long as we're processing events
+ *   - we do not set pts_ip_suppressed since tracing must be enabled
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative error
+ * code otherwise.
+ */
+static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
+				    const struct pt_insn *insn,
+				    const struct pt_insn_ext *iext)
 {
 	if (!decoder)
 		return -pte_internal;
@@ -839,10 +854,9 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 				ev->ip_suppressed = 0;
 			} else {
 				/* The ptwrite event contains the IP of the
-				 * ptwrite instruction.  We could have processed
-				 * it already in process_events_before() but
-				 * this would have required preserving the event
-				 * indication already from there.
+				 * ptwrite instruction (CLIP) unlike most events
+				 * that contain the IP of the first instruction
+				 * that did not complete (NLIP).
 				 *
 				 * It's easier to handle this case here, as
 				 * well.
@@ -1084,8 +1098,8 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_ptwrite:
-			/* The event is reported after the corresponding PTWRITE
-			 * instruction and indicated in process_events_after().
+			/* Any event binding to the current PTWRITE instruction
+			 * is handled in pt_insn_check_insn_event().
 			 *
 			 * Any subsequent ptwrite event binds to a different
 			 * instruction and must wait until the next iteration -
@@ -1181,10 +1195,14 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	if (status < 0)
 		return status;
 
-	/* We may already indicate user-relevant events, here.  We will ignore
-	 * all other status bits.
+	/* Check for events that bind to the current instruction.
+	 *
+	 * If an event is indicated, event processing already took care to
+	 * proceed past the instruction.  We're done.
+	 *
+	 * This implicitly assumes that there can be at most one such event.
 	 */
-	status = process_events_after(decoder, pinsn, &iext);
+	status = pt_insn_check_insn_event(decoder, pinsn, &iext);
 	if (status != 0) {
 		if (status < 0)
 			return status;
