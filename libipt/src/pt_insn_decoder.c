@@ -972,144 +972,139 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 				  const struct pt_insn *insn,
 				  const struct pt_insn_ext *iext)
 {
+	struct pt_event *ev;
+	int status;
+
 	if (!decoder)
 		return -pte_internal;
 
-	for (;;) {
-		struct pt_event *ev;
-		int status;
+	status = event_pending(decoder);
+	if (status <= 0) {
+		if (status < 0)
+			return status;
 
-		status = event_pending(decoder);
-		if (status <= 0) {
+		return pt_insn_status(decoder, 0);
+	}
+
+	ev = &decoder->event;
+	switch (ev->type) {
+	case ptev_disabled:
+		break;
+
+	case ptev_enabled:
+		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_async_disabled:
+		if (ev->variant.async_disabled.at != decoder->ip)
+			break;
+
+		if (decoder->query.config.errata.skd022) {
+			int errcode;
+
+			errcode = handle_erratum_skd022(decoder);
+			if (errcode != 0) {
+				if (errcode < 0)
+					return errcode;
+
+				/* If the erratum applies, we postpone the
+				 * modified event to the next call to
+				 * pt_insn_next().
+				 */
+				break;
+			}
+		}
+
+		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_tsx:
+		status = pt_insn_postpone_tsx(decoder, insn, iext, ev);
+		if (status != 0) {
 			if (status < 0)
 				return status;
 
 			break;
 		}
 
-		ev = &decoder->event;
-		switch (ev->type) {
-		case ptev_disabled:
+		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_async_branch:
+		if (ev->variant.async_branch.from != decoder->ip)
 			break;
 
-		case ptev_enabled:
-			return pt_insn_status(decoder, pts_event_pending);
+		return pt_insn_status(decoder, pts_event_pending);
 
-		case ptev_async_disabled:
-			if (ev->variant.async_disabled.at != decoder->ip)
-				break;
+	case ptev_overflow:
+		return pt_insn_status(decoder, pts_event_pending);
 
-			if (decoder->query.config.errata.skd022) {
-				int errcode;
+	case ptev_exec_mode:
+		if (!ev->ip_suppressed &&
+		    ev->variant.exec_mode.ip != decoder->ip)
+			break;
 
-				errcode = handle_erratum_skd022(decoder);
-				if (errcode != 0) {
-					if (errcode < 0)
-						return errcode;
+		return pt_insn_status(decoder, pts_event_pending);
 
-					/* If the erratum applies, we postpone
-					 * the modified event to the next call
-					 * to pt_insn_next().
-					 */
-					break;
-				}
-			}
+	case ptev_paging:
+		if (decoder->enabled)
+			break;
 
-			return pt_insn_status(decoder, pts_event_pending);
+		return pt_insn_status(decoder, pts_event_pending);
 
-		case ptev_tsx:
-			status = pt_insn_postpone_tsx(decoder, insn, iext, ev);
-			if (status != 0) {
-				if (status < 0)
-					return status;
+	case ptev_async_paging:
+		if (!ev->ip_suppressed &&
+		    ev->variant.async_paging.ip != decoder->ip)
+			break;
 
-				break;
-			}
+		return pt_insn_status(decoder, pts_event_pending);
 
-			return pt_insn_status(decoder, pts_event_pending);
+	case ptev_vmcs:
+		if (decoder->enabled)
+			break;
 
-		case ptev_async_branch:
-			if (ev->variant.async_branch.from != decoder->ip)
-				break;
+		return pt_insn_status(decoder, pts_event_pending);
 
-			return pt_insn_status(decoder, pts_event_pending);
+	case ptev_async_vmcs:
+		if (!ev->ip_suppressed &&
+		    ev->variant.async_vmcs.ip != decoder->ip)
+			break;
 
-		case ptev_overflow:
-			return pt_insn_status(decoder, pts_event_pending);
+		return pt_insn_status(decoder, pts_event_pending);
 
-		case ptev_exec_mode:
-			if (!ev->ip_suppressed &&
-			    ev->variant.exec_mode.ip != decoder->ip)
-				break;
+	case ptev_stop:
+		return pt_insn_status(decoder, pts_event_pending);
 
-			return pt_insn_status(decoder, pts_event_pending);
+	case ptev_exstop:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.exstop.ip)
+			break;
 
-		case ptev_paging:
-			if (decoder->enabled)
-				break;
+		return pt_insn_status(decoder, pts_event_pending);
 
-			return pt_insn_status(decoder, pts_event_pending);
+	case ptev_mwait:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.mwait.ip)
+			break;
 
-		case ptev_async_paging:
-			if (!ev->ip_suppressed &&
-			    ev->variant.async_paging.ip != decoder->ip)
-				break;
+		return pt_insn_status(decoder, pts_event_pending);
 
-			return pt_insn_status(decoder, pts_event_pending);
+	case ptev_pwre:
+	case ptev_pwrx:
+		return pt_insn_status(decoder, pts_event_pending);
 
-		case ptev_vmcs:
-			if (decoder->enabled)
-				break;
+	case ptev_ptwrite:
+		/* Any event binding to the current PTWRITE instruction is
+		 * handled in pt_insn_check_insn_event().
+		 *
+		 * Any subsequent ptwrite event binds to a different instruction
+		 * and must wait until the next iteration - as long as tracing
+		 * is enabled.
+		 *
+		 * When tracing is disabled, we forward all ptwrite events
+		 * immediately to the user.
+		 */
+		if (decoder->enabled)
+			break;
 
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_async_vmcs:
-			if (!ev->ip_suppressed &&
-			    ev->variant.async_vmcs.ip != decoder->ip)
-				break;
-
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_stop:
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_exstop:
-			if (!ev->ip_suppressed && decoder->enabled &&
-			    decoder->ip != ev->variant.exstop.ip)
-				break;
-
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_mwait:
-			if (!ev->ip_suppressed && decoder->enabled &&
-			    decoder->ip != ev->variant.mwait.ip)
-				break;
-
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_pwre:
-		case ptev_pwrx:
-			return pt_insn_status(decoder, pts_event_pending);
-
-		case ptev_ptwrite:
-			/* Any event binding to the current PTWRITE instruction
-			 * is handled in pt_insn_check_insn_event().
-			 *
-			 * Any subsequent ptwrite event binds to a different
-			 * instruction and must wait until the next iteration -
-			 * as long as tracing is enabled.
-			 *
-			 * When tracing is disabled, we forward all ptwrite
-			 * events immediately to the user.
-			 */
-			if (decoder->enabled)
-				break;
-
-			return pt_insn_status(decoder, pts_event_pending);
-		}
-
-		/* If we fall out of the switch, we're done. */
-		break;
+		return pt_insn_status(decoder, pts_event_pending);
 	}
 
 	return pt_insn_status(decoder, 0);
