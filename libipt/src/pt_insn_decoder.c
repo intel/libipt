@@ -750,6 +750,110 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
+static int pt_insn_proceed(struct pt_insn_decoder *decoder,
+			   const struct pt_insn *insn,
+			   const struct pt_insn_ext *iext)
+{
+	if (!decoder || !insn || !iext)
+		return -pte_internal;
+
+	/* Branch displacements apply to the next instruction. */
+	decoder->ip += insn->size;
+
+	/* We handle non-branches, non-taken conditional branches, and
+	 * compressed returns directly in the switch and do some pre-work for
+	 * calls.
+	 *
+	 * All kinds of branches are handled below the switch.
+	 */
+	switch (insn->iclass) {
+	case ptic_ptwrite:
+	case ptic_other:
+		return 0;
+
+	case ptic_cond_jump: {
+		int status, taken;
+
+		status = pt_qry_cond_branch(&decoder->query, &taken);
+		if (status < 0)
+			return status;
+
+		decoder->status = status;
+		if (!taken)
+			return 0;
+
+		break;
+	}
+
+	case ptic_call:
+		/* Log the call for return compression.
+		 *
+		 * Unless this is a call to the next instruction as is used
+		 * for position independent code.
+		 */
+		if (iext->variant.branch.displacement ||
+		    !iext->variant.branch.is_direct)
+			pt_retstack_push(&decoder->retstack, decoder->ip);
+
+		break;
+
+	case ptic_return: {
+		int taken, status;
+
+		/* Check for a compressed return. */
+		status = pt_qry_cond_branch(&decoder->query, &taken);
+		if (status >= 0) {
+			decoder->status = status;
+
+			/* A compressed return is indicated by a taken
+			 * conditional branch.
+			 */
+			if (!taken)
+				return -pte_bad_retcomp;
+
+			return pt_retstack_pop(&decoder->retstack,
+					       &decoder->ip);
+		}
+
+		break;
+	}
+
+	case ptic_jump:
+	case ptic_far_call:
+	case ptic_far_return:
+	case ptic_far_jump:
+		break;
+
+	case ptic_error:
+		return -pte_bad_insn;
+	}
+
+	/* Process a direct or indirect branch.
+	 *
+	 * This combines calls, uncompressed returns, taken conditional jumps,
+	 * and all flavors of far transfers.
+	 */
+	if (iext->variant.branch.is_direct)
+		decoder->ip += iext->variant.branch.displacement;
+	else {
+		int status;
+
+		status = pt_qry_indirect_branch(&decoder->query,
+						&decoder->ip);
+
+		if (status < 0)
+			return status;
+
+		decoder->status = status;
+
+		/* We do need an IP to proceed. */
+		if (status & pts_ip_suppressed)
+			return -pte_noip;
+	}
+
+	return 0;
+}
+
 static int pt_insn_at_disabled_event(const struct pt_event *ev,
 				     const struct pt_insn *insn,
 				     const struct pt_insn_ext *iext)
@@ -1301,109 +1405,6 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 	return pt_insn_status(decoder, 0);
 }
 
-static int proceed(struct pt_insn_decoder *decoder, const struct pt_insn *insn,
-		   const struct pt_insn_ext *iext)
-{
-	if (!decoder || !insn || !iext)
-		return -pte_internal;
-
-	/* Branch displacements apply to the next instruction. */
-	decoder->ip += insn->size;
-
-	/* We handle non-branches, non-taken conditional branches, and
-	 * compressed returns directly in the switch and do some pre-work for
-	 * calls.
-	 *
-	 * All kinds of branches are handled below the switch.
-	 */
-	switch (insn->iclass) {
-	case ptic_ptwrite:
-	case ptic_other:
-		return 0;
-
-	case ptic_cond_jump: {
-		int status, taken;
-
-		status = pt_qry_cond_branch(&decoder->query, &taken);
-		if (status < 0)
-			return status;
-
-		decoder->status = status;
-		if (!taken)
-			return 0;
-
-		break;
-	}
-
-	case ptic_call:
-		/* Log the call for return compression.
-		 *
-		 * Unless this is a call to the next instruction as is used
-		 * for position independent code.
-		 */
-		if (iext->variant.branch.displacement ||
-		    !iext->variant.branch.is_direct)
-			pt_retstack_push(&decoder->retstack, decoder->ip);
-
-		break;
-
-	case ptic_return: {
-		int taken, status;
-
-		/* Check for a compressed return. */
-		status = pt_qry_cond_branch(&decoder->query, &taken);
-		if (status >= 0) {
-			decoder->status = status;
-
-			/* A compressed return is indicated by a taken
-			 * conditional branch.
-			 */
-			if (!taken)
-				return -pte_bad_retcomp;
-
-			return pt_retstack_pop(&decoder->retstack,
-					       &decoder->ip);
-		}
-
-		break;
-	}
-
-	case ptic_jump:
-	case ptic_far_call:
-	case ptic_far_return:
-	case ptic_far_jump:
-		break;
-
-	case ptic_error:
-		return -pte_bad_insn;
-	}
-
-	/* Process a direct or indirect branch.
-	 *
-	 * This combines calls, uncompressed returns, taken conditional jumps,
-	 * and all flavors of far transfers.
-	 */
-	if (iext->variant.branch.is_direct)
-		decoder->ip += iext->variant.branch.displacement;
-	else {
-		int status;
-
-		status = pt_qry_indirect_branch(&decoder->query,
-						&decoder->ip);
-
-		if (status < 0)
-			return status;
-
-		decoder->status = status;
-
-		/* We do need an IP to proceed. */
-		if (status & pts_ip_suppressed)
-			return -pte_noip;
-	}
-
-	return 0;
-}
-
 static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 			       const struct pt_insn *insn)
 {
@@ -1510,7 +1511,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 			/* Proceed errors are signaled one instruction too
 			 * early.
 			 */
-			errcode = proceed(decoder, pinsn, &iext);
+			errcode = pt_insn_proceed(decoder, pinsn, &iext);
 			if (errcode < 0)
 				goto err;
 		}
