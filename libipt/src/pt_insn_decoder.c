@@ -1201,24 +1201,15 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	 * Event processing takes care to proceed past the eventing instruction.
 	 */
 	if (!(status & pts_event_pending)) {
-		/* Determine the next instruction's IP so we can indicate async
-		 * disable events already in this instruction.
-		 *
-		 * This only makes sense as long as tracing is enabled, of
-		 * course.  If it isn't, we're either done or we will process
-		 * the corresponding enabled event in the next iteration.
-		 */
-		if (decoder->enabled) {
-			/* Proceed errors are signaled one instruction too
-			 * early.
-			 */
-			errcode = pt_insn_proceed(decoder, pinsn, &iext);
-			if (errcode < 0)
-				goto err;
-		}
+		/* Determine the next instruction's IP. */
+		errcode = pt_insn_proceed(decoder, pinsn, &iext);
+		if (errcode < 0)
+			goto err;
 
-		/* Peek at events for the next IP.  Some will be indicated
-		 * already in @pinsn.
+		/* Indicate events that bind to the new IP.
+		 *
+		 * Although we only look at the IP for binding events, we pass
+		 * the decoded instruction in order to handle errata.
 		 */
 		status = process_events_peek(decoder, pinsn, &iext);
 		if (status < 0) {
