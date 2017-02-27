@@ -56,5 +56,6 @@ l2: hlt
 
 ; @pt .exp(ptxed)
 ;%0l1 # mov cr3, rax
+;[paging, cr3: 000000000000a000]
 ;%0l2 # hlt
 ;[%eos, 100004: error: no memory mapped at this address]

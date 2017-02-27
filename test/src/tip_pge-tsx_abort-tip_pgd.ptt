@@ -61,6 +61,7 @@ l1:     hlt
 
 
 ; @pt .exp(ptxed)
+;[begin transaction]
 ;[enabled, ip: %0l0]
 ;[aborted, ip: %0l0]
 ;[disabled, at: %0l0, ip: %0l1]

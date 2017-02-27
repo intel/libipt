@@ -54,6 +54,7 @@ l7:     hlt
 
 ; @pt .exp(ptxed)
 ;%0l1 # nop
+;[begin transaction]
 ;? %0l2 # nop
 ;[aborted]
 ;[interrupt]

@@ -47,6 +47,7 @@ l3:     hlt
 
 
 ; @pt .exp(ptxed)
+;[paging, cr3: 0000000000000a00]
 ;[enabled]
 ;%0l1 # nop
 ;[disabled]

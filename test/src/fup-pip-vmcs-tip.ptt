@@ -65,5 +65,7 @@ l3: hlt
 ; @pt .exp(ptxed)
 ;%0l0
 ;[interrupt]
+;[vmcs, base: 00000000cdcdc000]
+;[paging, cr3: 0000000000cdcdc0]
 ;%0l2
 ;[disabled]

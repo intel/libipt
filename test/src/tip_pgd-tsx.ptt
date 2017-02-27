@@ -68,6 +68,7 @@ l6:     hlt
 
 
 ; @pt .exp(ptxed)
+;[begin transaction]
 ;[enabled]
 ;? %0l1 # nop
 ;[disabled]

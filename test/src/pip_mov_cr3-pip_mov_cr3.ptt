@@ -60,5 +60,7 @@ l4: hlt
 
 ; @pt .exp(ptxed)
 ;%0l1 # mov cr3, rax
+;[paging, cr3: 000000000000a000]
 ;%0l2 # mov cr3, rax
+;[paging, cr3: 000000000000b000]
 ;[disabled]

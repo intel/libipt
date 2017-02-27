@@ -54,6 +54,7 @@ l5:     hlt
 ; @pt .exp(ptxed)
 ;%0l1 # syscall
 ;[disabled]
+;[paging, cr3: 0000000000000a00]
 ;[enabled]
 ;%0l3 # nop
 ;[disabled]

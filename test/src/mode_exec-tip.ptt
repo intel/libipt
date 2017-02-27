@@ -61,6 +61,7 @@ l3: hlt
 
 
 ; @pt .exp(ptxed)
-;%0l0
-;%0l2
+;%0l0 # jmp far [rax]
+;[exec mode: 64-bit]
+;%0l2 # nop
 ;[disabled]

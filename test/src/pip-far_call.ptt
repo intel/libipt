@@ -63,5 +63,6 @@ l6:     hlt
 ; @pt .exp(ptxed)
 ;%0l1 # nop
 ;%0l2 # call far [rax] # l4
+;[paging, cr3: 0000000000cdcdc0]
 ;%0l4 # nop
 ;[disabled]
