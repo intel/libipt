@@ -495,28 +495,14 @@ static int process_exec_mode_event(struct pt_insn_decoder *decoder)
 	return 1;
 }
 
-static int process_tsx_event(struct pt_insn_decoder *decoder,
-			     struct pt_insn *insn)
+static int pt_insn_process_tsx(struct pt_insn_decoder *decoder)
 {
-	struct pt_event *ev;
-	int old_speculative;
-
 	if (!decoder)
 		return -pte_internal;
 
-	old_speculative = decoder->speculative;
-	ev = &decoder->event;
+	decoder->speculative = decoder->event.variant.tsx.speculative;
 
-	decoder->speculative = ev->variant.tsx.speculative;
-
-	if (insn && decoder->enabled) {
-		if (ev->variant.tsx.aborted)
-			insn->aborted = 1;
-		else if (old_speculative && !ev->variant.tsx.speculative)
-			insn->committed = 1;
-	}
-
-	return 1;
+	return 0;
 }
 
 static int process_stop_event(struct pt_insn_decoder *decoder,
@@ -678,14 +664,10 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_tsx:
-		/* We would normally process the tsx event when peeking
-		 * at the next instruction in order to indicate commits
-		 * and aborts properly.
-		 * This is to catch the case where we just sync'ed.
-		 */
+		/* We should have processed the event before. */
 		if (ev->ip_suppressed ||
 		    ev->variant.tsx.ip == decoder->ip)
-			return process_tsx_event(decoder, NULL);
+			return -pte_bad_query;
 
 		return 0;
 
@@ -1152,27 +1134,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 				break;
 			}
 
-			/* Turn the insn flag indication into a user event if
-			 * we encounter this event in the user event flow or
-			 * while tracing is disabled.
-			 *
-			 * We do not indicate TSX events that are marked as
-			 * status updates.
-			 */
-			if (!ev->status_update && (!insn || !decoder->enabled))
-				return pt_insn_status(decoder,
-						      pts_event_pending);
-
-			status = process_tsx_event(decoder, insn);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_async_branch:
 			if (ev->variant.async_branch.from != decoder->ip)
@@ -1651,16 +1613,9 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_tsx:
-		if (!ev->ip_suppressed && decoder->ip != ev->variant.tsx.ip)
-			return -pte_bad_query;
-
-		status = process_tsx_event(decoder, NULL);
-		if (status <= 0) {
-			if (!status)
-				status = -pte_internal;
-
+		status = pt_insn_process_tsx(decoder);
+		if (status < 0)
 			return status;
-		}
 
 		break;
 
