@@ -390,7 +390,7 @@ static int pt_insn_process_disabled(struct pt_insn_decoder *decoder)
 	return 0;
 }
 
-static int process_async_branch_event(struct pt_insn_decoder *decoder)
+static int pt_insn_process_async_branch(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -409,7 +409,7 @@ static int process_async_branch_event(struct pt_insn_decoder *decoder)
 
 	decoder->ip = ev->variant.async_branch.to;
 
-	return 1;
+	return 0;
 }
 
 static int process_paging_event(struct pt_insn_decoder *decoder)
@@ -636,8 +636,9 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return -pte_bad_query;
 
 	case ptev_async_branch:
-		if (ev->variant.async_branch.from == decoder->ip)
-			return process_async_branch_event(decoder);
+		/* We should have processed the event before. */
+		if (decoder->ip == ev->variant.async_branch.from)
+			return -pte_bad_query;
 
 		return 0;
 
@@ -1188,29 +1189,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			if (ev->variant.async_branch.from != decoder->ip)
 				break;
 
-			/* Turn the insn flag indication into a user event if we
-			 * encounter this event in the user event flow or if we
-			 * already indicated a previous async branch event.
-			 */
-			if (!insn || insn->interrupted)
-				return pt_insn_status(decoder,
-						      pts_event_pending);
-
-			status = process_async_branch_event(decoder);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			/* We indicate the interrupt in the preceding
-			 * instruction.
-			 */
-			insn->interrupted = 1;
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_overflow:
 			if (!ev->ip_suppressed)
@@ -1688,13 +1667,9 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		if (decoder->ip != ev->variant.async_branch.from)
 			return -pte_bad_query;
 
-		status = process_async_branch_event(decoder);
-		if (status <= 0) {
-			if (!status)
-				status = -pte_internal;
-
+		status = pt_insn_process_async_branch(decoder);
+		if (status < 0)
 			return status;
-		}
 
 		break;
 
