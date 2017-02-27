@@ -52,7 +52,6 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
-	decoder->event_may_change_ip = 1;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -352,12 +351,6 @@ static int pt_insn_process_enabled(struct pt_insn_decoder *decoder)
 	if (decoder->enabled)
 		return -pte_bad_context;
 
-	/* We're processing the event outside of pt_insn_next() - we must be
-	 * able to change the IP.
-	 */
-	if (!decoder->event_may_change_ip)
-		return -pte_internal;
-
 	decoder->ip = ev->variant.enabled.ip;
 	decoder->enabled = 1;
 
@@ -449,9 +442,6 @@ static int pt_insn_process_overflow(struct pt_insn_decoder *decoder)
 		decoder->enabled = 0;
 		decoder->ip = 0ull;
 	} else {
-		if (!decoder->event_may_change_ip)
-			return -pte_internal;
-
 		/* Tracing is enabled and we're at the IP at which the overflow
 		 * resolved.
 		 */
@@ -1180,12 +1170,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	if (errcode < 0)
 		goto err;
 
-	/* After decoding the instruction, we must not change the IP in this
-	 * iteration - postpone processing of events that would to the next
-	 * iteration.
-	 */
-	decoder->event_may_change_ip = 0;
-
 	/* We may already indicate user-relevant events, here.  We will ignore
 	 * all other status bits.
 	 */
@@ -1220,9 +1204,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	errcode = insn_to_user(uinsn, size, pinsn);
 	if (errcode < 0)
 		return errcode;
-
-	/* We're done with this instruction.  Now we may change the IP again. */
-	decoder->event_may_change_ip = 1;
 
 	return status;
 

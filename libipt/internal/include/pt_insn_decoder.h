@@ -88,9 +88,6 @@ struct pt_insn_decoder {
 	/* - process @event. */
 	uint32_t process_event:1;
 
-	/* - event processing may change the IP. */
-	uint32_t event_may_change_ip:1;
-
 	/* - instructions are executed speculatively. */
 	uint32_t speculative:1;
 };
