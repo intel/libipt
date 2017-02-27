@@ -54,7 +54,6 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->process_event = 0;
 	decoder->speculative = 0;
 	decoder->event_may_change_ip = 1;
-	decoder->ptwrite_event_bound = 0;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -696,10 +695,6 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return -pte_bad_query;
 
 	case ptev_ptwrite:
-		/* Check if the user forgot to drain the indicated event. */
-		if (decoder->ptwrite_event_bound)
-			return -pte_bad_query;
-
 		return 0;
 	}
 
@@ -898,8 +893,6 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 	if (!decoder)
 		return -pte_internal;
 
-	decoder->ptwrite_event_bound = 0;
-
 	for (;;) {
 		struct pt_event *ev;
 		int status;
@@ -995,9 +988,6 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_ptwrite:
-			if (decoder->ptwrite_event_bound)
-				break;
-
 			if (ev->ip_suppressed) {
 				if (insn->iclass != ptic_ptwrite)
 					break;
@@ -1020,9 +1010,6 @@ static int process_events_after(struct pt_insn_decoder *decoder,
 				if (decoder->ip != ev->variant.ptwrite.ip)
 					break;
 			}
-
-			/* Each instruction only binds to one ptwrite event. */
-			decoder->ptwrite_event_bound = 1;
 
 			/* We decoded the PTWRITE instruction into @insn/@iext;
 			 * @decoder->ip still points to it.
@@ -1259,16 +1246,17 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_ptwrite:
-			/* We normally indicate ptwrite events in
-			 * process_events_after().
+			/* The event is reported after the corresponding PTWRITE
+			 * instruction and indicated in process_events_after().
 			 *
-			 * If tracing is disabled, however, there won't be any
-			 * instruction.  Let's handle those ptwrite events here.
+			 * Any subsequent ptwrite event binds to a different
+			 * instruction and must wait until the next iteration -
+			 * as long as tracing is enabled.
+			 *
+			 * When tracing is disabled, we forward all ptwrite
+			 * events immediately to the user.
 			 */
-			if (!decoder->enabled)
-				decoder->ptwrite_event_bound = 1;
-
-			if (!decoder->ptwrite_event_bound)
+			if (decoder->enabled)
 				break;
 
 			return pt_insn_status(decoder, pts_event_pending);
@@ -1552,13 +1540,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 
 	case ptev_pwre:
 	case ptev_pwrx:
-		break;
-
 	case ptev_ptwrite:
-		if (!decoder->ptwrite_event_bound)
-			return -pte_bad_query;
-
-		decoder->ptwrite_event_bound = 0;
 		break;
 	}
 
