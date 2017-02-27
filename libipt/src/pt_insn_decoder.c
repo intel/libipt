@@ -426,8 +426,7 @@ static int process_paging_event(struct pt_insn_decoder *decoder)
 	return 1;
 }
 
-static int process_overflow_event(struct pt_insn_decoder *decoder,
-				  struct pt_insn *insn)
+static int pt_insn_process_overflow(struct pt_insn_decoder *decoder)
 {
 	struct pt_event *ev;
 
@@ -444,29 +443,18 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 	 * disabled.  Otherwise it resolved while tracing was enabled.
 	 */
 	if (ev->ip_suppressed) {
-		/* Indicate the overflow.  Since tracing is disabled, the
-		 * instruction will not be returned until tracing is re-enabled
-		 * again.
-		 */
-		if (insn)
-			insn->resynced = 1;
-
-		/* Tracing is disabled.  It doesn't make sense to preserve the
-		 * previous IP.  This will just be misleading.  Even if tracing
-		 * had been disabled before, as well, we might have missed the
-		 * re-enable in the overflow.
+		/* Tracing is disabled.
+		 *
+		 * It doesn't make sense to preserve the previous IP.  This will
+		 * just be misleading.  Even if tracing had been disabled
+		 * before, as well, we might have missed the re-enable in the
+		 * overflow.
 		 */
 		decoder->enabled = 0;
 		decoder->ip = 0ull;
 	} else {
-		/* Delay processing of the event if we can't change the IP. */
 		if (!decoder->event_may_change_ip)
-			return 0;
-
-		if (!insn)
 			return -pte_internal;
-
-		insn->resynced = 1;
 
 		/* Tracing is enabled and we're at the IP at which the overflow
 		 * resolved.
@@ -483,7 +471,7 @@ static int process_overflow_event(struct pt_insn_decoder *decoder,
 	 */
 	decoder->speculative = 0;
 
-	return 1;
+	return 0;
 }
 
 static int process_exec_mode_event(struct pt_insn_decoder *decoder)
@@ -679,7 +667,8 @@ static int process_one_event_before(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_overflow:
-		return process_overflow_event(decoder, insn);
+		/* We should have processed the event before. */
+		return -pte_bad_query;
 
 	case ptev_exec_mode:
 		if (ev->ip_suppressed ||
@@ -1192,26 +1181,7 @@ static int process_events_peek(struct pt_insn_decoder *decoder,
 			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_overflow:
-			if (!ev->ip_suppressed)
-				break;
-
-			/* Turn the insn flag indication into a user event if
-			 * we encounter this event in the user event flow.
-			 */
-			if (!insn)
-				return pt_insn_status(decoder,
-						      pts_event_pending);
-
-			status = process_overflow_event(decoder, insn);
-			if (status <= 0) {
-				if (status < 0)
-					return status;
-
-				break;
-			}
-
-			decoder->process_event = 0;
-			continue;
+			return pt_insn_status(decoder, pts_event_pending);
 
 		case ptev_exec_mode:
 			/* We would normally process this event in the next
@@ -1674,16 +1644,9 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_overflow:
-		if (!ev->ip_suppressed)
-			return -pte_bad_query;
-
-		status = process_overflow_event(decoder, NULL);
-		if (status <= 0) {
-			if (!status)
-				status = -pte_internal;
-
+		status = pt_insn_process_overflow(decoder);
+		if (status < 0)
 			return status;
-		}
 
 		break;
 
