@@ -1133,7 +1133,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 {
 	struct pt_insn_ext iext;
 	struct pt_insn insn, *pinsn;
-	int status, errcode;
+	int status;
 
 	if (!uinsn || !decoder)
 		return -pte_invalid;
@@ -1155,7 +1155,6 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	/* Zero-initialize the instruction in case of error returns. */
 	memset(pinsn, 0, sizeof(*pinsn));
 
-
 	/* Fill in a few things from the current decode state.
 	 *
 	 * This reflects the state of the last pt_insn_next(), pt_insn_event()
@@ -1166,56 +1165,45 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	pinsn->ip = decoder->ip;
 	pinsn->mode = decoder->mode;
 
-	errcode = pt_insn_decode(pinsn, &iext, decoder->image, &decoder->asid);
-	if (errcode < 0)
-		goto err;
+	status = pt_insn_decode(pinsn, &iext, decoder->image, &decoder->asid);
+	if (status < 0) {
+		/* Provide the incomplete instruction - the IP and mode fields
+		 * are valid and may help diagnose the error.
+		 */
+		(void) insn_to_user(uinsn, size, pinsn);
+		return status;
+	}
+
+	/* Provide the decoded instruction to the user.  It won't change during
+	 * event processing.
+	 */
+	status = insn_to_user(uinsn, size, pinsn);
+	if (status < 0)
+		return status;
 
 	/* We may already indicate user-relevant events, here.  We will ignore
 	 * all other status bits.
 	 */
 	status = process_events_after(decoder, pinsn, &iext);
-	if (status < 0) {
-		errcode = status;
-		goto err;
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		if (status & pts_event_pending)
+			return status;
 	}
 
-	/* We're done if we already have a user-event indicated.
+	/* Determine the next instruction's IP. */
+	status = pt_insn_proceed(decoder, pinsn, &iext);
+	if (status < 0)
+		return status;
+
+	/* Indicate events that bind to the new IP.
 	 *
-	 * Event processing takes care to proceed past the eventing instruction.
+	 * Although we only look at the IP for binding events, we pass the
+	 * decoded instruction in order to handle errata.
 	 */
-	if (!(status & pts_event_pending)) {
-		/* Determine the next instruction's IP. */
-		errcode = pt_insn_proceed(decoder, pinsn, &iext);
-		if (errcode < 0)
-			goto err;
-
-		/* Indicate events that bind to the new IP.
-		 *
-		 * Although we only look at the IP for binding events, we pass
-		 * the decoded instruction in order to handle errata.
-		 */
-		status = process_events_peek(decoder, pinsn, &iext);
-		if (status < 0) {
-			errcode = status;
-			goto err;
-		}
-	}
-
-	errcode = insn_to_user(uinsn, size, pinsn);
-	if (errcode < 0)
-		return errcode;
-
-	return status;
-
-err:
-	/* We provide the (incomplete) instruction also in case of errors.
-	 *
-	 * For decode or post-decode event-processing errors, the IP or
-	 * other fields are already valid and may help diagnose the error.
-	 */
-	(void) insn_to_user(uinsn, size, pinsn);
-
-	return errcode;
+	return process_events_peek(decoder, pinsn, &iext);
 }
 
 int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
