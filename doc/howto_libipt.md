@@ -619,7 +619,6 @@ shown below:
 ~~~{.c}
     struct pt_insn_decoder *decoder;
     struct pt_config config;
-    struct pt_image *image;
     int errcode;
 
     memset(&config, 0, sizeof(config));
@@ -630,9 +629,7 @@ shown below:
     config.decode.callback = <decode function>;
     config.decode.context = <decode context>;
 
-    image = <obtain image> or NULL;
-
-    decoder = pt_insn_alloc_decoder(&config, image);
+    decoder = pt_insn_alloc_decoder(&config);
     if (!decoder)
         <handle error>(errcode);
 ~~~
