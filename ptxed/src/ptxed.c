@@ -104,6 +104,9 @@ struct ptxed_options {
 
 	/* Print the ip of events. */
 	uint32_t print_event_ip:1;
+
+	/* Request tick events. */
+	uint32_t enable_tick_events:1;
 };
 
 /* A collection of flags selecting which stats to collect/print. */
@@ -176,6 +179,7 @@ static void help(const char *name)
 	printf("  --check                              perform checks (expensive).\n");
 	printf("  --event:time                         print the tsc for events if available.\n");
 	printf("  --event:ip                           print the ip of events if available.\n");
+	printf("  --event:tick                         request tick events.\n");
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
@@ -1629,6 +1633,61 @@ static void decode(struct ptxed_decoder *decoder,
 	}
 }
 
+static int alloc_decoder(struct ptxed_decoder *decoder,
+			 const struct pt_config *conf, struct pt_image *image,
+			 const struct ptxed_options *options, const char *prog)
+{
+	struct pt_config config;
+	int errcode;
+
+	if (!decoder || !conf || !options || !prog)
+		return -pte_internal;
+
+	config = *conf;
+
+	switch (decoder->type) {
+	case pdt_insn_decoder:
+		if (options->enable_tick_events)
+			config.flags.variant.insn.enable_tick_events = 1;
+
+		decoder->variant.insn = pt_insn_alloc_decoder(&config);
+		if (!decoder->variant.insn) {
+			fprintf(stderr,
+				"%s: failed to create decoder.\n", prog);
+			return -pte_nomem;
+		}
+
+		errcode = pt_insn_set_image(decoder->variant.insn, image);
+		if (errcode < 0) {
+			fprintf(stderr, "%s: failed to set image.\n", prog);
+			return errcode;
+		}
+
+		break;
+
+	case pdt_block_decoder:
+		if (options->enable_tick_events)
+			config.flags.variant.block.enable_tick_events = 1;
+
+		decoder->variant.block = pt_blk_alloc_decoder(&config);
+		if (!decoder->variant.block) {
+			fprintf(stderr,
+				"%s: failed to create  decoder.\n", prog);
+			return -pte_nomem;
+		}
+
+		errcode = pt_blk_set_image(decoder->variant.block, image);
+		if (errcode < 0) {
+			fprintf(stderr, "%s: failed to set image.\n", prog);
+			return errcode;
+		}
+
+		break;
+	}
+
+	return 0;
+}
+
 static void print_stats(struct ptxed_stats *stats)
 {
 	if (!stats) {
@@ -1784,47 +1843,10 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			switch (decoder.type) {
-			case pdt_insn_decoder:
-				decoder.variant.insn =
-					pt_insn_alloc_decoder(&config);
-				if (!decoder.variant.insn) {
-					fprintf(stderr, "%s: failed to create "
-						"decoder.\n", prog);
-					goto err;
-				}
-
-				errcode =
-					pt_insn_set_image(decoder.variant.insn,
-							  image);
-				if (errcode < 0) {
-					fprintf(stderr,
-						"%s: failed to set image.\n",
-						prog);
-					goto err;
-				}
-				break;
-
-			case pdt_block_decoder:
-				decoder.variant.block =
-					pt_blk_alloc_decoder(&config);
-				if (!decoder.variant.block) {
-					fprintf(stderr, "%s: failed to create "
-						"decoder.\n", prog);
-					goto err;
-				}
-
-				errcode =
-					pt_blk_set_image(decoder.variant.block,
-							 image);
-				if (errcode < 0) {
-					fprintf(stderr,
-						"%s: failed to set image.\n",
-						prog);
-					goto err;
-				}
-				break;
-			}
+			errcode = alloc_decoder(&decoder, &config, image,
+						&options, prog);
+			if (errcode < 0)
+				goto err;
 
 			continue;
 		}
@@ -1897,6 +1919,11 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--event:ip") == 0) {
 			options.print_event_ip = 1;
+
+			continue;
+		}
+		if (strcmp(arg, "--event:tick") == 0) {
+			options.enable_tick_events = 1;
 
 			continue;
 		}
