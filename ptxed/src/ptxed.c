@@ -753,23 +753,14 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		return;
 	}
 
-	if (insn->resynced)
-		printf("[overflow]\n");
-
-	if (insn->enabled)
-		printf("[enabled]\n");
-
-	if (insn->resumed)
-		printf("[resumed]\n");
-
-	if (insn->speculative)
-		printf("? ");
-
 	if (options->print_offset)
 		printf("%016" PRIx64 "  ", offset);
 
 	if (options->print_time)
 		printf("%016" PRIx64 "  ", time);
+
+	if (insn->speculative)
+		printf("? ");
 
 	printf("%016" PRIx64, insn->ip);
 
@@ -797,21 +788,6 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 	}
 
 	printf("\n");
-
-	if (insn->aborted)
-		printf("[aborted]\n");
-
-	if (insn->interrupted)
-		printf("[interrupt]\n");
-
-	if (insn->committed)
-		printf("[committed]\n");
-
-	if (insn->disabled)
-		printf("[disabled]\n");
-
-	if (insn->stopped)
-		printf("[stopped]\n");
 }
 
 static const char *print_exec_mode(enum pt_exec_mode mode)
@@ -1337,15 +1313,6 @@ static void print_block(const struct pt_block *block,
 		return;
 	}
 
-	if (block->resynced)
-		printf("[overflow]\n");
-
-	if (block->enabled)
-		printf("[enabled]\n");
-
-	if (block->resumed)
-		printf("[resumed]\n");
-
 	if (options->track_blocks) {
 		printf("[block");
 		if (stats)
@@ -1364,14 +1331,14 @@ static void print_block(const struct pt_block *block,
 		xed_error_enum_t xederrcode;
 		int errcode;
 
-		if (block->speculative)
-			printf("? ");
-
 		if (options->print_offset)
 			printf("%016" PRIx64 "  ", offset);
 
 		if (options->print_time)
 			printf("%016" PRIx64 "  ", time);
+
+		if (block->speculative)
+			printf("? ");
 
 		printf("%016" PRIx64, ip);
 
@@ -1412,21 +1379,6 @@ static void print_block(const struct pt_block *block,
 	if (ip != block->end_ip)
 		diagnose_block_at("reconstruct error", -pte_nosync, decoder,
 				  ip);
-
-	if (block->aborted)
-		printf("[aborted]\n");
-
-	if (block->interrupted)
-		printf("[interrupt]\n");
-
-	if (block->committed)
-		printf("[committed]\n");
-
-	if (block->disabled)
-		printf("[disabled]\n");
-
-	if (block->stopped)
-		printf("[stopped]\n");
 }
 
 static void check_block(const struct pt_block *block,

@@ -224,11 +224,6 @@ variant
     file for details.
 
 
-Note that the instruction flow and block decoder only forward events they do not
-process themselves or indicates otherwise, e.g. via a flag in *struct pt_insn*
-or *struct pt_block*.
-
-
 # RETURN VALUE
 
 **pt_qry_event**(), **pt_insn_event**(), and **pt_blk_event**() return zero or a

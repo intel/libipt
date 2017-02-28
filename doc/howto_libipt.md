@@ -798,11 +798,6 @@ to trace an instruction back to the binary file that contained it.  This allows
 mapping the instruction back to source code using the debug information
 contained in or reachable via the binary file.
 
-You also get some information about events that occured either before or after
-executing the instruction like enable or disable tracing.  For detailed
-information about instructions, see `enum pt_insn_class` and `struct pt_insn` in
-the intel-pt.h header file.
-
 Beware that `pt_insn_next()` may indicate errors that occur after the returned
 instruction.  The returned instruction is valid if its `iclass` field is set.
 

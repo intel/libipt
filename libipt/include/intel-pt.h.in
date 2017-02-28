@@ -2188,34 +2188,6 @@ struct pt_insn {
 	 */
 	uint32_t speculative:1;
 
-	/** - speculative execution was aborted after this instruction. */
-	uint32_t aborted:1;
-
-	/** - speculative execution was committed after this instruction. */
-	uint32_t committed:1;
-
-	/** - tracing was disabled after this instruction. */
-	uint32_t disabled:1;
-
-	/** - tracing was enabled at this instruction. */
-	uint32_t enabled:1;
-
-	/** - tracing was resumed at this instruction.
-	 *
-	 *    In addition to tracing being enabled, it continues from the IP
-	 *    at which tracing had been disabled before.
-	 */
-	uint32_t resumed:1;
-
-	/** - normal execution flow was interrupted after this instruction. */
-	uint32_t interrupted:1;
-
-	/** - tracing resumed at this instruction after an overflow. */
-	uint32_t resynced:1;
-
-	/** - tracing was stopped after this instruction. */
-	uint32_t stopped:1;
-
 	/** - this instruction is truncated in its image section.
 	 *
 	 *    It starts in the image section identified by \@isid and continues
@@ -2507,38 +2479,6 @@ struct pt_block {
 	 * - all instructions in this block were executed speculatively.
 	 */
 	uint32_t speculative:1;
-
-	/** - speculative execution was aborted after this block. */
-	uint32_t aborted:1;
-
-	/** - speculative execution was committed after this block. */
-	uint32_t committed:1;
-
-	/** - tracing was disabled after this block. */
-	uint32_t disabled:1;
-
-	/** - tracing was enabled at this block. */
-	uint32_t enabled:1;
-
-	/** - tracing was resumed at this block.
-	 *
-	 *    In addition to tracing being enabled, it continues from the IP
-	 *    at which tracing had been disabled before.
-	 *
-	 *    If tracing was disabled at a call instruction, we assume that
-	 *    tracing will be re-enabled after returning from the call at the
-	 *    instruction following the call instruction.
-	 */
-	uint32_t resumed:1;
-
-	/** - normal execution flow was interrupted after this block. */
-	uint32_t interrupted:1;
-
-	/** - tracing resumed at this block after an overflow. */
-	uint32_t resynced:1;
-
-	/** - tracing was stopped after this block. */
-	uint32_t stopped:1;
 
 	/** - the last instruction in this block is truncated.
 	 *

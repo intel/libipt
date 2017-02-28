@@ -123,38 +123,6 @@ struct pt_block {
      */
     uint32_t speculative:1;
 
-    /** - speculative execution was aborted after this block. */
-    uint32_t aborted:1;
-
-    /** - speculative execution was committed after this block. */
-    uint32_t committed:1;
-
-    /** - tracing was disabled after this block. */
-    uint32_t disabled:1;
-
-    /** - tracing was enabled at this block. */
-    uint32_t enabled:1;
-
-    /** - tracing was resumed at this block.
-     *
-     *    In addition to tracing being enabled, it continues from the IP
-     *    at which tracing had been disabled before.
-     *
-     *    If tracing was disabled at a call instruction, we assume that
-     *    tracing will be re-enabled after returning from the call at the
-     *    instruction following the call instruction.
-     */
-    uint32_t resumed:1;
-
-    /** - normal execution flow was interrupted after this block. */
-    uint32_t interrupted:1;
-
-    /** - tracing resumed at this block after an overflow. */
-    uint32_t resynced:1;
-
-    /** - tracing was stopped after this block. */
-    uint32_t stopped:1;
-
     /** - the last instruction in this block is truncated.
      *
      *    It starts in this block's section but continues in one or more
@@ -238,56 +206,6 @@ speculative
 :   A flag giving the speculative execution status of all instructions in the
     block.  If set, the instructions were executed speculatively.  Otherwise,
     the instructions were executed normally.
-
-aborted
-:   A flag saying whether speculative execution was aborted after the last
-    instruction in this block.  If set, speculative execution was aborted and
-    the effect of speculatively executed instructions prior to and including
-    this block was discarded.
-
-committed
-:   A flag saying whether the speculative execution state was committed after
-    the last instruction in this block.  If set, the effect of speculatively
-    executed instructions prior to and including this block was committed.
-
-disabled
-:   A flag saying that tracing was disabled after the last instruction in this
-    block.  If set, tracing was disabled after the last instruction in this
-    block retired.
-
-enabled
-:   A flag saying whether tracing was enabled at the first instruction in this
-    block.  If set, this is the first block of instructions after tracing was
-    enabled.
-
-resumed
-:   A flag saying whether tracing was resumed at the first instruction in this
-    block.  If set, tracing was previously disabled at this block's IP before
-    executing the instruction at that IP and was then enabled at the same IP.
-
-    A typical example would be a system call or interrupt when tracing only user
-    space.  Tracing is disabled due to the context switch and is then resumed
-    from the next instruction after returning to user space.
-
-interrupted
-:   A flag saying whether normal execution flow was interrupted after the last
-    instruction in this block.  If set, the normal execution flow was
-    interrupted.
-
-    The next instruction, which is provided by another call to
-    **pt_blk_next**(), is the next instruction that retired after the
-    interrupt.  This is not necessarily the interrupt's destination.
-
-resynced
-:   A flag saying whether tracing resumed at the fist instruction in this block
-    after an overflow.  If set, there was an internal buffer overflow and
-    packets were lost.  This was the first block of instructions to retire after
-    the overflow resolved.
-
-stopped
-:   A flag saying whether tracing was stopped after the last instruction in this
-    block.  If set, this is the last block of instructions that retired before
-    tracing was stopped due to a TraceStop condition.
 
 truncated
 :   A flag saying whether the last instruction in this block can not be read

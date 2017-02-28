@@ -86,42 +86,6 @@ struct pt_insn {
 	 */
 	uint32_t speculative:1;
 
-	/** - speculative execution was aborted after this
-	 * instruction.
-	 */
-	uint32_t aborted:1;
-
-	/** - speculative execution was committed after this
-	 * instruction.
-	 */
-	uint32_t committed:1;
-
-	/** - tracing was disabled after this instruction. */
-	uint32_t disabled:1;
-
-	/** - tracing was enabled at this instruction. */
-	uint32_t enabled:1;
-
-	/** - tracing was resumed at this instruction.
-	 *
-	 *    In addition to tracing being enabled, it continues
-	 *    from the IP at which tracing had been disabled before.
-	 */
-	uint32_t resumed:1;
-
-	/** - normal execution flow was interrupted after this
-	 * instruction.
-	 */
-	uint32_t interrupted:1;
-
-	/** - tracing resumed at this instruction after an
-	 * overflow.
-	 */
-	uint32_t resynced:1;
-
-	/** - tracing was stopped after this instruction. */
-	uint32_t stopped:1;
-
 	/** - this instruction is truncated in its image section.
 	 *
 	 *    It starts in the image section identified by \@isid and continues
@@ -216,51 +180,6 @@ speculative
 :   A flag giving the speculative execution status of the instruction.  If set,
     the instruction was executed speculatively.  Otherwise, the instruction was
     executed normally.
-
-aborted
-:   A flag saying whether speculative execution was aborted after this
-    instruction.  If set, speculative execution was aborted and the effect of
-    speculatively executed instructions prior to this was discarded.
-
-committed
-:   A flag saying whether the speculative execution state was committed.  If
-    set, the effect of speculatively executed instructions prior to this was
-    committed.
-
-disabled
-:   A flag saying that tracing was disabled after this instruction.  If set,
-    tracing was disabled after this instruction retired.
-
-enabled
-:   A flag saying whether tracing was enabled at this instruction.  If set, this
-    is the first instruction that retired after tracing was enabled.
-
-resumed
-:   A flag saying whether tracing was resumed at this instruction.  If set,
-    tracing was previously disabled at this instruction's IP before executing
-    this instruction and was then enabled at this instruction.
-
-    A typical example would be a system call or interrupt when tracing only user
-    space.  Tracing is disabled due to the context switch and is then resumed
-    from the next instruction after returning to user space.
-
-interrupted
-:   A flag saying whether normal execution flow was interrupted after this
-    instruction.  If set, the normal execution flow was interrupted.
-
-    The next instruction, which is provided by another call to
-    **pt_insn_next**(), is the next instruction that retired after the
-    interrupt.  This is not necessarily the interrupt's destination.
-
-resynced
-:   A flag saying whether tracing resumed at this instruction after an
-    overflow.  If set, there was an internal buffer overflow and packets were
-    lost.  This was the first instruction to retire after the overflow resolved.
-
-stopped
-:   A flag saying whether tracing was stopped after this instruction.  If set,
-    this is the last instruction that retired before tracing was stopped due to
-    a TraceStop condition.
 
 truncated
 :   A flag saying whether this instruction spans more than one image section.
