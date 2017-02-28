@@ -68,11 +68,20 @@ struct pt_insn {
 	/** The virtual address in its process. */
 	uint64_t ip;
 
-	/** A coarse classification. */
-	enum pt_insn_class iclass;
+	/** The image section identifier for the section containing this
+	 * instruction.
+	 *
+	 * A value of zero means that the section did not have an identifier.
+	 * The section was not added via an image section cache or the memory
+	 * was read via the read memory callback.
+	 */
+	int isid;
 
 	/** The execution mode. */
 	enum pt_exec_mode mode;
+
+	/** A coarse classification. */
+	enum pt_insn_class iclass;
 
 	/** The raw bytes. */
 	uint8_t raw[pt_max_insn_size];
@@ -92,15 +101,6 @@ struct pt_insn {
 	 *    in one or more other sections.
 	 */
 	uint32_t truncated:1;
-
-	/** The image section identifier for the section containing this
-	 * instruction.
-	 *
-	 * A value of zero means that the section did not have an identifier.
-	 * The section was not added via an image section cache or the memory
-	 * was read via the read memory callback.
-	 */
-	int isid;
 };
 ~~~
 
@@ -109,6 +109,28 @@ The fields of the *pt_insn* structure are described in more detail below:
 ip
 :   The virtual address of the instruction.  The address should be interpreted
     in the current address space context.
+
+isid
+:   The image section identifier of the section from which the instruction
+    originated.  This will be zero unless the instruction came from a section
+    that was added via an image section cache.  See **pt_image_add_cached**(3).
+
+    The image section identifier can be used to trace an instruction back to
+    its binary file and from there to source code.
+
+mode
+:   The execution mode at which the instruction was executed.  The
+    *pt_exec_mode* enumeration is declared as:
+
+~~~{.c}
+/** An execution mode. */
+enum pt_exec_mode {
+	ptem_unknown,
+	ptem_16bit,
+	ptem_32bit,
+	ptem_64bit
+};
+~~~
 
 iclass
 :   A coarse classification of the instruction suitable for constructing a call
@@ -156,20 +178,6 @@ enum pt_insn_class {
 };
 ~~~
 
-mode
-:   The execution mode at which the instruction was executed.  The
-    *pt_exec_mode* enumeration is declared as:
-
-~~~{.c}
-/** An execution mode. */
-enum pt_exec_mode {
-	ptem_unknown,
-	ptem_16bit,
-	ptem_32bit,
-	ptem_64bit
-};
-~~~
-
 raw
 :   The memory containing the instruction.
 
@@ -186,14 +194,6 @@ truncated
     If clear, this instruction originates from a single section identified by
     *isid*.  If set, the instruction overlaps two or more image sections.  In
     this case, *isid* identifies the section that contains the first byte.
-
-isid
-:   The image section identifier of the section from which the instruction
-    originated.  This will be zero unless the instruction came from a section
-    that was added via an image section cache.  See **pt_image_add_cached**(3).
-
-    The image section identifier can be used to trace an instruction back to
-    its binary file and from there to source code.
 
 
 # RETURN VALUE

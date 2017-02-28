@@ -2170,11 +2170,20 @@ struct pt_insn {
 	/** The virtual address in its process. */
 	uint64_t ip;
 
-	/** A coarse classification. */
-	enum pt_insn_class iclass;
+	/** The image section identifier for the section containing this
+	 * instruction.
+	 *
+	 * A value of zero means that the section did not have an identifier.
+	 * The section was not added via an image section cache or the memory
+	 * was read via the read memory callback.
+	 */
+	int isid;
 
 	/** The execution mode. */
 	enum pt_exec_mode mode;
+
+	/** A coarse classification. */
+	enum pt_insn_class iclass;
 
 	/** The raw bytes. */
 	uint8_t raw[pt_max_insn_size];
@@ -2194,15 +2203,6 @@ struct pt_insn {
 	 *    in one or more other sections.
 	 */
 	uint32_t truncated:1;
-
-	/** The image section identifier for the section containing this
-	 * instruction.
-	 *
-	 * A value of zero means that the section did not have an identifier.
-	 * The section was not added via an image section cache or the memory
-	 * was read via the read memory callback.
-	 */
-	int isid;
 };
 
 
