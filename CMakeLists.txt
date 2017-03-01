@@ -72,6 +72,7 @@ option(PTXED  "Enable ptxed, an instruction flow dumper")
 option(PTTC   "Enable pttc, a test compiler")
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 option(MAN "Enable man pages (requires pandoc)." OFF)
+option(SIDEBAND "Enable libipt-sb, a sideband correlation library")
 
 if (PTXED)
   option(FEATURE_ELF "Support ELF files." OFF)
@@ -104,6 +105,16 @@ if (FEATURE_ELF)
     -DFEATURE_ELF
   )
 endif (FEATURE_ELF)
+
+if (SIDEBAND)
+  add_definitions(
+    -DFEATURE_SIDEBAND
+  )
+
+  include_directories(
+    ${CMAKE_CURRENT_BINARY_DIR}/sideband/include
+  )
+endif (SIDEBAND)
 
 if (CMAKE_HOST_WIN32)
   include_directories(
@@ -276,3 +287,6 @@ endif (PTT)
 if (MAN)
   add_subdirectory(doc/man)
 endif (MAN)
+if (SIDEBAND)
+  add_subdirectory(sideband)
+endif (SIDEBAND)

@@ -33,6 +33,8 @@ Optional Contents and Samples
 
   ptunit        A simple unit test system
 
+  sideband      A sideband correlation library
+
   script        A collection of scripts
 
   test          A collection of tests

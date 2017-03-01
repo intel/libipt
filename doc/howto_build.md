@@ -57,6 +57,8 @@ The following optional components are availble:
 
     PTTC               A trace test generator.
 
+    SIDEBAND           A sideband correlation library
+
 
 ### Optional Features
 
