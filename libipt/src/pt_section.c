@@ -197,7 +197,7 @@ int pt_section_get(struct pt_section *section)
 	ucount = section->ucount + 1;
 	if (!ucount) {
 		(void) pt_section_unlock(section);
-		return -pte_internal;
+		return -pte_overflow;
 	}
 
 	section->ucount = ucount;

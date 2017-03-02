@@ -187,7 +187,10 @@ enum pt_error_code {
 	pte_no_enable,
 
 	/* An event was ignored. */
-	pte_event_ignored
+	pte_event_ignored,
+
+	/* A use-counter overflowed. */
+	pte_overflow
 };
 
 

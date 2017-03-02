@@ -106,6 +106,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_event_ignored:
 		return "event ignored";
+
+	case pte_overflow:
+		return "overflow";
 	}
 
 	/* Should not reach here. */

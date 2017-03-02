@@ -281,7 +281,7 @@ static struct ptunit_result get_overflow(struct section_fixture *sfix)
 	sfix->section->ucount = UINT16_MAX;
 
 	errcode = pt_section_get(sfix->section);
-	ptu_int_eq(errcode, -pte_internal);
+	ptu_int_eq(errcode, -pte_overflow);
 
 	sfix->section->ucount = 1;
 
