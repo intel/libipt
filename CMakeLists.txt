@@ -78,9 +78,9 @@ if (SIDEBAND)
   option(PEVENT "Enable perf_event sideband support." OFF)
 endif (SIDEBAND)
 
-if (PTXED)
+if (PTXED OR PEVENT)
   option(FEATURE_ELF "Support ELF files." OFF)
-endif (PTXED)
+endif (PTXED OR PEVENT)
 
 # PTT tests require all the optional tools and use a bash script as test driver
 #

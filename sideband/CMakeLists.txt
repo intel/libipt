@@ -32,6 +32,7 @@ set(LIBSB_FILES
   src/pt_sb_session.c
   src/pt_sb_context.c
   src/pt_sb_file.c
+  src/pt_sb_pevent.c
 )
 
 if (CMAKE_HOST_WIN32)
@@ -59,3 +60,6 @@ set_target_properties(libipt-sb PROPERTIES
 )
 
 target_link_libraries(libipt-sb libipt)
+if (PEVENT)
+  target_link_libraries(libipt-sb pevent)
+endif (PEVENT)

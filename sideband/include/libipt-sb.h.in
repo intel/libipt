@@ -442,6 +442,87 @@ extern pt_sb_export int
 pt_sb_alloc_decoder(struct pt_sb_session *session,
 		    const struct pt_sb_decoder_config *config);
 
+
+/* The configuration for a Linux perf event sideband decoder. */
+struct pt_sb_pevent_config {
+	/* The size of the config structure in bytes. */
+	size_t size;
+
+	/* The name of the file containing the sideband data. */
+	const char *filename;
+
+	/* The offset into the file from which to start reading. */
+	size_t begin;
+
+	/* The optional end offset into the file at which to stop reading.
+	 *
+	 * Zero means read until the end of the file.
+	 */
+	size_t end;
+
+	/* The optional system root directory.
+	 *
+	 * If not NULL, this is prepended to every filename referenced in perf
+	 * event sideband records.
+	 */
+	const char *sysroot;
+
+	/* The optional 64-bit vdso. */
+	const char *vdso_x64;
+
+	/* The optional x32 vdso. */
+	const char *vdso_x32;
+
+	/* The optional 32-bit vdso. */
+	const char *vdso_ia32;
+
+	/* An offset to be subtracted from every perf event record timestamp.
+	 *
+	 * This applies perf event records a little bit earlier to compensate
+	 * for too coarse timing.
+	 */
+	uint64_t tsc_offset;
+
+	/* The respective field in struct perf_event_attr.
+	 *
+	 * We require sample_id_all in struct perf_event_attr to be set.
+	 */
+	uint64_t sample_type;
+
+	/* The start address of the kernel.
+	 *
+	 * This is used to distinguish kernel from user addresses:
+	 *
+	 *   kernel >= @kernel_start
+	 *   user   <  @kernel_start
+	 *
+	 * Set to UINT64_MAX if ring-0 is not being traced.
+	 */
+	uint64_t kernel_start;
+
+	/* The respective fields in struct perf_event_mmap_page. */
+	uint16_t time_shift;
+	uint32_t time_mult;
+	uint64_t time_zero;
+
+	/* A collection of configuration flags saying:
+	 *
+	 * - whether this is a primary decoder (secondary if clear).
+	 */
+	uint32_t primary:1;
+};
+
+/* Allocate a Linux perf event sideband decoder.
+ *
+ * Allocates a sideband decoder for the Linux perf event format based on @config
+ * and adds it to @session.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+extern pt_sb_export int
+pt_sb_alloc_pevent_decoder(struct pt_sb_session *session,
+			   const struct pt_sb_pevent_config *config);
+
 #ifdef __cplusplus
 }
 #endif
