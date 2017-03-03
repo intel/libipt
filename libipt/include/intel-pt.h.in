@@ -190,7 +190,10 @@ enum pt_error_code {
 	pte_event_ignored,
 
 	/* A use-counter overflowed. */
-	pte_overflow
+	pte_overflow,
+
+	/* A file handling error. */
+	pte_bad_file
 };
 
 

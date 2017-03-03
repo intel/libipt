@@ -109,6 +109,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_overflow:
 		return "overflow";
+
+	case pte_bad_file:
+		return "bad file";
 	}
 
 	/* Should not reach here. */
