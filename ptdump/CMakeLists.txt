@@ -49,3 +49,6 @@ add_executable(ptdump
 )
 
 target_link_libraries(ptdump libipt)
+if (SIDEBAND)
+  target_link_libraries(ptdump libipt-sb)
+endif (SIDEBAND)

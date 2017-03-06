@@ -32,6 +32,10 @@
 
 #include "intel-pt.h"
 
+#if defined(FEATURE_SIDEBAND)
+#  include "libipt-sb.h"
+#endif
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <inttypes.h>
@@ -46,6 +50,10 @@
 
 
 struct ptdump_options {
+#if defined(FEATURE_SIDEBAND)
+	/* Sideband dump flags. */
+	uint32_t sb_dump_flags;
+#endif
 	/* Show the current offset in the trace stream. */
 	uint32_t show_offset:1;
 
@@ -90,6 +98,11 @@ struct ptdump_options {
 
 	/* Don't show CYC packets and ignore them when tracking time. */
 	uint32_t no_cyc:1;
+
+#if defined(FEATURE_SIDEBAND)
+	/* Print sideband warnings. */
+	uint32_t print_sb_warnings:1;
+#endif
 };
 
 struct ptdump_buffer {
@@ -133,6 +146,11 @@ struct ptdump_buffer {
 };
 
 struct ptdump_tracking {
+#if defined(FEATURE_SIDEBAND)
+	/* The sideband session. */
+	struct pt_sb_session *session;
+#endif
+
 	/* Track last-ip. */
 	struct pt_last_ip last_ip;
 
@@ -194,6 +212,14 @@ static int help(const char *name)
 	printf("  --no-tcal                 skip timing calibration.\n");
 	printf("                            this will result in errors when CYC packets are encountered.\n");
 	printf("  --no-wall-clock           suppress the no-time error and print relative time.\n");
+#if defined(FEATURE_SIDEBAND)
+	printf("  --sb:compact | --sb       show sideband records in compact format.\n");
+	printf("  --sb:verbose              show sideband records in verbose format.\n");
+	printf("  --sb:filename             show the filename on sideband records.\n");
+	printf("  --sb:offset               show the offset on sideband records.\n");
+	printf("  --sb:time                 show the time on sideband records.\n");
+	printf("  --sb:warn                 show sideband warnings.\n");
+#endif /* defined(FEATURE_SIDEBAND) */
 	printf("  --cpu none|auto|f/m[/s]   set cpu to the given value and decode according to:\n");
 	printf("                              none     spec (default)\n");
 	printf("                              auto     current cpu\n");
@@ -443,6 +469,9 @@ static void ptdump_tracking_init(struct ptdump_tracking *tracking)
 	pt_tcal_init(&tracking->tcal);
 	pt_time_init(&tracking->time);
 
+#if defined(FEATURE_SIDEBAND)
+	tracking->session = NULL;
+#endif
 	tracking->tsc = 0ull;
 	tracking->fcr = 0ull;
 	tracking->in_header = 0;
@@ -464,9 +493,12 @@ static void ptdump_tracking_reset(struct ptdump_tracking *tracking)
 
 static void ptdump_tracking_fini(struct ptdump_tracking *tracking)
 {
-	(void) tracking;
+	if (!tracking)
+		return;
 
-	/* Nothing to do. */
+#if defined(FEATURE_SIDEBAND)
+	pt_sb_free(tracking->session);
+#endif
 }
 
 #define print_field(field, ...)					\
@@ -692,8 +724,30 @@ static int print_tcal(struct ptdump_buffer *buffer,
 	return 0;
 }
 
+static int sb_track_time(struct ptdump_tracking *tracking,
+			 const struct ptdump_options *options, uint64_t offset)
+{
+	uint64_t tsc;
+	int errcode;
+
+	if (!tracking || !options)
+		return diag("time tracking error", offset, -pte_internal);
+
+	errcode = pt_time_query_tsc(&tsc, NULL, NULL, &tracking->time);
+	if ((errcode < 0) && (errcode != -pte_no_time))
+		return diag("time tracking error", offset, errcode);
+
+#if defined(FEATURE_SIDEBAND)
+	errcode = pt_sb_dump(tracking->session, stdout, options->sb_dump_flags,
+			     tsc);
+	if (errcode < 0)
+		return diag("sideband dump error", offset, errcode);
+#endif
+	return 0;
+}
+
 static int track_time(struct ptdump_buffer *buffer,
-		      struct ptdump_tracking *tracking,  uint64_t offset,
+		      struct ptdump_tracking *tracking, uint64_t offset,
 		      const struct ptdump_options *options)
 {
 	if (!tracking || !options)
@@ -705,7 +759,7 @@ static int track_time(struct ptdump_buffer *buffer,
 	if (options->show_time && !buffer->skip_time)
 		print_time(buffer, tracking, offset, options);
 
-	return 0;
+	return sb_track_time(tracking, options, offset);
 }
 
 static int track_tsc(struct ptdump_buffer *buffer,
@@ -1367,25 +1421,66 @@ static int dump_sync(struct pt_packet_decoder *decoder,
 	return errcode;
 }
 
-static int dump(const struct pt_config *config,
+static int dump(struct ptdump_tracking *tracking,
+		const struct pt_config *config,
 		const struct ptdump_options *options)
 {
 	struct pt_packet_decoder *decoder;
-	struct ptdump_tracking tracking;
 	int errcode;
 
 	decoder = pt_pkt_alloc_decoder(config);
 	if (!decoder)
 		return diag("failed to allocate decoder", 0ull, 0);
 
-	ptdump_tracking_init(&tracking);
+	errcode = dump_sync(decoder, tracking, options, config);
 
-	errcode = dump_sync(decoder, &tracking, options, config);
-
-	ptdump_tracking_fini(&tracking);
 	pt_pkt_free_decoder(decoder);
-	return errcode;
+
+	if (errcode < 0)
+		return errcode;
+
+#if defined(FEATURE_SIDEBAND)
+	errcode = pt_sb_dump(tracking->session, stdout, options->sb_dump_flags,
+			     UINT64_MAX);
+	if (errcode < 0)
+		return diag("sideband dump error", UINT64_MAX, errcode);
+#endif
+
+	return 0;
 }
+
+#if defined(FEATURE_SIDEBAND)
+
+static int ptdump_print_error(int errcode, const char *filename,
+			      uint64_t offset, void *priv)
+{
+	const struct ptdump_options *options;
+	const char *errstr;
+
+	options = (struct ptdump_options *) priv;
+	if (!options)
+		return -pte_internal;
+
+	if (errcode >= 0 && !options->print_sb_warnings)
+		return 0;
+
+	if (!filename)
+		filename = "<unknown>";
+
+	errstr = errcode < 0
+		? pt_errstr(pt_errcode(errcode))
+		: pt_sb_errstr((enum pt_sb_error_code) errcode);
+
+	if (!errstr)
+		errstr = "<unknown error>";
+
+	printf("[%s:%016" PRIx64 " sideband error: %s]\n", filename, offset,
+	       errstr);
+
+	return 0;
+}
+
+#endif /* defined(FEATURE_SIDEBAND) */
 
 static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
 			  const char *prog)
@@ -1451,12 +1546,14 @@ static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 	return 1;
 }
 
-static int process_args(int argc, char *argv[], struct ptdump_options *options,
+static int process_args(int argc, char *argv[],
+			struct ptdump_tracking *tracking,
+			struct ptdump_options *options,
 			struct pt_config *config, char **ptfile)
 {
 	int idx, errcode;
 
-	if (!argv || !options || !config || !ptfile)
+	if (!argv || !tracking || !options || !config || !ptfile)
 		return -pte_internal;
 
 	for (idx = 1; idx < argc; ++idx) {
@@ -1475,9 +1572,12 @@ static int process_args(int argc, char *argv[], struct ptdump_options *options,
 			return version(argv[0]);
 		if (strcmp(argv[idx], "--no-sync") == 0)
 			options->no_sync = 1;
-		else if (strcmp(argv[idx], "--quiet") == 0)
+		else if (strcmp(argv[idx], "--quiet") == 0) {
 			options->quiet = 1;
-		else if (strcmp(argv[idx], "--no-pad") == 0)
+#if defined(FEATURE_SIDEBAND)
+			options->sb_dump_flags = 0;
+#endif
+		} else if (strcmp(argv[idx], "--no-pad") == 0)
 			options->no_pad = 1;
 		else if (strcmp(argv[idx], "--no-timing") == 0)
 			options->no_timing = 1;
@@ -1515,6 +1615,23 @@ static int process_args(int argc, char *argv[], struct ptdump_options *options,
 			options->no_tcal = 1;
 		else if (strcmp(argv[idx], "--no-wall-clock") == 0)
 			options->no_wall_clock = 1;
+#if defined(FEATURE_SIDEBAND)
+		else if ((strcmp(argv[idx], "--sb:compact") == 0) ||
+			 (strcmp(argv[idx], "--sb") == 0)) {
+			options->sb_dump_flags &= ~ptsbp_verbose;
+			options->sb_dump_flags |= ptsbp_compact;
+		} else if (strcmp(argv[idx], "--sb:verbose") == 0) {
+			options->sb_dump_flags &= ~ptsbp_compact;
+			options->sb_dump_flags |= ptsbp_verbose;
+		} else if (strcmp(argv[idx], "--sb:filename") == 0)
+			options->sb_dump_flags |= ptsbp_filename;
+		else if (strcmp(argv[idx], "--sb:offset") == 0)
+			options->sb_dump_flags |= ptsbp_file_offset;
+		else if (strcmp(argv[idx], "--sb:time") == 0)
+			options->sb_dump_flags |= ptsbp_tsc;
+		else if (strcmp(argv[idx], "--sb:warn") == 0)
+			options->print_sb_warnings = 1;
+#endif /* defined(FEATURE_SIDEBAND) */
 		else if (strcmp(argv[idx], "--cpu") == 0) {
 			const char *arg;
 
@@ -1577,6 +1694,7 @@ static int process_args(int argc, char *argv[], struct ptdump_options *options,
 
 int main(int argc, char *argv[])
 {
+	struct ptdump_tracking tracking;
 	struct ptdump_options options;
 	struct pt_config config;
 	int errcode;
@@ -1591,18 +1709,35 @@ int main(int argc, char *argv[])
 	memset(&config, 0, sizeof(config));
 	pt_config_init(&config);
 
-	errcode = process_args(argc, argv, &options, &config, &ptfile);
-	if (errcode < 0)
-		return -errcode;
+	ptdump_tracking_init(&tracking);
 
-	if (!ptfile)
-		return no_file_error(argv[0]);
+#if defined(FEATURE_SIDEBAND)
+	tracking.session = pt_sb_alloc(NULL);
+	if (!tracking.session) {
+		fprintf(stderr,
+			"%s: failed to allocate sideband session.\n", argv[0]);
+		errcode = -pte_nomem;
+		goto out;
+	}
+
+	pt_sb_notify_error(tracking.session, ptdump_print_error, &options);
+#endif /* defined(FEATURE_SIDEBAND) */
+
+	errcode = process_args(argc, argv, &tracking, &options, &config,
+			       &ptfile);
+	if (errcode < 0)
+		goto out;
+
+	if (!ptfile) {
+		errcode = no_file_error(argv[0]);
+		goto out;
+	}
 
 	errcode = preprocess_filename(ptfile, &pt_offset, &pt_size);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: bad file %s: %s.\n", argv[0], ptfile,
 			pt_errstr(pt_errcode(errcode)));
-		return 1;
+		goto out;
 	}
 
 	errcode = pt_cpu_errata(&config.errata, &config.cpu);
@@ -1611,11 +1746,23 @@ int main(int argc, char *argv[])
 
 	errcode = load_pt(&config, ptfile, pt_offset, pt_size, argv[0]);
 	if (errcode < 0)
-		return 1;
+		goto out;
 
-	errcode = dump(&config, &options);
+#if defined(FEATURE_SIDEBAND)
+	errcode = pt_sb_init_decoders(tracking.session);
+	if (errcode < 0) {
+		fprintf(stderr,
+			"%s: error initializing sideband decoders: %s.\n",
+			argv[0], pt_errstr(pt_errcode(errcode)));
+		goto out;
+	}
+#endif /* defined(FEATURE_SIDEBAND) */
 
+	errcode = dump(&tracking, &config, &options);
+
+out:
 	free(config.begin);
+	ptdump_tracking_fini(&tracking);
 
 	return -errcode;
 }
