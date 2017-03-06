@@ -63,6 +63,10 @@ add_executable(ptxed
 target_link_libraries(ptxed libipt)
 target_link_libraries(ptxed xed)
 
+if (SIDEBAND)
+  target_link_libraries(ptxed libipt-sb)
+endif (SIDEBAND)
+
 if (CMAKE_HOST_WIN32)
   # suppress warnings from XED header files
   #

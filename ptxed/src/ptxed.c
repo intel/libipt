@@ -34,6 +34,10 @@
 
 #include "intel-pt.h"
 
+#if defined(FEATURE_SIDEBAND)
+#  include "libipt-sb.h"
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -62,10 +66,22 @@ struct ptxed_decoder {
 		/* If @type == pdt_block_decoder */
 		struct pt_block_decoder *block;
 	} variant;
+
+	/* The image section cache. */
+	struct pt_image_section_cache *iscache;
+
+#if defined(FEATURE_SIDEBAND)
+	/* The sideband session. */
+	struct pt_sb_session *session;
+#endif
 };
 
 /* A collection of options. */
 struct ptxed_options {
+#if defined(FEATURE_SIDEBAND)
+	/* Sideband dump flags. */
+	uint32_t sb_dump_flags;
+#endif
 	/* Do not print the instruction. */
 	uint32_t dont_print_insn:1;
 
@@ -107,6 +123,11 @@ struct ptxed_options {
 
 	/* Request tick events. */
 	uint32_t enable_tick_events:1;
+
+#if defined(FEATURE_SIDEBAND)
+	/* Print sideband warnings. */
+	uint32_t print_sb_warnings:1;
+#endif
 };
 
 /* A collection of flags selecting which stats to collect/print. */
@@ -139,6 +160,29 @@ static int ptxed_have_decoder(const struct ptxed_decoder *decoder)
 	return decoder && decoder->variant.insn;
 }
 
+static int ptxed_init_decoder(struct ptxed_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	memset(decoder, 0, sizeof(*decoder));
+	decoder->type = pdt_block_decoder;
+
+	decoder->iscache = pt_iscache_alloc(NULL);
+	if (!decoder->iscache)
+		return -pte_nomem;
+
+#if defined(FEATURE_SIDEBAND)
+	decoder->session = pt_sb_alloc(decoder->iscache);
+	if (!decoder->session) {
+		pt_iscache_free(decoder->iscache);
+		return -pte_nomem;
+	}
+#endif
+
+	return 0;
+}
+
 static void ptxed_free_decoder(struct ptxed_decoder *decoder)
 {
 	if (!decoder)
@@ -153,6 +197,12 @@ static void ptxed_free_decoder(struct ptxed_decoder *decoder)
 		pt_blk_free_decoder(decoder->variant.block);
 		break;
 	}
+
+#if defined(FEATURE_SIDEBAND)
+	pt_sb_free(decoder->session);
+#endif
+
+	pt_iscache_free(decoder->iscache);
 }
 
 static void version(const char *name)
@@ -183,6 +233,15 @@ static void help(const char *name)
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
+#if defined(FEATURE_SIDEBAND)
+	printf("  --sb:compact | --sb                  show sideband records in compact format.\n");
+	printf("  --sb:verbose                         show sideband records in verbose format.\n");
+	printf("  --sb:filename                        show the filename on sideband records.\n");
+	printf("  --sb:offset                          show the offset on sideband records.\n");
+	printf("  --sb:time                            show the time on sideband records.\n");
+	printf("  --sb:switch                          print the new image name on context switches.\n");
+	printf("  --sb:warn                            show sideband warnings.\n");
+#endif /* defined(FEATURE_SIDEBAND) */
 	printf("  --verbose|-v                         print various information (even when quiet).\n");
 	printf("  --pt <file>[:<from>[-<to>]]          load the processor trace data from <file>.\n");
 	printf("                                       an optional offset or range can be given.\n");
@@ -990,66 +1049,124 @@ static void print_event(const struct pt_event *event,
 	printf("]\n");
 }
 
-static void diagnose_insn(const char *errtype, struct pt_insn_decoder *decoder,
-			  struct pt_insn *insn, int errcode)
+static void diagnose(struct ptxed_decoder *decoder, uint64_t ip,
+		     const char *errtype, int errcode)
 {
 	int err;
 	uint64_t pos;
 
-	err = pt_insn_get_offset(decoder, &pos);
+	err = -pte_internal;
+	pos = 0ull;
+
+	switch (decoder->type) {
+	case pdt_insn_decoder:
+		err = pt_insn_get_offset(decoder->variant.insn, &pos);
+		break;
+
+	case pdt_block_decoder:
+		err = pt_blk_get_offset(decoder->variant.block, &pos);
+		break;
+	}
+
 	if (err < 0) {
 		printf("could not determine offset: %s\n",
 		       pt_errstr(pt_errcode(err)));
-		printf("[?, %" PRIx64 ": %s: %s]\n", insn->ip, errtype,
+		printf("[?, %" PRIx64 ": %s: %s]\n", ip, errtype,
 		       pt_errstr(pt_errcode(errcode)));
 	} else
 		printf("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos,
-		       insn->ip, errtype, pt_errstr(pt_errcode(errcode)));
+		       ip, errtype, pt_errstr(pt_errcode(errcode)));
 }
 
-static int drain_events_insn(struct pt_insn_decoder *decoder, int status,
+#if defined(FEATURE_SIDEBAND)
+
+static int ptxed_sb_event(struct ptxed_decoder *decoder,
+			  const struct pt_event *event,
+			  const struct ptxed_options *options)
+{
+	struct pt_image *image;
+	int errcode;
+
+	if (!decoder || !event || !options)
+		return -pte_internal;
+
+	image = NULL;
+	errcode = pt_sb_event(decoder->session, &image, event, sizeof(*event),
+			      stdout, options->sb_dump_flags);
+	if (errcode < 0)
+		return errcode;
+
+	if (!image)
+		return 0;
+
+	switch (decoder->type) {
+	case pdt_insn_decoder:
+		return pt_insn_set_image(decoder->variant.insn, image);
+
+	case pdt_block_decoder:
+		return pt_blk_set_image(decoder->variant.block, image);
+	}
+
+	return -pte_internal;
+}
+
+#endif /* defined(FEATURE_SIDEBAND) */
+
+static int drain_events_insn(struct ptxed_decoder *decoder, int status,
 			     const struct ptxed_options *options)
 {
-	if (!options)
+	struct pt_insn_decoder *ptdec;
+	int errcode;
+
+	if (!decoder || !options)
 		return -pte_internal;
+
+	ptdec = decoder->variant.insn;
 
 	while (status & pts_event_pending) {
 		struct pt_event event;
 		uint64_t offset;
-		int errcode;
 
 		offset = 0ull;
 		if (options->print_offset) {
-			errcode = pt_insn_get_offset(decoder, &offset);
+			errcode = pt_insn_get_offset(ptdec, &offset);
 			if (errcode < 0)
 				return errcode;
 		}
 
-		status = pt_insn_event(decoder, &event, sizeof(event));
+		status = pt_insn_event(ptdec, &event, sizeof(event));
 		if (status < 0)
 			return status;
 
 		if (!options->quiet && !event.status_update)
 			print_event(&event, options, offset);
+
+#if defined(FEATURE_SIDEBAND)
+		errcode = ptxed_sb_event(decoder, &event, options);
+		if (errcode < 0)
+			return errcode;
+#endif /* defined(FEATURE_SIDEBAND) */
 	}
 
 	return status;
 }
 
-static void decode_insn(struct pt_insn_decoder *decoder,
+static void decode_insn(struct ptxed_decoder *decoder,
 			const struct ptxed_options *options,
 			struct ptxed_stats *stats)
 {
+	struct pt_insn_decoder *ptdec;
 	xed_state_t xed;
 	uint64_t offset, sync, time;
 
-	if (!options) {
+	if (!decoder || !options) {
 		printf("[internal error]\n");
 		return;
 	}
 
 	xed_state_zero(&xed);
 
+	ptdec = decoder->variant.insn;
 	offset = 0ull;
 	sync = 0ull;
 	time = 0ull;
@@ -1060,7 +1177,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 		/* Initialize the IP - we use it for error reporting. */
 		insn.ip = 0ull;
 
-		status = pt_insn_sync_forward(decoder);
+		status = pt_insn_sync_forward(ptdec);
 		if (status < 0) {
 			uint64_t new_sync;
 			int errcode;
@@ -1068,7 +1185,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 			if (status == -pte_eos)
 				break;
 
-			diagnose_insn("sync error", decoder, &insn, status);
+			diagnose(decoder, insn.ip, "sync error", status);
 
 			/* Let's see if we made any progress.  If we haven't,
 			 * we likely never will.  Bail out.
@@ -1076,7 +1193,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 			 * We intentionally report the error twice to indicate
 			 * that we tried to re-sync.  Maybe it even changed.
 			 */
-			errcode = pt_insn_get_offset(decoder, &new_sync);
+			errcode = pt_insn_get_offset(ptdec, &new_sync);
 			if (errcode < 0 || (new_sync <= sync))
 				break;
 
@@ -1101,7 +1218,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 			if (options->print_offset || options->check) {
 				int errcode;
 
-				errcode = pt_insn_get_offset(decoder, &offset);
+				errcode = pt_insn_get_offset(ptdec, &offset);
 				if (errcode < 0)
 					break;
 			}
@@ -1109,13 +1226,13 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 			if (options->print_time) {
 				int errcode;
 
-				errcode = pt_insn_time(decoder, &time, NULL,
+				errcode = pt_insn_time(ptdec, &time, NULL,
 						       NULL);
 				if (errcode < 0)
 					break;
 			}
 
-			status = pt_insn_next(decoder, &insn, sizeof(insn));
+			status = pt_insn_next(ptdec, &insn, sizeof(insn));
 			if (status < 0) {
 				/* Even in case of errors, we may have succeeded
 				 * in decoding the current instruction.
@@ -1151,7 +1268,7 @@ static void decode_insn(struct pt_insn_decoder *decoder,
 		if (status == -pte_eos)
 			break;
 
-		diagnose_insn("error", decoder, &insn, status);
+		diagnose(decoder, insn.ip, "error",  status);
 	}
 }
 
@@ -1222,33 +1339,14 @@ static int block_fetch_insn(struct pt_insn *insn, const struct pt_block *block,
 	return 0;
 }
 
-static void diagnose_block_at(const char *errtype, int errcode,
-			      struct pt_block_decoder *decoder, uint64_t ip)
-{
-	uint64_t pos;
-	int err;
-
-	err = pt_blk_get_offset(decoder, &pos);
-	if (err < 0) {
-		printf("[could not determine offset: %s]\n",
-		       pt_errstr(pt_errcode(err)));
-
-		printf("[?, %" PRIx64 ": %s: %s]\n", ip, errtype,
-		       pt_errstr(pt_errcode(errcode)));
-	} else
-		printf("[%" PRIx64 ", %" PRIx64 ": %s: %s]\n", pos, ip,
-		       errtype, pt_errstr(pt_errcode(errcode)));
-}
-
-static void diagnose_block(const char *errtype, int errcode,
-			   const struct pt_block *block,
-			   struct pt_block_decoder *decoder,
-			   struct pt_image_section_cache *iscache)
+static void diagnose_block(struct ptxed_decoder *decoder,
+			   const char *errtype, int errcode,
+			   const struct pt_block *block)
 {
 	uint64_t ip;
 	int err;
 
-	if (!block) {
+	if (!decoder || !block) {
 		printf("ptxed: internal error");
 		return;
 	}
@@ -1282,7 +1380,8 @@ static void diagnose_block(const char *errtype, int errcode,
 			 * We ignore errors and fall back to the IP of the last
 			 * instruction.
 			 */
-			err = block_fetch_insn(&insn, block, ip, iscache);
+			err = block_fetch_insn(&insn, block, ip,
+					       decoder->iscache);
 			if (err < 0)
 				break;
 
@@ -1304,12 +1403,11 @@ static void diagnose_block(const char *errtype, int errcode,
 		}
 	}
 
-	diagnose_block_at(errtype, errcode, decoder, ip);
+	diagnose(decoder, ip, errtype, errcode);
 }
 
-static void print_block(const struct pt_block *block,
-			struct pt_block_decoder *decoder,
-			struct pt_image_section_cache *iscache,
+static void print_block(struct ptxed_decoder *decoder,
+			const struct pt_block *block,
 			const struct ptxed_options *options,
 			const struct ptxed_stats *stats,
 			uint64_t offset, uint64_t time)
@@ -1353,7 +1451,7 @@ static void print_block(const struct pt_block *block,
 
 		printf("%016" PRIx64, ip);
 
-		errcode = block_fetch_insn(&insn, block, ip, iscache);
+		errcode = block_fetch_insn(&insn, block, ip, decoder->iscache);
 		if (errcode < 0) {
 			printf(" [fetch error: %s]\n",
 			       pt_errstr(pt_errcode(errcode)));
@@ -1380,16 +1478,14 @@ static void print_block(const struct pt_block *block,
 
 		errcode = xed_next_ip(&ip, &inst, ip);
 		if (errcode < 0) {
-			diagnose_block_at("reconstruct error", errcode,
-					  decoder, ip);
+			diagnose(decoder, ip, "reconstruct error", errcode);
 			break;
 		}
 	}
 
 	/* Decode should have brought us to @block->end_ip. */
 	if (ip != block->end_ip)
-		diagnose_block_at("reconstruct error", -pte_nosync, decoder,
-				  ip);
+		diagnose(decoder, ip, "reconstruct error", -pte_nosync);
 }
 
 static void check_block(const struct pt_block *block,
@@ -1455,47 +1551,60 @@ static void check_block(const struct pt_block *block,
 		check_insn_iclass(xed_decoded_inst_inst(&inst), &insn, offset);
 }
 
-static int drain_events_block(struct pt_block_decoder *decoder, int status,
+static int drain_events_block(struct ptxed_decoder *decoder, int status,
 			      const struct ptxed_options *options)
 {
-	if (!options)
+	struct pt_block_decoder *ptdec;
+	int errcode;
+
+	if (!decoder || !options)
 		return -pte_internal;
+
+	ptdec = decoder->variant.block;
 
 	while (status & pts_event_pending) {
 		struct pt_event event;
 		uint64_t offset;
-		int errcode;
 
 		offset = 0ull;
 		if (options->print_offset) {
-			errcode = pt_blk_get_offset(decoder, &offset);
+			errcode = pt_blk_get_offset(ptdec, &offset);
 			if (errcode < 0)
 				return errcode;
 		}
 
-		status = pt_blk_event(decoder, &event, sizeof(event));
+		status = pt_blk_event(ptdec, &event, sizeof(event));
 		if (status < 0)
 			return status;
 
 		if (!options->quiet && !event.status_update)
 			print_event(&event, options, offset);
+
+#if defined(FEATURE_SIDEBAND)
+		errcode = ptxed_sb_event(decoder, &event, options);
+		if (errcode < 0)
+			return errcode;
+#endif /* defined(FEATURE_SIDEBAND) */
 	}
 
 	return status;
 }
 
-static void decode_block(struct pt_block_decoder *decoder,
-			 struct pt_image_section_cache *iscache,
+static void decode_block(struct ptxed_decoder *decoder,
 			 const struct ptxed_options *options,
 			 struct ptxed_stats *stats)
 {
+	struct pt_image_section_cache *iscache;
+	struct pt_block_decoder *ptdec;
 	uint64_t offset, sync, time;
 
-	if (!options) {
+	if (!decoder || !options) {
 		printf("[internal error]\n");
 		return;
 	}
 
+	iscache = decoder->iscache;
+	ptdec = decoder->variant.block;
 	offset = 0ull;
 	sync = 0ull;
 	time = 0ull;
@@ -1507,7 +1616,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 		block.ip = 0ull;
 		block.ninsn = 0u;
 
-		status = pt_blk_sync_forward(decoder);
+		status = pt_blk_sync_forward(ptdec);
 		if (status < 0) {
 			uint64_t new_sync;
 			int errcode;
@@ -1515,8 +1624,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 			if (status == -pte_eos)
 				break;
 
-			diagnose_block("sync error", status, &block, decoder,
-				       iscache);
+			diagnose_block(decoder, "sync error", status, &block);
 
 			/* Let's see if we made any progress.  If we haven't,
 			 * we likely never will.  Bail out.
@@ -1524,7 +1632,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 			 * We intentionally report the error twice to indicate
 			 * that we tried to re-sync.  Maybe it even changed.
 			 */
-			errcode = pt_blk_get_offset(decoder, &new_sync);
+			errcode = pt_blk_get_offset(ptdec, &new_sync);
 			if (errcode < 0 || (new_sync <= sync))
 				break;
 
@@ -1549,7 +1657,7 @@ static void decode_block(struct pt_block_decoder *decoder,
 			if (options->print_offset || options->check) {
 				int errcode;
 
-				errcode = pt_blk_get_offset(decoder, &offset);
+				errcode = pt_blk_get_offset(ptdec, &offset);
 				if (errcode < 0)
 					break;
 			}
@@ -1557,13 +1665,13 @@ static void decode_block(struct pt_block_decoder *decoder,
 			if (options->print_time) {
 				int errcode;
 
-				errcode = pt_blk_time(decoder, &time, NULL,
+				errcode = pt_blk_time(ptdec, &time, NULL,
 						      NULL);
 				if (errcode < 0)
 					break;
 			}
 
-			status = pt_blk_next(decoder, &block, sizeof(block));
+			status = pt_blk_next(ptdec, &block, sizeof(block));
 			if (status < 0) {
 				/* Even in case of errors, we may have succeeded
 				 * in decoding some instructions.
@@ -1575,10 +1683,9 @@ static void decode_block(struct pt_block_decoder *decoder,
 					}
 
 					if (!options->quiet)
-						print_block(&block, decoder,
-							    iscache, options,
-							    stats, offset,
-							    time);
+						print_block(decoder, &block,
+							    options, stats,
+							    offset, time);
 
 					if (options->check)
 						check_block(&block, iscache,
@@ -1593,8 +1700,8 @@ static void decode_block(struct pt_block_decoder *decoder,
 			}
 
 			if (!options->quiet)
-				print_block(&block, decoder, iscache, options,
-					    stats, offset, time);
+				print_block(decoder, &block, options, stats,
+					    offset, time);
 
 			if (options->check)
 				check_block(&block, iscache, offset);
@@ -1608,12 +1715,11 @@ static void decode_block(struct pt_block_decoder *decoder,
 		if (status == -pte_eos)
 			break;
 
-		diagnose_block("error", status, &block, decoder, iscache);
+		diagnose_block(decoder, "error", status, &block);
 	}
 }
 
 static void decode(struct ptxed_decoder *decoder,
-		   struct pt_image_section_cache *iscache,
 		   const struct ptxed_options *options,
 		   struct ptxed_stats *stats)
 {
@@ -1624,11 +1730,11 @@ static void decode(struct ptxed_decoder *decoder,
 
 	switch (decoder->type) {
 	case pdt_insn_decoder:
-		decode_insn(decoder->variant.insn, options, stats);
+		decode_insn(decoder, options, stats);
 		break;
 
 	case pdt_block_decoder:
-		decode_block(decoder->variant.block, iscache, options, stats);
+		decode_block(decoder, options, stats);
 		break;
 	}
 }
@@ -1702,6 +1808,62 @@ static void print_stats(struct ptxed_stats *stats)
 		printf("blocks:\t%" PRIu64 ".\n", stats->blocks);
 }
 
+#if defined(FEATURE_SIDEBAND)
+
+static int ptxed_print_error(int errcode, const char *filename,
+			     uint64_t offset, void *priv)
+{
+	const struct ptxed_options *options;
+	const char *errstr, *severity;
+
+	options = (struct ptxed_options *) priv;
+	if (!options)
+		return -pte_internal;
+
+	if (errcode >= 0 && !options->print_sb_warnings)
+		return 0;
+
+	if (!filename)
+		filename = "<unknown>";
+
+	severity = errcode < 0 ? "error" : "warning";
+
+	errstr = errcode < 0
+		? pt_errstr(pt_errcode(errcode))
+		: pt_sb_errstr((enum pt_sb_error_code) errcode);
+
+	if (!errstr)
+		errstr = "<unknown error>";
+
+	printf("[%s:%016" PRIx64 " sideband %s: %s]\n", filename, offset,
+	       severity, errstr);
+
+	return 0;
+}
+
+static int ptxed_print_switch(const struct pt_sb_context *context, void *priv)
+{
+	struct pt_image *image;
+	const char *name;
+
+	if (!priv)
+		return -pte_internal;
+
+	image = pt_sb_ctx_image(context);
+	if (!image)
+		return -pte_internal;
+
+	name = pt_image_name(image);
+	if (!name)
+		name = "<unknown>";
+
+	printf("[context: %s]\n", name);
+
+	return 0;
+}
+
+#endif /* defined(FEATURE_SIDEBAND) */
+
 static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
 			  const char *prog)
 {
@@ -1768,7 +1930,6 @@ static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 
 extern int main(int argc, char *argv[])
 {
-	struct pt_image_section_cache *iscache;
 	struct ptxed_decoder decoder;
 	struct ptxed_options options;
 	struct ptxed_stats stats;
@@ -1783,23 +1944,24 @@ extern int main(int argc, char *argv[])
 	}
 
 	prog = argv[0];
-	iscache = NULL;
 	image = NULL;
-
-	memset(&decoder, 0, sizeof(decoder));
-	decoder.type = pdt_block_decoder;
 
 	memset(&options, 0, sizeof(options));
 	memset(&stats, 0, sizeof(stats));
 
 	pt_config_init(&config);
 
-	iscache = pt_iscache_alloc(NULL);
-	if (!iscache) {
+	errcode = ptxed_init_decoder(&decoder);
+	if (errcode < 0) {
 		fprintf(stderr,
-			"%s: failed to allocate image section cache.\n", prog);
+			"%s: error initializing decoder: %s.\n", prog,
+			pt_errstr(pt_errcode(errcode)));
 		goto err;
 	}
+
+#if defined(FEATURE_SIDEBAND)
+	pt_sb_notify_error(decoder.session, ptxed_print_error, &options);
+#endif
 
 	image = pt_image_alloc(NULL);
 	if (!image) {
@@ -1858,7 +2020,7 @@ extern int main(int argc, char *argv[])
 			}
 			arg = argv[i++];
 
-			errcode = load_raw(iscache, image, arg, prog);
+			errcode = load_raw(decoder.iscache, image, arg, prog);
 			if (errcode < 0)
 				goto err;
 
@@ -1879,8 +2041,8 @@ extern int main(int argc, char *argv[])
 			if (errcode < 0)
 				goto err;
 
-			errcode = load_elf(iscache, image, arg, base, prog,
-					   options.track_image);
+			errcode = load_elf(decoder.iscache, image, arg, base,
+					   prog, options.track_image);
 			if (errcode < 0)
 				goto err;
 
@@ -1943,6 +2105,40 @@ extern int main(int argc, char *argv[])
 			stats.flags |= ptxed_stat_blocks;
 			continue;
 		}
+#if defined(FEATURE_SIDEBAND)
+		if ((strcmp(arg, "--sb:compact") == 0) ||
+		    (strcmp(arg, "--sb") == 0)) {
+			options.sb_dump_flags &= ~ptsbp_verbose;
+			options.sb_dump_flags |= ptsbp_compact;
+			continue;
+		}
+		if (strcmp(arg, "--sb:verbose") == 0) {
+			options.sb_dump_flags &= ~ptsbp_compact;
+			options.sb_dump_flags |= ptsbp_verbose;
+			continue;
+		}
+		if (strcmp(arg, "--sb:filename") == 0) {
+			options.sb_dump_flags |= ptsbp_filename;
+			continue;
+		}
+		if (strcmp(arg, "--sb:offset") == 0) {
+			options.sb_dump_flags |= ptsbp_file_offset;
+			continue;
+		}
+		if (strcmp(arg, "--sb:time") == 0) {
+			options.sb_dump_flags |= ptsbp_tsc;
+			continue;
+		}
+		if (strcmp(arg, "--sb:switch") == 0) {
+			pt_sb_notify_switch(decoder.session, ptxed_print_switch,
+					    &options);
+			continue;
+		}
+		if (strcmp(arg, "--sb:warn") == 0) {
+			options.print_sb_warnings = 1;
+			continue;
+		}
+#endif /* defined(FEATURE_SIDEBAND) */
 		if (strcmp(arg, "--cpu") == 0) {
 			/* override cpu information before the decoder
 			 * is initialized.
@@ -2076,8 +2272,17 @@ extern int main(int argc, char *argv[])
 			stats.flags |= ptxed_stat_blocks;
 	}
 
-	decode(&decoder, iscache, &options,
-	       options.print_stats ? &stats : NULL);
+#if defined(FEATURE_SIDEBAND)
+	errcode = pt_sb_init_decoders(decoder.session);
+	if (errcode < 0) {
+		fprintf(stderr,
+			"%s: error initializing sideband decoders: %s.\n",
+			prog, pt_errstr(pt_errcode(errcode)));
+		goto err;
+	}
+#endif /* defined(FEATURE_SIDEBAND) */
+
+	decode(&decoder, &options, options.print_stats ? &stats : NULL);
 
 	if (options.print_stats)
 		print_stats(&stats);
@@ -2085,14 +2290,12 @@ extern int main(int argc, char *argv[])
 out:
 	ptxed_free_decoder(&decoder);
 	pt_image_free(image);
-	pt_iscache_free(iscache);
 	free(config.begin);
 	return 0;
 
 err:
 	ptxed_free_decoder(&decoder);
 	pt_image_free(image);
-	pt_iscache_free(iscache);
 	free(config.begin);
 	return 1;
 }
