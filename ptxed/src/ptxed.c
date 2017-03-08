@@ -73,7 +73,12 @@ struct ptxed_decoder {
 #if defined(FEATURE_SIDEBAND)
 	/* The sideband session. */
 	struct pt_sb_session *session;
-#endif
+
+#if defined(FEATURE_PEVENT)
+	/* The perf event sideband decoder configuration. */
+	struct pt_sb_pevent_config pevent;
+#endif /* defined(FEATURE_PEVENT) */
+#endif /* defined(FEATURE_SIDEBAND) */
 };
 
 /* A collection of options. */
@@ -178,7 +183,14 @@ static int ptxed_init_decoder(struct ptxed_decoder *decoder)
 		pt_iscache_free(decoder->iscache);
 		return -pte_nomem;
 	}
-#endif
+
+#if defined(FEATURE_PEVENT)
+	memset(&decoder->pevent, 0, sizeof(decoder->pevent));
+	decoder->pevent.size = sizeof(decoder->pevent);
+	decoder->pevent.kernel_start = UINT64_MAX;
+	decoder->pevent.time_mult = 1;
+#endif /* defined(FEATURE_PEVENT) */
+#endif /* defined(FEATURE_SIDEBAND) */
 
 	return 0;
 }
@@ -241,6 +253,24 @@ static void help(const char *name)
 	printf("  --sb:time                            show the time on sideband records.\n");
 	printf("  --sb:switch                          print the new image name on context switches.\n");
 	printf("  --sb:warn                            show sideband warnings.\n");
+#if defined(FEATURE_PEVENT)
+	printf("  --pevent:primary/secondary <file>[:<from>[-<to>]]\n");
+	printf("                              load a perf_event sideband stream from <file>.\n");
+	printf("                              an optional offset or range can be given.\n");
+	printf("  --pevent:sample-type <val>  set perf_event_attr.sample_type to <val> (default: 0).\n");
+	printf("  --pevent:time-zero <val>    set perf_event_mmap_page.time_zero to <val> (default: 0).\n");
+	printf("  --pevent:time-shift <val>   set perf_event_mmap_page.time_shift to <val> (default: 0).\n");
+	printf("  --pevent:time-mult <val>    set perf_event_mmap_page.time_mult to <val> (default: 1).\n");
+	printf("  --pevent:tsc-offset <val>   show perf events <val> ticks earlier.\n");
+	printf("  --pevent:kernel-start <val> the start address of the kernel.\n");
+	printf("  --pevent:sysroot <path>     prepend <path> to sideband filenames.\n");
+#if defined(FEATURE_ELF)
+	printf("  --pevent:kcore <file>       load the kernel from a core dump.\n");
+#endif /* defined(FEATURE_ELF) */
+	printf("  --pevent:vdso-x64 <file>    use <file> as 64-bit vdso.\n");
+	printf("  --pevent:vdso-x32 <file>    use <file> as x32 vdso.\n");
+	printf("  --pevent:vdso-ia32 <file>   use <file> as 32-bit vdso.\n");
+#endif /* defined(FEATURE_PEVENT) */
 #endif /* defined(FEATURE_SIDEBAND) */
 	printf("  --verbose|-v                         print various information (even when quiet).\n");
 	printf("  --pt <file>[:<from>[-<to>]]          load the processor trace data from <file>.\n");
@@ -1862,6 +1892,61 @@ static int ptxed_print_switch(const struct pt_sb_context *context, void *priv)
 	return 0;
 }
 
+#if defined(FEATURE_PEVENT)
+
+static int ptxed_sb_pevent(struct ptxed_decoder *decoder, char *filename,
+			   const char *prog)
+{
+	struct pt_sb_pevent_config config;
+	uint64_t foffset, fsize, fend;
+	int errcode;
+
+	if (!decoder || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog ? prog : "?");
+		return -1;
+	}
+
+	errcode = preprocess_filename(filename, &foffset, &fsize);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad file %s: %s.\n", prog, filename,
+			pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	if (SIZE_MAX < foffset) {
+		fprintf(stderr,
+			"%s: bad offset: 0x%" PRIx64 ".\n", prog, foffset);
+		return -1;
+	}
+
+	config = decoder->pevent;
+	config.filename = filename;
+	config.begin = (size_t) foffset;
+	config.end = 0;
+
+	if (fsize) {
+		fend = foffset + fsize;
+		if ((fend <= foffset) || (SIZE_MAX < fend)) {
+			fprintf(stderr,
+				"%s: bad range: 0x%" PRIx64 "-0x%" PRIx64 ".\n",
+				prog, foffset, fend);
+			return -1;
+		}
+
+		config.end = (size_t) fend;
+	}
+
+	errcode = pt_sb_alloc_pevent_decoder(decoder->session, &config);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: error loading %s: %s.\n", prog, filename,
+			pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	return 0;
+}
+
+#endif /* defined(FEATURE_PEVENT) */
 #endif /* defined(FEATURE_SIDEBAND) */
 
 static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
@@ -1908,6 +1993,29 @@ static int get_arg_uint32(uint32_t *value, const char *option, const char *arg,
 
 	return 1;
 }
+
+#if defined(FEATURE_SIDEBAND) && defined(FEATURE_PEVENT)
+
+static int get_arg_uint16(uint16_t *value, const char *option, const char *arg,
+			  const char *prog)
+{
+	uint64_t val;
+
+	if (!get_arg_uint64(&val, option, arg, prog))
+		return 0;
+
+	if (val > UINT16_MAX) {
+		fprintf(stderr, "%s: %s: value too big: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	*value = (uint16_t) val;
+
+	return 1;
+}
+
+#endif /* defined(FEATURE_SIDEBAND) && defined(FEATURE_PEVENT) */
 
 static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 			 const char *prog)
@@ -2138,6 +2246,157 @@ extern int main(int argc, char *argv[])
 			options.print_sb_warnings = 1;
 			continue;
 		}
+#if defined(FEATURE_PEVENT)
+		if (strcmp(arg, "--pevent:primary") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:primary: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			decoder.pevent.primary = 1;
+			errcode = ptxed_sb_pevent(&decoder, arg, prog);
+			if (errcode < 0)
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:secondary") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:secondary: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			decoder.pevent.primary = 0;
+			errcode = ptxed_sb_pevent(&decoder, arg, prog);
+			if (errcode < 0)
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:sample-type") == 0) {
+			if (!get_arg_uint64(&decoder.pevent.sample_type,
+					    "--pevent:sample-type",
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:time-zero") == 0) {
+			if (!get_arg_uint64(&decoder.pevent.time_zero,
+					    "--pevent:time-zero",
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:time-shift") == 0) {
+			if (!get_arg_uint16(&decoder.pevent.time_shift,
+					    "--pevent:time-shift",
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:time-mult") == 0) {
+			if (!get_arg_uint32(&decoder.pevent.time_mult,
+					    "--pevent:time-mult",
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:tsc-offset") == 0) {
+			if (!get_arg_uint64(&decoder.pevent.tsc_offset,
+					    "--pevent:tsc-offset",
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:kernel-start") == 0) {
+			if (!get_arg_uint64(&decoder.pevent.kernel_start,
+					    "--pevent:kernel-start",
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:sysroot") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:sysroot: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			decoder.pevent.sysroot = arg;
+			continue;
+		}
+#if defined(FEATURE_ELF)
+		if (strcmp(arg, "--pevent:kcore") == 0) {
+			struct pt_image *kernel;
+			uint64_t base;
+
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:kcore: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			base = 0ull;
+			errcode = extract_base(arg, &base);
+			if (errcode < 0)
+				goto err;
+
+			kernel = pt_sb_kernel_image(decoder.session);
+
+			errcode = load_elf(decoder.iscache, kernel, arg, base,
+					   prog, options.track_image);
+			if (errcode < 0)
+				goto err;
+
+			continue;
+		}
+#endif /* defined(FEATURE_ELF) */
+		if (strcmp(arg, "--pevent:vdso-x64") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:vdso-x64: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			decoder.pevent.vdso_x64 = arg;
+			continue;
+		}
+		if (strcmp(arg, "--pevent:vdso-x32") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:vdso-x32: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			decoder.pevent.vdso_x32 = arg;
+			continue;
+		}
+		if (strcmp(arg, "--pevent:vdso-ia32") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --pevent:vdso-ia32: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			decoder.pevent.vdso_ia32 = arg;
+			continue;
+		}
+#endif /* defined(FEATURE_PEVENT) */
 #endif /* defined(FEATURE_SIDEBAND) */
 		if (strcmp(arg, "--cpu") == 0) {
 			/* override cpu information before the decoder
