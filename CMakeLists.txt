@@ -115,7 +115,7 @@ if (CMAKE_HOST_WIN32)
 
     # cl forgot to declare snprintf
     #
-    /Dsnprintf=_snprintf_c
+    #/Dsnprintf=_snprintf_c
 
     # avoid annoying warnings about unsecure standard functions
     #
