@@ -1451,25 +1451,17 @@ static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 	return 1;
 }
 
-int main(int argc, char *argv[])
+static int process_args(int argc, char *argv[], struct ptdump_options *options,
+			struct pt_config *config, char **ptfile)
 {
-	struct ptdump_options options;
-	struct pt_config config;
-	int errcode, idx;
-	char *ptfile;
-	uint64_t pt_offset, pt_size;
+	int idx, errcode;
 
-	ptfile = NULL;
-
-	memset(&options, 0, sizeof(options));
-	options.show_offset = 1;
-
-	memset(&config, 0, sizeof(config));
-	pt_config_init(&config);
+	if (!argv || !options || !config || !ptfile)
+		return -pte_internal;
 
 	for (idx = 1; idx < argc; ++idx) {
 		if (strncmp(argv[idx], "-", 1) != 0) {
-			ptfile = argv[idx];
+			*ptfile = argv[idx];
 			if (idx < (argc-1))
 				return usage(argv[0]);
 			break;
@@ -1482,47 +1474,47 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[idx], "--version") == 0)
 			return version(argv[0]);
 		if (strcmp(argv[idx], "--no-sync") == 0)
-			options.no_sync = 1;
+			options->no_sync = 1;
 		else if (strcmp(argv[idx], "--quiet") == 0)
-			options.quiet = 1;
+			options->quiet = 1;
 		else if (strcmp(argv[idx], "--no-pad") == 0)
-			options.no_pad = 1;
+			options->no_pad = 1;
 		else if (strcmp(argv[idx], "--no-timing") == 0)
-			options.no_timing = 1;
+			options->no_timing = 1;
 		else if (strcmp(argv[idx], "--no-cyc") == 0)
-			options.no_cyc = 1;
+			options->no_cyc = 1;
 		else if (strcmp(argv[idx], "--no-offset") == 0)
-			options.show_offset = 0;
+			options->show_offset = 0;
 		else if (strcmp(argv[idx], "--raw") == 0)
-			options.show_raw_bytes = 1;
+			options->show_raw_bytes = 1;
 		else if (strcmp(argv[idx], "--lastip") == 0)
-			options.show_last_ip = 1;
+			options->show_last_ip = 1;
 		else if (strcmp(argv[idx], "--exec-mode") == 0)
-			options.show_exec_mode = 1;
+			options->show_exec_mode = 1;
 		else if (strcmp(argv[idx], "--time") == 0) {
-			if (options.show_tcal) {
+			if (options->show_tcal) {
 				fprintf(stderr, "%s: specify either --time "
 					"or --tcal.\n", argv[0]);
 				return 1;
 			}
 
-			options.track_time = 1;
-			options.show_time = 1;
+			options->track_time = 1;
+			options->show_time = 1;
 		} else if (strcmp(argv[idx], "--time-delta") == 0) {
-			options.show_time_as_delta = 1;
+			options->show_time_as_delta = 1;
 		} else if (strcmp(argv[idx], "--tcal") == 0) {
-			if (options.show_time) {
+			if (options->show_time) {
 				fprintf(stderr, "%s: specify either --time "
 					"or --tcal.\n", argv[0]);
 				return 1;
 			}
 
-			options.track_time = 1;
-			options.show_tcal = 1;
+			options->track_time = 1;
+			options->show_tcal = 1;
 		} else if (strcmp(argv[idx], "--no-tcal") == 0)
-			options.no_tcal = 1;
+			options->no_tcal = 1;
 		else if (strcmp(argv[idx], "--no-wall-clock") == 0)
-			options.no_wall_clock = 1;
+			options->no_wall_clock = 1;
 		else if (strcmp(argv[idx], "--cpu") == 0) {
 			const char *arg;
 
@@ -1535,7 +1527,7 @@ int main(int argc, char *argv[])
 			}
 
 			if (strcmp(arg, "auto") == 0) {
-				errcode = pt_cpu_read(&config.cpu);
+				errcode = pt_cpu_read(&config->cpu);
 				if (errcode < 0) {
 					fprintf(stderr,
 						"%s: error reading cpu: %s.\n",
@@ -1547,11 +1539,11 @@ int main(int argc, char *argv[])
 			}
 
 			if (strcmp(arg, "none") == 0) {
-				memset(&config.cpu, 0, sizeof(config.cpu));
+				memset(&config->cpu, 0, sizeof(config->cpu));
 				continue;
 			}
 
-			errcode = pt_cpu_parse(&config.cpu, arg);
+			errcode = pt_cpu_parse(&config->cpu, arg);
 			if (errcode < 0) {
 				fprintf(stderr,
 					"%s: cpu must be specified as f/m[/s]\n",
@@ -1559,26 +1551,49 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 		} else if (strcmp(argv[idx], "--mtc-freq") == 0) {
-			if (!get_arg_uint8(&config.mtc_freq, "--mtc-freq",
+			if (!get_arg_uint8(&config->mtc_freq, "--mtc-freq",
 					   argv[++idx], argv[0]))
 				return 1;
 		} else if (strcmp(argv[idx], "--nom-freq") == 0) {
-			if (!get_arg_uint8(&config.nom_freq, "--nom-freq",
+			if (!get_arg_uint8(&config->nom_freq, "--nom-freq",
 					   argv[++idx], argv[0]))
 				return 1;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.eax") == 0) {
-			if (!get_arg_uint32(&config.cpuid_0x15_eax,
+			if (!get_arg_uint32(&config->cpuid_0x15_eax,
 					    "--cpuid-0x15.eax", argv[++idx],
 					    argv[0]))
 				return 1;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.ebx") == 0) {
-			if (!get_arg_uint32(&config.cpuid_0x15_ebx,
+			if (!get_arg_uint32(&config->cpuid_0x15_ebx,
 					    "--cpuid-0x15.ebx", argv[++idx],
 					    argv[0]))
 				return 1;
 		} else
 			return unknown_option_error(argv[idx], argv[0]);
 	}
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct ptdump_options options;
+	struct pt_config config;
+	int errcode;
+	char *ptfile;
+	uint64_t pt_offset, pt_size;
+
+	ptfile = NULL;
+
+	memset(&options, 0, sizeof(options));
+	options.show_offset = 1;
+
+	memset(&config, 0, sizeof(config));
+	pt_config_init(&config);
+
+	errcode = process_args(argc, argv, &options, &config, &ptfile);
+	if (errcode < 0)
+		return -errcode;
 
 	if (!ptfile)
 		return no_file_error(argv[0]);
