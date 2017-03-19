@@ -1829,8 +1829,8 @@ static struct ptunit_result time(struct ptu_decoder_fixture *dfix)
 
 	exp = 0x11223344556677ull;
 
-	decoder->time.have_tsc = 1;
-	decoder->time.tsc = exp;
+	decoder->last_time.have_tsc = 1;
+	decoder->last_time.tsc = exp;
 
 	errcode = pt_qry_time(decoder, &tsc, NULL, NULL);
 	ptu_int_eq(errcode, 0);
@@ -1875,8 +1875,8 @@ static struct ptunit_result cbr(struct ptu_decoder_fixture *dfix)
 	uint32_t cbr;
 	int errcode;
 
-	decoder->time.have_cbr = 1;
-	decoder->time.cbr = 42;
+	decoder->last_time.have_cbr = 1;
+	decoder->last_time.cbr = 42;
 
 	errcode = pt_qry_core_bus_ratio(decoder, &cbr);
 	ptu_int_eq(errcode, 0);

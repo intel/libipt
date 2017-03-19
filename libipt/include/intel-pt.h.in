@@ -1477,9 +1477,7 @@ extern pt_export int pt_qry_event(struct pt_query_decoder *decoder,
 
 /** Query the current time.
  *
- * On success, provides the time at \@decoder's current position in \@time.
- * Since \@decoder is reading ahead until the next indirect branch or event,
- * the value matches the time for that branch or event.
+ * On success, provides the time at the last query in \@time.
  *
  * The time is similar to what a rdtsc instruction would return.  Depending
  * on the configuration, the time may not be fully accurate.  If TSC is not
@@ -1505,12 +1503,8 @@ extern pt_export int pt_qry_time(struct pt_query_decoder *decoder,
 
 /** Return the current core bus ratio.
  *
- * On success, provides the core:bus ratio at \@decoder's current position
- * in \@cbr.
- * Since \@decoder is reading ahead until the next indirect branch or event,
- * the value matches the core:bus ratio for that branch or event.
- *
- * The ratio is defined as core cycles per bus clock cycle.
+ * On success, provides the current core:bus ratio in \@cbr.  The ratio is
+ * defined as core cycles per bus clock cycle.
  *
  * Returns zero on success, a negative error code otherwise.
  *
@@ -1964,9 +1958,7 @@ pt_insn_get_config(const struct pt_insn_decoder *decoder);
 
 /** Return the current time.
  *
- * On success, provides the time at \@decoder's current position in \@time.
- * Since \@decoder is reading ahead until the next indirect branch or event,
- * the value matches the time for that branch or event.
+ * On success, provides the time at the last preceding timing packet in \@time.
  *
  * The time is similar to what a rdtsc instruction would return.  Depending
  * on the configuration, the time may not be fully accurate.  If TSC is not
@@ -1992,12 +1984,8 @@ extern pt_export int pt_insn_time(struct pt_insn_decoder *decoder,
 
 /** Return the current core bus ratio.
  *
- * On success, provides the core:bus ratio at \@decoder's current position
- * in \@cbr.
- * Since \@decoder is reading ahead until the next indirect branch or event,
- * the value matches the core:bus ratio for that branch or event.
- *
- * The ratio is defined as core cycles per bus clock cycle.
+ * On success, provides the current core:bus ratio in \@cbr.  The ratio is
+ * defined as core cycles per bus clock cycle.
  *
  * Returns zero on success, a negative error code otherwise.
  *
@@ -2248,9 +2236,7 @@ pt_blk_get_config(const struct pt_block_decoder *decoder);
 
 /** Return the current time.
  *
- * On success, provides the time at \@decoder's current position in \@time.
- * Since \@decoder is reading ahead until the next indirect branch or event,
- * the value matches the time for that branch or event.
+ * On success, provides the time at the last preceding timing packet in \@time.
  *
  * The time is similar to what a rdtsc instruction would return.  Depending
  * on the configuration, the time may not be fully accurate.  If TSC is not
@@ -2276,12 +2262,8 @@ extern pt_export int pt_blk_time(struct pt_block_decoder *decoder,
 
 /** Return the current core bus ratio.
  *
- * On success, provides the core:bus ratio at \@decoder's current position
- * in \@cbr.
- * Since \@decoder is reading ahead until the next indirect branch or event,
- * the value matches the core:bus ratio for that branch or event.
- *
- * The ratio is defined as core cycles per bus clock cycle.
+ * On success, provides the current core:bus ratio in \@cbr.  The ratio is
+ * defined as core cycles per bus clock cycle.
  *
  * Returns zero on success, a negative error code otherwise.
  *

@@ -62,6 +62,9 @@ struct pt_query_decoder {
 	/* Timing information. */
 	struct pt_time time;
 
+	/* The time at the last query (before reading ahead). */
+	struct pt_time last_time;
+
 	/* Timing calibration. */
 	struct pt_time_cal tcal;
 

@@ -120,16 +120,6 @@ pte_no_cbr
     value is undefined in this case.
 
 
-# NOTES
-
-All decoders read ahead.  The estimated timestamp count and core:bus ratios
-correspond to their current decode position, which may be ahead of the trace
-position that matches the last event, instruction, or block.
-
-The query decoder also provides an estimated timestamp count in the *pt_event*
-structure.
-
-
 # SEE ALSO
 
 **pt_qry_alloc_decoder**(3), **pt_qry_free_decoder**(3),

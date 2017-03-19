@@ -100,6 +100,7 @@ int pt_qry_decoder_init(struct pt_query_decoder *decoder,
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
 	pt_time_init(&decoder->time);
+	pt_time_init(&decoder->last_time);
 	pt_tcal_init(&decoder->tcal);
 	pt_evq_init(&decoder->evq);
 
@@ -149,6 +150,7 @@ static void pt_qry_reset(struct pt_query_decoder *decoder)
 	pt_last_ip_init(&decoder->ip);
 	pt_tnt_cache_init(&decoder->tnt);
 	pt_time_init(&decoder->time);
+	pt_time_init(&decoder->last_time);
 	pt_tcal_init(&decoder->tcal);
 	pt_evq_init(&decoder->evq);
 }
@@ -688,6 +690,9 @@ static int pt_qry_cache_tnt(struct pt_query_decoder *decoder)
 			return errcode;
 	}
 
+	/* Preserve the time at the TNT packet. */
+	decoder->last_time = decoder->time;
+
 	/* Read ahead until the next query-relevant packet. */
 	errcode = pt_qry_read_ahead(decoder);
 	if ((errcode < 0) && (errcode != -pte_eos))
@@ -791,6 +796,9 @@ int pt_qry_indirect_branch(struct pt_query_decoder *decoder, uint64_t *addr)
 			return errcode;
 	}
 
+	/* Preserve the time at the TIP packet. */
+	decoder->last_time = decoder->time;
+
 	/* Read ahead until the next query-relevant packet. */
 	errcode = pt_qry_read_ahead(decoder);
 	if ((errcode < 0) && (errcode != -pte_eos))
@@ -870,6 +878,9 @@ int pt_qry_event(struct pt_query_decoder *decoder, struct pt_event *event,
 			return errcode;
 	}
 
+	/* Preserve the time at the event. */
+	decoder->last_time = decoder->time;
+
 	/* Read ahead until the next query-relevant packet. */
 	errcode = pt_qry_read_ahead(decoder);
 	if ((errcode < 0) && (errcode != -pte_eos))
@@ -886,7 +897,7 @@ int pt_qry_time(struct pt_query_decoder *decoder, uint64_t *time,
 	if (!decoder || !time)
 		return -pte_invalid;
 
-	return pt_time_query_tsc(time, lost_mtc, lost_cyc, &decoder->time);
+	return pt_time_query_tsc(time, lost_mtc, lost_cyc, &decoder->last_time);
 }
 
 int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder, uint32_t *cbr)
@@ -894,7 +905,7 @@ int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder, uint32_t *cbr)
 	if (!decoder || !cbr)
 		return -pte_invalid;
 
-	return pt_time_query_cbr(cbr, &decoder->time);
+	return pt_time_query_cbr(cbr, &decoder->last_time);
 }
 
 static void pt_qry_add_event_time(struct pt_event *event,
