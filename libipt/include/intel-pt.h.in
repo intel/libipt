@@ -305,6 +305,12 @@ struct pt_conf_flags {
 			uint32_t enable_tick_events:1;
 		} block;
 
+		/** Flags for the instruction flow decoder. */
+		struct {
+			/** Enable tick events for timing updates. */
+			uint32_t enable_tick_events:1;
+		} insn;
+
 		/* Reserve a few bytes for future extensions. */
 		uint32_t reserved[4];
 	} variant;

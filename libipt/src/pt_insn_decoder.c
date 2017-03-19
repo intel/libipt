@@ -167,6 +167,126 @@ void pt_insn_free_decoder(struct pt_insn_decoder *decoder)
 	free(decoder);
 }
 
+/* Maybe synthesize a tick event.
+ *
+ * If we're not already processing events, check the current time against the
+ * last event's time.  If it changed, synthesize a tick event with the new time.
+ *
+ * Returns zero if no tick event has been created.
+ * Returns a positive integer if a tick event has been created.
+ * Returns a negative error code otherwise.
+ */
+static int pt_insn_tick(struct pt_insn_decoder *decoder, uint64_t ip)
+{
+	struct pt_event *ev;
+	uint64_t tsc;
+	uint32_t lost_mtc, lost_cyc;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	/* We're not generating tick events if tracing is disabled. */
+	if (!decoder->enabled)
+		return -pte_internal;
+
+	/* Events already provide a timestamp so there is no need to synthesize
+	 * an artificial tick event.  There's no room, either, since this would
+	 * overwrite the in-progress event.
+	 *
+	 * In rare cases where we need to proceed to an event location using
+	 * trace this may cause us to miss a timing update if the event is not
+	 * forwarded to the user.
+	 *
+	 * The only case I can come up with at the moment is a MODE.EXEC binding
+	 * to the TIP IP of a far branch.
+	 */
+	if (decoder->process_event)
+		return 0;
+
+	errcode = pt_qry_time(&decoder->query, &tsc, &lost_mtc, &lost_cyc);
+	if (errcode < 0) {
+		/* If we don't have wall-clock time, we use relative time. */
+		if (errcode != -pte_no_time)
+			return errcode;
+	}
+
+	ev = &decoder->event;
+
+	/* We're done if time has not changed since the last event. */
+	if (tsc == ev->tsc)
+		return 0;
+
+	/* Time has changed so we create a new tick event. */
+	memset(ev, 0, sizeof(*ev));
+	ev->type = ptev_tick;
+	ev->variant.tick.ip = ip;
+
+	/* Indicate if we have wall-clock time or only relative time. */
+	if (errcode != -pte_no_time)
+		ev->has_tsc = 1;
+	ev->tsc = tsc;
+	ev->lost_mtc = lost_mtc;
+	ev->lost_cyc = lost_cyc;
+
+	/* We now have an event to process. */
+	decoder->process_event = 1;
+
+	return 1;
+}
+
+/* Query an indirect branch.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_insn_indirect_branch(struct pt_insn_decoder *decoder,
+				   uint64_t *ip)
+{
+	uint64_t evip;
+	int status, errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	evip = decoder->ip;
+
+	status = pt_qry_indirect_branch(&decoder->query, ip);
+	if (status < 0)
+		return status;
+
+	if (decoder->flags.variant.insn.enable_tick_events) {
+		errcode = pt_insn_tick(decoder, evip);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return status;
+}
+
+/* Query a conditional branch.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_insn_cond_branch(struct pt_insn_decoder *decoder, int *taken)
+{
+	int status, errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	status = pt_qry_cond_branch(&decoder->query, taken);
+	if (status < 0)
+		return status;
+
+	if (decoder->flags.variant.insn.enable_tick_events) {
+		errcode = pt_insn_tick(decoder, decoder->ip);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return status;
+}
+
 static int pt_insn_start(struct pt_insn_decoder *decoder, int status)
 {
 	if (!decoder)
@@ -407,7 +527,7 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	case ptic_cond_jump: {
 		int status, taken;
 
-		status = pt_qry_cond_branch(&decoder->query, &taken);
+		status = pt_insn_cond_branch(decoder, &taken);
 		if (status < 0)
 			return status;
 
@@ -434,7 +554,7 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 		int taken, status;
 
 		/* Check for a compressed return. */
-		status = pt_qry_cond_branch(&decoder->query, &taken);
+		status = pt_insn_cond_branch(decoder, &taken);
 		if (status >= 0) {
 			decoder->status = status;
 
@@ -471,8 +591,7 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	else {
 		int status;
 
-		status = pt_qry_indirect_branch(&decoder->query,
-						&decoder->ip);
+		status = pt_insn_indirect_branch(decoder, &decoder->ip);
 
 		if (status < 0)
 			return status;
