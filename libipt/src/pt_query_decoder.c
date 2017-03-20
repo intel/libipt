@@ -2049,8 +2049,6 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		 * at a later packet and a different IP.
 		 */
 		if (decoder->config.errata.skd010) {
-			int errcode;
-
 			errcode = pt_qry_handle_skd010(decoder);
 			if (errcode < 0)
 				return errcode;
