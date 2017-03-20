@@ -263,7 +263,7 @@ static int p_gen_expfile(struct parser *p)
 		for (;;) {
 			char *tmp, label[256];
 			uint64_t addr;
-			int i, zero_padding, qmark_padding, qmark_size, status;
+			int zero_padding, qmark_padding, qmark_size, status;
 
 			zero_padding = 0;
 			qmark_padding = 0;
@@ -379,8 +379,6 @@ static int p_gen_expfile(struct parser *p)
 			}
 
 			if (qmark_padding) {
-				int i;
-
 				for (i = 0; i < qmark_size; ++i) {
 					status = fprintf(f, "??");
 					if (status < 0) {
@@ -752,17 +750,17 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 
 	bytes_written = pt_enc_next(e, &packet);
 	if (bytes_written < 0) {
-		const char *errstr, *format;
+		const char *errtext, *format;
 		char *msg;
 		size_t n;
 
-		errstr = pt_errstr(pt_errcode(bytes_written));
+		errtext = pt_errstr(pt_errcode(bytes_written));
 		format = "encoder error in directive %s (status %s)";
 		/* the length of format includes the "%s" (-2)
-		 * characters, we add errstr (+-0) and then we need
+		 * characters, we add errtext (+-0) and then we need
 		 * space for a terminating null-byte (+1).
 		 */
-		n = strlen(format)-4 + strlen(directive) + strlen(errstr) + 1;
+		n = strlen(format)-4 + strlen(directive) + strlen(errtext) + 1;
 
 		msg = malloc(n);
 		if (!msg)
@@ -770,7 +768,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 				       "encoder error not enough memory to show error code",
 				       -err_pt_lib);
 		else {
-			sprintf(msg, format, directive, errstr);
+			sprintf(msg, format, directive, errtext);
 			errcode = yasm_print_err(p->y, msg, -err_pt_lib);
 			free(msg);
 		}
@@ -968,8 +966,6 @@ int parse_ip(struct parser *p, uint64_t *ip, enum pt_ip_compression *ipc,
 
 	/* can be resolved to a label?  */
 	if (*payload == '%') {
-		int errcode;
-
 		if (!p)
 			return -err_internal;
 
@@ -978,8 +974,6 @@ int parse_ip(struct parser *p, uint64_t *ip, enum pt_ip_compression *ipc,
 			return errcode;
 	} else {
 		/* can be parsed as address?  */
-		int errcode;
-
 		errcode = str_to_uint64(payload, ip, 0);
 		if (errcode < 0)
 			return errcode;
