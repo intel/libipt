@@ -261,10 +261,7 @@ extern struct ptunit_result ptunit_mk_failed_str(const char *expr,
 	do {								\
 		const char *a = (A), *e = (E);				\
 									\
-		ptunit_ptr_cmp(A, NULL, !=);				\
-		ptunit_ptr_cmp(E, NULL, !=);				\
-									\
-		if (!(strcmp(a, e) C 0))				\
+		if (!a || !e || !(strcmp(a, e) C 0))			\
 			return ptunit_mk_failed_str(#A "~"#C #E, "~"#C,	\
 						    ptu_here(),		\
 						    a, e);		\
