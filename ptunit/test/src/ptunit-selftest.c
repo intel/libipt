@@ -235,7 +235,7 @@ static struct ptunit_result str_fail(struct test_fixture *tfix)
 
 static struct ptunit_result str_eq_null(void)
 {
-	ptu_str_eq(snull, snull);
+	ptu_str_eq(snull, sbar);
 
 	return ptu_skipped();
 }
@@ -246,13 +246,13 @@ static struct ptunit_result str_null(struct test_fixture *tfix)
 
 	*result = str_eq_null();
 
-	ptu_uint_eq(result->type, ptur_failed_pointer);
+	ptu_uint_eq(result->type, ptur_failed_str);
 	ptu_str_eq(result->failed.where.file, __FILE__);
 	ptu_uint_lt(result->failed.where.line, __LINE__);
-	ptu_str_eq(result->failed.variant.str.expr, "snull!=NULL");
-	ptu_str_eq(result->failed.variant.str.cmp, "!=");
-	ptu_ptr_eq(result->failed.variant.str.expected, NULL);
-	ptu_ptr_eq(result->failed.variant.str.actual, NULL);
+	ptu_str_eq(result->failed.variant.str.expr, "snull~==sbar");
+	ptu_str_eq(result->failed.variant.str.cmp, "~==");
+	ptu_str_eq(result->failed.variant.str.expected, "bar");
+	ptu_str_eq(result->failed.variant.str.actual, "(null)");
 
 	return ptu_passed();
 }

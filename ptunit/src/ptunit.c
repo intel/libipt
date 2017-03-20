@@ -104,7 +104,7 @@ static char *dupstr(const char *str)
 	size_t len;
 
 	if (!str)
-		return NULL;
+		str = "(null)";
 
 	len = strlen(str);
 	dup = malloc(len + 1);
