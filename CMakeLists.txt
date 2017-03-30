@@ -172,6 +172,10 @@ if (CMAKE_HOST_UNIX)
     include/posix
   )
 
+  add_definitions(
+    -D_POSIX_C_SOURCE=200809L
+  )
+
   if (CMAKE_C_COMPILER_ID MATCHES "Clang")
     add_definitions(
       # make asm directive work in c99 mode.

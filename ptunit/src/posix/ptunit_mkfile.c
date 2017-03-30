@@ -26,8 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define _POSIX_C_SOURCE 200809L
-
 #include "ptunit_mkfile.h"
 
 #include "intel-pt.h"
