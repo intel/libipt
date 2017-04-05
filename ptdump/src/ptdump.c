@@ -40,6 +40,10 @@
 #include <errno.h>
 #include <limits.h>
 
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#  define snprintf _snprintf_c
+#endif
+
 
 struct ptdump_options {
 	/* Show the current offset in the trace stream. */

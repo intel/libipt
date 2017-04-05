@@ -38,6 +38,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#  define snprintf _snprintf_c
+#endif
+
 
 static int create_section_label_name(char *label, int size, const char *name,
 				     const char *attribute)
