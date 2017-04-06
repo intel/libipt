@@ -152,8 +152,8 @@ run-ptt-test() {
 	lst=$base.lst
 
 
-	# execute pttc
-	exps=`run "$pttc_cmd" $pttc_arg $cpu "$ptt"`
+	# execute pttc - remove the extra \r in Windows line endings
+	exps=`run "$pttc_cmd" $pttc_arg $cpu "$ptt" | sed 's/\r\n/\n/g'`
 	ret=$?
 	if [[ $ret != 0 ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg failed with $ret" >&2
@@ -191,7 +191,7 @@ run-ptt-test() {
 			run "$ptdump_cmd" $ptdump_arg $cpu $opts $pt > $out
 			;;
 		*)
-			echo "$ptt: unknown tool $tool"
+			echo "$ptt: unknown tool '$tool'"
 			status=1
 			continue
 			;;
