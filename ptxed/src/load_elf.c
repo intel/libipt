@@ -62,7 +62,8 @@ static int load_elf32(struct pt_image_section_cache *iscache,
 	Elf32_Ehdr ehdr;
 	Elf32_Half pidx;
 	int64_t offset;
-	int count, errcode, sections;
+	size_t count;
+	int errcode, sections;
 
 	errcode = fseek(file, 0, SEEK_SET);
 	if (errcode) {
@@ -178,7 +179,8 @@ static int load_elf64(struct pt_image_section_cache *iscache,
 	Elf64_Ehdr ehdr;
 	Elf64_Half pidx;
 	int64_t offset;
-	int count, errcode, sections;
+	size_t count;
+	int errcode, sections;
 
 	errcode = fseek(file, 0, SEEK_SET);
 	if (errcode) {
@@ -292,7 +294,8 @@ int load_elf(struct pt_image_section_cache *iscache, struct pt_image *image,
 {
 	uint8_t e_ident[EI_NIDENT];
 	FILE *file;
-	int errcode, count, idx;
+	size_t count;
+	int errcode, idx;
 
 	if (!image || !name)
 		return -pte_invalid;
