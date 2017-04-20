@@ -185,7 +185,7 @@ struct pt_block_cache {
 	uint32_t nentries;
 
 	/* A variable-length array of @nentries entries. */
-	struct pt_bcache_entry entry[1];
+	struct pt_bcache_entry entry[];
 };
 
 /* Create a block cache.

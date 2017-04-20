@@ -35,34 +35,20 @@
 struct pt_block_cache *pt_bcache_alloc(uint64_t nentries)
 {
 	struct pt_block_cache *bcache;
-	uint64_t tentries;
-	size_t size;
+	uint64_t size;
 
 	if (!nentries || (UINT32_MAX < nentries))
 		return NULL;
 
-	/* We rely on the block cache adding one additional entry for its
-	 * nentries field.
-	 *
-	 * It also contains one cache entry, so it must not be bigger than two
-	 * cache entries.
-	 */
-	if ((2 * sizeof(struct pt_bcache_entry)) < sizeof(*bcache))
+	size = sizeof(*bcache) + (nentries * sizeof(struct pt_bcache_entry));
+	if (SIZE_MAX < size)
 		return NULL;
 
-	/* We allocate one more cache entry for the nentries field. */
-	tentries = nentries + 1;
-
-	size = (size_t) tentries;
-
-	/* Check for overflows. */
-	if ((uint64_t) size != tentries)
-		return NULL;
-
-	bcache = calloc(size, sizeof(struct pt_bcache_entry));
+	bcache = malloc((size_t) size);
 	if (!bcache)
 		return NULL;
 
+	memset(bcache, 0, (size_t) size);
 	bcache->nentries = (uint32_t) nentries;
 
 	return bcache;
