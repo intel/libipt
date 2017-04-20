@@ -138,16 +138,20 @@ if (CMAKE_HOST_WIN32)
   if (CMAKE_C_COMPILER_ID MATCHES "MSVC")
     # prevent complaints on:
     # - do {} while(0) constructs
+    # - int arr[] constructs
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4127")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4200")
 
   endif (CMAKE_C_COMPILER_ID MATCHES "MSVC")
 
   if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     # prevent complaints on:
     # - do {} while(0) constructs
+    # - int arr[] constructs
     #
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200")
 
   endif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 
