@@ -49,6 +49,7 @@ add_definitions(
 )
 
 include(GNUInstallDirs)
+include(FindUnixCommands)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -82,10 +83,8 @@ if (PTXED OR PEVENT)
   option(FEATURE_ELF "Support ELF files." OFF)
 endif (PTXED OR PEVENT)
 
-# PTT tests require all the optional tools and use a bash script as test driver
-#
 set(PTT OFF)
-if (CMAKE_HOST_UNIX AND PTDUMP AND PTXED AND PTTC)
+if (BASH AND PTDUMP AND PTXED AND PTTC)
   set(PTT ON)
 endif ()
 

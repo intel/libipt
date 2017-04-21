@@ -25,10 +25,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 function(add_ptt_test name)
-  set(pttc   ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/pttc)
-  set(ptdump ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ptdump)
-  set(ptxed  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ptxed)
-  set(script ${CMAKE_SOURCE_DIR}/script/test.bash)
+  set(pttc   $<TARGET_FILE:pttc>)
+  set(ptdump $<TARGET_FILE:ptdump>)
+  set(ptxed  $<TARGET_FILE:ptxed>)
+  set(script ${BASH} ${CMAKE_SOURCE_DIR}/script/test.bash)
   set(test   ${CMAKE_CURRENT_SOURCE_DIR}/src/${name})
 
   add_test(
