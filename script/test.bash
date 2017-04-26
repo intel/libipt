@@ -158,11 +158,11 @@ run-ptt-test() {
 	if [[ $ret != 0 ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg failed with $ret" >&2
 		status=1
-		continue
+		return
 	elif [[ -z $exps ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg did not produce any .exp file" >&2
 		status=1
-		continue
+		return
 	fi
 
 	# loop over all .exp files determine the tool, generate .out
@@ -230,7 +230,7 @@ run-ptt-tests() {
 	# run the test without any cpu settings.
 	if [[ -z $cpus ]]; then
 		run-ptt-test "$ptt"
-		continue
+		return
 	fi
 
 	# otherwise run for each cpu the test.
