@@ -566,21 +566,43 @@ int pt_qry_sync_forward(struct pt_query_decoder *decoder, uint64_t *ip)
 
 int pt_qry_sync_backward(struct pt_query_decoder *decoder, uint64_t *ip)
 {
-	const uint8_t *pos, *sync;
+	const uint8_t *start, *sync;
 	int errcode;
 
 	if (!decoder)
 		return -pte_invalid;
 
-	pos = decoder->sync;
-	if (!pos)
-		pos = decoder->config.end;
+	start = decoder->pos;
+	if (!start)
+		start = decoder->config.end;
 
-	errcode = pt_sync_backward(&sync, pos, &decoder->config);
-	if (errcode < 0)
-		return errcode;
+	sync = start;
+	for (;;) {
+		errcode = pt_sync_backward(&sync, sync, &decoder->config);
+		if (errcode < 0)
+			return errcode;
 
-	return pt_qry_start(decoder, sync, ip);
+		errcode = pt_qry_start(decoder, sync, ip);
+		if (errcode < 0) {
+			/* Ignore incomplete trace segments at the end.  We need
+			 * a full PSB+ to start decoding.
+			 */
+			if (errcode == -pte_eos)
+				continue;
+
+			return errcode;
+		}
+
+		/* An empty trace segment in the middle of the trace might bring
+		 * us back to where we started.
+		 *
+		 * We're done when we reached a new position.
+		 */
+		if (decoder->pos != start)
+			break;
+	}
+
+	return 0;
 }
 
 int pt_qry_sync_set(struct pt_query_decoder *decoder, uint64_t *ip,
