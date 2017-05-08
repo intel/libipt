@@ -118,7 +118,7 @@ int pt_pkt_sync_backward(struct pt_packet_decoder *decoder)
 	if (!decoder)
 		return -pte_invalid;
 
-	pos = decoder->sync;
+	pos = decoder->pos;
 	if (!pos)
 		pos = decoder->config.end;
 

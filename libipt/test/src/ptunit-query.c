@@ -138,6 +138,306 @@ static struct ptunit_result event_not_synced(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result sync_backward(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	uint64_t sync[3], offset, ip;
+	int errcode;
+
+	/* Check that we can use repeated pt_qry_sync_backward() to iterate over
+	 * synchronization points in backwards order.
+	 */
+
+	errcode = pt_enc_get_offset(encoder, &sync[0]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[1]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[2]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	/* Synchronize repeatedly and check that we reach each PSB in the
+	 * correct order.
+	 */
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[2]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[1]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[0]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_eq(errcode, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result
+sync_backward_empty_end(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	uint64_t sync[3], offset, ip;
+	int errcode;
+
+	/* Check that we can use repeated pt_qry_sync_backward() to iterate over
+	 * synchronization points in backwards order.
+	 *
+	 * There's an empty PSB+ at the end.  We skip it.
+	 */
+
+	errcode = pt_enc_get_offset(encoder, &sync[0]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[1]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[2]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_psbend(encoder);
+
+	/* Synchronize repeatedly and check that we reach each PSB in the
+	 * correct order.
+	 */
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[1]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[0]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_eq(errcode, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result
+sync_backward_empty_mid(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	uint64_t sync[3], offset, ip;
+	int errcode;
+
+	/* Check that we can use repeated pt_qry_sync_backward() to iterate over
+	 * synchronization points in backwards order.
+	 *
+	 * There's an empty PSB+ in the middle.  We skip it.
+	 */
+
+	errcode = pt_enc_get_offset(encoder, &sync[0]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[1]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[2]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	/* Synchronize repeatedly and check that we reach each PSB in the
+	 * correct order.
+	 */
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[2]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[0]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_eq(errcode, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result
+sync_backward_empty_begin(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	uint64_t sync[3], offset, ip;
+	int errcode;
+
+	/* Check that we can use repeated pt_qry_sync_backward() to iterate over
+	 * synchronization points in backwards order.
+	 *
+	 * There's an empty PSB+ at the beginning.  We skip it.
+	 */
+
+	errcode = pt_enc_get_offset(encoder, &sync[0]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[1]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[2]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	/* Synchronize repeatedly and check that we reach each PSB in the
+	 * correct order.
+	 */
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[2]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[1]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_eq(errcode, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result
+decode_sync_backward(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_event event;
+	uint64_t sync[2], offset, ip;
+	int errcode;
+
+	/* Check that we can use sync_backward to re-sync at the current trace
+	 * segment as well as to find the previous trace segment.
+	 */
+
+	errcode = pt_enc_get_offset(encoder, &sync[0]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+	errcode = pt_enc_get_offset(encoder, &sync[1]);
+	ptu_int_ge(errcode, 0);
+
+	pt_encode_psb(encoder);
+	pt_encode_mode_exec(encoder, ptem_64bit);
+	pt_encode_psbend(encoder);
+
+
+	errcode = pt_qry_sync_forward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[0]);
+
+	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_ge(errcode, 0);
+	ptu_int_eq(event.type, ptev_exec_mode);
+
+	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_ge(errcode, 0);
+	ptu_int_eq(event.type, ptev_exec_mode);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[1]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_ge(errcode, 0);
+
+	errcode = pt_qry_get_sync_offset(decoder, &offset);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(offset, sync[0]);
+
+	errcode = pt_qry_sync_backward(decoder, &ip);
+	ptu_int_eq(errcode, -pte_eos);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result indir_null(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
@@ -2111,6 +2411,12 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, indir_not_synced, dfix_raw);
 	ptu_run_f(suite, cond_not_synced, dfix_raw);
 	ptu_run_f(suite, event_not_synced, dfix_raw);
+
+	ptu_run_f(suite, sync_backward, dfix_raw);
+	ptu_run_f(suite, sync_backward_empty_end, dfix_raw);
+	ptu_run_f(suite, sync_backward_empty_mid, dfix_raw);
+	ptu_run_f(suite, sync_backward_empty_begin, dfix_raw);
+	ptu_run_f(suite, decode_sync_backward, dfix_raw);
 
 	ptu_run_f(suite, indir_null, dfix_empty);
 	ptu_run_f(suite, indir_empty, dfix_empty);
