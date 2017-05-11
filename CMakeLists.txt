@@ -152,6 +152,19 @@ if (CMAKE_HOST_WIN32)
     /D_CRT_SECURE_NO_WARNINGS
   )
 
+  # Define snprintf for Visual Studio versions before VS2015
+  if(CMAKE_GENERATOR MATCHES "Visual Studio")
+    string(REPLACE " " ";" VS_VER_LIST ${CMAKE_GENERATOR})
+    list(GET VS_VER_LIST 3 VS_VERSION)
+    if(${VS_VERSION} LESS 2015)
+      add_definitions(
+        # cl forgot to declare snprintf
+        #
+        /Dsnprintf=_snprintf_c
+      )
+    endif()
+  endif()
+
   # enable parallel build
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
