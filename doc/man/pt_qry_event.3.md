@@ -193,7 +193,10 @@ enum pt_event_type {
 	ptev_ptwrite,
 
 	/* A timing event. */
-	ptev_tick
+	ptev_tick,
+
+	/* A core:bus ratio event. */
+	ptev_cbr
 };
 ~~~
 

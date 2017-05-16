@@ -136,7 +136,7 @@ const struct pt_decoder_function pt_decode_cbr = {
 	/* .packet = */ pt_pkt_decode_cbr,
 	/* .decode = */ pt_qry_decode_cbr,
 	/* .header = */ pt_qry_header_cbr,
-	/* .flags =  */ pdff_timing
+	/* .flags =  */ pdff_timing | pdff_event
 };
 
 const struct pt_decoder_function pt_decode_tma = {

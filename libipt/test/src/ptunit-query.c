@@ -1478,26 +1478,6 @@ static struct ptunit_result event_overflow_fup(struct ptu_decoder_fixture *dfix,
 }
 
 static struct ptunit_result
-event_overflow_fup_cutoff_fail(struct ptu_decoder_fixture *dfix)
-{
-	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_encoder *encoder = &dfix->encoder;
-	struct pt_event event;
-	int errcode;
-
-	pt_encode_ovf(encoder);
-	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
-
-	ptu_check(cutoff, decoder, encoder);
-	ptu_check(ptu_sync_decoder, decoder);
-
-	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	ptu_int_eq(errcode, -pte_eos);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result
 event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 		       enum pt_ip_compression ipc, uint64_t tsc)
 {
@@ -2245,7 +2225,7 @@ ptu_dfix_header_indir(struct ptu_decoder_fixture *dfix)
 	struct pt_encoder *encoder = &dfix->encoder;
 
 	pt_encode_pad(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 
@@ -2271,13 +2251,13 @@ ptu_dfix_header_indir_psb(struct ptu_decoder_fixture *dfix)
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 	pt_encode_psb(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 	pt_encode_fup(encoder, pt_dfix_sext_ip, pt_ipc_sext_48);
 	pt_encode_mnt(encoder, 0ull);
 	pt_encode_psbend(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
 	pt_encode_mnt(encoder, 0ull);
 
@@ -2301,7 +2281,7 @@ ptu_dfix_header_cond(struct ptu_decoder_fixture *dfix)
 	 * may want to update last-ip, which requires a last-ip, of course.
 	 */
 	pt_encode_pad(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_psb(encoder);
 	pt_encode_tsc(encoder, 0);
 	pt_encode_pad(encoder);
@@ -2329,7 +2309,7 @@ ptu_dfix_header_event(struct ptu_decoder_fixture *dfix)
 	struct pt_encoder *encoder = &dfix->encoder;
 
 	pt_encode_pad(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0x1000);
 
@@ -2355,12 +2335,12 @@ ptu_dfix_header_event_psb(struct ptu_decoder_fixture *dfix)
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 	pt_encode_psb(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0x1000);
 	pt_encode_fup(encoder, pt_dfix_sext_ip, pt_ipc_sext_48);
 	pt_encode_psbend(encoder);
-	pt_encode_cbr(encoder, 1);
+	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
 
 	/* Synchronize the decoder at the beginning of the buffer. */
@@ -2544,7 +2524,6 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, event_overflow_fup, dfix_empty, pt_ipc_update_48, 0);
 	ptu_run_fp(suite, event_overflow_fup, dfix_empty, pt_ipc_sext_48, 0);
 	ptu_run_fp(suite, event_overflow_fup, dfix_empty, pt_ipc_full, 0);
-	ptu_run_f(suite, event_overflow_fup_cutoff_fail, dfix_empty);
 	ptu_run_fp(suite, event_overflow_tip_pge, dfix_empty,
 		   pt_ipc_suppressed, 0);
 	ptu_run_fp(suite, event_overflow_tip_pge, dfix_empty, pt_ipc_update_16,
@@ -2677,7 +2656,6 @@ int main(int argc, char **argv)
 		   0x1000);
 	ptu_run_fp(suite, event_overflow_fup, dfix_event, pt_ipc_full,
 		   0x1000);
-	ptu_run_f(suite, event_overflow_fup_cutoff_fail, dfix_event);
 	ptu_run_fp(suite, event_overflow_tip_pge, dfix_event,
 		   pt_ipc_suppressed, 0x1000);
 	ptu_run_fp(suite, event_overflow_tip_pge, dfix_event, pt_ipc_update_16,

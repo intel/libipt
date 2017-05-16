@@ -703,6 +703,7 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 	case ptev_pwre:
 	case ptev_pwrx:
 	case ptev_tick:
+	case ptev_cbr:
 		/* We're only interested in events that bind to instructions. */
 		return 0;
 
@@ -1037,6 +1038,7 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 		return pt_insn_status(decoder, pts_event_pending);
 
 	case ptev_tick:
+	case ptev_cbr:
 		return pt_insn_status(decoder, pts_event_pending);
 	}
 
@@ -1469,6 +1471,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	case ptev_pwrx:
 	case ptev_ptwrite:
 	case ptev_tick:
+	case ptev_cbr:
 		break;
 	}
 

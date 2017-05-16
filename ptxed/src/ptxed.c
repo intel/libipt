@@ -1074,6 +1074,10 @@ static void print_event(const struct pt_event *event,
 		if (options->print_event_ip && !event->ip_suppressed)
 			printf(", ip: %016" PRIx64, event->variant.tick.ip);
 		break;
+
+	case ptev_cbr:
+		printf("cbr: %x", event->variant.cbr.ratio);
+		break;
 	}
 
 	printf("]\n");

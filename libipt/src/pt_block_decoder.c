@@ -1530,6 +1530,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		break;
 
 	case ptev_tick:
+	case ptev_cbr:
 		break;
 	}
 
@@ -2658,6 +2659,7 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_tick:
+	case ptev_cbr:
 		return pt_blk_status(decoder, pts_event_pending);
 	}
 
@@ -3058,6 +3060,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	case ptev_pwrx:
 	case ptev_ptwrite:
 	case ptev_tick:
+	case ptev_cbr:
 		decoder->process_event = 0;
 		break;
 	}

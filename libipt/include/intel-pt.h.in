@@ -1042,7 +1042,10 @@ enum pt_event_type {
 	ptev_ptwrite,
 
 	/* A timing event. */
-	ptev_tick
+	ptev_tick,
+
+	/* A core:bus ratio event. */
+	ptev_cbr
 };
 
 /** An event. */
@@ -1331,6 +1334,12 @@ struct pt_event {
 			 */
 			uint64_t ip;
 		} tick;
+
+		/** Event: cbr. */
+		struct {
+			/** The core:bus ratio. */
+			uint16_t ratio;
+		} cbr;
 	} variant;
 };
 

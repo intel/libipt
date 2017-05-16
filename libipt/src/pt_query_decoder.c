@@ -1607,6 +1607,9 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 	case ptev_async_vmcs:
 		pt_qry_add_event_ip(ev, &ev->variant.async_vmcs.ip, decoder);
 		break;
+
+	case ptev_cbr:
+		break;
 	}
 
 	pt_qry_add_event_time(ev, decoder);
@@ -1619,38 +1622,6 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 
 	/* Signal a pending event. */
 	return 1;
-}
-
-/* Processes packets as long as the packet's event flag matches @pdff.
- *
- * Returns zero on success; a negative error code otherwise.
- */
-static int pt_qry_read_ahead_while(struct pt_query_decoder *decoder,
-				   uint32_t pdff)
-{
-	for (;;) {
-		const struct pt_decoder_function *dfun;
-		int errcode;
-
-		errcode = pt_df_fetch(&decoder->next, decoder->pos,
-				      &decoder->config);
-		if (errcode < 0)
-			return errcode;
-
-		dfun = decoder->next;
-		if (!dfun)
-			return -pte_internal;
-
-		if (!dfun->decode)
-			return -pte_bad_context;
-
-		if (!(dfun->flags & pdff))
-			return 0;
-
-		errcode = dfun->decode(decoder);
-		if (errcode < 0)
-			return errcode;
-	}
 }
 
 /* Recover from SKD010.
@@ -1715,6 +1686,60 @@ static int skd010_recover(struct pt_query_decoder *decoder,
 
 	/* Publish the event. */
 	decoder->event = ev;
+	return 1;
+}
+
+/* Recover from SKD010 with tracing disabled.
+ *
+ * Creates and publishes a standalone overflow event.
+ *
+ * Further updates @decoder as follows:
+ *
+ *   - set time tracking to @time and @tcal
+ *   - set the position to @offset
+ *   - set tracing to be disabled
+ *
+ * Returns 1 on success, a negative error code otherwise.
+ */
+static int skd010_recover_disabled(struct pt_query_decoder *decoder,
+				   const struct pt_time_cal *tcal,
+				   const struct pt_time *time, uint64_t offset)
+{
+	struct pt_event *ev;
+
+	if (!decoder || !tcal || !time)
+		return -pte_internal;
+
+	/* Synthesize the overflow event. */
+	ev = pt_evq_standalone(&decoder->evq);
+	if (!ev)
+		return -pte_internal;
+
+	ev->type = ptev_overflow;
+
+	/* We suppress the IP to indicate that tracing has been
+	 * disabled before the overflow resolved.  There can be
+	 * several events before tracing is enabled again.
+	 */
+	ev->ip_suppressed = 1;
+
+	/* We continue decoding at the given offset. */
+	decoder->pos = decoder->config.begin + offset;
+
+	/* Tracing is disabled. */
+	decoder->enabled = 0;
+
+	decoder->time = *time;
+	decoder->tcal = *tcal;
+
+	/* After updating the decoder's time, we can fill in the event
+	 * timestamp.
+	 */
+	pt_qry_add_event_time(ev, decoder);
+
+	/* Publish the event. */
+	decoder->event = ev;
+
 	return 1;
 }
 
@@ -1786,21 +1811,12 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 
 		case ppt_tip_pgd:
 			/* This is a clear indication that the erratum
-			 * apllies.
+			 * applies.
 			 *
 			 * We synchronize after the disable.
 			 */
-
-			decoder->time = time;
-			decoder->tcal = tcal;
-			decoder->pos = decoder->config.begin + offset
-				+ packet.size;
-
-			/* Even though the erratum applies, tracing is disabled
-			 * at the time we're able to resync.  We can use the
-			 * normal code path.
-			 */
-			return 0;
+			return skd010_recover_disabled(decoder, &tcal, &time,
+						       offset + packet.size);
 
 		case ppt_tnt_8:
 		case ppt_tnt_64:
@@ -2063,9 +2079,93 @@ static int pt_qry_handle_skd010(struct pt_query_decoder *decoder)
 	return errcode;
 }
 
+static int pt_pkt_find_ovf_fup(struct pt_packet_decoder *decoder)
+{
+	for (;;) {
+		struct pt_packet packet;
+		int errcode;
+
+		errcode = pt_pkt_next(decoder, &packet, sizeof(packet));
+		if (errcode < 0)
+			return errcode;
+
+		switch (packet.type) {
+		case ppt_fup:
+			return 1;
+
+		case ppt_invalid:
+			return -pte_bad_opc;
+
+		case ppt_unknown:
+		case ppt_pad:
+		case ppt_mnt:
+		case ppt_cbr:
+		case ppt_tsc:
+		case ppt_tma:
+		case ppt_mtc:
+		case ppt_cyc:
+			continue;
+
+		case ppt_psb:
+		case ppt_tip_pge:
+		case ppt_mode:
+		case ppt_pip:
+		case ppt_vmcs:
+		case ppt_stop:
+		case ppt_ovf:
+		case ppt_exstop:
+		case ppt_mwait:
+		case ppt_pwre:
+		case ppt_pwrx:
+		case ppt_ptw:
+			return 0;
+
+		case ppt_psbend:
+		case ppt_tip:
+		case ppt_tip_pgd:
+		case ppt_tnt_8:
+		case ppt_tnt_64:
+			return -pte_bad_context;
+		}
+	}
+}
+
+/* Find a FUP to which the current OVF may bind.
+ *
+ * Scans the trace for a FUP or for a packet that indicates that tracing is
+ * disabled.
+ *
+ * Return a positive integer if a FUP is found.
+ * Returns zero if no FUP is found and tracing is assumed to be disabled.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_qry_find_ovf_fup(const struct pt_query_decoder *decoder)
+{
+	struct pt_packet_decoder pkt;
+	uint64_t offset;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_qry_get_offset(decoder, &offset);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_pkt_sync_set(&pkt, offset);
+	if (errcode >= 0)
+		errcode = pt_pkt_find_ovf_fup(&pkt);
+
+	pt_pkt_decoder_fini(&pkt);
+	return errcode;
+}
+
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
-	const struct pt_decoder_function *dfun;
 	struct pt_event *ev;
 	struct pt_time time;
 	int status, errcode;
@@ -2099,28 +2199,8 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 	 * as we see a non-timing non-FUP packet, we know that tracing has been
 	 * disabled before the overflow resolves.
 	 */
-	errcode = pt_qry_read_ahead_while(decoder, pdff_timing | pdff_pad);
-	if (errcode < 0) {
-		if (errcode != -pte_eos)
-			return errcode;
-
-		dfun = NULL;
-	} else {
-		dfun = decoder->next;
-		if (!dfun)
-			return -pte_internal;
-	}
-
-	if (dfun && (dfun->flags & pdff_fup)) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
-		if (!ev)
-			return -pte_internal;
-
-		ev->type = ptev_overflow;
-
-		/* We set tracing to disabled in pt_qry_reset(); fix it. */
-		decoder->enabled = 1;
-	} else {
+	status = pt_qry_find_ovf_fup(decoder);
+	if (status <= 0) {
 		/* Check for erratum SKD010.
 		 *
 		 * The FUP may have been dropped.  If we can figure out that
@@ -2136,6 +2216,14 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 				return 0;
 		}
 
+		/* Report the original error from searching for the FUP packet
+		 * if we were not able to fix the trace.
+		 *
+		 * We treat an overflow at the end of the trace as standalone.
+		 */
+		if (status < 0 && status != -pte_eos)
+			return status;
+
 		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;
@@ -2150,6 +2238,15 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 
 		/* Publish the event. */
 		decoder->event = ev;
+	} else {
+		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_overflow;
+
+		/* We set tracing to disabled in pt_qry_reset(); fix it. */
+		decoder->enabled = 1;
 	}
 
 	pt_qry_add_event_time(ev, decoder);
@@ -2326,6 +2423,7 @@ int pt_qry_header_tsc(struct pt_query_decoder *decoder)
 int pt_qry_decode_cbr(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_cbr packet;
+	struct pt_event *event;
 	int size, errcode;
 
 	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
@@ -2337,6 +2435,16 @@ int pt_qry_decode_cbr(struct pt_query_decoder *decoder)
 	if (errcode < 0)
 		return errcode;
 
+	event = pt_evq_standalone(&decoder->evq);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_cbr;
+	event->variant.cbr.ratio = packet.ratio;
+
+	pt_qry_add_event_time(event, decoder);
+
+	decoder->event = event;
 	decoder->pos += size;
 	return 0;
 }
@@ -2344,6 +2452,7 @@ int pt_qry_decode_cbr(struct pt_query_decoder *decoder)
 int pt_qry_header_cbr(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_cbr packet;
+	struct pt_event *event;
 	int size, errcode;
 
 	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
@@ -2354,6 +2463,13 @@ int pt_qry_header_cbr(struct pt_query_decoder *decoder)
 					  &packet, &decoder->config);
 	if (errcode < 0)
 		return errcode;
+
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
+	if (!event)
+		return -pte_nomem;
+
+	event->type = ptev_cbr;
+	event->variant.cbr.ratio = packet.ratio;
 
 	decoder->pos += size;
 	return 0;

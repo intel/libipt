@@ -57,6 +57,7 @@ l3: hlt
 
 ; @pt .exp(ptxed)
 ;[overflow]
+;[cbr: f]
 ;[enabled]
 ;[exec mode: 64-bit]
 ;%0l1
