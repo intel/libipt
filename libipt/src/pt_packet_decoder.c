@@ -153,7 +153,7 @@ int pt_pkt_sync_set(struct pt_packet_decoder *decoder, uint64_t offset)
 	return 0;
 }
 
-int pt_pkt_get_offset(struct pt_packet_decoder *decoder, uint64_t *offset)
+int pt_pkt_get_offset(const struct pt_packet_decoder *decoder, uint64_t *offset)
 {
 	const uint8_t *begin, *pos;
 
@@ -170,7 +170,8 @@ int pt_pkt_get_offset(struct pt_packet_decoder *decoder, uint64_t *offset)
 	return 0;
 }
 
-int pt_pkt_get_sync_offset(struct pt_packet_decoder *decoder, uint64_t *offset)
+int pt_pkt_get_sync_offset(const struct pt_packet_decoder *decoder,
+			   uint64_t *offset)
 {
 	const uint8_t *begin, *sync;
 

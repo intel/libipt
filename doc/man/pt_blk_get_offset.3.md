@@ -38,9 +38,9 @@ block decoder's current/synchronization trace buffer offset
 
 | **\#include `<intel-pt.h>`**
 |
-| **int pt_blk_get_offset(struct pt_block_decoder \**decoder*,**
+| **int pt_blk_get_offset(const struct pt_block_decoder \**decoder*,**
 |                       **uint64_t \**offset*);**
-| **int pt_blk_get_sync_offset(struct pt_block_decoder \**decoder*,**
+| **int pt_blk_get_sync_offset(const struct pt_block_decoder \**decoder*,**
 |                            **uint64_t \**offset*);**
 
 Link with *-lipt*.

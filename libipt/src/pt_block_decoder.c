@@ -471,7 +471,7 @@ int pt_blk_sync_set(struct pt_block_decoder *decoder, uint64_t offset)
 	return pt_blk_start(decoder, status);
 }
 
-int pt_blk_get_offset(struct pt_block_decoder *decoder, uint64_t *offset)
+int pt_blk_get_offset(const struct pt_block_decoder *decoder, uint64_t *offset)
 {
 	if (!decoder)
 		return -pte_invalid;
@@ -479,7 +479,8 @@ int pt_blk_get_offset(struct pt_block_decoder *decoder, uint64_t *offset)
 	return pt_qry_get_offset(&decoder->query, offset);
 }
 
-int pt_blk_get_sync_offset(struct pt_block_decoder *decoder, uint64_t *offset)
+int pt_blk_get_sync_offset(const struct pt_block_decoder *decoder,
+			   uint64_t *offset)
 {
 	if (!decoder)
 		return -pte_invalid;

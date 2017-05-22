@@ -38,9 +38,9 @@ encoder's current trace buffer offset
 
 | **\#include `<intel-pt.h>`**
 |
-| **int pt_enc_get_offset(struct pt_packet_encoder \**encoder*,**
+| **int pt_enc_get_offset(const struct pt_packet_encoder \**encoder*,**
 |                       **uint64_t \**offset*);**
-| **int pt_enc_sync_set(struct pt_packet_encoder \**encoder*,**
+| **int pt_enc_sync_set(const struct pt_packet_encoder \**encoder*,**
 |                     **uint64_t *offset*);**
 
 Link with *-lipt*.

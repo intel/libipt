@@ -101,7 +101,7 @@ int pt_enc_sync_set(struct pt_encoder *encoder, uint64_t offset)
 	return 0;
 }
 
-int pt_enc_get_offset(struct pt_encoder *encoder, uint64_t *offset)
+int pt_enc_get_offset(const struct pt_encoder *encoder, uint64_t *offset)
 {
 	const uint8_t *raw, *begin;
 
