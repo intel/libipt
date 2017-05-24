@@ -44,7 +44,7 @@ void pt_last_ip_init(struct pt_last_ip *last_ip)
 int pt_last_ip_query(uint64_t *ip, const struct pt_last_ip *last_ip)
 {
 	if (!last_ip)
-		return -pte_invalid;
+		return -pte_internal;
 
 	if (!last_ip->have_ip) {
 		if (ip)
@@ -82,7 +82,7 @@ int pt_last_ip_update_ip(struct pt_last_ip *last_ip,
 	(void) config;
 
 	if (!last_ip || !packet)
-		return -pte_invalid;
+		return -pte_internal;
 
 	switch (packet->ipc) {
 	case pt_ipc_suppressed:

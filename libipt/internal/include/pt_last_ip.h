@@ -58,7 +58,7 @@ extern void pt_last_ip_init(struct pt_last_ip *last_ip);
  * If @ip is not NULL, provides the last-ip in @ip on success.
  *
  * Returns zero on success.
- * Returns -pte_invalid if @last_ip is NULL.
+ * Returns -pte_internal if @last_ip is NULL.
  * Returns -pte_noip if there is no last-ip.
  * Returns -pte_ip_suppressed if the last-ip has been suppressed.
  */
@@ -69,7 +69,7 @@ extern int pt_last_ip_query(uint64_t *ip, const struct pt_last_ip *last_ip);
  * Updates @last_ip based on @packet and, if non-null, @config.
  *
  * Returns zero on success.
- * Returns -pte_invalid if @last_ip or @packet is NULL.
+ * Returns -pte_internal if @last_ip or @packet is NULL.
  * Returns -pte_bad_packet if @packet appears to be corrupted.
  */
 extern int pt_last_ip_update_ip(struct pt_last_ip *last_ip,

@@ -89,7 +89,7 @@ static struct ptunit_result status_null(void)
 	int errcode;
 
 	errcode = pt_last_ip_query(NULL, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -159,7 +159,7 @@ static struct ptunit_result query_null(void)
 	int errcode;
 
 	errcode = pt_last_ip_query(&ip, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 	ptu_uint_eq(ip, 13ull);
 
 	return ptu_passed();
@@ -315,7 +315,7 @@ static struct ptunit_result update_ip_null_ip(void)
 	int errcode;
 
 	errcode = pt_last_ip_update_ip(NULL, &packet, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -330,7 +330,7 @@ static struct ptunit_result update_ip_null_packet(uint32_t have_ip)
 	last_ip.suppressed = 0;
 
 	errcode = pt_last_ip_update_ip(&last_ip, NULL, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	ptu_int_eq(errcode, -pte_internal);
 	ptu_uint_eq(last_ip.ip, 0x7fffffffffffffffull);
 	ptu_uint_eq(last_ip.have_ip, have_ip);
 	ptu_uint_eq(last_ip.suppressed, 0);
