@@ -1104,7 +1104,7 @@ event_async_disabled_suppressed_fail(struct ptu_decoder_fixture *dfix)
 	ptu_check(ptu_sync_decoder, decoder);
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	ptu_int_eq(errcode, -pte_bad_packet);
+	ptu_int_eq(errcode, -pte_ip_suppressed);
 
 	return ptu_passed();
 }
@@ -1171,7 +1171,7 @@ event_async_branch_suppressed_fail(struct ptu_decoder_fixture *dfix)
 	ptu_check(ptu_sync_decoder, decoder);
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	ptu_int_eq(errcode, -pte_bad_packet);
+	ptu_int_eq(errcode, -pte_ip_suppressed);
 	ptu_ptr_eq(decoder->pos, pos);
 
 	return ptu_passed();
@@ -1453,7 +1453,7 @@ static struct ptunit_result event_overflow_fup(struct ptu_decoder_fixture *dfix,
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	switch (ipc) {
 	case pt_ipc_suppressed:
-		ptu_int_eq(errcode, -pte_bad_packet);
+		ptu_int_eq(errcode, -pte_noip);
 		break;
 
 	case pt_ipc_update_16:
@@ -2033,7 +2033,7 @@ static struct ptunit_result sync_ovf_event(struct ptu_decoder_fixture *dfix,
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	switch (ipc) {
 	case pt_ipc_suppressed:
-		ptu_int_eq(errcode, -pte_bad_packet);
+		ptu_int_eq(errcode, -pte_noip);
 		return ptu_passed();
 
 	case pt_ipc_update_16:

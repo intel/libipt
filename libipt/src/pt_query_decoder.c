@@ -255,6 +255,9 @@ static int pt_qry_provoke_fetch_error(const struct pt_query_decoder *decoder)
 
 static int pt_qry_read_ahead(struct pt_query_decoder *decoder)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	for (;;) {
 		const struct pt_decoder_function *dfun;
 		int errcode;
@@ -671,6 +674,9 @@ static int pt_qry_cache_tnt(struct pt_query_decoder *decoder)
 {
 	int errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	for (;;) {
 		const struct pt_decoder_function *dfun;
 
@@ -931,24 +937,32 @@ int pt_qry_core_bus_ratio(struct pt_query_decoder *decoder, uint32_t *cbr)
 	return pt_time_query_cbr(cbr, &decoder->last_time);
 }
 
-static void pt_qry_add_event_time(struct pt_event *event,
-				  const struct pt_query_decoder *decoder)
+static int pt_qry_event_time(struct pt_event *event,
+			     const struct pt_query_decoder *decoder)
 {
 	int errcode;
 
 	if (!event || !decoder)
-		return;
+		return -pte_internal;
 
 	errcode = pt_time_query_tsc(&event->tsc, &event->lost_mtc,
 				    &event->lost_cyc, &decoder->time);
-	if (errcode >= 0)
+	if (errcode < 0) {
+		if (errcode != -pte_no_time)
+			return errcode;
+	} else
 		event->has_tsc = 1;
+
+	return 0;
 }
 
 int pt_qry_decode_unknown(struct pt_query_decoder *decoder)
 {
 	struct pt_packet packet;
 	int size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_unknown(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -960,6 +974,9 @@ int pt_qry_decode_unknown(struct pt_query_decoder *decoder)
 
 int pt_qry_decode_pad(struct pt_query_decoder *decoder)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	decoder->pos += ptps_pad;
 
 	return 0;
@@ -967,6 +984,9 @@ int pt_qry_decode_pad(struct pt_query_decoder *decoder)
 
 static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	pt_last_ip_init(&decoder->ip);
 
 	for (;;) {
@@ -1000,6 +1020,9 @@ int pt_qry_decode_psb(struct pt_query_decoder *decoder)
 	const uint8_t *pos;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	pos = decoder->pos;
 
 	size = pt_pkt_read_psb(pos, &decoder->config);
@@ -1032,14 +1055,28 @@ int pt_qry_decode_psb(struct pt_query_decoder *decoder)
 	return 0;
 }
 
-static void pt_qry_add_event_ip(struct pt_event *event, uint64_t *ip,
-				const struct pt_query_decoder *decoder)
+static int pt_qry_event_ip(uint64_t *ip, struct pt_event *event,
+			   const struct pt_query_decoder *decoder)
 {
 	int errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	errcode = pt_last_ip_query(ip, &decoder->ip);
-	if (errcode < 0)
-		event->ip_suppressed = 1;
+	if (errcode < 0) {
+		switch (pt_errcode(errcode)) {
+		case pte_noip:
+		case pte_ip_suppressed:
+			event->ip_suppressed = 1;
+			break;
+
+		default:
+			return errcode;
+		}
+	}
+
+	return 0;
 }
 
 /* Decode a generic IP packet.
@@ -1052,6 +1089,9 @@ static int pt_qry_decode_ip(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_ip packet;
 	int errcode, size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_ip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -1068,14 +1108,52 @@ static int pt_qry_decode_ip(struct pt_query_decoder *decoder)
 
 static int pt_qry_consume_tip(struct pt_query_decoder *decoder, int size)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	decoder->pos += size;
 	return 0;
+}
+
+static int pt_qry_event_tip(struct pt_event *ev,
+			    struct pt_query_decoder *decoder)
+{
+	if (!ev || !decoder)
+		return -pte_internal;
+
+	switch (ev->type) {
+	case ptev_async_branch:
+		decoder->consume_packet = 1;
+
+		return pt_qry_event_ip(&ev->variant.async_branch.to, ev,
+				       decoder);
+
+	case ptev_async_paging:
+		return pt_qry_event_ip(&ev->variant.async_paging.ip, ev,
+				       decoder);
+
+	case ptev_async_vmcs:
+		return pt_qry_event_ip(&ev->variant.async_vmcs.ip, ev,
+				       decoder);
+
+	case ptev_exec_mode:
+		return pt_qry_event_ip(&ev->variant.exec_mode.ip, ev,
+				       decoder);
+
+	default:
+		break;
+	}
+
+	return -pte_internal;
 }
 
 int pt_qry_decode_tip(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
-	int size;
+	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
@@ -1084,33 +1162,9 @@ int pt_qry_decode_tip(struct pt_query_decoder *decoder)
 	/* Process any pending events binding to TIP. */
 	ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 	if (ev) {
-		switch (ev->type) {
-		default:
-			return -pte_internal;
-
-		case ptev_async_branch:
-			pt_qry_add_event_ip(ev, &ev->variant.async_branch.to,
-					    decoder);
-
-			decoder->consume_packet = 1;
-
-			break;
-
-		case ptev_async_paging:
-			pt_qry_add_event_ip(ev, &ev->variant.async_paging.ip,
-					    decoder);
-			break;
-
-		case ptev_async_vmcs:
-			pt_qry_add_event_ip(ev, &ev->variant.async_vmcs.ip,
-					    decoder);
-			break;
-
-		case ptev_exec_mode:
-			pt_qry_add_event_ip(ev, &ev->variant.exec_mode.ip,
-					    decoder);
-			break;
-		}
+		errcode = pt_qry_event_tip(ev, decoder);
+		if (errcode < 0)
+			return errcode;
 
 		/* Publish the event. */
 		decoder->event = ev;
@@ -1140,6 +1194,9 @@ int pt_qry_decode_tnt_8(struct pt_query_decoder *decoder)
 	struct pt_packet_tnt packet;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_tnt_8(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -1158,6 +1215,9 @@ int pt_qry_decode_tnt_64(struct pt_query_decoder *decoder)
 	struct pt_packet_tnt packet;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_tnt_64(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -1173,14 +1233,37 @@ int pt_qry_decode_tnt_64(struct pt_query_decoder *decoder)
 
 static int pt_qry_consume_tip_pge(struct pt_query_decoder *decoder, int size)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	decoder->pos += size;
 	return 0;
+}
+
+static int pt_qry_event_tip_pge(struct pt_event *ev,
+				const struct pt_query_decoder *decoder)
+{
+	if (!ev)
+		return -pte_internal;
+
+	switch (ev->type) {
+	case ptev_exec_mode:
+		return pt_qry_event_ip(&ev->variant.exec_mode.ip, ev, decoder);
+
+	default:
+		break;
+	}
+
+	return -pte_internal;
 }
 
 int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
-	int size;
+	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
@@ -1193,22 +1276,22 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 	 * We use the consume packet decoder flag to indicate this.
 	 */
 	if (!decoder->consume_packet) {
-		uint64_t ip;
-		int errcode;
-
-		/* We can't afford a suppressed IP, here. */
-		errcode = pt_last_ip_query(&ip, &decoder->ip);
-		if (errcode < 0)
-			return -pte_bad_packet;
-
 		/* This packet signals a standalone enabled event. */
 		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;
-		ev->type = ptev_enabled;
-		ev->variant.enabled.ip = ip;
 
-		pt_qry_add_event_time(ev, decoder);
+		ev->type = ptev_enabled;
+
+		/* We can't afford having a suppressed IP here. */
+		errcode = pt_last_ip_query(&ev->variant.enabled.ip,
+					   &decoder->ip);
+		if (errcode < 0)
+			return -pte_bad_packet;
+
+		errcode = pt_qry_event_time(ev, decoder);
+		if (errcode < 0)
+			return errcode;
 
 		/* Discard any cached TNT bits.
 		 *
@@ -1225,16 +1308,9 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 		/* Process any pending events binding to TIP. */
 		ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 		if (ev) {
-			switch (ev->type) {
-			default:
-				return -pte_internal;
-
-			case ptev_exec_mode:
-				pt_qry_add_event_ip(ev,
-						    &ev->variant.exec_mode.ip,
-						    decoder);
-				break;
-			}
+			errcode = pt_qry_event_tip_pge(ev, decoder);
+			if (errcode < 0)
+				return errcode;
 		}
 	}
 
@@ -1262,6 +1338,9 @@ int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
 
 static int pt_qry_consume_tip_pgd(struct pt_query_decoder *decoder, int size)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	decoder->enabled = 0;
 	decoder->pos += size;
 	return 0;
@@ -1271,7 +1350,10 @@ int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
 	uint64_t at;
-	int size;
+	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
@@ -1293,16 +1375,26 @@ int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 
 		ev->type = ptev_async_disabled;
 		ev->variant.async_disabled.at = at;
-		pt_qry_add_event_ip(ev, &ev->variant.async_disabled.ip,
-				    decoder);
+
+		errcode = pt_qry_event_ip(&ev->variant.async_disabled.ip,
+					  ev, decoder);
+		if (errcode < 0)
+			return errcode;
 	} else {
 		/* This packet signals a standalone disabled event. */
 		ev = pt_evq_standalone(&decoder->evq);
 		if (!ev)
 			return -pte_internal;
 		ev->type = ptev_disabled;
-		pt_qry_add_event_ip(ev, &ev->variant.disabled.ip, decoder);
-		pt_qry_add_event_time(ev, decoder);
+
+		errcode = pt_qry_event_ip(&ev->variant.disabled.ip, ev,
+					  decoder);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_qry_event_time(ev, decoder);
+		if (errcode < 0)
+			return errcode;
 	}
 
 	/* Publish the event. */
@@ -1313,6 +1405,9 @@ int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 
 static int pt_qry_consume_fup(struct pt_query_decoder *decoder, int size)
 {
+	if (!decoder)
+		return -pte_internal;
+
 	decoder->pos += size;
 	return 0;
 }
@@ -1388,6 +1483,9 @@ int pt_qry_header_fup(struct pt_query_decoder *decoder)
 	struct pt_packet_ip packet;
 	int errcode, size;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_ip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -1413,10 +1511,55 @@ int pt_qry_header_fup(struct pt_query_decoder *decoder)
 	return pt_qry_consume_fup(decoder, size);
 }
 
+static int pt_qry_event_fup(struct pt_event *ev,
+			    struct pt_query_decoder *decoder)
+{
+	if (!ev || !decoder)
+		return -pte_internal;
+
+	switch (ev->type) {
+	case ptev_overflow:
+		decoder->consume_packet = 1;
+
+		/* We can't afford having a suppressed IP here. */
+		return pt_last_ip_query(&ev->variant.overflow.ip,
+					&decoder->ip);
+
+	case ptev_tsx:
+		if (!(ev->variant.tsx.aborted))
+			decoder->consume_packet = 1;
+
+		return pt_qry_event_ip(&ev->variant.tsx.ip, ev, decoder);
+
+	case ptev_exstop:
+		decoder->consume_packet = 1;
+
+		return pt_qry_event_ip(&ev->variant.exstop.ip, ev, decoder);
+
+	case ptev_mwait:
+		decoder->consume_packet = 1;
+
+		return pt_qry_event_ip(&ev->variant.mwait.ip, ev, decoder);
+
+	case ptev_ptwrite:
+		decoder->consume_packet = 1;
+
+		return pt_qry_event_ip(&ev->variant.ptwrite.ip, ev, decoder);
+
+	default:
+		break;
+	}
+
+	return -pte_internal;
+}
+
 int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
-	int size;
+	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_qry_decode_ip(decoder);
 	if (size < 0)
@@ -1425,53 +1568,9 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 	/* Process any pending events binding to FUP. */
 	ev = pt_evq_dequeue(&decoder->evq, evb_fup);
 	if (ev) {
-		switch (ev->type) {
-		default:
-			return -pte_internal;
-
-		case ptev_overflow: {
-			uint64_t ip;
-			int errcode;
-
-			/* We can't afford a suppressed IP, here. */
-			errcode = pt_last_ip_query(&ip, &decoder->ip);
-			if (errcode < 0)
-				return -pte_bad_packet;
-
-			ev->variant.overflow.ip = ip;
-
-			decoder->consume_packet = 1;
-		}
-			break;
-
-		case ptev_tsx:
-			pt_qry_add_event_ip(ev, &ev->variant.tsx.ip, decoder);
-
-			if (!(ev->variant.tsx.aborted))
-				decoder->consume_packet = 1;
-
-			break;
-
-		case ptev_exstop:
-			pt_qry_add_event_ip(ev, &ev->variant.exstop.ip,
-					    decoder);
-
-			decoder->consume_packet = 1;
-			break;
-
-		case ptev_mwait:
-			pt_qry_add_event_ip(ev, &ev->variant.mwait.ip, decoder);
-
-			decoder->consume_packet = 1;
-			break;
-
-		case ptev_ptwrite:
-			pt_qry_add_event_ip(ev, &ev->variant.ptwrite.ip,
-					    decoder);
-
-			decoder->consume_packet = 1;
-			break;
-		}
+		errcode = pt_qry_event_fup(ev, decoder);
+		if (errcode < 0)
+			return errcode;
 
 		/* Publish the event. */
 		decoder->event = ev;
@@ -1497,11 +1596,10 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 		 * We do need an IP in this case.
 		 */
 		uint64_t ip;
-		int errcode;
 
 		errcode = pt_last_ip_query(&ip, &decoder->ip);
 		if (errcode < 0)
-			return -pte_bad_packet;
+			return errcode;
 
 		ev = pt_evq_enqueue(&decoder->evq, evb_tip);
 		if (!ev)
@@ -1510,7 +1608,9 @@ int pt_qry_decode_fup(struct pt_query_decoder *decoder)
 		ev->type = ptev_async_branch;
 		ev->variant.async_branch.from = ip;
 
-		pt_qry_add_event_time(ev, decoder);
+		errcode = pt_qry_event_time(ev, decoder);
+		if (errcode < 0)
+			return errcode;
 	}
 
 	return pt_qry_consume_fup(decoder, size);
@@ -1520,7 +1620,10 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_pip packet;
 	struct pt_event *event;
-	int size;
+	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_pip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -1538,8 +1641,6 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 		event->variant.paging.cr3 = packet.cr3;
 		event->variant.paging.non_root = packet.nr;
 
-		pt_qry_add_event_time(event, decoder);
-
 		decoder->event = event;
 	} else {
 		event = pt_evq_enqueue(&decoder->evq, evb_tip);
@@ -1549,9 +1650,11 @@ int pt_qry_decode_pip(struct pt_query_decoder *decoder)
 		event->type = ptev_async_paging;
 		event->variant.async_paging.cr3 = packet.cr3;
 		event->variant.async_paging.non_root = packet.nr;
-
-		pt_qry_add_event_time(event, decoder);
 	}
+
+	errcode = pt_qry_event_time(event, decoder);
+	if (errcode < 0)
+		return errcode;
 
 	decoder->pos += size;
 	return 0;
@@ -1562,6 +1665,9 @@ int pt_qry_header_pip(struct pt_query_decoder *decoder)
 	struct pt_packet_pip packet;
 	struct pt_event *event;
 	int size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_pip(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -1580,52 +1686,71 @@ int pt_qry_header_pip(struct pt_query_decoder *decoder)
 	return 0;
 }
 
-static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
+static int pt_qry_event_psbend(struct pt_event *ev,
+			       struct pt_query_decoder *decoder)
 {
-	struct pt_event *ev;
+	int errcode;
 
-	ev = pt_evq_dequeue(&decoder->evq, evb_psbend);
-	if (!ev)
-		return 0;
-
-	pt_qry_add_event_time(ev, decoder);
+	if (!ev || !decoder)
+		return -pte_internal;
 
 	/* PSB+ events are status updates. */
 	ev->status_update = 1;
 
-	/* Publish the event. */
-	decoder->event = ev;
+	errcode = pt_qry_event_time(ev, decoder);
+	if (errcode < 0)
+		return errcode;
 
 	switch (ev->type) {
-	default:
-		return -pte_internal;
-
 	case ptev_async_paging:
-		pt_qry_add_event_ip(ev, &ev->variant.async_paging.ip, decoder);
-		break;
+		return pt_qry_event_ip(&ev->variant.async_paging.ip, ev,
+				       decoder);
 
 	case ptev_exec_mode:
-		pt_qry_add_event_ip(ev, &ev->variant.exec_mode.ip, decoder);
-		break;
+		return pt_qry_event_ip(&ev->variant.exec_mode.ip, ev, decoder);
 
 	case ptev_tsx:
-		pt_qry_add_event_ip(ev, &ev->variant.tsx.ip, decoder);
-		break;
+		return pt_qry_event_ip(&ev->variant.tsx.ip, ev, decoder);
 
 	case ptev_async_vmcs:
-		pt_qry_add_event_ip(ev, &ev->variant.async_vmcs.ip, decoder);
-		break;
+		return pt_qry_event_ip(&ev->variant.async_vmcs.ip, ev,
+				       decoder);
 
 	case ptev_cbr:
-		break;
+		return 0;
 
 	case ptev_mnt:
 		/* Maintenance packets may appear anywhere.  Do not mark them as
 		 * status updates even if they appear in PSB+.
 		 */
 		ev->status_update = 0;
+		return 0;
+
+	default:
 		break;
 	}
+
+	return -pte_internal;
+}
+
+static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
+{
+	struct pt_event *ev;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	ev = pt_evq_dequeue(&decoder->evq, evb_psbend);
+	if (!ev)
+		return 0;
+
+	errcode = pt_qry_event_psbend(ev, decoder);
+	if (errcode < 0)
+		return errcode;
+
+	/* Publish the event. */
+	decoder->event = ev;
 
 	/* Signal a pending event. */
 	return 1;
@@ -1689,7 +1814,9 @@ static int skd010_recover(struct pt_query_decoder *decoder,
 	/* After updating the decoder's time, we can fill in the event
 	 * timestamp.
 	 */
-	pt_qry_add_event_time(ev, decoder);
+	errcode = pt_qry_event_time(ev, decoder);
+	if (errcode < 0)
+		return errcode;
 
 	/* Publish the event. */
 	decoder->event = ev;
@@ -1713,6 +1840,7 @@ static int skd010_recover_disabled(struct pt_query_decoder *decoder,
 				   const struct pt_time *time, uint64_t offset)
 {
 	struct pt_event *ev;
+	int errcode;
 
 	if (!decoder || !tcal || !time)
 		return -pte_internal;
@@ -1742,7 +1870,9 @@ static int skd010_recover_disabled(struct pt_query_decoder *decoder,
 	/* After updating the decoder's time, we can fill in the event
 	 * timestamp.
 	 */
-	pt_qry_add_event_time(ev, decoder);
+	errcode = pt_qry_event_time(ev, decoder);
+	if (errcode < 0)
+		return errcode;
 
 	/* Publish the event. */
 	decoder->event = ev;
@@ -1784,6 +1914,9 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 		uint64_t offset;
 	} mode_tsx;
 	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	/* Keep track of time as we skip packets. */
 	time = decoder->time;
@@ -2177,6 +2310,9 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 	struct pt_time time;
 	int status, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	status = pt_qry_process_pending_psb_events(decoder);
 	if (status < 0)
 		return status;
@@ -2256,15 +2392,16 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		decoder->enabled = 1;
 	}
 
-	pt_qry_add_event_time(ev, decoder);
-
-	return 0;
+	return pt_qry_event_time(ev, decoder);
 }
 
 static int pt_qry_decode_mode_exec(struct pt_query_decoder *decoder,
 				   const struct pt_packet_mode_exec *packet)
 {
 	struct pt_event *event;
+
+	if (!decoder || !packet)
+		return -pte_internal;
 
 	/* MODE.EXEC binds to TIP. */
 	event = pt_evq_enqueue(&decoder->evq, evb_tip);
@@ -2274,15 +2411,16 @@ static int pt_qry_decode_mode_exec(struct pt_query_decoder *decoder,
 	event->type = ptev_exec_mode;
 	event->variant.exec_mode.mode = pt_get_exec_mode(packet);
 
-	pt_qry_add_event_time(event, decoder);
-
-	return 0;
+	return pt_qry_event_time(event, decoder);
 }
 
 static int pt_qry_decode_mode_tsx(struct pt_query_decoder *decoder,
 				  const struct pt_packet_mode_tsx *packet)
 {
 	struct pt_event *event;
+
+	if (!decoder || !packet)
+		return -pte_internal;
 
 	/* MODE.TSX is standalone if tracing is disabled. */
 	if (!decoder->enabled) {
@@ -2307,15 +2445,16 @@ static int pt_qry_decode_mode_tsx(struct pt_query_decoder *decoder,
 	event->variant.tsx.speculative = packet->intx;
 	event->variant.tsx.aborted = packet->abrt;
 
-	pt_qry_add_event_time(event, decoder);
-
-	return 0;
+	return pt_qry_event_time(event, decoder);
 }
 
 int pt_qry_decode_mode(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_mode packet;
 	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_mode(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2344,6 +2483,9 @@ int pt_qry_header_mode(struct pt_query_decoder *decoder)
 	struct pt_packet_mode packet;
 	struct pt_event *event;
 	int size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_mode(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2376,6 +2518,9 @@ int pt_qry_decode_psbend(struct pt_query_decoder *decoder)
 {
 	int status;
 
+	if (!decoder)
+		return -pte_internal;
+
 	status = pt_qry_process_pending_psb_events(decoder);
 	if (status < 0)
 		return status;
@@ -2396,6 +2541,9 @@ int pt_qry_decode_tsc(struct pt_query_decoder *decoder)
 	struct pt_packet_tsc packet;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_tsc(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -2413,6 +2561,9 @@ int pt_qry_header_tsc(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_tsc packet;
 	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_tsc(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2433,6 +2584,9 @@ int pt_qry_decode_cbr(struct pt_query_decoder *decoder)
 	struct pt_event *event;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -2449,9 +2603,12 @@ int pt_qry_decode_cbr(struct pt_query_decoder *decoder)
 	event->type = ptev_cbr;
 	event->variant.cbr.ratio = packet.ratio;
 
-	pt_qry_add_event_time(event, decoder);
-
 	decoder->event = event;
+
+	errcode = pt_qry_event_time(event, decoder);
+	if (errcode < 0)
+		return errcode;
+
 	decoder->pos += size;
 	return 0;
 }
@@ -2461,6 +2618,9 @@ int pt_qry_header_cbr(struct pt_query_decoder *decoder)
 	struct pt_packet_cbr packet;
 	struct pt_event *event;
 	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_cbr(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2487,6 +2647,9 @@ int pt_qry_decode_tma(struct pt_query_decoder *decoder)
 	struct pt_packet_tma packet;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_tma(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -2504,6 +2667,9 @@ int pt_qry_decode_mtc(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_mtc packet;
 	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_mtc(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2561,6 +2727,9 @@ int pt_qry_decode_cyc(struct pt_query_decoder *decoder)
 	struct pt_config *config;
 	int size, errcode;
 
+	if (!decoder)
+		return -pte_internal;
+
 	config = &decoder->config;
 
 	size = pt_pkt_read_cyc(&packet, decoder->pos, config);
@@ -2596,6 +2765,10 @@ int pt_qry_decode_cyc(struct pt_query_decoder *decoder)
 int pt_qry_decode_stop(struct pt_query_decoder *decoder)
 {
 	struct pt_event *event;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	/* Stop events are reported immediately. */
 	event = pt_evq_standalone(&decoder->evq);
@@ -2604,9 +2777,12 @@ int pt_qry_decode_stop(struct pt_query_decoder *decoder)
 
 	event->type = ptev_stop;
 
-	pt_qry_add_event_time(event, decoder);
-
 	decoder->event = event;
+
+	errcode = pt_qry_event_time(event, decoder);
+	if (errcode < 0)
+		return errcode;
+
 	decoder->pos += ptps_stop;
 	return 0;
 }
@@ -2616,6 +2792,9 @@ int pt_qry_header_vmcs(struct pt_query_decoder *decoder)
 	struct pt_packet_vmcs packet;
 	struct pt_event *event;
 	int size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_vmcs(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2636,7 +2815,10 @@ int pt_qry_decode_vmcs(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_vmcs packet;
 	struct pt_event *event;
-	int size;
+	int size, errcode;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_vmcs(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2690,9 +2872,12 @@ int pt_qry_decode_vmcs(struct pt_query_decoder *decoder)
 	event->type = ptev_vmcs;
 	event->variant.vmcs.base = packet.base;
 
-	pt_qry_add_event_time(event, decoder);
-
 	decoder->event = event;
+
+	errcode = pt_qry_event_time(event, decoder);
+	if (errcode < 0)
+		return errcode;
+
 	decoder->pos += size;
 	return 0;
 }
@@ -2701,7 +2886,7 @@ int pt_qry_decode_mnt(struct pt_query_decoder *decoder)
 {
 	struct pt_packet_mnt packet;
 	struct pt_event *event;
-	int size;
+	int size, errcode;
 
 	if (!decoder)
 		return -pte_internal;
@@ -2717,9 +2902,12 @@ int pt_qry_decode_mnt(struct pt_query_decoder *decoder)
 	event->type = ptev_mnt;
 	event->variant.mnt.payload = packet.payload;
 
-	pt_qry_add_event_time(event, decoder);
-
 	decoder->event = event;
+
+	errcode = pt_qry_event_time(event, decoder);
+	if (errcode < 0)
+		return errcode;
+
 	decoder->pos += size;
 
 	return 0;
@@ -2756,6 +2944,9 @@ int pt_qry_decode_exstop(struct pt_query_decoder *decoder)
 	struct pt_event *event;
 	int size;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_exstop(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -2789,6 +2980,9 @@ int pt_qry_decode_mwait(struct pt_query_decoder *decoder)
 	struct pt_event *event;
 	int size;
 
+	if (!decoder)
+		return -pte_internal;
+
 	size = pt_pkt_read_mwait(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
 		return size;
@@ -2810,6 +3004,9 @@ int pt_qry_decode_pwre(struct pt_query_decoder *decoder)
 	struct pt_packet_pwre packet;
 	struct pt_event *event;
 	int size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_pwre(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2837,6 +3034,9 @@ int pt_qry_decode_pwrx(struct pt_query_decoder *decoder)
 	struct pt_packet_pwrx packet;
 	struct pt_event *event;
 	int size;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_pwrx(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
@@ -2868,6 +3068,9 @@ int pt_qry_decode_ptw(struct pt_query_decoder *decoder)
 	struct pt_packet_ptw packet;
 	struct pt_event *event;
 	int size, pls;
+
+	if (!decoder)
+		return -pte_internal;
 
 	size = pt_pkt_read_ptw(&packet, decoder->pos, &decoder->config);
 	if (size < 0)
