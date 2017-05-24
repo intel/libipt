@@ -1045,7 +1045,10 @@ enum pt_event_type {
 	ptev_tick,
 
 	/* A core:bus ratio event. */
-	ptev_cbr
+	ptev_cbr,
+
+	/* A maintenance event. */
+	ptev_mnt
 };
 
 /** An event. */
@@ -1340,6 +1343,12 @@ struct pt_event {
 			/** The core:bus ratio. */
 			uint16_t ratio;
 		} cbr;
+
+		/** Event: mnt. */
+		struct {
+			/** The raw payload. */
+			uint64_t payload;
+		} mnt;
 	} variant;
 };
 

@@ -2255,11 +2255,9 @@ ptu_dfix_header_indir_psb(struct ptu_decoder_fixture *dfix)
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 	pt_encode_fup(encoder, pt_dfix_sext_ip, pt_ipc_sext_48);
-	pt_encode_mnt(encoder, 0ull);
 	pt_encode_psbend(encoder);
 	pt_encode_mtc(encoder, 1);
 	pt_encode_pad(encoder);
-	pt_encode_mnt(encoder, 0ull);
 
 	/* Synchronize the decoder at the beginning of the buffer. */
 	decoder->pos = decoder->config.begin;
@@ -2286,12 +2284,10 @@ ptu_dfix_header_cond(struct ptu_decoder_fixture *dfix)
 	pt_encode_tsc(encoder, 0);
 	pt_encode_pad(encoder);
 	pt_encode_fup(encoder, pt_dfix_sext_ip, pt_ipc_sext_48);
-	pt_encode_mnt(encoder, 0ull);
 	pt_encode_psbend(encoder);
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 	pt_encode_pad(encoder);
-	pt_encode_mnt(encoder, 0ull);
 
 	/* Synchronize the decoder at the beginning of the buffer. */
 	decoder->pos = decoder->config.begin;

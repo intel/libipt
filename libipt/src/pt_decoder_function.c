@@ -177,8 +177,8 @@ const struct pt_decoder_function pt_decode_vmcs = {
 const struct pt_decoder_function pt_decode_mnt = {
 	/* .packet = */ pt_pkt_decode_mnt,
 	/* .decode = */ pt_qry_decode_mnt,
-	/* .header = */ pt_qry_decode_mnt,
-	/* .flags =  */ pdff_pad
+	/* .header = */ pt_qry_header_mnt,
+	/* .flags =  */ pdff_event
 };
 
 const struct pt_decoder_function pt_decode_exstop = {

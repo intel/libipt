@@ -614,6 +614,12 @@ int pt_qry_decode_mnt(struct pt_query_decoder *d)
 
 	return -pte_internal;
 }
+int pt_qry_header_mnt(struct pt_query_decoder *d)
+{
+	(void) d;
+
+	return -pte_internal;
+}
 
 int pt_pkt_decode_exstop(struct pt_packet_decoder *d, struct pt_packet *p)
 {

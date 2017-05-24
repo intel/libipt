@@ -196,7 +196,10 @@ enum pt_event_type {
 	ptev_tick,
 
 	/* A core:bus ratio event. */
-	ptev_cbr
+	ptev_cbr,
+
+	/* A maintenance event. */
+	ptev_mnt
 };
 ~~~
 

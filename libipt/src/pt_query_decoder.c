@@ -1588,6 +1588,14 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 	if (!ev)
 		return 0;
 
+	pt_qry_add_event_time(ev, decoder);
+
+	/* PSB+ events are status updates. */
+	ev->status_update = 1;
+
+	/* Publish the event. */
+	decoder->event = ev;
+
 	switch (ev->type) {
 	default:
 		return -pte_internal;
@@ -1610,15 +1618,14 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 
 	case ptev_cbr:
 		break;
+
+	case ptev_mnt:
+		/* Maintenance packets may appear anywhere.  Do not mark them as
+		 * status updates even if they appear in PSB+.
+		 */
+		ev->status_update = 0;
+		break;
 	}
-
-	pt_qry_add_event_time(ev, decoder);
-
-	/* PSB+ events are status updates. */
-	ev->status_update = 1;
-
-	/* Publish the event. */
-	decoder->event = ev;
 
 	/* Signal a pending event. */
 	return 1;
@@ -2692,7 +2699,53 @@ int pt_qry_decode_vmcs(struct pt_query_decoder *decoder)
 
 int pt_qry_decode_mnt(struct pt_query_decoder *decoder)
 {
-	decoder->pos += ptps_mnt;
+	struct pt_packet_mnt packet;
+	struct pt_event *event;
+	int size;
+
+	if (!decoder)
+		return -pte_internal;
+
+	size = pt_pkt_read_mnt(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	event = pt_evq_standalone(&decoder->evq);
+	if (!event)
+		return -pte_internal;
+
+	event->type = ptev_mnt;
+	event->variant.mnt.payload = packet.payload;
+
+	pt_qry_add_event_time(event, decoder);
+
+	decoder->event = event;
+	decoder->pos += size;
+
+	return 0;
+}
+
+int pt_qry_header_mnt(struct pt_query_decoder *decoder)
+{
+	struct pt_packet_mnt packet;
+	struct pt_event *event;
+	int size;
+
+	if (!decoder)
+		return -pte_internal;
+
+	size = pt_pkt_read_mnt(&packet, decoder->pos, &decoder->config);
+	if (size < 0)
+		return size;
+
+	event = pt_evq_enqueue(&decoder->evq, evb_psbend);
+	if (!event)
+		return -pte_nomem;
+
+	event->type = ptev_mnt;
+	event->variant.mnt.payload = packet.payload;
+
+	decoder->pos += size;
 
 	return 0;
 }

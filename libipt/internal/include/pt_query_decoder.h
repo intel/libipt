@@ -129,5 +129,6 @@ extern int pt_qry_header_fup(struct pt_query_decoder *);
 extern int pt_qry_header_pip(struct pt_query_decoder *);
 extern int pt_qry_header_mode(struct pt_query_decoder *);
 extern int pt_qry_header_vmcs(struct pt_query_decoder *);
+extern int pt_qry_header_mnt(struct pt_query_decoder *);
 
 #endif /* PT_QUERY_DECODER_H */

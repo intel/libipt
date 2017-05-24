@@ -1078,6 +1078,10 @@ static void print_event(const struct pt_event *event,
 	case ptev_cbr:
 		printf("cbr: %x", event->variant.cbr.ratio);
 		break;
+
+	case ptev_mnt:
+		printf("mnt: %" PRIx64, event->variant.mnt.payload);
+		break;
 	}
 
 	printf("]\n");
