@@ -2095,6 +2095,9 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		}
 
 		/* Fall through to ptbq_decode. */
+#if __GNUC__ >= 7
+		__attribute__ ((fallthrough));
+#endif
 
 	case ptbq_decode: {
 		struct pt_insn_ext iext;
