@@ -50,6 +50,7 @@ add_definitions(
 
 include(GNUInstallDirs)
 include(FindUnixCommands)
+include(CheckCCompilerFlag)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -93,6 +94,17 @@ if (PTUNIT)
     ptunit/include
   )
 endif (PTUNIT)
+
+
+function(add_cflag_if_available option)
+
+  check_c_compiler_flag(${option} ${option}_supported)
+  if (${option}_supported)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${option}" PARENT_SCOPE)
+  endif (${option}_supported)
+
+endfunction(add_cflag_if_available)
+
 
 if (CMAKE_HOST_WIN32)
   include_directories(
@@ -179,6 +191,8 @@ if (CMAKE_HOST_UNIX)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+
+    add_cflag_if_available("-Wimplicit-fallthrough=5")
 
     # warnings are errors
     #
