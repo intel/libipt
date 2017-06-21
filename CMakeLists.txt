@@ -155,18 +155,15 @@ if (CMAKE_HOST_WIN32)
   # enable parallel build
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 
   if (DEVBUILD)
     # compiler warnings
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
 
     # warnings are errors
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
   endif (DEVBUILD)
 
   if (CMAKE_C_COMPILER_ID MATCHES "MSVC")
@@ -178,16 +175,6 @@ if (CMAKE_HOST_WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4200")
 
   endif (CMAKE_C_COMPILER_ID MATCHES "MSVC")
-
-  if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    # prevent complaints on:
-    # - do {} while(0) constructs
-    # - int arr[] constructs
-    #
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200")
-
-  endif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 
 endif (CMAKE_HOST_WIN32)
 
@@ -217,8 +204,6 @@ if (CMAKE_HOST_UNIX)
   if (GCOV)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftest-coverage")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftest-coverage")
 
     link_libraries(gcov)
   endif (GCOV)
@@ -230,12 +215,10 @@ if (CMAKE_HOST_UNIX)
   # set the language
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
   # windows-like dll export model
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 
   if (DEVBUILD)
     # compiler warnings
@@ -243,14 +226,10 @@ if (CMAKE_HOST_UNIX)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic")
 
     # warnings are errors
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
   endif (DEVBUILD)
 
 endif (CMAKE_HOST_UNIX)
