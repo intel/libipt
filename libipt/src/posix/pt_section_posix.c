@@ -26,8 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define _DARWIN_C_SOURCE 1
-
 #include "pt_section.h"
 #include "pt_section_posix.h"
 #include "pt_section_file.h"
