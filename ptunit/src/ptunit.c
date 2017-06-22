@@ -65,8 +65,8 @@ struct ptunit_result ptunit_mk_failed_signed_int(const char *expr,
 struct ptunit_result ptunit_mk_failed_unsigned_int(const char *expr,
 						   const char *cmp,
 						   struct ptunit_srcloc where,
-						   int64_t actual,
-						   int64_t expected)
+						   uint64_t actual,
+						   uint64_t expected)
 {
 	struct ptunit_result result;
 
