@@ -370,6 +370,5 @@ int main(int argc, char **argv)
 	ptu_run_p(suite, update_ip_null_packet, 0);
 	ptu_run_p(suite, update_ip_null_packet, 1);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

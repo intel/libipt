@@ -301,6 +301,5 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, sync_fwd_cutoff, sfix);
 	ptu_run_f(suite, sync_bwd_cutoff, sfix);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

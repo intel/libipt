@@ -2841,6 +2841,5 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, cbr_initial, dfix_empty);
 	ptu_run_f(suite, cbr, dfix_empty);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

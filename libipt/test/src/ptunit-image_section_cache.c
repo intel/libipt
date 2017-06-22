@@ -1148,6 +1148,5 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, stress, cfix, worker_add);
 	ptu_run_fp(suite, stress, cfix, worker_add_file);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

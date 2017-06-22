@@ -309,6 +309,5 @@ int main(int argc, char **argv)
 	ptu_run(suite, match_cr3_false);
 	ptu_run(suite, match_vmcs_false);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

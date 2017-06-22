@@ -74,6 +74,5 @@ int main(int argc, char **argv)
 	ptu_run(suite, init_packet_decoder);
 	ptu_run(suite, init_query_decoder);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

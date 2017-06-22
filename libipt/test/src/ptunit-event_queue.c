@@ -466,6 +466,5 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, find, efix, evb_tip, ptev_disabled, 2, 0);
 	ptu_run_fp(suite, find, efix, evb_fup, ptev_paging, 1, 4);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }
