@@ -33,6 +33,7 @@
 #include "pt_insn.h"
 #include "pt_ild.h"
 #include "pt_config.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -2323,8 +2324,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			break;
 		}
 
-		/* Fall through to ptbq_decode. */
-
+		fallthrough;
 	case ptbq_decode: {
 		struct pt_insn_ext iext;
 		struct pt_insn insn;

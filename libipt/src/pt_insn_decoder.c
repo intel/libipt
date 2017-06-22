@@ -29,6 +29,7 @@
 #include "pt_insn_decoder.h"
 #include "pt_insn.h"
 #include "pt_config.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -826,7 +827,7 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 						break;
 				}
 
-				/* Fall through. */
+				fallthrough;
 			case ptic_return:
 			case ptic_far_call:
 			case ptic_far_return:
