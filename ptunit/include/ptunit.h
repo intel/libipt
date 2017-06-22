@@ -218,8 +218,8 @@ extern struct ptunit_result ptunit_mk_failed_signed_int(const char *expr,
 extern struct ptunit_result ptunit_mk_failed_unsigned_int(const char *expr,
 							  const char *cmp,
 							  struct ptunit_srcloc,
-							  int64_t actual,
-							  int64_t expected);
+							  uint64_t actual,
+							  uint64_t expected);
 
 #define ptunit_uint_cmp(A, E, C)					\
 	do {								\
