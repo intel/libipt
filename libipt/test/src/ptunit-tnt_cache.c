@@ -242,6 +242,5 @@ int main(int argc, char **argv)
 	ptu_run(suite, update_tnt_null_tnt);
 	ptu_run(suite, update_tnt_null_packet);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

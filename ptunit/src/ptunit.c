@@ -319,10 +319,10 @@ void ptunit_log_test(struct ptunit_suite *suite,
 	ptunit_report_test(test);
 }
 
-void ptunit_report(const struct ptunit_suite *suite)
+int ptunit_report(const struct ptunit_suite *suite)
 {
 	if (!suite)
-		return;
+		return -1;
 
 	if (suite->name)
 		fprintf(stdout, "%s: ", suite->name);
@@ -337,4 +337,9 @@ void ptunit_report(const struct ptunit_suite *suite)
 		fprintf(stdout, " (skipped: %" PRIu32 ")", suite->nr_skips);
 
 	fprintf(stdout, "\n");
+
+	if (INT32_MAX < suite->nr_fails)
+		return INT32_MAX;
+
+	return (int) suite->nr_fails;
 }

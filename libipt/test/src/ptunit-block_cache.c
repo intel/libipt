@@ -366,6 +366,5 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, add, bfix, bfix_nentries - 1ull);
 	ptu_run_f(suite, stress, bfix);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

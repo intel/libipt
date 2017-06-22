@@ -364,6 +364,5 @@ int main(int argc, char **argv)
 
 	/* The bulk is covered in ptt tests. */
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

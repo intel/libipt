@@ -2234,6 +2234,5 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, validate_bad_laddr, rfix);
 	ptu_run_f(suite, validate_bad_isid, rfix);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

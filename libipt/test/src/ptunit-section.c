@@ -1024,6 +1024,5 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, cache_disabled, sfix);
 	ptu_run_f(suite, cache_enable_disable, sfix);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

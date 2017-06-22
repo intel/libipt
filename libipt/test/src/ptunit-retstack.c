@@ -228,6 +228,5 @@ int main(int argc, char **argv)
 	ptu_run(suite, full);
 	ptu_run(suite, overflow);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

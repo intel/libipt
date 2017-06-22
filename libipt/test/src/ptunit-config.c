@@ -182,6 +182,5 @@ int main(int argc, char **argv)
 	ptu_run(suite, from_user_big);
 	ptu_run(suite, size);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

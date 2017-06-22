@@ -275,8 +275,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, fetch_mode_tsx, ffix);
 	ptu_run_f(suite, fetch_exstop_ip, ffix);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }
 
 

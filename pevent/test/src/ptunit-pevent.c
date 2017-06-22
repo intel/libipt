@@ -794,6 +794,5 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, switch_cpu_wide, pfix_who, 0);
 	ptu_run_fp(suite, switch_cpu_wide, pfix_who, 1);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }

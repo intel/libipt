@@ -309,8 +309,12 @@ extern struct ptunit_suite ptunit_mk_suite(int argc, char **argv);
  */
 extern void ptunit_log_test(struct ptunit_suite *, const struct ptunit_test *);
 
-/* Print a summary report for a unit test suite. */
-extern void ptunit_report(const struct ptunit_suite *);
+/* Print a summary report for a unit test suite.
+ *
+ * Returns the number of failed tests (capped to fit into an int) on success.
+ * Returns -1 if @suite is NULL.
+ */
+extern int ptunit_report(const struct ptunit_suite *suite);
 
 /* Run a single simple unit test and log its result. */
 

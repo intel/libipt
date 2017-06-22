@@ -647,8 +647,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff, pfix, ppt_pwrx);
 	ptu_run_fp(suite, cutoff, pfix, ppt_ptw);
 
-	ptunit_report(&suite);
-	return suite.nr_fails;
+	return ptunit_report(&suite);
 }
 
 
