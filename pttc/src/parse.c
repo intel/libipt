@@ -29,6 +29,7 @@
 #include "errcode.h"
 #include "parse.h"
 #include "util.h"
+#include "pt_compiler.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -629,7 +630,7 @@ static int parse_c_state(uint8_t *state, uint8_t *sub_state, const char *input)
 		if (0xf <= min)
 			return -err_parse_c_state_invalid;
 
-		/* Fall through. */
+		fallthrough;
 	case 1:
 		if (!state)
 			return -err_internal;

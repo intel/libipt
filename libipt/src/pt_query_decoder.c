@@ -33,6 +33,7 @@
 #include "pt_packet_decoder.h"
 #include "pt_config.h"
 #include "pt_opcodes.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -2124,7 +2125,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			if (!packet.payload.exstop.ip)
 				break;
 
-			/* Fall through. */
+			fallthrough;
 		case ppt_mwait:
 			/* To skip this packet, we'd need to take care of the
 			 * FUP it binds to.  This is getting complicated.

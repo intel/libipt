@@ -29,6 +29,7 @@
 #include "pt_cpu.h"
 #include "pt_last_ip.h"
 #include "pt_time.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -667,7 +668,7 @@ static int print_time(struct ptdump_buffer *buffer,
 			if (options->no_wall_clock)
 				break;
 
-			/* Fall through. */
+			fallthrough;
 		default:
 			diag("error printing time", offset, errcode);
 			print_field(buffer->tracking.payload, "<unavailable>");

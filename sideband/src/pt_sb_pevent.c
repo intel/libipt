@@ -48,6 +48,7 @@ int pt_sb_alloc_pevent_decoder(struct pt_sb_session *session,
 #include "pt_sb_session.h"
 #include "pt_sb_context.h"
 #include "pt_sb_file.h"
+#include "pt_compiler.h"
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -1473,7 +1474,7 @@ static int ploc_from_event(enum pt_sb_pevent_loc *loc,
 			return ploc_from_ip(loc, priv,
 					    event->variant.async_paging.ip);
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_paging:
 		*loc = ploc_likely_in_kernel;
 		return 0;

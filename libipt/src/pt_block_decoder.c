@@ -34,6 +34,7 @@
 #include "pt_ild.h"
 #include "pt_config.h"
 #include "pt_asid.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -2094,8 +2095,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			break;
 		}
 
-		/* Fall through to ptbq_decode. */
-
+		fallthrough;
 	case ptbq_decode: {
 		struct pt_insn_ext iext;
 		struct pt_insn insn;
@@ -2962,7 +2962,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (decoder->ip != ev->variant.async_disabled.at)
 			return -pte_bad_query;
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_disabled:
 
 		status = pt_blk_process_disabled(decoder, ev);
@@ -2986,7 +2986,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.async_paging.ip)
 			return -pte_bad_query;
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_paging:
 		status = pt_blk_process_paging(decoder, ev);
 		if (status < 0)
@@ -2999,7 +2999,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.async_vmcs.ip)
 			return -pte_bad_query;
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_vmcs:
 		status = pt_blk_process_vmcs(decoder, ev);
 		if (status < 0)

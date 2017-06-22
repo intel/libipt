@@ -29,6 +29,7 @@
 #include "pt_insn.h"
 #include "pt_ild.h"
 #include "pt_image.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -190,7 +191,7 @@ int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 			break;
 		}
 
-		/* Fall through. */
+		fallthrough;
 	default:
 		return -pte_bad_query;
 

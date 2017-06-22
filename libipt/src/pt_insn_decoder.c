@@ -30,6 +30,7 @@
 #include "pt_insn.h"
 #include "pt_config.h"
 #include "pt_asid.h"
+#include "pt_compiler.h"
 
 #include "intel-pt.h"
 
@@ -642,7 +643,7 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 					break;
 			}
 
-			/* Fall through. */
+			fallthrough;
 		case ptic_return:
 		case ptic_far_call:
 		case ptic_far_return:
@@ -1383,7 +1384,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.async_disabled.at)
 			return -pte_bad_query;
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_disabled:
 		status = pt_insn_process_disabled(decoder);
 		if (status < 0)
@@ -1406,7 +1407,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.async_paging.ip)
 			return -pte_bad_query;
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_paging:
 		status = pt_insn_process_paging(decoder);
 		if (status < 0)
@@ -1419,7 +1420,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.async_vmcs.ip)
 			return -pte_bad_query;
 
-		/* Fall through. */
+		fallthrough;
 	case ptev_vmcs:
 		status = pt_insn_process_vmcs(decoder);
 		if (status < 0)
