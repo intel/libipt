@@ -331,9 +331,10 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 			return errcode;
 
 		stop = packet->payload.tnt.bit_size + pt_opm_tnt_8_shr;
-		opc = (uint8_t) packet->payload.tnt.payload << pt_opm_tnt_8_shr;
+		opc = (uint8_t)
+			(packet->payload.tnt.payload << pt_opm_tnt_8_shr);
 
-		*pos++ = opc | (1 << stop);
+		*pos++ = (uint8_t) (opc | (1u << stop));
 
 		encoder->pos = pos;
 		return (int) (pos - begin);

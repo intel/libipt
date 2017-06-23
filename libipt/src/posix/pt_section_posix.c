@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -118,7 +119,14 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	if (size < section->size)
 		return -pte_internal;
 
-	base = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, offset);
+	if (SIZE_MAX < size)
+		return -pte_nomem;
+
+	if (INT_MAX < offset)
+		return -pte_nomem;
+
+	base = mmap(NULL, (size_t) size, PROT_READ, MAP_SHARED, fd,
+		    (off_t) offset);
 	if (base == MAP_FAILED)
 		return -pte_nomem;
 
@@ -138,7 +146,7 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	return pt_section_add_bcache(section);
 
 out_map:
-	munmap(base, size);
+	munmap(base, (size_t) size);
 	return -pte_nomem;
 }
 
@@ -232,7 +240,7 @@ int pt_sec_posix_unmap(struct pt_section *section)
 	section->unmap = NULL;
 	section->read = NULL;
 
-	munmap(mapping->base, mapping->size);
+	munmap(mapping->base, (size_t) mapping->size);
 	free(mapping);
 
 	return 0;
