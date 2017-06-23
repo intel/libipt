@@ -1014,28 +1014,13 @@ static int p_process_pt(struct parser *p, struct pt_encoder *e)
 
 	bytes_written = pt_enc_next(e, &packet);
 	if (bytes_written < 0) {
-		const char *errtext, *format;
-		char *msg;
-		size_t n;
+		char msg[128];
 
-		errtext = pt_errstr(pt_errcode(bytes_written));
-		format = "encoder error in directive %s (status %s)";
-		/* the length of format includes the "%s" (-2)
-		 * characters, we add errtext (+-0) and then we need
-		 * space for a terminating null-byte (+1).
-		 */
-		n = strlen(format)-4 + strlen(directive) + strlen(errtext) + 1;
+		snprintf(msg, sizeof(msg),
+			 "encoder error in directive %s (status %s)", directive,
+			 pt_errstr(pt_errcode(bytes_written)));
 
-		msg = malloc(n);
-		if (!msg)
-			errcode = yasm_print_err(p->y,
-				       "encoder error not enough memory to show error code",
-				       -err_pt_lib);
-		else {
-			sprintf(msg, format, directive, errtext);
-			errcode = yasm_print_err(p->y, msg, -err_pt_lib);
-			free(msg);
-		}
+		yasm_print_err(p->y, msg, -err_pt_lib);
 	} else
 		p->pt_bytes_written += bytes_written;
 
