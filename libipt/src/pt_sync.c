@@ -36,7 +36,7 @@
  *
  * There are only two ways to fill up a 64bit work with such a pattern.
  */
-const uint64_t psb_pattern[] = {
+static const uint64_t psb_pattern[] = {
 	((uint64_t) pt_psb_lohi		| (uint64_t) pt_psb_lohi << 16 |
 	 (uint64_t) pt_psb_lohi << 32	| (uint64_t) pt_psb_lohi << 48),
 	((uint64_t) pt_psb_hilo		| (uint64_t) pt_psb_hilo << 16 |

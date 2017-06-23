@@ -35,8 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char *pt_suffix = ".pt";
-const char *exp_suffix = ".exp";
+static const char *pt_suffix = ".pt";
+static const char *exp_suffix = ".exp";
 
 enum {
 	pd_len = 1024
@@ -795,7 +795,7 @@ error:
  * Returns -err_file_write if the .pt or .exp file could not be fully
  * written.
  */
-int p_start(struct parser *p)
+static int p_start(struct parser *p)
 {
 	int errcode;
 

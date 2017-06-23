@@ -2066,7 +2066,7 @@ static struct ptunit_result validate_bad_isid(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-struct ptunit_result ifix_init(struct image_fixture *ifix)
+static struct ptunit_result ifix_init(struct image_fixture *ifix)
 {
 	int index;
 
@@ -2101,7 +2101,7 @@ struct ptunit_result ifix_init(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-struct ptunit_result rfix_init(struct image_fixture *ifix)
+static struct ptunit_result rfix_init(struct image_fixture *ifix)
 {
 	int status;
 
@@ -2118,14 +2118,14 @@ struct ptunit_result rfix_init(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
-struct ptunit_result dfix_fini(struct image_fixture *ifix)
+static struct ptunit_result dfix_fini(struct image_fixture *ifix)
 {
 	pt_image_fini(&ifix->image);
 
 	return ptu_passed();
 }
 
-struct ptunit_result ifix_fini(struct image_fixture *ifix)
+static struct ptunit_result ifix_fini(struct image_fixture *ifix)
 {
 	int sec;
 
