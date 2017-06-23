@@ -223,11 +223,22 @@ if (CMAKE_HOST_UNIX)
   if (DEVBUILD)
     # compiler warnings
     #
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+    if (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Weverything")
 
-    add_cflag_if_available("-Wimplicit-fallthrough=5")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-disabled-macro-expansion")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-covered-switch-default")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-switch-enum")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-padded")
+    else (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+
+      add_cflag_if_available("-Wimplicit-fallthrough=5")
+    endif (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
 
     # warnings are errors
     #
