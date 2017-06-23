@@ -134,15 +134,15 @@ static int pev_read_samples(struct pev_event *event, const uint8_t *begin,
 	pos = begin;
 
 	if (sample_type & PERF_SAMPLE_TID) {
-		event->sample.pid = (uint32_t *) &pos[0];
-		event->sample.tid = (uint32_t *) &pos[4];
+		event->sample.pid = (const uint32_t *) &pos[0];
+		event->sample.tid = (const uint32_t *) &pos[4];
 		pos += 8;
 	}
 
 	if (sample_type & PERF_SAMPLE_TIME) {
 		int errcode;
 
-		event->sample.time = (uint64_t *) pos;
+		event->sample.time = (const uint64_t *) pos;
 		pos += 8;
 
 		/* We're reading the time.  Let's make sure the pointer lies
@@ -158,22 +158,22 @@ static int pev_read_samples(struct pev_event *event, const uint8_t *begin,
 	}
 
 	if (sample_type & PERF_SAMPLE_ID) {
-		event->sample.id = (uint64_t *) pos;
+		event->sample.id = (const uint64_t *) pos;
 		pos += 8;
 	}
 
 	if (sample_type & PERF_SAMPLE_STREAM_ID) {
-		event->sample.stream_id = (uint64_t *) pos;
+		event->sample.stream_id = (const uint64_t *) pos;
 		pos += 8;
 	}
 
 	if (sample_type & PERF_SAMPLE_CPU) {
-		event->sample.cpu = (uint32_t *) pos;
+		event->sample.cpu = (const uint32_t *) pos;
 		pos += 8;
 	}
 
 	if (sample_type & PERF_SAMPLE_IDENTIFIER) {
-		event->sample.identifier = (uint64_t *) pos;
+		event->sample.identifier = (const uint64_t *) pos;
 		pos += 8;
 	}
 
@@ -183,7 +183,7 @@ static int pev_read_samples(struct pev_event *event, const uint8_t *begin,
 int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 	     const struct pev_config *config)
 {
-	struct perf_event_header *header;
+	const struct perf_event_header *header;
 	const uint8_t *pos;
 	int size;
 
@@ -194,7 +194,7 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 	if (end < (pos + sizeof(*header)))
 		return -pte_eos;
 
-	header = (struct perf_event_header *) pos;
+	header = (const struct perf_event_header *) pos;
 	pos += sizeof(*header);
 
 	if (!header->type || (end < (begin + header->size)))
@@ -220,7 +220,7 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 	case PERF_RECORD_MMAP: {
 		int slen;
 
-		event->record.mmap = (struct pev_record_mmap *) pos;
+		event->record.mmap = (const struct pev_record_mmap *) pos;
 
 		slen = pev_strlen(event->record.mmap->filename, end);
 		if (slen < 0)
@@ -234,14 +234,14 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 		break;
 
 	case PERF_RECORD_LOST:
-		event->record.lost = (struct pev_record_lost *) pos;
+		event->record.lost = (const struct pev_record_lost *) pos;
 		pos += sizeof(*event->record.lost);
 		break;
 
 	case PERF_RECORD_COMM: {
 		int slen;
 
-		event->record.comm = (struct pev_record_comm *) pos;
+		event->record.comm = (const struct pev_record_comm *) pos;
 
 		slen = pev_strlen(event->record.comm->comm, end);
 		if (slen < 0)
@@ -255,25 +255,26 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 		break;
 
 	case PERF_RECORD_EXIT:
-		event->record.exit = (struct pev_record_exit *) pos;
+		event->record.exit = (const struct pev_record_exit *) pos;
 		pos += sizeof(*event->record.exit);
 		break;
 
 	case PERF_RECORD_THROTTLE:
 	case PERF_RECORD_UNTHROTTLE:
-		event->record.throttle = (struct pev_record_throttle *) pos;
+		event->record.throttle =
+			(const struct pev_record_throttle *) pos;
 		pos += sizeof(*event->record.throttle);
 		break;
 
 	case PERF_RECORD_FORK:
-		event->record.fork = (struct pev_record_fork *) pos;
+		event->record.fork = (const struct pev_record_fork *) pos;
 		pos += sizeof(*event->record.fork);
 		break;
 
 	case PERF_RECORD_MMAP2: {
 		int slen;
 
-		event->record.mmap2 = (struct pev_record_mmap2 *) pos;
+		event->record.mmap2 = (const struct pev_record_mmap2 *) pos;
 
 		slen = pev_strlen(event->record.mmap2->filename, end);
 		if (slen < 0)
@@ -287,19 +288,19 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 		break;
 
 	case PERF_RECORD_AUX:
-		event->record.aux = (struct pev_record_aux *) pos;
+		event->record.aux = (const struct pev_record_aux *) pos;
 		pos += sizeof(*event->record.aux);
 		break;
 
 	case PERF_RECORD_ITRACE_START:
 		event->record.itrace_start =
-			(struct pev_record_itrace_start *) pos;
+			(const struct pev_record_itrace_start *) pos;
 		pos += sizeof(*event->record.itrace_start);
 		break;
 
 	case PERF_RECORD_LOST_SAMPLES:
 		event->record.lost_samples =
-			(struct pev_record_lost_samples *) pos;
+			(const struct pev_record_lost_samples *) pos;
 		pos += sizeof(*event->record.lost_samples);
 		break;
 
@@ -308,7 +309,7 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 
 	case PERF_RECORD_SWITCH_CPU_WIDE:
 		event->record.switch_cpu_wide =
-			(struct pev_record_switch_cpu_wide *) pos;
+			(const struct pev_record_switch_cpu_wide *) pos;
 		pos += sizeof(*event->record.switch_cpu_wide);
 		break;
 	}

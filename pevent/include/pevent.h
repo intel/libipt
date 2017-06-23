@@ -151,62 +151,62 @@ struct pev_event {
 	/* The perf event record. */
 	union {
 		/* @type = PERF_RECORD_MMAP. */
-		struct pev_record_mmap *mmap;
+		const struct pev_record_mmap *mmap;
 
 		/* @type = PERF_RECORD_LOST. */
-		struct pev_record_lost *lost;
+		const struct pev_record_lost *lost;
 
 		/* @type = PERF_RECORD_COMM. */
-		struct pev_record_comm *comm;
+		const struct pev_record_comm *comm;
 
 		/* @type = PERF_RECORD_EXIT. */
-		struct pev_record_exit *exit;
+		const struct pev_record_exit *exit;
 
 		/* @type = PERF_RECORD_(UN)THROTTLE. */
-		struct pev_record_throttle *throttle;
+		const struct pev_record_throttle *throttle;
 
 		/* @type = PERF_RECORD_FORK. */
-		struct pev_record_fork *fork;
+		const struct pev_record_fork *fork;
 
 		/* @type = PERF_RECORD_MMAP2. */
-		struct pev_record_mmap2 *mmap2;
+		const struct pev_record_mmap2 *mmap2;
 
 		/* @type = PERF_RECORD_AUX. */
-		struct pev_record_aux *aux;
+		const struct pev_record_aux *aux;
 
 		/* @type = PERF_RECORD_ITRACE_START. */
-		struct pev_record_itrace_start *itrace_start;
+		const struct pev_record_itrace_start *itrace_start;
 
 		/* @type = PERF_RECORD_LOST_SAMPLES. */
-		struct pev_record_lost_samples *lost_samples;
+		const struct pev_record_lost_samples *lost_samples;
 
 		/* @type = PERF_RECORD_SWITCH_CPU_WIDE. */
-		struct pev_record_switch_cpu_wide *switch_cpu_wide;
+		const struct pev_record_switch_cpu_wide *switch_cpu_wide;
 	} record;
 
 	/* The additional samples. */
 	struct {
 		/* The sampled pid and tid. */
-		uint32_t *pid;
-		uint32_t *tid;
+		const uint32_t *pid;
+		const uint32_t *tid;
 
 		/* The sampled time in perf_event format. */
-		uint64_t *time;
+		const uint64_t *time;
 
 		/* The sampled time in TSC format - if @time is not NULL. */
 		uint64_t tsc;
 
 		/* The sampled id. */
-		uint64_t *id;
+		const uint64_t *id;
 
 		/* The sampled stream id. */
-		uint64_t *stream_id;
+		const uint64_t *stream_id;
 
 		/* The sampled cpu. */
-		uint32_t *cpu;
+		const uint32_t *cpu;
 
 		/* The sample identifier. */
-		uint64_t *identifier;
+		const uint64_t *identifier;
 	} sample;
 };
 

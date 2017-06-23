@@ -126,7 +126,8 @@ static struct ptunit_result pfix_read_write(struct pev_fixture *pfix)
 
 static struct ptunit_result pfix_check_sample_time(struct pev_fixture *pfix)
 {
-	uint64_t tsc, *time[2];
+	const uint64_t *time[2];
+	uint64_t tsc;
 	int errcode;
 
 	time[0] = pfix->event[0].sample.time;
@@ -146,7 +147,7 @@ static struct ptunit_result pfix_check_sample_time(struct pev_fixture *pfix)
 
 static struct ptunit_result pfix_check_sample_tid(struct pev_fixture *pfix)
 {
-	uint32_t *pid[2], *tid[2];
+	const uint32_t *pid[2], *tid[2];
 
 	pid[0] = pfix->event[0].sample.pid;
 	pid[1] = pfix->event[1].sample.pid;
@@ -166,7 +167,7 @@ static struct ptunit_result pfix_check_sample_tid(struct pev_fixture *pfix)
 
 static struct ptunit_result pfix_check_sample_cpu(struct pev_fixture *pfix)
 {
-	uint32_t *cpu[2];
+	const uint32_t *cpu[2];
 
 	cpu[0] = pfix->event[0].sample.cpu;
 	cpu[1] = pfix->event[1].sample.cpu;
