@@ -29,7 +29,7 @@
 #include "intel-pt.h"
 
 
-struct pt_version pt_library_version()
+struct pt_version pt_library_version(void)
 {
 	struct pt_version v = {
 		/* .major  = */ PT_VERSION_MAJOR,

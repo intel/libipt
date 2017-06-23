@@ -105,7 +105,7 @@ struct pt_version {
 
 
 /** Return the library version. */
-extern pt_export struct pt_version pt_library_version();
+extern pt_export struct pt_version pt_library_version(void);
 
 
 
