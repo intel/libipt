@@ -865,15 +865,18 @@ static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 	iext->variant.branch.is_direct = 1;
 
 	if (ild->disp_bytes == 1) {
-		int8_t *b = (int8_t *) (get_byte_ptr(ild, ild->disp_pos));
+		const int8_t *b = (const int8_t *)
+			get_byte_ptr(ild, ild->disp_pos);
 
 		iext->variant.branch.displacement = *b;
 	} else if (ild->disp_bytes == 2) {
-		int16_t *w = (int16_t *) (get_byte_ptr(ild, ild->disp_pos));
+		const int16_t *w = (const int16_t *)
+			get_byte_ptr(ild, ild->disp_pos);
 
 		iext->variant.branch.displacement = *w;
 	} else if (ild->disp_bytes == 4) {
-		int32_t *d = (int32_t *) (get_byte_ptr(ild, ild->disp_pos));
+		const int32_t *d = (const int32_t *)
+			get_byte_ptr(ild, ild->disp_pos);
 
 		iext->variant.branch.displacement = *d;
 	} else
