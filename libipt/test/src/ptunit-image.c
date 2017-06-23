@@ -86,6 +86,11 @@ struct pt_image_section_cache {
 	int nsecs;
 };
 
+extern int pt_iscache_lookup(struct pt_image_section_cache *iscache,
+			     struct pt_section **section, uint64_t *laddr,
+			     int isid);
+
+
 /* A test fixture providing an image, test sections, and asids. */
 struct image_fixture {
 	/* The image. */

@@ -58,6 +58,23 @@ struct pt_section {
 #endif /* defined(FEATURE_THREADS) */
 };
 
+extern struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
+					uint64_t size);
+
+extern int pt_section_get(struct pt_section *section);
+extern int pt_section_put(struct pt_section *section);
+
+extern int pt_section_map(struct pt_section *section);
+extern int pt_section_unmap(struct pt_section *section);
+
+extern const char *pt_section_filename(const struct pt_section *section);
+extern uint64_t pt_section_offset(const struct pt_section *section);
+extern uint64_t pt_section_size(const struct pt_section *section);
+
+extern int pt_section_read(const struct pt_section *section, uint8_t *buffer,
+			   uint16_t size, uint64_t offset);
+
+
 struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 				 uint64_t size)
 {
