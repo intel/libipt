@@ -159,7 +159,8 @@ void fl_free(struct file_list *fl)
  * Returns -err_file_read if the content of @filename could not be fully
  * read.
  */
-int fl_append(struct file_list *fl, struct text **t, const char *filename)
+static int fl_append(struct file_list *fl, struct text **t,
+		     const char *filename)
 {
 	int errcode;
 	FILE *f;

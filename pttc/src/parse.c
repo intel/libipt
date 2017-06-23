@@ -42,11 +42,11 @@
 #endif
 
 
-const char *pt_suffix = ".pt";
-const char *exp_suffix = ".exp";
+static const char *pt_suffix = ".pt";
+static const char *exp_suffix = ".exp";
 
 #if defined(FEATURE_SIDEBAND)
-const char *sb_suffix = ".sb";
+static const char *sb_suffix = ".sb";
 #endif
 
 enum {
@@ -2482,7 +2482,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
  * Returns -err_file_write if the .pt or .exp file could not be fully
  * written.
  */
-int p_start(struct parser *p)
+static int p_start(struct parser *p)
 {
 	int errcode;
 

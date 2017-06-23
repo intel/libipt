@@ -35,7 +35,7 @@
 #include <stdlib.h>
 
 
-const char *cpu_vendors[] = {
+static const char * const cpu_vendors[] = {
 	"",
 	"GenuineIntel"
 };

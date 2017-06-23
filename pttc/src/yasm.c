@@ -593,9 +593,9 @@ cleanup:
 	return errcode;
 }
 
-const char *bin_suffix = ".bin";
-const char *lst_suffix = ".lst";
-const char path_separator = '/';
+static const char *bin_suffix = ".bin";
+static const char *lst_suffix = ".lst";
+static const char path_separator = '/';
 enum {
 	max_filename_len = 1024
 };
