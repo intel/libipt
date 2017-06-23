@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "pt_cpu.h"
 #include "pt_cpuid.h"
 
 #include "intel-pt.h"

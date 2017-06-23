@@ -26,6 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "pt_config.h"
+
 #include "intel-pt.h"
 
 #include <string.h>
