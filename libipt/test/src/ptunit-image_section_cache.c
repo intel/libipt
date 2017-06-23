@@ -1044,9 +1044,9 @@ static int worker_add_file(void *arg)
 		uint64_t offset, size, laddr;
 		int sec;
 
-		offset = num_iterations % 7 == 0 ? 0x1000 : 0x2000;
-		size = num_iterations % 5 == 0 ? 0x1000 : 0x2000;
-		laddr = num_iterations % 3 == 0 ? 0x1000 : 0x2000;
+		offset = it % 7 == 0 ? 0x1000 : 0x2000;
+		size = it % 5 == 0 ? 0x1000 : 0x2000;
+		laddr = it % 3 == 0 ? 0x1000 : 0x2000;
 
 		for (sec = 0; sec < num_sections; ++sec) {
 			struct pt_section *section;
