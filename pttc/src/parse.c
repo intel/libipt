@@ -356,11 +356,11 @@ static int p_gen_expfile(struct parser *p)
 			/* check if masking is requested.  */
 			if (*line == '.') {
 				char *endptr;
-				long int n;
+				unsigned long int n;
 
 				line += 1;
 
-				n = strtol(line, &endptr, 0);
+				n = strtoul(line, &endptr, 0);
 				/* check if strtol made progress and
 				 * stops on a space or null byte.
 				 * otherwise the int could not be
@@ -372,10 +372,15 @@ static int p_gen_expfile(struct parser *p)
 					errcode = -err_parse_int;
 					goto error;
 				}
+				if (8 < n) {
+					errcode = -err_parse_int;
+					goto error;
+				}
+
 				addr &= (1ull << (n << 3)) - 1ull;
 				line = endptr;
 
-				qmark_size = 8 - n;
+				qmark_size = (int) (8 - n);
 			}
 
 			if (qmark_padding) {

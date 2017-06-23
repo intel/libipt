@@ -35,6 +35,7 @@
 #include <inttypes.h>
 #include <errno.h>
 #include <string.h>
+#include <limits.h>
 
 
 static int load_section(struct pt_image_section_cache *iscache,
@@ -81,7 +82,7 @@ static int load_elf32(struct pt_image_section_cache *iscache,
 		return -pte_bad_config;
 	}
 
-	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
+	errcode = fseek(file, (long) ehdr.e_phoff, SEEK_SET);
 	if (errcode) {
 		fprintf(stderr,
 			"%s: warning: %s error seeking program header: %s.\n",
@@ -119,7 +120,7 @@ static int load_elf32(struct pt_image_section_cache *iscache,
 		offset = base - minaddr;
 	}
 
-	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
+	errcode = fseek(file, (long) ehdr.e_phoff, SEEK_SET);
 	if (errcode) {
 		fprintf(stderr,
 			"%s: warning: %s error seeking program header: %s.\n",
@@ -198,7 +199,13 @@ static int load_elf64(struct pt_image_section_cache *iscache,
 		return -pte_bad_config;
 	}
 
-	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
+	if (LONG_MAX < ehdr.e_phoff) {
+		fprintf(stderr, "%s: warning: %s ELF header too big.\n",
+			prog, name);
+		return -pte_bad_config;
+	}
+
+	errcode = fseek(file, (long) ehdr.e_phoff, SEEK_SET);
 	if (errcode) {
 		fprintf(stderr,
 			"%s: warning: %s error seeking program header: %s.\n",
@@ -236,7 +243,7 @@ static int load_elf64(struct pt_image_section_cache *iscache,
 		offset = base - minaddr;
 	}
 
-	errcode = fseek(file, ehdr.e_phoff, SEEK_SET);
+	errcode = fseek(file, (long) ehdr.e_phoff, SEEK_SET);
 	if (errcode) {
 		fprintf(stderr,
 			"%s: warning: %s error seeking program header: %s.\n",
