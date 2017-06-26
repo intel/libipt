@@ -913,15 +913,16 @@ int parse_tnt(uint64_t *tnt, uint8_t *size, char *payload)
 	return 0;
 }
 
-static int check_ipc(enum pt_ip_compression ipc)
+static int ipc_from_uint32(enum pt_ip_compression *ipc, uint32_t val)
 {
-	switch (ipc) {
+	switch (val) {
 	case pt_ipc_suppressed:
 	case pt_ipc_update_16:
 	case pt_ipc_update_32:
 	case pt_ipc_update_48:
 	case pt_ipc_sext_48:
 	case pt_ipc_full:
+		*ipc = (enum pt_ip_compression) val;
 		return 0;
 	}
 	return -err_parse_ipc;
@@ -930,8 +931,8 @@ static int check_ipc(enum pt_ip_compression ipc)
 int parse_ip(struct parser *p, uint64_t *ip, enum pt_ip_compression *ipc,
 	     char *payload)
 {
+	uint32_t ipcval;
 	int errcode;
-	char *endptr;
 
 	if (bug_on(!ip))
 		return -err_internal;
@@ -946,12 +947,11 @@ int parse_ip(struct parser *p, uint64_t *ip, enum pt_ip_compression *ipc,
 	if (!payload || *payload == '\0')
 		return -err_parse_no_args;
 
-	*ipc = (enum pt_ip_compression) strtol(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_ipc;
+	errcode = str_to_uint32(payload, &ipcval, 0);
+	if (errcode < 0)
+		return errcode;
 
-	/* is ipc valid?  */
-	errcode = check_ipc(*ipc);
+	errcode = ipc_from_uint32(ipc, ipcval);
 	if (errcode < 0)
 		return errcode;
 
