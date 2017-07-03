@@ -75,11 +75,12 @@ else
     exit 1
 fi
 
+base="$(basename $file)"
 
 if [[ "$dry_run" == 0 ]]; then
     nofiles=0
 
-    for ofile in $file-aux-idx*.bin; do
+    for ofile in $base-aux-idx*.bin; do
         if [[ -w $ofile ]]; then
             echo "$prog: $ofile is in the way."
             nofiles+=1
@@ -107,7 +108,7 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
         ext = sprintf(".%u", piece);
     }
 
-    ofile = sprintf("%s-aux-idx%d%s.bin", file, idx, ext)
+    ofile = sprintf("%s-aux-idx%d%s.bin", base, idx, ext)
     begin = offset + hsize
 
     cmd = sprintf("dd if=%s of=%s conv=notrunc oflag=append ibs=1 skip=%d " \
@@ -120,4 +121,4 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
       system(cmd)
     }
   }
-' file="$file" dry_run="$dry_run" snapshot="$snapshot"
+' file="$file" base="$base" dry_run="$dry_run" snapshot="$snapshot"

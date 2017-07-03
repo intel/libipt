@@ -70,11 +70,12 @@ else
     exit 1
 fi
 
+base="$(basename $file)"
 
 if [[ "$dry_run" == 0 ]]; then
     nofiles=0
 
-    for ofile in $file-sideband-cpu*.pevent $file-sideband.pevent; do
+    for ofile in $base-sideband-cpu*.pevent $base-sideband.pevent; do
         if [[ -w $ofile ]]; then
             echo "$prog: $ofile is in the way."
             nofiles+=1
@@ -103,7 +104,7 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
   }
 
   function handle_global_record(offset, size) {
-    ofile = sprintf("%s-sideband.pevent", file)
+    ofile = sprintf("%s-sideband.pevent", base)
 
     handle_record(ofile, offset, size)
   }
@@ -115,7 +116,7 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
       handle_global_record(offset, size);
     }
     else {
-      ofile = sprintf("%s-sideband-cpu%d.pevent", file, cpu)
+      ofile = sprintf("%s-sideband-cpu%d.pevent", base, cpu)
 
       handle_record(ofile, offset, size)
     }
@@ -146,4 +147,4 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
 
     handle_global_record(begin, size)
   }
-' file="$file" dry_run="$dry_run"
+' file="$file" base="$base" dry_run="$dry_run"
