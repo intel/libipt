@@ -206,7 +206,7 @@ if [[ -n "$kcore" ]]; then
         '
 fi
 
-for sbfile in $(ls -1 "$file"-sideband*.pevent 2>/dev/null); do
+for sbfile in $(ls -1 "$(basename $file)"-sideband*.pevent 2>/dev/null); do
     if [[ -z "$master" || "$sbfile" == "$master" ]]; then
         echo -n " --pevent:primary $sbfile"
     else
