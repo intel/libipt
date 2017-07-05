@@ -827,7 +827,7 @@ shown in the following example:
 
         <process instruction>(&insn);
 
-        while (status & pts_event) {
+        while (status & pts_event_pending) {
             struct pt_event event;
 
             status = pt_insn_event(decoder, &event, sizeof(event));
@@ -848,7 +848,7 @@ shown below:
 ~~~{.c}
     int handle_events(struct pt_insn_decoder *decoder, int status)
     {
-        while (status & pts_event) {
+        while (status & pts_event_pending) {
             struct pt_event event;
 
             status = pt_insn_event(decoder, &event, sizeof(event));
@@ -1076,7 +1076,7 @@ as shown in the following example:
 
         <process block>(&block);
 
-        while (status & pts_event) {
+        while (status & pts_event_pending) {
             struct pt_event event;
 
             status = pt_blk_event(decoder, &event, sizeof(event));
@@ -1138,7 +1138,7 @@ shown below:
 
     int handle_events(struct pt_blk_decoder *decoder, int status)
     {
-        while (status & pts_event) {
+        while (status & pts_event_pending) {
             struct pt_event event;
 
             status = pt_blk_event(decoder, &event, sizeof(event));
