@@ -1289,10 +1289,14 @@ static int pt_blk_proceed_to_ip(struct pt_block_decoder *decoder,
 		 *
 		 * We only need to take care about direct near calls.  Indirect
 		 * and far calls require trace and will naturally end a block.
+		 *
+		 * The call at the end of the block may have reached @ip; make
+		 * sure to indicate that.
 		 */
 		if (decoder->flags.variant.block.end_on_call &&
-		    (insn->iclass == ptic_call))
-			return 0;
+		    (insn->iclass == ptic_call)) {
+			return (decoder->ip == ip ? 1 : 0);
+		}
 	}
 }
 
