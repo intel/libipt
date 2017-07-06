@@ -1470,8 +1470,12 @@ static void print_block(struct ptxed_decoder *decoder,
 	mode = translate_mode(block->mode);
 	xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
 
-	ip = block->ip;
+	/* There's nothing to do for empty blocks. */
 	ninsn = block->ninsn;
+	if (!ninsn)
+		return;
+
+	ip = block->ip;
 	for (;;) {
 		struct pt_insn insn;
 		xed_decoded_inst_t inst;
