@@ -940,6 +940,52 @@ static struct ptunit_result same_different_isid(struct image_fixture *ifix)
 	return ptu_passed();
 }
 
+static struct ptunit_result same_different_offset(struct image_fixture *ifix)
+{
+	uint8_t buffer[] = { 0xcc, 0xcc }, i;
+	int status, isid, index;
+
+	/* Add another section from a different part of the same file as an
+	 * existing section.
+	 */
+	index = ifix_add_section(ifix, ifix->section[0].filename);
+	ptu_int_gt(index, 0);
+
+	ifix->section[index].offset = ifix->section[0].offset + 0x10;
+	ptu_uint_eq(ifix->section[index].size, ifix->section[0].size);
+
+	/* Change the content of the new section so we can distinguish them. */
+	for (i = 0; i < ifix->mapping[index].size; ++i)
+		ifix->mapping[index].content[i] += 0x10;
+
+
+	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
+			      0x1000ull, 0);
+	ptu_int_eq(status, 0);
+
+	status = pt_image_add(&ifix->image, &ifix->section[index],
+			      &ifix->asid[0], 0x1000ull, 0);
+	ptu_int_eq(status, 0);
+
+	isid = -1;
+	status = pt_image_read(&ifix->image, &isid, buffer, 1, &ifix->asid[0],
+			       0x1000ull);
+	ptu_int_eq(status, 1);
+	ptu_int_eq(isid, 0);
+	ptu_uint_eq(buffer[0], 0x10);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	isid = -1;
+	status = pt_image_read(&ifix->image, &isid, buffer, 1, &ifix->asid[0],
+			       0x100full);
+	ptu_int_eq(status, 1);
+	ptu_int_eq(isid, 0);
+	ptu_uint_eq(buffer[0], 0x1f);
+	ptu_uint_eq(buffer[1], 0xcc);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result adjacent(struct image_fixture *ifix)
 {
 	uint8_t buffer[] = { 0xcc, 0xcc };
@@ -2189,6 +2235,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, contained_back, ifix);
 	ptu_run_f(suite, same, ifix);
 	ptu_run_f(suite, same_different_isid, ifix);
+	ptu_run_f(suite, same_different_offset, ifix);
 	ptu_run_f(suite, adjacent, ifix);
 
 	ptu_run_f(suite, read_null, rfix);
