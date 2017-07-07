@@ -255,41 +255,6 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		/* The new section overlaps with @msec's section. */
 		lsec = pt_msec_section(msec);
 
-		/* Let's check for an identical overlap that may be the result
-		 * of repeatedly copying images or repeatedly adding the same
-		 * file.
-		 */
-		if ((begin == lbegin) && (end == lend) &&
-		    (isid == current->isid)) {
-			const char *fname, *lfname;
-			uint64_t offset, loffset;
-
-			fname = pt_section_filename(section);
-			lfname = pt_section_filename(lsec);
-
-			if (!fname || !lfname) {
-				errcode = -pte_internal;
-				break;
-			}
-
-			offset = pt_section_offset(section);
-			loffset = pt_section_offset(lsec);
-
-			if ((offset == loffset) &&
-			    (strcmp(fname, lfname) == 0)) {
-				/* There should not have been any removals or
-				 * additions.
-				 */
-				if (removed || next->next) {
-					errcode = -pte_internal;
-					break;
-				}
-
-				pt_section_list_free(next);
-				return 0;
-			}
-		}
-
 		/* We remove @msec and insert new sections for the remaining
 		 * parts, if any.  Those new sections are not mapped initially
 		 * and need to be added to the end of the section list.
@@ -433,6 +398,14 @@ int pt_image_copy(struct pt_image *image, const struct pt_image *src)
 
 	if (!image || !src)
 		return -pte_invalid;
+
+	/* There is nothing to do if we copy an image to itself.
+	 *
+	 * Besides, pt_image_add() may move sections around, which would
+	 * interfere with our section iteration.
+	 */
+	if (image == src)
+		return 0;
 
 	ignored = 0;
 	for (list = src->sections; list; list = list->next) {
