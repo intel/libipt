@@ -262,6 +262,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		if ((begin == lbegin) && (end == lend) &&
 		    (isid == current->isid)) {
 			const char *fname, *lfname;
+			uint64_t offset, loffset;
 
 			fname = pt_section_filename(section);
 			lfname = pt_section_filename(lsec);
@@ -271,7 +272,11 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 				break;
 			}
 
-			if (strcmp(fname, lfname) == 0) {
+			offset = pt_section_offset(section);
+			loffset = pt_section_offset(lsec);
+
+			if ((offset == loffset) &&
+			    (strcmp(fname, lfname) == 0)) {
 				/* There should not have been any removals or
 				 * additions.
 				 */
