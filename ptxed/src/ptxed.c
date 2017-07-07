@@ -1150,13 +1150,13 @@ static int ptxed_sb_event(struct ptxed_decoder *decoder,
 
 #endif /* defined(FEATURE_SIDEBAND) */
 
-static int drain_events_insn(struct ptxed_decoder *decoder, int status,
-			     const struct ptxed_options *options)
+static int drain_events_insn(struct ptxed_decoder *decoder, uint64_t *time,
+			     int status, const struct ptxed_options *options)
 {
 	struct pt_insn_decoder *ptdec;
 	int errcode;
 
-	if (!decoder || !options)
+	if (!decoder || !time || !options)
 		return -pte_internal;
 
 	ptdec = decoder->variant.insn;
@@ -1175,6 +1175,8 @@ static int drain_events_insn(struct ptxed_decoder *decoder, int status,
 		status = pt_insn_event(ptdec, &event, sizeof(event));
 		if (status < 0)
 			return status;
+
+		*time = event.tsc;
 
 		if (!options->quiet && !event.status_update)
 			print_event(&event, options, offset);
@@ -1240,7 +1242,8 @@ static void decode_insn(struct ptxed_decoder *decoder,
 		}
 
 		for (;;) {
-			status = drain_events_insn(decoder, status, options);
+			status = drain_events_insn(decoder, &time, status,
+						   options);
 			if (status < 0)
 				break;
 
@@ -1257,15 +1260,6 @@ static void decode_insn(struct ptxed_decoder *decoder,
 				int errcode;
 
 				errcode = pt_insn_get_offset(ptdec, &offset);
-				if (errcode < 0)
-					break;
-			}
-
-			if (options->print_time) {
-				int errcode;
-
-				errcode = pt_insn_time(ptdec, &time, NULL,
-						       NULL);
 				if (errcode < 0)
 					break;
 			}
@@ -1593,13 +1587,13 @@ static void check_block(const struct pt_block *block,
 		check_insn_iclass(xed_decoded_inst_inst(&inst), &insn, offset);
 }
 
-static int drain_events_block(struct ptxed_decoder *decoder, int status,
-			      const struct ptxed_options *options)
+static int drain_events_block(struct ptxed_decoder *decoder, uint64_t *time,
+			      int status, const struct ptxed_options *options)
 {
 	struct pt_block_decoder *ptdec;
 	int errcode;
 
-	if (!decoder || !options)
+	if (!decoder || !time || !options)
 		return -pte_internal;
 
 	ptdec = decoder->variant.block;
@@ -1618,6 +1612,8 @@ static int drain_events_block(struct ptxed_decoder *decoder, int status,
 		status = pt_blk_event(ptdec, &event, sizeof(event));
 		if (status < 0)
 			return status;
+
+		*time = event.tsc;
 
 		if (!options->quiet && !event.status_update)
 			print_event(&event, options, offset);
@@ -1683,7 +1679,8 @@ static void decode_block(struct ptxed_decoder *decoder,
 		}
 
 		for (;;) {
-			status = drain_events_block(decoder, status, options);
+			status = drain_events_block(decoder, &time, status,
+						    options);
 			if (status < 0)
 				break;
 
@@ -1700,15 +1697,6 @@ static void decode_block(struct ptxed_decoder *decoder,
 				int errcode;
 
 				errcode = pt_blk_get_offset(ptdec, &offset);
-				if (errcode < 0)
-					break;
-			}
-
-			if (options->print_time) {
-				int errcode;
-
-				errcode = pt_blk_time(ptdec, &time, NULL,
-						      NULL);
 				if (errcode < 0)
 					break;
 			}
