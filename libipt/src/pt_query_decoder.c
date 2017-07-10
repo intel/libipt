@@ -1333,10 +1333,35 @@ static int pt_qry_consume_tip_pgd(struct pt_query_decoder *decoder, int size)
 	return 0;
 }
 
+static int pt_qry_event_tip_pgd(struct pt_event *ev,
+				const struct pt_query_decoder *decoder)
+{
+	if (!ev)
+		return -pte_internal;
+
+	switch (ev->type) {
+	case ptev_async_branch: {
+		uint64_t at;
+
+		/* Turn the async branch into an async disable. */
+		at = ev->variant.async_branch.from;
+
+		ev->type = ptev_async_disabled;
+		ev->variant.async_disabled.at = at;
+
+		return pt_qry_event_ip(&ev->variant.async_disabled.ip, ev,
+				       decoder);
+	}
+	default:
+		break;
+	}
+
+	return -pte_internal;
+}
+
 int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t at;
 	int size, errcode;
 
 	if (!decoder)
@@ -1349,22 +1374,7 @@ int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 	/* Process any pending events binding to TIP. */
 	ev = pt_evq_dequeue(&decoder->evq, evb_tip);
 	if (ev) {
-		/* The only event we expect is an async branch. */
-		if (ev->type != ptev_async_branch)
-			return -pte_internal;
-
-		/* We do not expect any further events. */
-		if (pt_evq_pending(&decoder->evq, evb_tip))
-			return -pte_internal;
-
-		/* Turn the async branch into an async disable. */
-		at = ev->variant.async_branch.from;
-
-		ev->type = ptev_async_disabled;
-		ev->variant.async_disabled.at = at;
-
-		errcode = pt_qry_event_ip(&ev->variant.async_disabled.ip,
-					  ev, decoder);
+		errcode = pt_qry_event_tip_pgd(ev, decoder);
 		if (errcode < 0)
 			return errcode;
 	} else {
@@ -1384,8 +1394,18 @@ int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
 			return errcode;
 	}
 
+	/* We must have an event. Either the initial enable event or one of the
+	 * queued events.
+	 */
+	if (!ev)
+		return -pte_internal;
+
 	/* Publish the event. */
 	decoder->event = ev;
+
+	/* Process further pending events. */
+	if (pt_evq_pending(&decoder->evq, evb_tip))
+		return 0;
 
 	return pt_qry_consume_tip_pgd(decoder, size);
 }
