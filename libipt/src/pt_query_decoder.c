@@ -1145,7 +1145,7 @@ static int pt_qry_event_tip(struct pt_event *ev,
 		break;
 	}
 
-	return -pte_internal;
+	return -pte_bad_context;
 }
 
 int pt_qry_decode_tip(struct pt_query_decoder *decoder)
@@ -1255,7 +1255,7 @@ static int pt_qry_event_tip_pge(struct pt_event *ev,
 		break;
 	}
 
-	return -pte_internal;
+	return -pte_bad_context;
 }
 
 int pt_qry_decode_tip_pge(struct pt_query_decoder *decoder)
@@ -1370,7 +1370,7 @@ static int pt_qry_event_tip_pgd(struct pt_event *ev,
 		break;
 	}
 
-	return -pte_internal;
+	return -pte_bad_context;
 }
 
 int pt_qry_decode_tip_pgd(struct pt_query_decoder *decoder)
