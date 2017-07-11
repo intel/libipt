@@ -31,7 +31,6 @@
 #include "pt_section.h"
 #include "pt_image.h"
 #include "pt_insn.h"
-#include "pt_ild.h"
 #include "pt_config.h"
 #include "pt_asid.h"
 #include "pt_compiler.h"
@@ -177,6 +176,10 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
+	decoder->process_insn = 0;
+	decoder->bound_paging = 0;
+	decoder->bound_vmcs = 0;
+	decoder->bound_ptwrite = 0;
 
 	memset(&decoder->event, 0, sizeof(decoder->event));
 	pt_retstack_init(&decoder->retstack);
@@ -1083,6 +1086,36 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 					    ev->variant.disabled.ip);
 }
 
+/* Set the expected resume address for a synchronous disable.
+ *
+ * On a synchronous disable, @decoder->ip still points to the instruction to
+ * which the event bound.  That's not where we expect tracing to resume.
+ *
+ * For calls, a fair assumption is that tracing resumes after returning from the
+ * called function.  For other types of instructions, we simply don't know.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_blk_set_disable_resume_ip(struct pt_block_decoder *decoder,
+					const struct pt_insn *insn)
+{
+	if (!decoder || !insn)
+		return -pte_internal;
+
+	switch (insn->iclass) {
+	case ptic_call:
+	case ptic_far_call:
+		decoder->ip = insn->ip + insn->size;
+		break;
+
+	default:
+		decoder->ip = 0ull;
+		break;
+	}
+
+	return 0;
+}
+
 /* Proceed to the event location for an async paging event.
  *
  * We have an async paging event pending.  Proceed to the event location and
@@ -1196,23 +1229,14 @@ static int pt_blk_proceed_to_exec_mode(struct pt_block_decoder *decoder,
  */
 static int pt_blk_proceed_to_ptwrite(struct pt_block_decoder *decoder,
 				     struct pt_block *block,
+				     struct pt_insn *insn,
+				     struct pt_insn_ext *iext,
 				     struct pt_event *ev)
 {
-	struct pt_insn_ext iext;
-	struct pt_insn insn;
 	int status;
 
-	if (!decoder || !block || !ev)
+	if (!insn || !ev)
 		return -pte_internal;
-
-	/* If tracing is disabled, we don't really care whether we have an IP.
-	 *
-	 * Events are reported in order and all we can say with respect to the
-	 * instruction that caused the event is that it wasn't traced.  The user
-	 * may be able to make sense out of the event IP.
-	 */
-	if (!decoder->enabled)
-		return 1;
 
 	/* If we don't have an IP, the event binds to the next PTWRITE
 	 * instruction.
@@ -1228,7 +1252,7 @@ static int pt_blk_proceed_to_ptwrite(struct pt_block_decoder *decoder,
 	 * to the instruction following it.
 	 */
 	if (ev->ip_suppressed) {
-		status = pt_blk_proceed_to_insn(decoder, block, &insn, &iext,
+		status = pt_blk_proceed_to_insn(decoder, block, insn, iext,
 						pt_insn_is_ptwrite);
 		if (status <= 0)
 			return status;
@@ -1237,10 +1261,10 @@ static int pt_blk_proceed_to_ptwrite(struct pt_block_decoder *decoder,
 		 * to this event.  Fill it in to make it more convenient for the
 		 * user to process the event.
 		 */
-		ev->variant.ptwrite.ip = insn.ip;
+		ev->variant.ptwrite.ip = insn->ip;
 		ev->ip_suppressed = 0;
 	} else {
-		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+		status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
 					      ev->variant.ptwrite.ip);
 		if (status <= 0)
 			return status;
@@ -1252,21 +1276,11 @@ static int pt_blk_proceed_to_ptwrite(struct pt_block_decoder *decoder,
 		 * may still overflow the block, which would cause us to
 		 * postpone both instruction and event to the next block.
 		 */
-		status = pt_blk_proceed_one_insn(decoder, block, &insn, &iext);
+		status = pt_blk_proceed_one_insn(decoder, block, insn, iext);
 		if (status <= 0)
 			return status;
 	}
 
-	/* We decoded the PTWRITE instruction into @insn/@iext; @decoder->ip
-	 * still points to it.
-	 *
-	 * Determine the next IP - this shouldn't require trace.
-	 */
-	status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-	if (status < 0)
-		return status;
-
-	/* We accounted for the PTWRITE instruction in @block. */
 	return 1;
 }
 
@@ -1316,6 +1330,84 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 	}
 }
 
+/* Postpone proceeding past @insn/@iext and indicate a pending event.
+ *
+ * There may be further events pending on @insn/@iext.  Postpone proceeding past
+ * @insn/@iext until we processed all events that bind to it.
+ *
+ * Returns a non-negative pt_status_flag bit-vector indicating a pending event
+ * on success, a negative pt_error_code otherwise.
+ */
+static int pt_blk_postpone_insn(struct pt_block_decoder *decoder,
+				const struct pt_insn *insn,
+				const struct pt_insn_ext *iext)
+{
+	if (!decoder || !insn || !iext)
+		return -pte_internal;
+
+	/* Only one can be active. */
+	if (decoder->process_insn)
+		return -pte_internal;
+
+	decoder->process_insn = 1;
+	decoder->insn = *insn;
+	decoder->iext = *iext;
+
+	return pt_blk_status(decoder, pts_event_pending);
+}
+
+/* Remove any postponed instruction from @decoder.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_blk_clear_postponed_insn(struct pt_block_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	decoder->process_insn = 0;
+	decoder->bound_paging = 0;
+	decoder->bound_vmcs = 0;
+	decoder->bound_ptwrite = 0;
+
+	return 0;
+}
+
+/* Proceed past a postponed instruction.
+ *
+ * If an instruction has been postponed in @decoder, proceed past it.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_blk_proceed_postponed_insn(struct pt_block_decoder *decoder)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	/* There's nothing to do if we have no postponed instruction. */
+	if (!decoder->process_insn)
+		return 0;
+
+	/* There's nothing to do if tracing got disabled. */
+	if (!decoder->enabled)
+		return pt_blk_clear_postponed_insn(decoder);
+
+	status = pt_insn_next_ip(&decoder->ip, &decoder->insn, &decoder->iext);
+	if (status < 0) {
+		if (status != -pte_bad_query)
+			return status;
+
+		status = pt_blk_proceed_with_trace(decoder, &decoder->insn,
+						   &decoder->iext);
+		if (status < 0)
+			return status;
+	}
+
+	return pt_blk_clear_postponed_insn(decoder);
+}
+
 /* Proceed to the next event.
  *
  * We have an event pending.  Proceed to the event location and indicate the
@@ -1361,25 +1453,9 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status != -pte_bad_query)
 				return status;
 
-			/* The @decoder->ip still points to the indirect or
-			 * conditional branch instruction that caused us to
-			 * error out.  That's not where we expect tracing to
-			 * resume since the instruction already retired.
-			 *
-			 * For calls, a fair assumption is that tracing resumes
-			 * after returning from the called function.  For other
-			 * types of instructions, we simply don't know.
-			 */
-			switch (insn.iclass) {
-			case ptic_call:
-			case ptic_far_call:
-				decoder->ip = insn.ip + insn.size;
-				break;
-
-			default:
-				decoder->ip = 0ull;
-				break;
-			}
+			status = pt_blk_set_disable_resume_ip(decoder, &insn);
+			if (status < 0)
+				return status;
 		}
 
 		break;
@@ -1422,21 +1498,12 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		if (status <= 0)
 			return status;
 
-		/* We accounted for @insn in @block but we have not updated
-		 * @decoder->ip, yet.  Let's do so now.
+		/* We bound a paging event.  Make sure we do not bind further
+		 * paging events to this instruction.
 		 */
-		status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-		if (status < 0) {
-			if (status != -pte_bad_query)
-				return status;
+		decoder->bound_paging = 1;
 
-			status = pt_blk_proceed_with_trace(decoder, &insn,
-							   &iext);
-			if (status < 0)
-				return status;
-		}
-
-		break;
+		return pt_blk_postpone_insn(decoder, &insn, &iext);
 
 	case ptev_async_paging:
 		status = pt_blk_proceed_to_async_paging(decoder, block, ev);
@@ -1454,21 +1521,12 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		if (status <= 0)
 			return status;
 
-		/* We accounted for @insn in @block but we have not updated
-		 * @decoder->ip, yet.  Let's do so now.
+		/* We bound a vmcs event.  Make sure we do not bind further vmcs
+		 * events to this instruction.
 		 */
-		status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-		if (status < 0) {
-			if (status != -pte_bad_query)
-				return status;
+		decoder->bound_vmcs = 1;
 
-			status = pt_blk_proceed_with_trace(decoder, &insn,
-							   &iext);
-			if (status < 0)
-				return status;
-		}
-
-		break;
+		return pt_blk_postpone_insn(decoder, &insn, &iext);
 
 	case ptev_async_vmcs:
 		status = pt_blk_proceed_to_async_vmcs(decoder, block, ev);
@@ -1528,11 +1586,20 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		break;
 
 	case ptev_ptwrite:
-		status = pt_blk_proceed_to_ptwrite(decoder, block, ev);
+		if (!decoder->enabled)
+			break;
+
+		status = pt_blk_proceed_to_ptwrite(decoder, block, &insn,
+						   &iext, ev);
 		if (status <= 0)
 			return status;
 
-		break;
+		/* We bound a ptwrite event.  Make sure we do not bind further
+		 * ptwrite events to this instruction.
+		 */
+		decoder->bound_ptwrite = 1;
+
+		return pt_blk_postpone_insn(decoder, &insn, &iext);
 
 	case ptev_tick:
 	case ptev_cbr:
@@ -2535,24 +2602,73 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		if (status < 0)
 			return status;
 
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		return pt_blk_status(decoder, 0);
 	}
 
 	ev = &decoder->event;
 	switch (ev->type) {
 	case ptev_disabled:
-		/* Synchronous disable events are indicated on the event flow.
-		 * We can't simply run into them after updating the IP when
-		 * proceeding with trace.
-		 *
-		 * Leave it to be handled in pt_blk_next().
+		/* Synchronous disable events are normally indicated on the
+		 * event flow.
 		 */
+		if (!decoder->process_insn)
+			break;
+
+		/* A sync disable may bind to a CR3 changing instruction. */
+		if (ev->ip_suppressed &&
+		    pt_insn_changes_cr3(&decoder->insn, &decoder->iext))
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* Or it binds to the next branch that would require trace.
+		 *
+		 * Try to complete processing the current instruction by
+		 * proceeding past it.  If that fails because it would require
+		 * trace, we can apply the disabled event.
+		 */
+		status = pt_insn_next_ip(&decoder->ip, &decoder->insn,
+					 &decoder->iext);
+		if (status < 0) {
+			if (status != -pte_bad_query)
+				return status;
+
+			status = pt_blk_set_disable_resume_ip(decoder,
+							      &decoder->insn);
+			if (status < 0)
+				return status;
+
+			return pt_blk_status(decoder, pts_event_pending);
+		}
+
+		/* We proceeded past the current instruction. */
+		status = pt_blk_clear_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
+		/* This might have brought us to the disable IP. */
+		if (!ev->ip_suppressed &&
+		    decoder->ip == ev->variant.disabled.ip)
+			return pt_blk_status(decoder, pts_event_pending);
+
 		break;
 
 	case ptev_enabled:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_disabled:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (decoder->ip != ev->variant.async_disabled.at)
 			break;
 
@@ -2574,18 +2690,50 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_branch:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (decoder->ip != ev->variant.async_branch.from)
 			break;
 
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_paging:
-		if (decoder->enabled)
+		/* We apply the event immediately if we're not tracing. */
+		if (!decoder->enabled)
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* Synchronous paging events are normally indicated on the event
+		 * flow, unless they bind to the same instruction as a previous
+		 * event.
+		 *
+		 * We bind at most one paging event to an instruction, though.
+		 */
+		if (!decoder->process_insn || decoder->bound_paging)
 			break;
+
+		/* We're done if we're not binding to the currently postponed
+		 * instruction.  We will process the event on the normal event
+		 * flow in the next iteration.
+		 */
+		if (!pt_insn_binds_to_pip(&decoder->insn, &decoder->iext))
+			break;
+
+		/* We bound a paging event.  Make sure we do not bind further
+		 * paging events to this instruction.
+		 */
+		decoder->bound_paging = 1;
 
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_paging:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (!ev->ip_suppressed &&
 		    decoder->ip != ev->variant.async_paging.ip)
 			break;
@@ -2593,12 +2741,39 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_vmcs:
-		if (decoder->enabled)
+		/* We apply the event immediately if we're not tracing. */
+		if (!decoder->enabled)
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* Synchronous vmcs events are normally indicated on the event
+		 * flow, unless they bind to the same instruction as a previous
+		 * event.
+		 *
+		 * We bind at most one vmcs event to an instruction, though.
+		 */
+		if (!decoder->process_insn || decoder->bound_vmcs)
 			break;
+
+		/* We're done if we're not binding to the currently postponed
+		 * instruction.  We will process the event on the normal event
+		 * flow in the next iteration.
+		 */
+		if (!pt_insn_binds_to_vmcs(&decoder->insn, &decoder->iext))
+			break;
+
+		/* We bound a vmcs event.  Make sure we do not bind further vmcs
+		 * events to this instruction.
+		 */
+		decoder->bound_vmcs = 1;
 
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_vmcs:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (!ev->ip_suppressed &&
 		    decoder->ip != ev->variant.async_vmcs.ip)
 			break;
@@ -2606,9 +2781,19 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_overflow:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_exec_mode:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (!ev->ip_suppressed &&
 		    decoder->ip != ev->variant.exec_mode.ip)
 			break;
@@ -2616,6 +2801,11 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_tsx:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		status = pt_blk_postpone_trailing_tsx(decoder, block, ev);
 		if (status != 0) {
 			if (status < 0)
@@ -2627,9 +2817,19 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_stop:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_exstop:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (!ev->ip_suppressed && decoder->enabled &&
 		    decoder->ip != ev->variant.exstop.ip)
 			break;
@@ -2637,6 +2837,11 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_mwait:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		if (!ev->ip_suppressed && decoder->enabled &&
 		    decoder->ip != ev->variant.mwait.ip)
 			break;
@@ -2645,29 +2850,56 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	case ptev_pwre:
 	case ptev_pwrx:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_ptwrite:
-		/* The event is reported after the corresponding PTWRITE
-		 * instruction and indicated in pt_blk_proceed_event().
+		/* We apply the event immediately if we're not tracing. */
+		if (!decoder->enabled)
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* Ptwrite events are normally indicated on the event flow,
+		 * unless they bind to the same instruction as a previous event.
 		 *
-		 * Any subsequent ptwrite event binds to a different instruction
-		 * and must wait until the next iteration - as long as tracing
-		 * is enabled.
-		 *
-		 * When tracing is disabled, we forward all ptwrite events
-		 * immediately to the user.
+		 * We bind at most one ptwrite event to an instruction, though.
 		 */
-		if (decoder->enabled)
+		if (!decoder->process_insn || decoder->bound_ptwrite)
 			break;
+
+		/* We're done if we're not binding to the currently postponed
+		 * instruction.  We will process the event on the normal event
+		 * flow in the next iteration.
+		 */
+		if (!ev->ip_suppressed ||
+		    !pt_insn_is_ptwrite(&decoder->insn, &decoder->iext))
+			break;
+
+		/* We bound a ptwrite event.  Make sure we do not bind further
+		 * ptwrite events to this instruction.
+		 */
+		decoder->bound_ptwrite = 1;
 
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_tick:
 	case ptev_cbr:
 	case ptev_mnt:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
 		return pt_blk_status(decoder, pts_event_pending);
 	}
+
+	/* No further events.  Proceed past any postponed instruction. */
+	status = pt_blk_proceed_postponed_insn(decoder);
+	if (status < 0)
+		return status;
 
 	return pt_blk_status(decoder, 0);
 }

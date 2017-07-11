@@ -32,6 +32,7 @@
 #include "pt_query_decoder.h"
 #include "pt_image.h"
 #include "pt_retstack.h"
+#include "pt_ild.h"
 
 struct pt_section;
 
@@ -98,6 +99,13 @@ struct pt_block_decoder {
 	/* The call/return stack for ret compression. */
 	struct pt_retstack retstack;
 
+	/* The current instruction.
+	 *
+	 * This is only valid if @process_insn is set.
+	 */
+	struct pt_insn insn;
+	struct pt_insn_ext iext;
+
 	/* The start IP of the next block.
 	 *
 	 * If tracing is disabled, this is the IP at which we assume tracing to
@@ -126,6 +134,26 @@ struct pt_block_decoder {
 
 	/* - instructions are executed speculatively. */
 	uint32_t speculative:1;
+
+	/* - process @insn/@iext.
+	 *
+	 *   We have started processing events binding to @insn/@iext.  The
+	 *   instruction has been accounted for in the previous block, but we
+	 *   have not yet proceeded past it.
+	 *
+	 *   We will do so in pt_blk_event() after processing all events that
+	 *   bind to it.
+	 */
+	uint32_t process_insn:1;
+
+	/* - a paging event has already been bound to @insn/@iext. */
+	uint32_t bound_paging:1;
+
+	/* - a vmcs event has already been bound to @insn/@iext. */
+	uint32_t bound_vmcs:1;
+
+	/* - a ptwrite event has already been bound to @insn/@iext. */
+	uint32_t bound_ptwrite:1;
 };
 
 

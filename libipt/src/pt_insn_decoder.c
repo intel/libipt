@@ -54,6 +54,10 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
+	decoder->process_insn = 0;
+	decoder->bound_paging = 0;
+	decoder->bound_vmcs = 0;
+	decoder->bound_ptwrite = 0;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -659,11 +663,77 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 	return 0;
 }
 
+/* Postpone proceeding past @insn/@iext and indicate a pending event.
+ *
+ * There may be further events pending on @insn/@iext.  Postpone proceeding past
+ * @insn/@iext until we processed all events that bind to it.
+ *
+ * Returns a non-negative pt_status_flag bit-vector indicating a pending event
+ * on success, a negative pt_error_code otherwise.
+ */
+static int pt_insn_postpone(struct pt_insn_decoder *decoder,
+			    const struct pt_insn *insn,
+			    const struct pt_insn_ext *iext)
+{
+	if (!decoder || !insn || !iext)
+		return -pte_internal;
+
+	if (!decoder->process_insn) {
+		decoder->process_insn = 1;
+		decoder->insn = *insn;
+		decoder->iext = *iext;
+	}
+
+	return pt_insn_status(decoder, pts_event_pending);
+}
+
+/* Remove any postponed instruction from @decoder.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_insn_clear_postponed(struct pt_insn_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	decoder->process_insn = 0;
+	decoder->bound_paging = 0;
+	decoder->bound_vmcs = 0;
+	decoder->bound_ptwrite = 0;
+
+	return 0;
+}
+
+/* Proceed past a postponed instruction.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_insn_proceed_postponed(struct pt_insn_decoder *decoder)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	if (!decoder->process_insn)
+		return -pte_internal;
+
+	/* There's nothing to do if tracing got disabled. */
+	if (!decoder->enabled)
+		return pt_insn_clear_postponed(decoder);
+
+	status = pt_insn_proceed(decoder, &decoder->insn, &decoder->iext);
+	if (status < 0)
+		return status;
+
+	return pt_insn_clear_postponed(decoder);
+}
+
 /* Check for events that bind to instruction.
  *
  * Check whether an event is pending that binds to @insn/@iext, and, if that is
  * the case, proceed past @insn/@iext and indicate the event by setting
- * pt_pts_event_pending.
+ * pts_event_pending.
  *
  * If that is not the case, we return zero.  This is what pt_insn_status() would
  * return since:
@@ -748,28 +818,42 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		break;
 
 	case ptev_paging:
+		/* We bind at most one paging event to an instruction. */
+		if (decoder->bound_paging)
+			return 0;
+
 		if (!pt_insn_binds_to_pip(insn, iext))
 			return 0;
 
-		status = pt_insn_proceed(decoder, insn, iext);
-		if (status < 0)
-			return status;
+		/* We bound a paging event.  Make sure we do not bind further
+		 * paging events to this instruction.
+		 */
+		decoder->bound_paging = 1;
 
-		break;
+		return pt_insn_postpone(decoder, insn, iext);
 
 	case ptev_vmcs:
+		/* We bind at most one vmcs event to an instruction. */
+		if (decoder->bound_vmcs)
+			return 0;
+
 		if (!pt_insn_binds_to_vmcs(insn, iext))
 			return 0;
 
-		status = pt_insn_proceed(decoder, insn, iext);
-		if (status < 0)
-			return status;
+		/* We bound a vmcs event.  Make sure we do not bind further vmcs
+		 * events to this instruction.
+		 */
+		decoder->bound_vmcs = 1;
 
-		break;
+		return pt_insn_postpone(decoder, insn, iext);
 
 	case ptev_ptwrite:
+		/* We bind at most one ptwrite event to an instruction. */
+		if (decoder->bound_ptwrite)
+			return 0;
+
 		if (ev->ip_suppressed) {
-			if (insn->iclass != ptic_ptwrite)
+			if (!pt_insn_is_ptwrite(insn, iext))
 				return 0;
 
 			/* Fill in the event IP.  Our users will need them to
@@ -789,16 +873,12 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 				return 0;
 		}
 
-		/* We decoded the PTWRITE instruction into @insn/@iext;
-		 * @decoder->ip still points to it.
-		 *
-		 * Determine the next IP - this shouldn't require trace.
+		/* We bound a ptwrite event.  Make sure we do not bind further
+		 * ptwrite events to this instruction.
 		 */
-		status = pt_insn_next_ip(&decoder->ip, insn, iext);
-		if (status < 0)
-			return status;
+		decoder->bound_ptwrite = 1;
 
-		break;
+		return pt_insn_postpone(decoder, insn, iext);
 	}
 
 	return pt_insn_status(decoder, pts_event_pending);
@@ -1124,10 +1204,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 
 	/* Check for events that bind to the current instruction.
 	 *
-	 * If an event is indicated, event processing already took care to
-	 * proceed past the instruction.  We're done.
-	 *
-	 * This implicitly assumes that there can be at most one such event.
+	 * If an event is indicated, we're done.
 	 */
 	status = pt_insn_check_insn_event(decoder, pinsn, &iext);
 	if (status != 0) {
@@ -1492,6 +1569,30 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 
 	/* This completes processing of the current event. */
 	decoder->process_event = 0;
+
+	/* If we just handled an instruction event, check for further events
+	 * that bind to this instruction.
+	 *
+	 * If we don't have further events, proceed beyond the instruction so we
+	 * can check for IP events, as well.
+	 */
+	if (decoder->process_insn) {
+		status = pt_insn_check_insn_event(decoder, &decoder->insn,
+						  &decoder->iext);
+
+		if (status != 0) {
+			if (status < 0)
+				return status;
+
+			if (status & pts_event_pending)
+				return status;
+		}
+
+		/* Proceed to the next instruction. */
+		status = pt_insn_proceed_postponed(decoder);
+		if (status < 0)
+			return status;
+	}
 
 	/* Indicate further events that bind to the same IP. */
 	return pt_insn_check_ip_event(decoder, NULL, NULL);
