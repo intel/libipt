@@ -1041,6 +1041,68 @@ static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
 	return 0;
 }
 
+/* Set the expected resume address for a synchronous disable.
+ *
+ * On a synchronous disable, @decoder->ip still points to the instruction to
+ * which the event bound.  That's not where we expect tracing to resume.
+ *
+ * For calls, a fair assumption is that tracing resumes after returning from the
+ * called function.  For other types of instructions, we simply don't know.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_blk_set_disable_resume_ip(struct pt_block_decoder *decoder,
+					const struct pt_insn *insn)
+{
+	if (!decoder || !insn)
+		return -pte_internal;
+
+	switch (insn->iclass) {
+	case ptic_call:
+	case ptic_far_call:
+		decoder->ip = insn->ip + insn->size;
+		break;
+
+	default:
+		decoder->ip = 0ull;
+		break;
+	}
+
+	return 0;
+}
+
+/* Proceed from an instruction.
+ *
+ * Set @decoder->ip to the next instruction past @insn/@iext.
+ *
+ * Returns a positive integer if we did not need trace.
+ * Returns zero if we needed trace to proceed.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_blk_proceed_from_insn(struct pt_block_decoder *decoder,
+				    const struct pt_insn *insn,
+				    const struct pt_insn_ext *iext)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	/* There's nothing to do if tracing got disabled. */
+	if (!decoder->enabled)
+		return 1;
+
+	status = pt_insn_next_ip(&decoder->ip, insn, iext);
+	if (status < 0) {
+		if (status != -pte_bad_query)
+			return status;
+
+		return pt_blk_proceed_with_trace(decoder, insn, iext);
+	}
+
+	return 1;
+}
+
 /* Decode one instruction in a known section.
  *
  * Decode the instruction at @insn->ip in @section loaded at @laddr assuming
@@ -1339,6 +1401,44 @@ static int pt_blk_proceed_to_ip_with_trace(struct pt_block_decoder *decoder,
 	return pt_blk_proceed_with_trace(decoder, &insn, &iext);
 }
 
+/* Proceed for a synchronous disable starting at the current instruction.
+ *
+ * We are processing events at @insn/@iext and have a (synchronous) disabled
+ * event pending.  This event may bind to @insn/@iext, as well.  Check if it
+ * does and, if not, proceed past @insn/@iext.
+ *
+ * Returns zero if @ev binds to @insn/@iext.
+ * Returns a positive integer if we proceeded past @insn/@iext.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_blk_proceed_disabled_insn(struct pt_block_decoder *decoder,
+					const struct pt_insn *insn,
+					const struct pt_insn_ext *iext,
+					const struct pt_event *ev)
+{
+	int status;
+
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	if (ev->ip_suppressed && pt_insn_changes_cr3(insn, iext))
+		return 0;
+
+	/* A synchronous disable event also binds to the next indirect or
+	 * conditional branch, i.e. to any branch that would have required
+	 * trace.
+	 */
+	status = pt_insn_next_ip(&decoder->ip, insn, iext);
+	if (status < 0) {
+		if (status != -pte_bad_query)
+			return status;
+
+		return pt_blk_set_disable_resume_ip(decoder, insn);
+	}
+
+	return 1;
+}
+
 /* Proceed to the event location for a disabled event.
  *
  * We have a (synchronous) disabled event pending.  Proceed to the event
@@ -1356,6 +1456,8 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 				      struct pt_insn_ext *iext,
 				      const struct pt_event *ev)
 {
+	int status;
+
 	if (!decoder || !block || !ev)
 		return -pte_internal;
 
@@ -1364,14 +1466,26 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 		/* A synchronous disabled event also binds to far branches and
 		 * CPL-changing instructions.  Both would require trace,
 		 * however, and are thus implicitly handled by erroring out.
-		 *
-		 * The would-require-trace error is handled by our caller.
 		 */
-		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
-					      pt_insn_changes_cr3);
+		status = pt_blk_proceed_to_insn(decoder, block, insn, iext,
+						pt_insn_changes_cr3);
 	} else
-		return pt_blk_proceed_to_ip(decoder, block, insn, iext,
-					    ev->variant.disabled.ip);
+		status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
+					      ev->variant.disabled.ip);
+
+	/* A synchronous disable event also binds to the next indirect or
+	 * conditional branch, i.e. to any branch that would have required
+	 * trace.
+	 */
+	if (status == -pte_bad_query) {
+		status = pt_blk_set_disable_resume_ip(decoder, insn);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	return status;
 }
 
 /* Proceed to the event location for an async paging event.
@@ -1509,9 +1623,21 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				struct pt_block *block)
 {
+	int process_insn, bound_paging, bound_vmcs;
+
 	if (!decoder || !block)
 		return -pte_internal;
 
+	/* When non-zero, @process_insn indicates that we are processing
+	 * @insn/@iext.  We bound one or more events to it and are looking for
+	 * further events to bind to it.
+	 *
+	 * When we find an event that does not bind to @insn/@iext, proceed from
+	 * @insn/@iext and clear the below flags.
+	 */
+	process_insn = 0;
+	bound_paging = 0;
+	bound_vmcs = 0;
 	for (;;) {
 		struct pt_insn_ext iext;
 		struct pt_insn insn;
@@ -1525,6 +1651,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		ev = &decoder->event;
 		switch (ev->type) {
 		case ptev_enabled:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_process_enabled(decoder, block, ev);
 			if (status <= 0)
 				return status;
@@ -1532,38 +1670,40 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_disabled:
-			status = pt_blk_proceed_to_disabled(decoder, block,
-							    &insn, &iext, ev);
-			if (status <= 0) {
-				/* A synchronous disable event also binds to the
-				 * next indirect or conditional branch, i.e. to
-				 * any branch that would have required trace.
-				 */
-				if (status != -pte_bad_query)
-					return status;
+			if (process_insn) {
+				status = pt_blk_proceed_disabled_insn(decoder,
+								      &insn,
+								      &iext,
+								      ev);
 
-				/* The @decoder->ip still points to the indirect
-				 * or conditional branch instruction that caused
-				 * us to error out.  That's not where we expect
-				 * tracing to resume since the instruction
-				 * already retired.
-				 *
-				 * For calls, a fair assumption is that tracing
-				 * resumes after returning from the called
-				 * function.  For other types of instructions,
-				 * we simply don't know.
-				 */
-				switch (insn.iclass) {
-				case ptic_call:
-				case ptic_far_call:
-					decoder->ip = insn.ip + insn.size;
-					break;
+				if (status <= 0) {
+					if (status < 0)
+						return status;
 
-				default:
-					decoder->ip = 0ull;
+					status =
+						pt_blk_process_disabled(decoder,
+									block,
+									ev);
+					if (status <= 0)
+						return status;
+
+					/* We don't need a bound_disabled.
+					 * Duplicate disable events are
+					 * diagnosed when applying the event.
+					 */
 					break;
+				} else {
+					/* We proceeded past @insn/@iext. */
+					process_insn = 0;
+					bound_paging = 0;
+					bound_vmcs = 0;
 				}
 			}
+
+			status = pt_blk_proceed_to_disabled(decoder, block,
+							    &insn, &iext, ev);
+			if (status <= 0)
+				return status;
 
 			status = pt_blk_process_disabled(decoder, block, ev);
 			if (status <= 0)
@@ -1572,6 +1712,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_async_disabled:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			ip = ev->variant.async_disabled.at;
 
 			status = pt_blk_proceed_to_ip(decoder, block, &insn,
@@ -1600,6 +1752,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_async_branch:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			ip = ev->variant.async_branch.from;
 
 			status = pt_blk_proceed_to_ip(decoder, block, &insn,
@@ -1624,6 +1788,29 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				break;
 			}
 
+			if (process_insn) {
+				if (!bound_paging &&
+				    pt_insn_binds_to_pip(&insn, &iext)) {
+
+					status = pt_blk_apply_paging(decoder,
+								     block, ev);
+					if (status < 0)
+						return status;
+
+					bound_paging = 1;
+					break;
+				}
+
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_proceed_to_insn(decoder, block, &insn,
 							&iext,
 							pt_insn_binds_to_pip);
@@ -1634,24 +1821,24 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status < 0)
 				return status;
 
-			/* We accounted for @insn in @block but we have not
-			 * updated @decoder->ip, yet.  Let's do so now.
-			 *
-			 * If we can't, we have to proceed with trace.  This
-			 * ends event processing.
-			 */
-			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-			if (status < 0) {
-				if (status != -pte_bad_query)
-					return status;
-
-				return pt_blk_proceed_with_trace(decoder, &insn,
-								 &iext);
-			}
+			process_insn = 1;
+			bound_paging = 1;
 
 			break;
 
 		case ptev_async_paging:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_proceed_to_async_paging(decoder, block,
 								ev);
 			if (status <= 0)
@@ -1672,6 +1859,29 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 				break;
 			}
 
+			if (process_insn) {
+				if (!bound_vmcs &&
+				    pt_insn_binds_to_vmcs(&insn, &iext)) {
+
+					status = pt_blk_apply_vmcs(decoder,
+								   block, ev);
+					if (status < 0)
+						return status;
+
+					bound_vmcs = 1;
+					break;
+				}
+
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_proceed_to_insn(decoder, block, &insn,
 							&iext,
 							pt_insn_binds_to_vmcs);
@@ -1682,24 +1892,24 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			if (status < 0)
 				return status;
 
-			/* We accounted for @insn in @block but we have not
-			 * updated @decoder->ip, yet.  Let's do so now.
-			 *
-			 * If we can't, we have to proceed with trace.  This
-			 * ends event processing.
-			 */
-			status = pt_insn_next_ip(&decoder->ip, &insn, &iext);
-			if (status < 0) {
-				if (status != -pte_bad_query)
-					return status;
-
-				return pt_blk_proceed_with_trace(decoder, &insn,
-								 &iext);
-			}
+			process_insn = 1;
+			bound_vmcs = 1;
 
 			break;
 
 		case ptev_async_vmcs:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_proceed_to_async_vmcs(decoder, block,
 							      ev);
 			if (status <= 0)
@@ -1712,6 +1922,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_overflow:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_process_overflow(decoder, block, ev);
 			if (status <= 0)
 				return status;
@@ -1719,6 +1941,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_exec_mode:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			status = pt_blk_proceed_to_exec_mode(decoder, block,
 							     ev);
 			if (status <= 0)
@@ -1731,6 +1965,18 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			break;
 
 		case ptev_tsx:
+			/* This event does not bind to an instruction. */
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status < 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+			}
+
 			if (!ev->ip_suppressed) {
 				ip = ev->variant.tsx.ip;
 
@@ -1765,6 +2011,28 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		if (status <= 0) {
 			if (status < 0)
 				return status;
+
+			if (process_insn) {
+				status = pt_blk_proceed_from_insn(decoder,
+								  &insn, &iext);
+				if (status <= 0)
+					return status;
+
+				process_insn = 0;
+				bound_paging = 0;
+				bound_vmcs = 0;
+
+				/* Check again now that we proceeded past the
+				 * current instruction.
+				 */
+				status = pt_blk_fetch_event(decoder);
+				if (status != 0) {
+					if (status < 0)
+						return status;
+
+					continue;
+				}
+			}
 
 			break;
 		}
