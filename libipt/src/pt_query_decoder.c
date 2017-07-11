@@ -1366,6 +1366,29 @@ static int pt_qry_event_tip_pgd(struct pt_event *ev,
 		return pt_qry_event_ip(&ev->variant.async_disabled.ip, ev,
 				       decoder);
 	}
+
+	case ptev_async_paging:
+	case ptev_async_vmcs:
+	case ptev_exec_mode:
+		/* These events are ordered after the async disable event.  It
+		 * is not quite clear what IP to give them.
+		 *
+		 * If we give them the async disable's source IP, we'd make an
+		 * error if the IP is updated when applying the async disable
+		 * event.
+		 *
+		 * If we give them the async disable's destination IP, we'd make
+		 * an error if the IP is not updated when applying the async
+		 * disable event.  That's what our decoders do since tracing is
+		 * likely to resume from there.
+		 *
+		 * In all cases, tracing will be disabled when those events are
+		 * applied, so we may as well suppress the IP.
+		 */
+		ev->ip_suppressed = 1;
+
+		return 0;
+
 	default:
 		break;
 	}
