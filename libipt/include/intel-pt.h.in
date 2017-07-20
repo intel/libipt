@@ -288,6 +288,16 @@ struct pt_errata {
 	 */
 	uint32_t skd010:1;
 
+	/** SKL014: Intel(R) PT TIP.PGD May Not Have Target IP Payload.
+	 *
+	 * When Intel PT (Intel Processor Trace) is enabled and a direct
+	 * unconditional branch clears IA32_RTIT_STATUS.FilterEn (MSR 571H, bit
+	 * 0), due to this erratum, the resulting TIP.PGD (Target IP Packet,
+	 * Packet Generation Disable) may not have an IP payload with the target
+	 * IP.
+	 */
+	uint32_t skl014:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
