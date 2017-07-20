@@ -774,6 +774,22 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
+static int pt_insn_skl014(const struct pt_insn *insn,
+			  const struct pt_insn_ext *iext)
+{
+	if (!insn || !iext)
+		return 0;
+
+	switch (insn->iclass) {
+	default:
+		return 0;
+
+	case ptic_call:
+	case ptic_jump:
+		return iext->variant.branch.is_direct;
+	}
+}
+
 static int process_one_event_after(struct pt_insn_decoder *decoder,
 				   struct pt_insn *insn,
 				   const struct pt_insn_ext *iext)
@@ -805,6 +821,10 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 				return process_sync_disabled_event(decoder,
 								   insn, iext);
 
+			if (decoder->query.config.errata.skl014 &&
+			    pt_insn_skl014(insn, iext))
+				return process_sync_disabled_event(decoder,
+								   insn, iext);
 		} else {
 			switch (insn->iclass) {
 			case ptic_other:
