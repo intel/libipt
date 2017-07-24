@@ -42,3 +42,48 @@
  */
 extern int pt_config_from_user(struct pt_config *config,
 			       const struct pt_config *uconfig);
+
+/* Supported address range configurations. */
+enum pt_addr_cfg {
+	pt_addr_cfg_disabled    = 0,
+	pt_addr_cfg_filter      = 1,
+	pt_addr_cfg_stop        = 2
+};
+
+/* Get the configuration for the n'th address filter.
+ *
+ * Returns zero if @filter is NULL or @n is out of bounds.
+ *
+ * This corresponds to IA32_RTIT_CTL.ADDRn_CFG.
+ */
+extern uint32_t pt_filter_addr_cfg(const struct pt_conf_addr_filter *filter,
+				   uint8_t n);
+
+/* Get the lower bound (inclusive) of the n'th address filter.
+ *
+ * Returns zero if @filter is NULL or @n is out of bounds.
+ *
+ * This corresponds to IA32_RTIT_ADDRn_A.
+ */
+extern uint64_t pt_filter_addr_a(const struct pt_conf_addr_filter *filter,
+				 uint8_t n);
+
+/* Get the upper bound (inclusive) of the n'th address filter.
+ *
+ * Returns zero if @filter is NULL or @n is out of bounds.
+ *
+ * This corresponds to IA32_RTIT_ADDRn_B.
+ */
+extern uint64_t pt_filter_addr_b(const struct pt_conf_addr_filter *filter,
+				 uint8_t n);
+
+/* Check address filters.
+ *
+ * Checks @addr against @filter.
+ *
+ * Returns a positive number if @addr lies in a tracing-enabled region.
+ * Returns zero if @addr lies in a tracing-disabled region.
+ * Returns a negative pt_error_code otherwise.
+ */
+extern int pt_filter_addr_check(const struct pt_conf_addr_filter *filter,
+				uint64_t addr);

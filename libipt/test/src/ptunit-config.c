@@ -168,6 +168,301 @@ static struct ptunit_result size(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result addr_filter_size(void)
+{
+	struct pt_conf_addr_filter conf;
+
+	ptu_uint_eq(sizeof(conf.config), 8);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_none(void)
+{
+	struct pt_config config;
+	uint8_t filter;
+
+	pt_config_init(&config);
+
+	ptu_uint_eq(config.addr_filter.config.addr_cfg, 0ull);
+
+	for (filter = 0; filter < 4; ++filter) {
+		uint32_t addr_cfg;
+
+		addr_cfg = pt_filter_addr_cfg(&config.addr_filter, filter);
+
+		ptu_uint_eq(addr_cfg, pt_addr_cfg_disabled);
+	}
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_0(void)
+{
+	struct pt_config config;
+	uint64_t addr_a, addr_b;
+	uint32_t addr_cfg;
+	uint8_t filter;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr0_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr0_a = 0xa000ull;
+	config.addr_filter.addr0_b = 0xb000ull;
+
+	ptu_uint_ne(config.addr_filter.config.addr_cfg, 0ull);
+
+	addr_cfg = pt_filter_addr_cfg(&config.addr_filter, 0);
+	ptu_uint_eq(addr_cfg, pt_addr_cfg_filter);
+
+	addr_a = pt_filter_addr_a(&config.addr_filter, 0);
+	ptu_uint_eq(addr_a, 0xa000ull);
+
+	addr_b = pt_filter_addr_b(&config.addr_filter, 0);
+	ptu_uint_eq(addr_b, 0xb000ull);
+
+	for (filter = 1; filter < 4; ++filter) {
+
+		addr_cfg = pt_filter_addr_cfg(&config.addr_filter, filter);
+
+		ptu_uint_eq(addr_cfg, pt_addr_cfg_disabled);
+	}
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_1_3(void)
+{
+	struct pt_config config;
+	uint64_t addr_a, addr_b;
+	uint32_t addr_cfg;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr1_a = 0xa000ull;
+	config.addr_filter.addr1_b = 0xb000ull;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr3_a = 0x100a000ull;
+	config.addr_filter.addr3_b = 0x100b000ull;
+
+	ptu_uint_ne(config.addr_filter.config.addr_cfg, 0ull);
+
+	addr_cfg = pt_filter_addr_cfg(&config.addr_filter, 0);
+	ptu_uint_eq(addr_cfg, pt_addr_cfg_disabled);
+
+	addr_cfg = pt_filter_addr_cfg(&config.addr_filter, 1);
+	ptu_uint_eq(addr_cfg, pt_addr_cfg_filter);
+
+	addr_a = pt_filter_addr_a(&config.addr_filter, 1);
+	ptu_uint_eq(addr_a, 0xa000ull);
+
+	addr_b = pt_filter_addr_b(&config.addr_filter, 1);
+	ptu_uint_eq(addr_b, 0xb000ull);
+
+	addr_cfg = pt_filter_addr_cfg(&config.addr_filter, 2);
+	ptu_uint_eq(addr_cfg, pt_addr_cfg_disabled);
+
+	addr_cfg = pt_filter_addr_cfg(&config.addr_filter, 3);
+	ptu_uint_eq(addr_cfg, pt_addr_cfg_stop);
+
+	addr_a = pt_filter_addr_a(&config.addr_filter, 3);
+	ptu_uint_eq(addr_a, 0x100a000ull);
+
+	addr_b = pt_filter_addr_b(&config.addr_filter, 3);
+	ptu_uint_eq(addr_b, 0x100b000ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_oob(uint8_t filter)
+{
+	struct pt_config config;
+	uint64_t addr_a, addr_b;
+	uint32_t addr_cfg;
+
+	pt_config_init(&config);
+
+	memset(&config.addr_filter, 0xcc, sizeof(config.addr_filter));
+
+	addr_cfg = pt_filter_addr_cfg(&config.addr_filter, filter);
+	ptu_uint_eq(addr_cfg, pt_addr_cfg_disabled);
+
+	addr_a = pt_filter_addr_a(&config.addr_filter, filter);
+	ptu_uint_eq(addr_a, 0ull);
+
+	addr_b = pt_filter_addr_b(&config.addr_filter, filter);
+	ptu_uint_eq(addr_b, 0ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_ip_in(void)
+{
+	struct pt_config config;
+	int status;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr1_a = 0xa000;
+	config.addr_filter.addr1_b = 0xb000;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr3_a = 0x10a000;
+	config.addr_filter.addr3_b = 0x10b000;
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xa000);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xaf00);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xb000);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10a000);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10af00);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10b000);
+	ptu_int_eq(status, 1);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_ip_out(void)
+{
+	struct pt_config config;
+	int status;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr1_a = 0xa000;
+	config.addr_filter.addr1_b = 0xb000;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr3_a = 0x10a000;
+	config.addr_filter.addr3_b = 0x10b000;
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xfff);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xb001);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x100fff);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10b001);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_stop_in(void)
+{
+	struct pt_config config;
+	int status;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr1_a = 0xa000;
+	config.addr_filter.addr1_b = 0xb000;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr3_a = 0x10a000;
+	config.addr_filter.addr3_b = 0x10b000;
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xa000);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xaf00);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xb000);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10a000);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10af00);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10b000);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_stop_out(void)
+{
+	struct pt_config config;
+	int status;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr1_a = 0xa000;
+	config.addr_filter.addr1_b = 0xb000;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr3_a = 0x10a000;
+	config.addr_filter.addr3_b = 0x10b000;
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xfff);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0xb001);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x100fff);
+	ptu_int_eq(status, 1);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10b001);
+	ptu_int_eq(status, 1);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_ip_out_stop_in(void)
+{
+	struct pt_config config;
+	int status;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr1_a = 0x100f00;
+	config.addr_filter.addr1_b = 0x10af00;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr3_a = 0x10a000;
+	config.addr_filter.addr3_b = 0x10b000;
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10af01);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10b000);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result addr_filter_ip_in_stop_in(void)
+{
+	struct pt_config config;
+	int status;
+
+	pt_config_init(&config);
+	config.addr_filter.config.ctl.addr1_cfg = pt_addr_cfg_filter;
+	config.addr_filter.addr1_a = 0x100f00;
+	config.addr_filter.addr1_b = 0x10af00;
+	config.addr_filter.config.ctl.addr3_cfg = pt_addr_cfg_stop;
+	config.addr_filter.addr3_a = 0x10a000;
+	config.addr_filter.addr3_b = 0x10b000;
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10af00);
+	ptu_int_eq(status, 0);
+
+	status = pt_filter_addr_check(&config.addr_filter, 0x10a0ff);
+	ptu_int_eq(status, 0);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -181,6 +476,20 @@ int main(int argc, char **argv)
 	ptu_run(suite, from_user_small);
 	ptu_run(suite, from_user_big);
 	ptu_run(suite, size);
+
+	ptu_run(suite, addr_filter_size);
+	ptu_run(suite, addr_filter_none);
+	ptu_run(suite, addr_filter_0);
+	ptu_run(suite, addr_filter_1_3);
+	ptu_run_p(suite, addr_filter_oob, 255);
+	ptu_run_p(suite, addr_filter_oob, 8);
+
+	ptu_run(suite, addr_filter_ip_in);
+	ptu_run(suite, addr_filter_ip_out);
+	ptu_run(suite, addr_filter_stop_in);
+	ptu_run(suite, addr_filter_stop_out);
+	ptu_run(suite, addr_filter_ip_out_stop_in);
+	ptu_run(suite, addr_filter_ip_in_stop_in);
 
 	return ptunit_report(&suite);
 }

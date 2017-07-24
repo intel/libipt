@@ -168,6 +168,9 @@ static void help(const char *name)
 	printf("  --time                               print the current timestamp.\n");
 	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
 	printf("  --check                              perform checks (expensive).\n");
+	printf("  --filter:addr<n>_cfg <cfg>           set IA32_RTIT_CTL.ADDRn_CFG to <cfg>.\n");
+	printf("  --filter:addr<n>_a <base>            set IA32_RTIT_ADDRn_A to <base>.\n");
+	printf("  --filter:addr<n>_b <limit>           set IA32_RTIT_ADDRn_B to <limit>.\n");
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
@@ -1473,6 +1476,38 @@ static int get_arg_uint8(uint8_t *value, const char *option, const char *arg,
 	return 1;
 }
 
+static int ptxed_addr_cfg(struct pt_config *config, uint8_t filter,
+			  const char *option, const char *arg, const char *prog)
+{
+	uint64_t addr_cfg;
+
+	if (!config || !option || !arg || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog ? prog : "?");
+		return 0;
+	}
+
+	if (!get_arg_uint64(&addr_cfg, option, arg, prog))
+		return 0;
+
+	if (15 < addr_cfg) {
+		fprintf(stderr, "%s: %s: value too big: %s.\n", prog, option,
+			arg);
+		return 0;
+	}
+
+	/* Make sure the shift doesn't overflow. */
+	if (15 < filter) {
+		fprintf(stderr, "%s: internal error.\n", prog);
+		return 0;
+	}
+
+	addr_cfg <<= (filter * 4);
+
+	config->addr_filter.config.addr_cfg |= addr_cfg;
+
+	return 1;
+}
+
 extern int main(int argc, char *argv[])
 {
 	struct pt_image_section_cache *iscache;
@@ -1653,6 +1688,170 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--raw-insn") == 0) {
 			options.print_raw_insn = 1;
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr0_cfg") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!ptxed_addr_cfg(&config, 0, arg, argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr0_a") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr0_a, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr0_b") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr0_b, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr1_cfg") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!ptxed_addr_cfg(&config, 1, arg, argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr1_a") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr1_a, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr1_b") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr1_b, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr2_cfg") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!ptxed_addr_cfg(&config, 2, arg, argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr2_a") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr2_a, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr2_b") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr2_b, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr3_cfg") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!ptxed_addr_cfg(&config, 3, arg, argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr3_a") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr3_a, arg,
+					    argv[i++], prog))
+				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--filter:addr3_b") == 0) {
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: please specify %s before --pt.\n",
+					prog, arg);
+				goto err;
+			}
+
+			if (!get_arg_uint64(&config.addr_filter.addr3_b, arg,
+					    argv[i++], prog))
+				goto err;
+
 			continue;
 		}
 		if (strcmp(arg, "--check") == 0) {

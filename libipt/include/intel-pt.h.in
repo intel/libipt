@@ -639,6 +639,40 @@ struct pt_conf_flags {
 	} variant;
 };
 
+/** The address filter configuration. */
+struct pt_conf_addr_filter {
+	/** The address filter configuration.
+	 *
+	 * This corresponds to the respective fields in IA32_RTIT_CTL MSR.
+	 */
+	union {
+		uint64_t addr_cfg;
+
+		struct {
+			uint32_t addr0_cfg:4;
+			uint32_t addr1_cfg:4;
+			uint32_t addr2_cfg:4;
+			uint32_t addr3_cfg:4;
+		} ctl;
+	} config;
+
+	/** The address ranges configuration.
+	 *
+	 * This corresponds to the IA32_RTIT_ADDRn_A/B MSRs.
+	 */
+	uint64_t addr0_a;
+	uint64_t addr0_b;
+	uint64_t addr1_a;
+	uint64_t addr1_b;
+	uint64_t addr2_a;
+	uint64_t addr2_b;
+	uint64_t addr3_a;
+	uint64_t addr3_b;
+
+	/* Reserve some space. */
+	uint64_t reserved[8];
+};
+
 /** An unknown packet. */
 struct pt_packet_unknown;
 
@@ -709,6 +743,9 @@ struct pt_config {
 
 	/** A collection of decoder-specific flags. */
 	struct pt_conf_flags flags;
+
+	/** The address filter configuration. */
+	struct pt_conf_addr_filter addr_filter;
 };
 
 
