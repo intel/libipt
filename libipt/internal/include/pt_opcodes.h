@@ -387,4 +387,11 @@ enum pt_packet_size {
 	ptps_ptw_64		= pt_opcs_ptw + 8
 };
 
+/* Supported address range configurations. */
+enum pt_addr_cfg {
+	pt_addr_cfg_disabled	= 0,
+	pt_addr_cfg_filter	= 1,
+	pt_addr_cfg_stop	= 2
+};
+
 #endif /* PT_OPCODES_H */
