@@ -774,20 +774,48 @@ static int process_events_before(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
-static int pt_insn_skl014(const struct pt_insn *insn,
-			  const struct pt_insn_ext *iext)
+static int pt_insn_at_skl014(const struct pt_insn *insn,
+			     const struct pt_insn_ext *iext,
+			     const struct pt_config *config)
 {
-	if (!insn || !iext)
-		return 0;
+	uint64_t ip;
+	int status;
+
+	if (!insn || !iext || !config)
+		return -pte_internal;
 
 	switch (insn->iclass) {
-	default:
-		return 0;
-
 	case ptic_call:
 	case ptic_jump:
-		return iext->variant.branch.is_direct;
+		/* The erratum only applies to unconditional direct branches. */
+		if (!iext->variant.branch.is_direct)
+			break;
+
+		/* Without a filter configuration, we bind the event to the
+		 * first matching branch.
+		 */
+		if (!config->addr_filter.config.addr_cfg)
+			return 1;
+
+		/* Otherwise we check the filter against the branch target. */
+		ip = insn->ip;
+		ip += insn->size;
+		ip += iext->variant.branch.displacement;
+
+		status = pt_filter_addr_check(&config->addr_filter, ip);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			return 1;
+		}
+		break;
+
+	default:
+		break;
 	}
+
+	return 0;
 }
 
 static int process_one_event_after(struct pt_insn_decoder *decoder,
@@ -822,7 +850,8 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 								   insn, iext);
 
 			if (decoder->query.config.errata.skl014 &&
-			    pt_insn_skl014(insn, iext))
+			    pt_insn_at_skl014(insn, iext,
+					      &decoder->query.config))
 				return process_sync_disabled_event(decoder,
 								   insn, iext);
 		} else {
