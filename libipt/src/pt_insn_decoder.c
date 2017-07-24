@@ -612,20 +612,52 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	return 0;
 }
 
-static int pt_insn_skl014(const struct pt_insn *insn,
-			  const struct pt_insn_ext *iext)
+static int pt_insn_at_skl014(const struct pt_event *ev,
+			     const struct pt_insn *insn,
+			     const struct pt_insn_ext *iext,
+			     const struct pt_config *config)
 {
-	if (!insn || !iext)
+	uint64_t ip;
+	int status;
+
+	if (!ev || !insn || !iext || !config)
+		return -pte_internal;
+
+	if (!ev->ip_suppressed)
 		return 0;
 
 	switch (insn->iclass) {
-	default:
-		return 0;
-
 	case ptic_call:
 	case ptic_jump:
-		return iext->variant.branch.is_direct;
+		/* The erratum only applies to unconditional direct branches. */
+		if (!iext->variant.branch.is_direct)
+			break;
+
+		/* Without a filter configuration, we bind the event to the
+		 * first matching branch.
+		 */
+		if (!config->addr_filter.config.addr_cfg)
+			return 1;
+
+		/* Otherwise we check the filter against the branch target. */
+		ip = insn->ip;
+		ip += insn->size;
+		ip += iext->variant.branch.displacement;
+
+		status = pt_filter_addr_check(&config->addr_filter, ip);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			return 1;
+		}
+		break;
+
+	default:
+		break;
 	}
+
+	return 0;
 }
 
 static int pt_insn_at_disabled_event(const struct pt_event *ev,
@@ -642,9 +674,9 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 		    pt_insn_changes_cr3(insn, iext))
 			return 1;
 
-		if (config->errata.skl014 && pt_insn_skl014(insn, iext))
+		if (config->errata.skl014 &&
+		    pt_insn_at_skl014(ev, insn, iext, config))
 			return 1;
-
 	} else {
 		switch (insn->iclass) {
 		case ptic_ptwrite:
