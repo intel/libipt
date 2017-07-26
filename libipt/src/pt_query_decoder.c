@@ -40,6 +40,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <limits.h>
 
 
 /* Find a FUP in a PSB+ header.
@@ -2351,39 +2352,54 @@ static int pt_pkt_find_ovf_fup(struct pt_packet_decoder *decoder)
  * Scans the trace for a FUP or for a packet that indicates that tracing is
  * disabled.
  *
- * Return a positive integer if a FUP is found.
+ * Return the relative offset of the packet following the found FUP on success.
  * Returns zero if no FUP is found and tracing is assumed to be disabled.
  * Returns a negative pt_error_code otherwise.
  */
 static int pt_qry_find_ovf_fup(const struct pt_query_decoder *decoder)
 {
 	struct pt_packet_decoder pkt;
-	uint64_t offset;
-	int errcode;
+	uint64_t begin, end, offset;
+	int status;
 
 	if (!decoder)
 		return -pte_internal;
 
-	errcode = pt_qry_get_offset(decoder, &offset);
-	if (errcode < 0)
-		return errcode;
+	status = pt_qry_get_offset(decoder, &begin);
+	if (status < 0)
+		return status;
 
-	errcode = pt_pkt_decoder_init(&pkt, &decoder->config);
-	if (errcode < 0)
-		return errcode;
+	status = pt_pkt_decoder_init(&pkt, &decoder->config);
+	if (status < 0)
+		return status;
 
-	errcode = pt_pkt_sync_set(&pkt, offset);
-	if (errcode >= 0)
-		errcode = pt_pkt_find_ovf_fup(&pkt);
+	status = pt_pkt_sync_set(&pkt, begin);
+	if (status >= 0) {
+		status = pt_pkt_find_ovf_fup(&pkt);
+		if (status > 0) {
+			status = pt_pkt_get_offset(&pkt, &end);
+			if (status < 0)
+				return status;
+
+			if (end <= begin)
+				return -pte_overflow;
+
+			offset = end - begin;
+			if (INT_MAX < offset)
+				return -pte_overflow;
+
+			status = (int) offset;
+		}
+	}
 
 	pt_pkt_decoder_fini(&pkt);
-	return errcode;
+	return status;
 }
 
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
 	struct pt_time time;
-	int status, errcode;
+	int status, errcode, offset;
 
 	if (!decoder)
 		return -pte_internal;
@@ -2417,8 +2433,8 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 	 * as we see a non-timing non-FUP packet, we know that tracing has been
 	 * disabled before the overflow resolves.
 	 */
-	status = pt_qry_find_ovf_fup(decoder);
-	if (status <= 0) {
+	offset = pt_qry_find_ovf_fup(decoder);
+	if (offset <= 0) {
 		/* Check for erratum SKD010.
 		 *
 		 * The FUP may have been dropped.  If we can figure out that
@@ -2439,8 +2455,8 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		 *
 		 * We treat an overflow at the end of the trace as standalone.
 		 */
-		if (status < 0 && status != -pte_eos)
-			return status;
+		if (offset < 0 && offset != -pte_eos)
+			return offset;
 
 		return pt_qry_event_ovf_disabled(decoder);
 	} else
