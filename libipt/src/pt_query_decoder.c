@@ -1867,7 +1867,7 @@ static int pt_qry_event_ovf_enabled(struct pt_query_decoder *decoder)
  *   - set ip to @packet's IP payload
  *   - set tracing to be enabled
  *
- * Returns 1 on success, a negative error code otherwise.
+ * Returns zero on success, a negative error code otherwise.
  */
 static int skd010_recover(struct pt_query_decoder *decoder,
 			  const struct pt_packet_ip *packet,
@@ -1911,16 +1911,10 @@ static int skd010_recover(struct pt_query_decoder *decoder,
 	decoder->time = *time;
 	decoder->tcal = *tcal;
 
-	/* After updating the decoder's time, we can fill in the event
-	 * timestamp.
-	 */
-	errcode = pt_qry_event_time(ev, decoder);
-	if (errcode < 0)
-		return errcode;
-
 	/* Publish the event. */
 	decoder->event = ev;
-	return 1;
+
+	return pt_qry_event_time(ev, decoder);
 }
 
 /* Recover from SKD010 with tracing disabled.
@@ -1933,28 +1927,22 @@ static int skd010_recover(struct pt_query_decoder *decoder,
  *   - set the position to @offset
  *   - set tracing to be disabled
  *
- * Returns 1 on success, a negative error code otherwise.
+ * Returns zero on success, a negative error code otherwise.
  */
 static int skd010_recover_disabled(struct pt_query_decoder *decoder,
 				   const struct pt_time_cal *tcal,
 				   const struct pt_time *time, uint64_t offset)
 {
-	int errcode;
-
 	if (!decoder || !tcal || !time)
 		return -pte_internal;
 
 	decoder->time = *time;
 	decoder->tcal = *tcal;
 
-	errcode = pt_qry_event_ovf_disabled(decoder);
-	if (errcode < 0)
-		return errcode;
-
 	/* We continue decoding at the given offset. */
 	decoder->pos = decoder->config.begin + offset;
 
-	return 1;
+	return pt_qry_event_ovf_disabled(decoder);
 }
 
 /* Scan ahead for a packet at which to resume after an overflow.
@@ -1976,8 +1964,8 @@ static int skd010_recover_disabled(struct pt_query_decoder *decoder,
  * Since this assumes that tracing is disabled, no harm should be done, i.e. no
  * bad trace should be generated.
  *
- * Returns a positive value if the overflow is handled.
- * Returns zero if the overflow is not yet handled.
+ * Returns zero if the overflow is handled.
+ * Returns a positive value if the overflow is not yet handled.
  * Returns a negative error code otherwise.
  */
 static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
@@ -2016,7 +2004,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			 * of packets.
 			 */
 			if (errcode == -pte_eos)
-				errcode = 0;
+				errcode = 1;
 
 			return errcode;
 		}
@@ -2024,7 +2012,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 		switch (packet.type) {
 		case ppt_tip_pge:
 			/* Everything is fine.  There is nothing to do. */
-			return 0;
+			return 1;
 
 		case ppt_tip_pgd:
 			/* This is a clear indication that the erratum
@@ -2044,7 +2032,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			 * many TNT bits will have been used when we eventually
 			 * find an IP packet at which to resume tracing.
 			 */
-			return 0;
+			return 1;
 
 		case ppt_pip:
 		case ppt_vmcs:
@@ -2095,7 +2083,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 				 * fine.
 				 */
 				if (mode_tsx.offset)
-					return 0;
+					return 1;
 
 				/* If we find the FUP this packet binds to, we
 				 * may recover at the FUP IP and restart
@@ -2152,7 +2140,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 				 * Let's assume the trace is correct.
 				 */
 				if (errcode == -pte_eos)
-					errcode = 0;
+					errcode = 1;
 
 				return errcode;
 			}
@@ -2161,7 +2149,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			 * everything is fine.
 			 */
 			if (!errcode)
-				return 0;
+				return 1;
 
 			/* We should have a FUP. */
 			if (packet.type != ppt_fup)
@@ -2182,12 +2170,12 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			/* It doesn't matter if it had been enabled or disabled
 			 * before.  We may resume normally.
 			 */
-			return 0;
+			return 1;
 
 		case ppt_unknown:
 		case ppt_invalid:
 			/* We can't skip this packet. */
-			return 0;
+			return 1;
 
 		case ppt_pad:
 		case ppt_mnt:
@@ -2206,7 +2194,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			/* To skip this packet, we'd need to take care of the
 			 * FUP it binds to.  This is getting complicated.
 			 */
-			return 0;
+			return 1;
 
 		case ppt_ptw:
 			/* We may skip a stand-alone PTW. */
@@ -2216,7 +2204,7 @@ static int skd010_scan_for_ovf_resume(struct pt_packet_decoder *pkt,
 			/* To skip this packet, we'd need to take care of the
 			 * FUP it binds to.  This is getting complicated.
 			 */
-			return 0;
+			return 1;
 
 		case ppt_tsc:
 			/* Keep track of time. */
@@ -2399,7 +2387,7 @@ static int pt_qry_find_ovf_fup(const struct pt_query_decoder *decoder)
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
 	struct pt_time time;
-	int status, errcode, offset;
+	int status, offset;
 
 	if (!decoder)
 		return -pte_internal;
@@ -2442,12 +2430,9 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		 * at a later packet and a different IP.
 		 */
 		if (decoder->config.errata.skd010) {
-			errcode = pt_qry_handle_skd010(decoder);
-			if (errcode < 0)
-				return errcode;
-
-			if (errcode)
-				return 0;
+			status = pt_qry_handle_skd010(decoder);
+			if (status <= 0)
+				return status;
 		}
 
 		/* Report the original error from searching for the FUP packet
