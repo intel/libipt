@@ -531,7 +531,7 @@ struct pt_errata {
 	/** BDM70: Intel(R) Processor Trace PSB+ Packets May Contain
 	 *         Unexpected Packets.
 	 *
-	 * Same as: SKD024, SKL021.
+	 * Same as: SKD024, SKL021, KBL021.
 	 *
 	 * Some Intel Processor Trace packets should be issued only between
 	 * TIP.PGE and TIP.PGD packets.  Due to this erratum, when a TIP.PGE
@@ -554,7 +554,7 @@ struct pt_errata {
 
 	/** SKD007: Intel(R) PT Buffer Overflow May Result in Incorrect Packets.
 	 *
-	 * Same as: SKL049.
+	 * Same as: SKL049, KBL041.
 	 *
 	 * Under complex micro-architectural conditions, an Intel PT (Processor
 	 * Trace) OVF (Overflow) packet may be issued after the first byte of a
@@ -565,7 +565,7 @@ struct pt_errata {
 
 	/** SKD022: VM Entry That Clears TraceEn May Generate a FUP.
 	 *
-	 * Same as: SKL024.
+	 * Same as: SKL024, KBL023.
 	 *
 	 * If VM entry clears Intel(R) PT (Intel Processor Trace)
 	 * IA32_RTIT_CTL.TraceEn (MSR 570H, bit 0) while PacketEn is 1 then a
@@ -577,7 +577,7 @@ struct pt_errata {
 
 	/** SKD010: Intel(R) PT FUP May be Dropped After OVF.
 	 *
-	 * Same as: SKD014, SKL033.
+	 * Same as: SKD014, SKL033, KBL030.
 	 *
 	 * Some Intel PT (Intel Processor Trace) OVF (Overflow) packets may not
 	 * be followed by a FUP (Flow Update Packet) or TIP.PGE (Target IP
@@ -586,6 +586,8 @@ struct pt_errata {
 	uint32_t skd010:1;
 
 	/** SKL014: Intel(R) PT TIP.PGD May Not Have Target IP Payload.
+	 *
+	 * Same as: KBL014.
 	 *
 	 * When Intel PT (Intel Processor Trace) is enabled and a direct
 	 * unconditional branch clears IA32_RTIT_STATUS.FilterEn (MSR 571H, bit
