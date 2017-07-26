@@ -1800,6 +1800,61 @@ static int pt_qry_process_pending_psb_events(struct pt_query_decoder *decoder)
 	return 1;
 }
 
+/* Create a standalone overflow event with tracing disabled.
+ *
+ * Creates and published the event and disables tracing in @decoder.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_qry_event_ovf_disabled(struct pt_query_decoder *decoder)
+{
+	struct pt_event *ev;
+
+	if (!decoder)
+		return -pte_internal;
+
+	ev = pt_evq_standalone(&decoder->evq);
+	if (!ev)
+		return -pte_internal;
+
+	ev->type = ptev_overflow;
+
+	/* We suppress the IP to indicate that tracing has been disabled before
+	 * the overflow resolved.  There can be several events before tracing is
+	 * enabled again.
+	 */
+	ev->ip_suppressed = 1;
+
+	decoder->enabled = 0;
+	decoder->event = ev;
+
+	return pt_qry_event_time(ev, decoder);
+}
+
+/* Queues an overflow event with tracing enabled.
+ *
+ * Creates and enqueues the event and enables tracing in @decoder.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_qry_event_ovf_enabled(struct pt_query_decoder *decoder)
+{
+	struct pt_event *ev;
+
+	if (!decoder)
+		return -pte_internal;
+
+	ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+	if (!ev)
+		return -pte_internal;
+
+	ev->type = ptev_overflow;
+
+	decoder->enabled = 1;
+
+	return pt_qry_event_time(ev, decoder);
+}
+
 /* Recover from SKD010.
  *
  * Creates and publishes an overflow event at @packet's IP payload.
@@ -1883,43 +1938,20 @@ static int skd010_recover_disabled(struct pt_query_decoder *decoder,
 				   const struct pt_time_cal *tcal,
 				   const struct pt_time *time, uint64_t offset)
 {
-	struct pt_event *ev;
 	int errcode;
 
 	if (!decoder || !tcal || !time)
 		return -pte_internal;
 
-	/* Synthesize the overflow event. */
-	ev = pt_evq_standalone(&decoder->evq);
-	if (!ev)
-		return -pte_internal;
-
-	ev->type = ptev_overflow;
-
-	/* We suppress the IP to indicate that tracing has been
-	 * disabled before the overflow resolved.  There can be
-	 * several events before tracing is enabled again.
-	 */
-	ev->ip_suppressed = 1;
-
-	/* We continue decoding at the given offset. */
-	decoder->pos = decoder->config.begin + offset;
-
-	/* Tracing is disabled. */
-	decoder->enabled = 0;
-
 	decoder->time = *time;
 	decoder->tcal = *tcal;
 
-	/* After updating the decoder's time, we can fill in the event
-	 * timestamp.
-	 */
-	errcode = pt_qry_event_time(ev, decoder);
+	errcode = pt_qry_event_ovf_disabled(decoder);
 	if (errcode < 0)
 		return errcode;
 
-	/* Publish the event. */
-	decoder->event = ev;
+	/* We continue decoding at the given offset. */
+	decoder->pos = decoder->config.begin + offset;
 
 	return 1;
 }
@@ -2350,7 +2382,6 @@ static int pt_qry_find_ovf_fup(const struct pt_query_decoder *decoder)
 
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
-	struct pt_event *ev;
 	struct pt_time time;
 	int status, errcode;
 
@@ -2411,32 +2442,9 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 		if (status < 0 && status != -pte_eos)
 			return status;
 
-		ev = pt_evq_standalone(&decoder->evq);
-		if (!ev)
-			return -pte_internal;
-
-		ev->type = ptev_overflow;
-
-		/* We suppress the IP to indicate that tracing has been
-		 * disabled before the overflow resolved.  There can be
-		 * several events before tracing is enabled again.
-		 */
-		ev->ip_suppressed = 1;
-
-		/* Publish the event. */
-		decoder->event = ev;
-	} else {
-		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
-		if (!ev)
-			return -pte_internal;
-
-		ev->type = ptev_overflow;
-
-		/* We set tracing to disabled in pt_qry_reset(); fix it. */
-		decoder->enabled = 1;
-	}
-
-	return pt_qry_event_time(ev, decoder);
+		return pt_qry_event_ovf_disabled(decoder);
+	} else
+		return pt_qry_event_ovf_enabled(decoder);
 }
 
 static int pt_qry_decode_mode_exec(struct pt_query_decoder *decoder,
