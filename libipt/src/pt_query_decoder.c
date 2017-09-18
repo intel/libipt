@@ -288,8 +288,20 @@ static int pt_qry_read_ahead(struct pt_query_decoder *decoder)
 
 		/* Decode status update packets. */
 		errcode = dfun->decode(decoder);
-		if (errcode)
+		if (errcode) {
+			/* Ignore truncated status packets at the end.
+			 *
+			 * Move beyond the packet and clear @decoder->next to
+			 * indicate that we were not able to fetch the next
+			 * packet.
+			 */
+			if (errcode == -pte_eos) {
+				decoder->pos = decoder->config.end;
+				decoder->next = NULL;
+			}
+
 			return errcode;
+		}
 	}
 }
 
