@@ -1115,11 +1115,9 @@ event_async_disabled_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event event;
 	uint64_t at = pt_dfix_sext_ip;
-	const uint8_t *pos;
 	int errcode;
 
 	pt_encode_fup(encoder, at, pt_ipc_sext_48);
-	pos = encoder->pos;
 	pt_encode_tip_pgd(encoder, 0, pt_ipc_update_16);
 
 	ptu_check(cutoff, decoder, encoder);
@@ -1127,7 +1125,6 @@ event_async_disabled_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	ptu_int_eq(errcode, -pte_eos);
-	ptu_ptr_eq(decoder->pos, pos);
 
 	return ptu_passed();
 }
@@ -1138,10 +1135,8 @@ event_async_disabled_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event event;
-	const uint8_t *pos;
 	int errcode;
 
-	pos = encoder->pos;
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
 
 	ptu_check(cutoff, decoder, encoder);
@@ -1149,7 +1144,6 @@ event_async_disabled_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	ptu_int_eq(errcode, -pte_eos);
-	ptu_ptr_eq(decoder->pos, pos);
 
 	return ptu_passed();
 }
@@ -1160,18 +1154,14 @@ event_async_branch_suppressed_fail(struct ptu_decoder_fixture *dfix)
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event event;
-	const uint8_t *pos;
 	int errcode;
 
-	pos = encoder->pos;
 	pt_encode_fup(encoder, 0, pt_ipc_suppressed);
-	pt_encode_tip(encoder, 0, pt_ipc_sext_48);
 
 	ptu_check(ptu_sync_decoder, decoder);
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	ptu_int_eq(errcode, -pte_ip_suppressed);
-	ptu_ptr_eq(decoder->pos, pos);
 
 	return ptu_passed();
 }
@@ -1226,11 +1216,9 @@ event_async_branch_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event event;
-	const uint8_t *pos;
 	int errcode;
 
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
-	pos = encoder->pos;
 	pt_encode_tip_pgd(encoder, 0, pt_ipc_update_16);
 
 	ptu_check(cutoff, decoder, encoder);
@@ -1238,7 +1226,6 @@ event_async_branch_cutoff_fail_a(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	ptu_int_eq(errcode, -pte_eos);
-	ptu_ptr_eq(decoder->pos, pos);
 
 	return ptu_passed();
 }
@@ -1249,10 +1236,8 @@ event_async_branch_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 	struct pt_event event;
-	const uint8_t *pos;
 	int errcode;
 
-	pos = encoder->pos;
 	pt_encode_fup(encoder, 0, pt_ipc_sext_48);
 
 	ptu_check(cutoff, decoder, encoder);
@@ -1260,7 +1245,6 @@ event_async_branch_cutoff_fail_b(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
 	ptu_int_eq(errcode, -pte_eos);
-	ptu_ptr_eq(decoder->pos, pos);
 
 	return ptu_passed();
 }
@@ -2184,6 +2168,71 @@ static struct ptunit_result cbr(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
+/* Test that end-of-stream is indicated correctly when the stream ends with a
+ * partial non-query-relevant packet.
+ */
+static struct ptunit_result indir_cyc_cutoff(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	uint64_t ip;
+	int errcode;
+
+	pt_encode_tip(encoder, 0xa000ull, pt_ipc_full);
+	pt_encode_cyc(encoder, 0xfff);
+
+	ptu_check(cutoff, decoder, encoder);
+	ptu_check(ptu_sync_decoder, decoder);
+
+	errcode = pt_qry_indirect_branch(decoder, &ip);
+	ptu_int_eq(errcode, pts_eos);
+
+	return ptu_passed();
+}
+
+/* Test that end-of-stream is indicated correctly when the stream ends with a
+ * partial non-query-relevant packet.
+ */
+static struct ptunit_result cond_cyc_cutoff(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	int errcode, taken;
+
+	pt_encode_tnt_8(encoder, 0, 1);
+	pt_encode_cyc(encoder, 0xfff);
+
+	ptu_check(cutoff, decoder, encoder);
+	ptu_check(ptu_sync_decoder, decoder);
+
+	errcode = pt_qry_cond_branch(decoder, &taken);
+	ptu_int_eq(errcode, pts_eos);
+
+	return ptu_passed();
+}
+
+/* Test that end-of-stream is indicated correctly when the stream ends with a
+ * partial non-query-relevant packet.
+ */
+static struct ptunit_result event_cyc_cutoff(struct ptu_decoder_fixture *dfix)
+{
+	struct pt_query_decoder *decoder = &dfix->decoder;
+	struct pt_encoder *encoder = &dfix->encoder;
+	struct pt_event event;
+	int errcode;
+
+	pt_encode_tip_pgd(encoder, 0ull, pt_ipc_full);
+	pt_encode_cyc(encoder, 0xffff);
+
+	ptu_check(cutoff, decoder, encoder);
+	ptu_check(ptu_sync_decoder, decoder);
+
+	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_eq(errcode, pts_eos);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result ptu_dfix_init(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_config *config = &dfix->config;
@@ -2840,6 +2889,10 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, cbr_null, dfix_empty);
 	ptu_run_f(suite, cbr_initial, dfix_empty);
 	ptu_run_f(suite, cbr, dfix_empty);
+
+	ptu_run_f(suite, indir_cyc_cutoff, dfix_empty);
+	ptu_run_f(suite, cond_cyc_cutoff, dfix_empty);
+	ptu_run_f(suite, event_cyc_cutoff, dfix_empty);
 
 	return ptunit_report(&suite);
 }
