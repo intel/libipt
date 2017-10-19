@@ -549,8 +549,11 @@ static int load_raw(struct pt_image_section_cache *iscache,
 	int isid, errcode, has_base;
 
 	has_base = extract_base(arg, &base);
-	if (has_base <= 0)
+	if (has_base <= 0) {
+		fprintf(stderr, "%s: failed to parse base address"
+			"from '%s'.\n", prog, arg);
 		return -1;
+	}
 
 	errcode = preprocess_filename(arg, &foffset, &fsize);
 	if (errcode < 0) {
@@ -2164,8 +2167,11 @@ extern int main(int argc, char *argv[])
 			arg = argv[i++];
 
 			errcode = load_raw(decoder.iscache, image, arg, prog);
-			if (errcode < 0)
+			if (errcode < 0) {
+				fprintf(stderr, "%s: --raw: failed to load "
+					"'%s'.\n", prog, arg);
 				goto err;
+			}
 
 			continue;
 		}
