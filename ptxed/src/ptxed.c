@@ -129,6 +129,21 @@ struct ptxed_options {
 	/* Request tick events. */
 	uint32_t enable_tick_events:1;
 
+	/* The user specified the CPU. */
+	uint32_t have_cpu:1;
+
+	/* The user specified the MTC frequency. */
+	uint32_t have_mtc_freq:1;
+
+	/* The user specified the nominal frequency. */
+	uint32_t have_nom_freq:1;
+
+	/* The user specified cpuid[0x15].eax. */
+	uint32_t have_cpuid_0x15_eax:1;
+
+	/* The user specified cpuid[0x15].ebx. */
+	uint32_t have_cpuid_0x15_ebx:1;
+
 #if defined(FEATURE_SIDEBAND)
 	/* Print sideband warnings. */
 	uint32_t print_sb_warnings:1;
@@ -2686,6 +2701,8 @@ extern int main(int argc, char *argv[])
 			}
 			arg = argv[i++];
 
+			options.have_cpu = 1;
+
 			if (strcmp(arg, "auto") == 0) {
 				errcode = pt_cpu_read(&config.cpu);
 				if (errcode < 0) {
@@ -2717,6 +2734,7 @@ extern int main(int argc, char *argv[])
 					   argv[i++], prog))
 				goto err;
 
+			options.have_mtc_freq = 1;
 			continue;
 		}
 		if (strcmp(arg, "--nom-freq") == 0) {
@@ -2724,6 +2742,7 @@ extern int main(int argc, char *argv[])
 					   argv[i++], prog))
 				goto err;
 
+			options.have_nom_freq = 1;
 			continue;
 		}
 		if (strcmp(arg, "--cpuid-0x15.eax") == 0) {
@@ -2732,6 +2751,7 @@ extern int main(int argc, char *argv[])
 					    prog))
 				goto err;
 
+			options.have_cpuid_0x15_eax = 1;
 			continue;
 		}
 		if (strcmp(arg, "--cpuid-0x15.ebx") == 0) {
@@ -2740,6 +2760,7 @@ extern int main(int argc, char *argv[])
 					    prog))
 				goto err;
 
+			options.have_cpuid_0x15_ebx = 1;
 			continue;
 		}
 		if (strcmp(arg, "--verbose") == 0 || strcmp(arg, "-v") == 0) {

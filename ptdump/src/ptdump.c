@@ -100,6 +100,21 @@ struct ptdump_options {
 	/* Don't show CYC packets and ignore them when tracking time. */
 	uint32_t no_cyc:1;
 
+	/* The user specified the CPU. */
+	uint32_t have_cpu:1;
+
+	/* The user specified the MTC frequency. */
+	uint32_t have_mtc_freq:1;
+
+	/* The user specified the nominal frequency. */
+	uint32_t have_nom_freq:1;
+
+	/* The user specified cpuid[0x15].eax. */
+	uint32_t have_cpuid_0x15_eax:1;
+
+	/* The user specified cpuid[0x15].ebx. */
+	uint32_t have_cpuid_0x15_ebx:1;
+
 #if defined(FEATURE_SIDEBAND)
 	/* Print sideband warnings. */
 	uint32_t print_sb_warnings:1;
@@ -1821,6 +1836,8 @@ static int process_args(int argc, char *argv[],
 				return -1;
 			}
 
+			options->have_cpu = 1;
+
 			if (strcmp(arg, "auto") == 0) {
 				errcode = pt_cpu_read(&config->cpu);
 				if (errcode < 0) {
@@ -1849,20 +1866,28 @@ static int process_args(int argc, char *argv[],
 			if (!get_arg_uint8(&config->mtc_freq, "--mtc-freq",
 					   argv[++idx], argv[0]))
 				return -1;
+
+			options->have_mtc_freq = 1;
 		} else if (strcmp(argv[idx], "--nom-freq") == 0) {
 			if (!get_arg_uint8(&config->nom_freq, "--nom-freq",
 					   argv[++idx], argv[0]))
 				return -1;
+
+			options->have_nom_freq = 1;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.eax") == 0) {
 			if (!get_arg_uint32(&config->cpuid_0x15_eax,
 					    "--cpuid-0x15.eax", argv[++idx],
 					    argv[0]))
 				return -1;
+
+			options->have_cpuid_0x15_eax = 1;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.ebx") == 0) {
 			if (!get_arg_uint32(&config->cpuid_0x15_ebx,
 					    "--cpuid-0x15.ebx", argv[++idx],
 					    argv[0]))
 				return -1;
+
+			options->have_cpuid_0x15_ebx = 1;
 		} else
 			return unknown_option_error(argv[idx], argv[0]);
 	}
