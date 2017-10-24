@@ -37,6 +37,10 @@
 #  include "libipt-sb.h"
 #endif
 
+#if defined(FEATURE_ELF)
+# include "pt_elf.h"
+#endif /* defined(FEATURE_ELF) */
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <inttypes.h>
@@ -194,9 +198,9 @@ static int usage(const char *name)
 	return -1;
 }
 
-static int no_file_error(const char *name)
+static int no_trace_error(const char *name)
 {
-	fprintf(stderr, "%s: No processor trace file specified.\n", name);
+	fprintf(stderr, "%s: No trace.\n", name);
 	return -1;
 }
 
@@ -260,6 +264,11 @@ static int help(const char *name)
 	printf("  --nom-freq <n>            set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n");
 	printf("  --cpuid-0x15.eax          set the value of cpuid[0x15].eax.\n");
 	printf("  --cpuid-0x15.ebx          set the value of cpuid[0x15].ebx.\n");
+#if defined(FEATURE_ELF)
+	printf("  --core:list <file>        list available tasks in <file>.\n");
+	printf("  --core:<task> <file>[:<from>[-<to>]]\n");
+	printf("                            load the processor trace for task <task> from <file>.\n");
+#endif /* defined(FEATURE_ELF) */
 	printf("  <ptfile>[:<from>[-<to>]]  load the processor trace data from <ptfile>;\n");
 
 	return 1;
@@ -481,6 +490,86 @@ static int load_pt(struct pt_config *config, const char *filename,
 
 	return 0;
 }
+
+#if defined(FEATURE_ELF)
+
+static int ptdump_load_core(struct pt_config *config, uint32_t task, char *arg,
+			    const struct ptdump_options *options,
+			    const char *prog)
+{
+	struct pt_config uconf;
+	uint64_t offset, size;
+	int errcode;
+
+	if (!config || !arg || !options || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog ? prog : "");
+		return -1;
+	}
+
+	errcode = preprocess_filename(arg, &offset, &size);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
+			pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	uconf = *config;
+
+	errcode = pt_elf_load_trace(config, arg, offset, size, task);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: error reading trace from %s: %s.\n", prog,
+			arg, pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	if (!config->begin) {
+		fprintf(stderr, "%s: no trace for %" PRIu32 " in %s.\n", prog,
+			task, arg);
+
+		return -1;
+	}
+
+	/* The core dump also contains some configuration information.
+	 * Overwrite any user-supplied fields.
+	 */
+	if (options->have_cpu)
+		config->cpu = uconf.cpu;
+
+	if (options->have_mtc_freq)
+		config->mtc_freq = uconf.mtc_freq;
+
+	if (options->have_nom_freq)
+		config->nom_freq = uconf.nom_freq;
+
+	if (options->have_cpuid_0x15_eax)
+		config->cpuid_0x15_eax = uconf.cpuid_0x15_eax;
+
+	if (options->have_cpuid_0x15_ebx)
+		config->cpuid_0x15_ebx = uconf.cpuid_0x15_ebx;
+
+	return 0;
+}
+
+static int ptdump_list_core(const char *arg, const char *prog)
+{
+	int errcode;
+
+	if (!arg || !prog) {
+		fprintf(stderr, "%s: internal error.\n", prog ? prog : "");
+		return -1;
+	}
+
+	errcode = pt_elf_print_tasks_with_trace(stdout, arg);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: error listing tasks from %s: %s.\n", prog,
+			arg, pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	return 0;
+}
+
+#endif /* defined(FEATURE_ELF) */
 
 static int diag(const char *errstr, uint64_t offset, int errcode)
 {
@@ -1680,9 +1769,16 @@ static int process_args(int argc, char *argv[],
 #endif
 	for (idx = 1; idx < argc; ++idx) {
 		if (strncmp(argv[idx], "-", 1) != 0) {
-			*ptfile = argv[idx];
 			if (idx < (argc-1))
 				return usage(argv[0]);
+
+			if (config->begin) {
+				fprintf(stderr, "%s: duplicate trace source.\n",
+					argv[0]);
+				return -1;
+			}
+
+			*ptfile = argv[idx];
 			break;
 		}
 
@@ -1888,7 +1984,57 @@ static int process_args(int argc, char *argv[],
 				return -1;
 
 			options->have_cpuid_0x15_ebx = 1;
-		} else
+		}
+#if defined(FEATURE_ELF)
+		else if (strcmp(argv[idx], "--core:list") == 0) {
+			char *arg;
+
+			arg = argv[++idx];
+			if (!arg) {
+				fprintf(stderr,
+					"%s: %s: missing argument.\n",
+					argv[0], argv[idx-1]);
+				return -1;
+			}
+
+			errcode = ptdump_list_core(arg, argv[0]);
+			if (errcode < 0)
+				return -1;
+
+			return 1;
+		} else if (strncmp(argv[idx], "--core:",
+				   strlen("--core:")) == 0) {
+			uint32_t task;
+			char *arg;
+			int errcode;
+
+			if (!get_arg_uint32(&task, "--core:<task>",
+					    argv[idx] + strlen("--core:"),
+					    argv[0]))
+				return -1;
+
+			arg = argv[++idx];
+			if (!arg) {
+				fprintf(stderr,
+					"%s: %s: missing argument.\n",
+					argv[0], argv[idx-1]);
+				return -1;
+			}
+
+			if (config->begin) {
+				fprintf(stderr,
+					"%s: duplicate trace source.\n",
+					argv[0]);
+				return -1;
+			}
+
+			errcode = ptdump_load_core(config, task, arg, options,
+						   argv[0]);
+			if (errcode < 0)
+				return -1;
+		}
+#endif /* defined(FEATURE_ELF) */
+		else
 			return unknown_option_error(argv[idx], argv[0]);
 	}
 
@@ -1934,15 +2080,21 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (!ptfile) {
-		errcode = no_file_error(argv[0]);
-		goto out;
+	if (ptfile) {
+		errcode = preprocess_filename(ptfile, &pt_offset, &pt_size);
+		if (errcode < 0) {
+			fprintf(stderr, "%s: bad file %s: %s.\n", argv[0],
+				ptfile, pt_errstr(pt_errcode(errcode)));
+			goto out;
+		}
+
+		errcode = load_pt(&config, ptfile, pt_offset, pt_size, argv[0]);
+		if (errcode < 0)
+			goto out;
 	}
 
-	errcode = preprocess_filename(ptfile, &pt_offset, &pt_size);
-	if (errcode < 0) {
-		fprintf(stderr, "%s: bad file %s: %s.\n", argv[0], ptfile,
-			pt_errstr(pt_errcode(errcode)));
+	if (!config.begin) {
+		errcode = no_trace_error(argv[0]);
 		goto out;
 	}
 
@@ -1952,9 +2104,6 @@ int main(int argc, char *argv[])
 			diag("failed to determine errata", 0ull, errcode);
 	}
 
-	errcode = load_pt(&config, ptfile, pt_offset, pt_size, argv[0]);
-	if (errcode < 0)
-		goto out;
 
 #if defined(FEATURE_SIDEBAND)
 	errcode = pt_sb_init_decoders(tracking.session);

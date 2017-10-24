@@ -80,9 +80,9 @@ if (SIDEBAND)
   option(PEVENT "Enable perf_event sideband support." OFF)
 endif (SIDEBAND)
 
-if (PTXED OR PEVENT)
+if (PTXED OR PEVENT OR PTDUMP)
   option(FEATURE_ELF "Support ELF files." OFF)
-endif (PTXED OR PEVENT)
+endif (PTXED OR PEVENT OR PTDUMP)
 
 set(PTT OFF)
 if (BASH AND PTDUMP AND PTXED AND PTTC)

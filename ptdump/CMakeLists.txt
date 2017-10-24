@@ -52,3 +52,8 @@ target_link_libraries(ptdump libipt)
 if (SIDEBAND)
   target_link_libraries(ptdump libipt-sb)
 endif (SIDEBAND)
+
+if (FEATURE_ELF)
+  target_link_libraries(ptdump libipt-elf)
+  target_link_libraries(ptdump elf)
+endif (FEATURE_ELF)
