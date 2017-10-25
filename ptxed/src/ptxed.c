@@ -1965,7 +1965,7 @@ static int get_arg_uint64(uint64_t *value, const char *option, const char *arg,
 		return 0;
 	}
 
-	if (!arg || (arg[0] == '-' && arg[1] == '-')) {
+	if (!arg || arg[0] == 0 || (arg[0] == '-' && arg[1] == '-')) {
 		fprintf(stderr, "%s: %s: missing argument.\n", prog, option);
 		return 0;
 	}
