@@ -247,7 +247,7 @@ static int help(const char *name)
 	printf("  --cpuid-0x15.ebx          set the value of cpuid[0x15].ebx.\n");
 	printf("  <ptfile>[:<from>[-<to>]]  load the processor trace data from <ptfile>;\n");
 
-	return 0;
+	return 1;
 }
 
 static int version(const char *name)
@@ -257,7 +257,8 @@ static int version(const char *name)
 	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
 	       name, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
 	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
-	return 0;
+
+	return 1;
 }
 
 static int parse_range(const char *arg, uint64_t *begin, uint64_t *end)
@@ -1652,8 +1653,10 @@ static int process_args(int argc, char *argv[],
 #endif
 	int idx, errcode;
 
-	if (!argv || !tracking || !options || !config || !ptfile)
-		return -pte_internal;
+	if (!argv || !tracking || !options || !config || !ptfile) {
+		fprintf(stderr, "%s: internal error.\n", argv ? argv[0] : "");
+		return -1;
+	}
 
 #if defined(FEATURE_SIDEBAND) && defined(FEATURE_PEVENT)
 	memset(&pevent, 0, sizeof(pevent));
@@ -1699,7 +1702,7 @@ static int process_args(int argc, char *argv[],
 			if (options->show_tcal) {
 				fprintf(stderr, "%s: specify either --time "
 					"or --tcal.\n", argv[0]);
-				return 1;
+				return -1;
 			}
 
 			options->track_time = 1;
@@ -1710,7 +1713,7 @@ static int process_args(int argc, char *argv[],
 			if (options->show_time) {
 				fprintf(stderr, "%s: specify either --time "
 					"or --tcal.\n", argv[0]);
-				return 1;
+				return -1;
 			}
 
 			options->track_time = 1;
@@ -1746,13 +1749,13 @@ static int process_args(int argc, char *argv[],
 				fprintf(stderr,
 					"%s: %s: missing argument.\n",
 					argv[0], argv[idx-1]);
-				return 1;
+				return -1;
 			}
 
 			errcode = ptdump_sb_pevent(tracking->session, arg,
 						   &pevent, argv[0]);
 			if (errcode < 0)
-				return 1;
+				return -1;
 
 			/* We need to keep track of time for sideband
 			 * correlation.
@@ -1762,32 +1765,32 @@ static int process_args(int argc, char *argv[],
 			if (!get_arg_uint64(&pevent.sample_type,
 					    "--pevent:sample-type",
 					    argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--pevent:time-zero") == 0) {
 			if (!get_arg_uint64(&pevent.time_zero,
 					    "--pevent:time-zero",
 					    argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--pevent:time-shift") == 0) {
 			if (!get_arg_uint16(&pevent.time_shift,
 					    "--pevent:time-shift",
 					    argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--pevent:time-mult") == 0) {
 			if (!get_arg_uint32(&pevent.time_mult,
 					    "--pevent:time-mult",
 					    argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--pevent:tsc-offset") == 0) {
 			if (!get_arg_uint64(&pevent.tsc_offset,
 					    "--pevent:tsc-offset",
 					    argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--pevent:kernel-start") == 0) {
 			if (!get_arg_uint64(&pevent.kernel_start,
 					    "--pevent:kernel-start",
 					    argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if ((strcmp(argv[idx], "--pevent:sysroot") == 0) ||
 			   (strcmp(argv[idx], "--pevent:kcore") == 0) ||
 			   (strcmp(argv[idx], "--pevent:vdso-x64") == 0) ||
@@ -1800,7 +1803,7 @@ static int process_args(int argc, char *argv[],
 				fprintf(stderr,
 					"%s: %s: missing argument.\n",
 					argv[0], argv[idx-1]);
-				return 1;
+				return -1;
 			}
 
 			/* Ignore. */
@@ -1815,7 +1818,7 @@ static int process_args(int argc, char *argv[],
 				fprintf(stderr,
 					"%s: --cpu: missing argument.\n",
 					argv[0]);
-				return 1;
+				return -1;
 			}
 
 			if (strcmp(arg, "auto") == 0) {
@@ -1825,7 +1828,7 @@ static int process_args(int argc, char *argv[],
 						"%s: error reading cpu: %s.\n",
 						argv[0],
 						pt_errstr(pt_errcode(errcode)));
-					return 1;
+					return -1;
 				}
 				continue;
 			}
@@ -1840,26 +1843,26 @@ static int process_args(int argc, char *argv[],
 				fprintf(stderr,
 					"%s: cpu must be specified as f/m[/s]\n",
 					argv[0]);
-				return 1;
+				return -1;
 			}
 		} else if (strcmp(argv[idx], "--mtc-freq") == 0) {
 			if (!get_arg_uint8(&config->mtc_freq, "--mtc-freq",
 					   argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--nom-freq") == 0) {
 			if (!get_arg_uint8(&config->nom_freq, "--nom-freq",
 					   argv[++idx], argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.eax") == 0) {
 			if (!get_arg_uint32(&config->cpuid_0x15_eax,
 					    "--cpuid-0x15.eax", argv[++idx],
 					    argv[0]))
-				return 1;
+				return -1;
 		} else if (strcmp(argv[idx], "--cpuid-0x15.ebx") == 0) {
 			if (!get_arg_uint32(&config->cpuid_0x15_ebx,
 					    "--cpuid-0x15.ebx", argv[++idx],
 					    argv[0]))
-				return 1;
+				return -1;
 		} else
 			return unknown_option_error(argv[idx], argv[0]);
 	}
@@ -1900,8 +1903,11 @@ int main(int argc, char *argv[])
 
 	errcode = process_args(argc, argv, &tracking, &options, &config,
 			       &ptfile);
-	if (errcode < 0)
+	if (errcode != 0) {
+		if (errcode > 0)
+			errcode = 0;
 		goto out;
+	}
 
 	if (!ptfile) {
 		errcode = no_file_error(argv[0]);
