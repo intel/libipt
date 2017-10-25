@@ -297,6 +297,9 @@ static void help(const char *name)
 #if defined(FEATURE_ELF)
 	printf("  --elf <<file>[:<base>]               load an ELF from <file> at address <base>.\n");
 	printf("                                       use the default load address if <base> is omitted.\n");
+	printf("  --core:list <file>                   list available tasks in <file>.\n");
+	printf("  --core:<task> <file>[:<from>[-<to>]]\n");
+	printf("                                       load the processor trace for task <task> from <file>.\n");
 #endif /* defined(FEATURE_ELF) */
 	printf("  --raw <file>[:<from>[-<to>]]:<base>  load a raw binary from <file> at address <base>.\n");
 	printf("                                       an optional offset or range can be given.\n");
@@ -315,11 +318,12 @@ static void help(const char *name)
 	printf("  --block:end-on-jump                  set the end-on-jump block decoder flag.\n");
 	printf("\n");
 #if defined(FEATURE_ELF)
-	printf("You must specify at least one binary or ELF file (--raw|--elf).\n");
+	printf("You must specify at least one binary or ELF file (--raw|--elf|--core).\n");
+	printf("You must specify exactly one processor trace file (--pt|--core).\n");
 #else /* defined(FEATURE_ELF) */
 	printf("You must specify at least one binary file (--raw).\n");
-#endif /* defined(FEATURE_ELF) */
 	printf("You must specify exactly one processor trace file (--pt).\n");
+#endif /* defined(FEATURE_ELF) */
 }
 
 static int extract_base(char *arg, uint64_t *base)
@@ -598,6 +602,63 @@ static int load_raw(struct pt_image_section_cache *iscache,
 
 	return 0;
 }
+
+#if defined(FEATURE_ELF)
+
+static int ptxed_load_core(struct pt_image_section_cache *iscache,
+			   struct pt_image *image, struct pt_config *config,
+			   const struct ptxed_options *options,
+			   uint32_t task, char *arg, const char *prog)
+{
+	struct pt_config uconf;
+	uint64_t offset, size;
+	uint32_t flags;
+	int errcode;
+
+	errcode = preprocess_filename(arg, &offset, &size);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
+			pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	uconf = *config;
+
+	flags = 0;
+	if (options->track_image)
+		flags |= pte_verbose;
+
+	errcode = pt_elf_load_core(iscache, image, config, arg, offset, size,
+				   task, flags);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: error reading trace from %s: %s.\n", prog,
+			arg, pt_errstr(pt_errcode(errcode)));
+
+		return -1;
+	}
+
+	/* The core dump also contains some configuration information.
+	 * Overwrite any user-supplied fields.
+	 */
+	if (options->have_cpu)
+		config->cpu = uconf.cpu;
+
+	if (options->have_mtc_freq)
+		config->mtc_freq = uconf.mtc_freq;
+
+	if (options->have_nom_freq)
+		config->nom_freq = uconf.nom_freq;
+
+	if (options->have_cpuid_0x15_eax)
+		config->cpuid_0x15_eax = uconf.cpuid_0x15_eax;
+
+	if (options->have_cpuid_0x15_ebx)
+		config->cpuid_0x15_ebx = uconf.cpuid_0x15_ebx;
+
+	return 0;
+}
+
+#endif /* defined(FEATURE_ELF) */
 
 static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 {
@@ -2251,6 +2312,62 @@ extern int main(int argc, char *argv[])
 					pt_errstr(pt_errcode(errcode)));
 				goto err;
 			}
+
+			continue;
+		}
+		if (strcmp(arg, "--core:list") == 0) {
+			if (argc <= i) {
+				fprintf(stderr, "%s: %s: missing argument.\n",
+					prog, arg);
+				goto err;
+			}
+			arg = argv[i++];
+
+			errcode = pt_elf_print_tasks_with_trace(stdout, arg);
+			if (errcode < 0) {
+				fprintf(stderr, "%s: error listing tasks from "
+					"%s: %s.\n", prog, arg,
+					pt_errstr(pt_errcode(errcode)));
+				goto err;
+			}
+
+			goto out;
+		}
+		if (strncmp(arg, "--core:", strlen("--core:")) == 0) {
+			uint32_t task;
+
+			if (!get_arg_uint32(&task, "--core:<task>",
+					    arg + strlen("--core:"), prog))
+				goto err;
+
+			if (argc <= i) {
+				fprintf(stderr, "%s: %s: missing argument.\n",
+					prog, arg);
+				goto err;
+			}
+			arg = argv[i++];
+
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: duplicate pt sources: %s.\n",
+					prog, arg);
+				goto err;
+			}
+
+			errcode = ptxed_load_core(decoder.iscache, image,
+						  &config, &options, task,
+						  arg, prog);
+			if (errcode < 0)
+				goto err;
+
+			errcode = pt_cpu_errata(&config.errata, &config.cpu);
+			if (errcode < 0)
+				goto err;
+
+			errcode = alloc_decoder(&decoder, &config, image,
+						&options, prog);
+			if (errcode < 0)
+				goto err;
 
 			continue;
 		}
