@@ -157,7 +157,7 @@ static int load_elf32(struct pt_image_section_cache *iscache,
 		sections += 1;
 
 		if (verbose) {
-			printf("%s: phdr %u [%s]", prog, pidx, name);
+			printf("%s:", name);
 			printf(" offset=0x%" PRIx32, phdr.p_offset);
 			printf(" size=0x%" PRIx32, phdr.p_filesz);
 			printf(" vaddr=0x%" PRIx32, phdr.p_vaddr);
@@ -280,7 +280,7 @@ static int load_elf64(struct pt_image_section_cache *iscache,
 		sections += 1;
 
 		if (verbose) {
-			printf("%s: phdr %u [%s]", prog, pidx, name);
+			printf("%s:", name);
 			printf(" offset=0x%" PRIx64, phdr.p_offset);
 			printf(" size=0x%" PRIx64, phdr.p_filesz);
 			printf(" vaddr=0x%" PRIx64, phdr.p_vaddr);
