@@ -83,6 +83,9 @@ struct ptxed_decoder {
 
 /* A collection of options. */
 struct ptxed_options {
+	/* The sysroot given by the user. */
+	const char *sysroot;
+
 #if defined(FEATURE_SIDEBAND)
 	/* Sideband dump flags. */
 	uint32_t sb_dump_flags;
@@ -264,6 +267,7 @@ static void help(const char *name)
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
+	printf("  --sysroot <path>                     prepend <path> to filenames from sideband or objects.\n");
 #if defined(FEATURE_SIDEBAND)
 	printf("  --sb:compact | --sb                  show sideband records in compact format.\n");
 	printf("  --sb:verbose                         show sideband records in verbose format.\n");
@@ -282,7 +286,6 @@ static void help(const char *name)
 	printf("  --pevent:time-mult <val>    set perf_event_mmap_page.time_mult to <val> (default: 1).\n");
 	printf("  --pevent:tsc-offset <val>   show perf events <val> ticks earlier.\n");
 	printf("  --pevent:kernel-start <val> the start address of the kernel.\n");
-	printf("  --pevent:sysroot <path>     prepend <path> to sideband filenames.\n");
 #if defined(FEATURE_ELF)
 	printf("  --pevent:kcore <file>       load the kernel from a core dump.\n");
 #endif /* defined(FEATURE_ELF) */
@@ -2003,13 +2006,14 @@ static int ptxed_print_switch(const struct pt_sb_context *context, void *priv)
 #if defined(FEATURE_PEVENT)
 
 static int ptxed_sb_pevent(struct ptxed_decoder *decoder, char *filename,
+			   const struct ptxed_options *options,
 			   const char *prog)
 {
 	struct pt_sb_pevent_config config;
 	uint64_t foffset, fsize, fend;
 	int errcode;
 
-	if (!decoder || !prog) {
+	if (!decoder || !options || !prog) {
 		fprintf(stderr, "%s: internal error.\n", prog ? prog : "?");
 		return -1;
 	}
@@ -2029,6 +2033,7 @@ static int ptxed_sb_pevent(struct ptxed_decoder *decoder, char *filename,
 
 	config = decoder->pevent;
 	config.filename = filename;
+	config.sysroot = options->sysroot;
 	config.begin = (size_t) foffset;
 	config.end = 0;
 
@@ -2608,6 +2613,17 @@ extern int main(int argc, char *argv[])
 			stats.flags |= ptxed_stat_blocks;
 			continue;
 		}
+		if (strcmp(arg, "--sysroot") == 0) {
+			arg = argv[i++];
+			if (!arg) {
+				fprintf(stderr, "%s: --sysroot: "
+					"missing argument.\n", prog);
+				goto err;
+			}
+
+			options.sysroot = arg;
+			continue;
+		}
 #if defined(FEATURE_SIDEBAND)
 		if ((strcmp(arg, "--sb:compact") == 0) ||
 		    (strcmp(arg, "--sb") == 0)) {
@@ -2651,7 +2667,8 @@ extern int main(int argc, char *argv[])
 			}
 
 			decoder.pevent.primary = 1;
-			errcode = ptxed_sb_pevent(&decoder, arg, prog);
+			errcode = ptxed_sb_pevent(&decoder, arg, &options,
+						  prog);
 			if (errcode < 0)
 				goto err;
 
@@ -2666,7 +2683,8 @@ extern int main(int argc, char *argv[])
 			}
 
 			decoder.pevent.primary = 0;
-			errcode = ptxed_sb_pevent(&decoder, arg, prog);
+			errcode = ptxed_sb_pevent(&decoder, arg, &options,
+						  prog);
 			if (errcode < 0)
 				goto err;
 
@@ -2718,17 +2736,6 @@ extern int main(int argc, char *argv[])
 					    argv[i++], prog))
 				goto err;
 
-			continue;
-		}
-		if (strcmp(arg, "--pevent:sysroot") == 0) {
-			arg = argv[i++];
-			if (!arg) {
-				fprintf(stderr, "%s: --pevent:sysroot: "
-					"missing argument.\n", prog);
-				goto err;
-			}
-
-			decoder.pevent.sysroot = arg;
 			continue;
 		}
 #if defined(FEATURE_ELF)

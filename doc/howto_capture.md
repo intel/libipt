@@ -472,14 +472,14 @@ To decode the recorded trace on a different system, we copy all the files
 referenced in the trace to the system on which the trace is being decoded and
 point ptxed to the respective root directory using the option:
 
-  * --pevent:sysroot
+  * --sysroot
 
 
 Ptxed will prepend the sysroot directory to every filename referenced in
 `PERF_RECORD_MMAP` and `PERF_RECORD_MMAP2` records.
 
-Note that like most configuration options, the `--pevent.sysroot` option needs
-to precede `--pevent:primary` and `-pevent:secondary` options.
+Note that like most configuration options, the `--sysroot` option needs to
+precede `--pevent:primary` and `-pevent:secondary` options.
 
 
 We can extract the referenced file names from `PERF_RECORD_MMAP` and

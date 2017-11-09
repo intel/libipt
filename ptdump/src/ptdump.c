@@ -232,6 +232,7 @@ static int help(const char *name)
 	printf("  --no-tcal                 skip timing calibration.\n");
 	printf("                            this will result in errors when CYC packets are encountered.\n");
 	printf("  --no-wall-clock           suppress the no-time error and print relative time.\n");
+	printf("  --sysroot <path>          ignored.\n");
 #if defined(FEATURE_SIDEBAND)
 	printf("  --sb:compact | --sb       show sideband records in compact format.\n");
 	printf("  --sb:verbose              show sideband records in verbose format.\n");
@@ -249,7 +250,6 @@ static int help(const char *name)
 	printf("  --pevent:time-mult <val>    set perf_event_mmap_page.time_mult to <val> (default: 1).\n");
 	printf("  --pevent:tsc-offset <val>   show perf events <val> ticks earlier.\n");
 	printf("  --pevent:kernel-start <val> the start address of the kernel.\n");
-	printf("  --pevent:sysroot <path>     ignored.\n");
 	printf("  --pevent:kcore <file>       ignored.\n");
 	printf("  --pevent:vdso-x64 <file>    ignored.\n");
 	printf("  --pevent:vdso-x32 <file>    ignored.\n");
@@ -1833,6 +1833,19 @@ static int process_args(int argc, char *argv[],
 			options->no_tcal = 1;
 		else if (strcmp(argv[idx], "--no-wall-clock") == 0)
 			options->no_wall_clock = 1;
+		else if (strcmp(argv[idx], "--sysroot") == 0) {
+			char *arg;
+
+			arg = argv[++idx];
+			if (!arg) {
+				fprintf(stderr,
+					"%s: %s: missing argument.\n",
+					argv[0], argv[idx-1]);
+				return -1;
+			}
+
+			/* Ignore. */
+		}
 #if defined(FEATURE_SIDEBAND)
 		else if ((strcmp(argv[idx], "--sb:compact") == 0) ||
 			 (strcmp(argv[idx], "--sb") == 0)) {
@@ -1902,8 +1915,7 @@ static int process_args(int argc, char *argv[],
 					    "--pevent:kernel-start",
 					    argv[++idx], argv[0]))
 				return -1;
-		} else if ((strcmp(argv[idx], "--pevent:sysroot") == 0) ||
-			   (strcmp(argv[idx], "--pevent:kcore") == 0) ||
+		} else if ((strcmp(argv[idx], "--pevent:kcore") == 0) ||
 			   (strcmp(argv[idx], "--pevent:vdso-x64") == 0) ||
 			   (strcmp(argv[idx], "--pevent:vdso-x32") == 0) ||
 			   (strcmp(argv[idx], "--pevent:vdso-ia32") == 0)) {

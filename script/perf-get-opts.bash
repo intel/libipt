@@ -154,7 +154,7 @@ perf evlist -v -i $file | grep intel_pt | gawk -F' ' -- '
 '
 
 if [[ -n "$sysroot" ]]; then
-    echo -n " --pevent:sysroot $sysroot"
+    echo -n " --sysroot $sysroot"
 
     if [[ -r "$sysroot/vdso/vdso-x64.so" ]]; then
         echo -n " --pevent:vdso-x64 $sysroot/vdso/vdso-x64.so"
