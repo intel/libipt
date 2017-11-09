@@ -55,6 +55,8 @@ enum pt_elf_flags {
  *
  * If @iscache is not NULL, adds sections to @iscache and from there to @image.
  *
+ * If @sysroot is not NULL, prepends it to sections added from file notes.
+ *
  * Returns the number of added image sections on success, a negative
  * pt_error_code otherwise.
  * Returns -pte_internal if @image or @filename is NULL.
@@ -63,7 +65,8 @@ enum pt_elf_flags {
  */
 extern int pt_elf_load_segments(struct pt_image_section_cache *iscache,
 				struct pt_image *image, const char *filename,
-				uint64_t base, uint32_t flags);
+				uint64_t base, const char *sysroot,
+				uint32_t flags);
 
 /* Load trace from a coredump note of an ELF file.
  *
@@ -103,6 +106,8 @@ extern int pt_elf_load_trace(struct pt_config *config, const char *filename,
  *
  * If @iscache is not NULL, adds sections to @iscache and from there to @image.
  *
+ * If @sysroot is not NULL, prepends it to sections added from file notes.
+ *
  * Returns 0 on success, a negative pt_error_code otherwise.
  * Returns -pte_internal if @config or @filename is NULL.
  * Returns -pte_invalid if @filename does not contain trace for @task.
@@ -114,7 +119,8 @@ extern int pt_elf_load_trace(struct pt_config *config, const char *filename,
 extern int pt_elf_load_core(struct pt_image_section_cache *iscache,
 			    struct pt_image *image, struct pt_config *config,
 			    const char *filename, uint64_t offset,
-			    uint64_t size, uint32_t task, uint32_t flags);
+			    uint64_t size, const char *sysroot, uint32_t task,
+			    uint32_t flags);
 
 /* Print tasks for which trace is available in @filename into @stream.
  *

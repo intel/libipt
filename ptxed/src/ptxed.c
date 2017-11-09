@@ -83,7 +83,7 @@ struct ptxed_decoder {
 
 /* A collection of options. */
 struct ptxed_options {
-	/* The sysroot given by the user. */
+	/* The sysroot specified by the user. */
 	const char *sysroot;
 
 #if defined(FEATURE_SIDEBAND)
@@ -632,7 +632,7 @@ static int ptxed_load_core(struct pt_image_section_cache *iscache,
 		flags |= pte_verbose;
 
 	errcode = pt_elf_load_core(iscache, image, config, arg, offset, size,
-				   task, flags);
+				   options->sysroot, task, flags);
 	if (errcode < 0) {
 		fprintf(stderr, "%s: error reading trace from %s: %s.\n", prog,
 			arg, pt_errstr(pt_errcode(errcode)));
@@ -2310,7 +2310,8 @@ extern int main(int argc, char *argv[])
 				flags |= pte_verbose;
 
 			errcode = pt_elf_load_segments(decoder.iscache, image,
-						       arg, base, flags);
+						       arg, base,
+						       options.sysroot, flags);
 			if (errcode < 0) {
 				fprintf(stderr, "%s: error reading %s: %s.\n",
 					prog, arg,
@@ -2766,7 +2767,8 @@ extern int main(int argc, char *argv[])
 				flags |= pte_verbose;
 
 			errcode = pt_elf_load_segments(decoder.iscache, kernel,
-						       arg, base, flags);
+						       arg, base,
+						       options.sysroot, flags);
 			if (errcode < 0)
 				goto err;
 

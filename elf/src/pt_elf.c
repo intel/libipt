@@ -46,6 +46,9 @@
 
 #include "intel-pt.h"
 
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#  define snprintf _snprintf_c
+#endif
 
 #ifndef NT_FILE
 #  define NT_FILE	0x46494c45
@@ -569,7 +572,48 @@ static int pt_elf_read_sections(struct pt_elf *elf)
 	return 0;
 }
 
-static int pt_elf_fixup_external_segments(struct pt_elf *elf)
+static int pt_elf_filename(char **pfilename, const char *base,
+			   const char *sysroot)
+{
+	size_t size, bsize, rsize;
+	char *filename;
+	int errcode;
+
+	if (!pfilename || !base)
+		return -pte_internal;
+
+	if (!sysroot)
+		sysroot = "";
+
+	rsize = strnlen(sysroot, PATH_MAX);
+	if (PATH_MAX <= rsize)
+		return -pte_invalid;
+
+	bsize = strnlen(base, PATH_MAX);
+	if (PATH_MAX <= bsize)
+		return -pte_bad_file;
+
+	size = rsize + bsize + 1;
+	if (PATH_MAX < size || size <= bsize || size <= rsize)
+		return -pte_invalid;
+
+	filename = malloc(size);
+	if (!filename)
+		return -pte_nomem;
+
+	errcode = snprintf(filename, size, "%s%s", sysroot, base);
+	if (errcode < 0) {
+		free(filename);
+		return -pte_overflow;
+	}
+
+	*pfilename = filename;
+
+	return 0;
+}
+
+static int pt_elf_fixup_external_segments(struct pt_elf *elf,
+					  const char *sysroot)
 {
 	struct pt_elf_segment *seg;
 
@@ -597,13 +641,14 @@ static int pt_elf_fixup_external_segments(struct pt_elf *elf)
 				return -pte_internal;
 
 			if (fbegin <= sbegin && fend == send) {
-				char *filename;
+				int errcode;
 
-				filename = dupstr(file->filename);
-				if (!filename)
-					return -pte_nomem;
+				errcode = pt_elf_filename(&seg->filename,
+							  file->filename,
+							  sysroot);
+				if (errcode < 0)
+					return errcode;
 
-				seg->filename = filename;
 				seg->offset = file->offset + (sbegin - fbegin);
 			}
 		}
@@ -612,7 +657,7 @@ static int pt_elf_fixup_external_segments(struct pt_elf *elf)
 	return 0;
 }
 
-static int pt_elf_read(struct pt_elf *elf)
+static int pt_elf_read(struct pt_elf *elf, const char *sysroot)
 {
 	int errcode;
 
@@ -624,7 +669,7 @@ static int pt_elf_read(struct pt_elf *elf)
 	if (errcode < 0)
 		return errcode;
 
-	errcode = pt_elf_fixup_external_segments(elf);
+	errcode = pt_elf_fixup_external_segments(elf, sysroot);
 	if (errcode < 0)
 		return errcode;
 
@@ -694,7 +739,7 @@ static int pt_elf_add_segments(struct pt_image_section_cache *iscache,
 
 int pt_elf_load_segments(struct pt_image_section_cache *iscache,
 			 struct pt_image *image, const char *filename,
-			 uint64_t base, uint32_t flags)
+			 uint64_t base, const char *sysroot, uint32_t flags)
 {
 	struct pt_elf elf;
 	int status;
@@ -703,7 +748,7 @@ int pt_elf_load_segments(struct pt_image_section_cache *iscache,
 	if (status < 0)
 		return status;
 
-	status = pt_elf_read(&elf);
+	status = pt_elf_read(&elf, sysroot);
 	if (status >= 0)
 		status = pt_elf_add_segments(iscache, image, &elf, base, flags);
 
@@ -991,7 +1036,7 @@ int pt_elf_load_trace(struct pt_config *config, const char *filename,
 	if (status < 0)
 		return status;
 
-	status = pt_elf_read(&elf);
+	status = pt_elf_read(&elf, NULL);
 	if (status >= 0)
 		status = pt_elf_read_trace(config, &elf, offset, size, task);
 
@@ -1002,7 +1047,7 @@ int pt_elf_load_trace(struct pt_config *config, const char *filename,
 int pt_elf_load_core(struct pt_image_section_cache *iscache,
 		     struct pt_image *image, struct pt_config *config,
 		     const char *filename, uint64_t offset, uint64_t size,
-		     uint32_t task, uint32_t flags)
+		     const char *sysroot, uint32_t task, uint32_t flags)
 {
 	struct pt_elf elf;
 	int status;
@@ -1011,7 +1056,7 @@ int pt_elf_load_core(struct pt_image_section_cache *iscache,
 	if (status < 0)
 		return status;
 
-	status = pt_elf_read(&elf);
+	status = pt_elf_read(&elf, sysroot);
 	if (status >= 0) {
 		status = pt_elf_read_trace(config, &elf, offset, size, task);
 		if (status >= 0)
@@ -1059,7 +1104,7 @@ int pt_elf_print_tasks_with_trace(FILE *stream, const char *filename)
 	if (status < 0)
 		return status;
 
-	status = pt_elf_read(&elf);
+	status = pt_elf_read(&elf, NULL);
 	if (status >= 0)
 		status = pt_elf_print_tasks(stream, &elf);
 
