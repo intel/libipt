@@ -37,6 +37,7 @@
 #endif /* defined(FEATURE_THREADS) */
 
 struct pt_block_cache;
+struct pt_image_section_cache;
 
 
 /* A section of contiguous memory loaded from a file. */
@@ -75,6 +76,17 @@ struct pt_section {
 	 */
 	struct pt_block_cache *bcache;
 
+	/* A pointer to the iscache attached to this section.
+	 *
+	 * The pointer is initialized when the iscache attaches and cleared when
+	 * it detaches again.  There can be at most one iscache attached to this
+	 * section at any time.
+	 *
+	 * When attaching, the iscache will also obtain a reference to the
+	 * section, which it will drop again when detaching.
+	 */
+	struct pt_image_section_cache *iscache;
+
 	/* A pointer to the unmap function - NULL if the section is currently
 	 * not mapped.
 	 *
@@ -99,10 +111,23 @@ struct pt_section {
 	 * actual locking should be handled by pt_section_* functions.
 	 */
 	mtx_t lock;
+
+	/* A lock protecting the @iscache and @acount fields.
+	 *
+	 * We need separate locks to protect against a deadlock scenario when
+	 * the iscache is mapping or unmapping this section.
+	 *
+	 * The attach lock must not be taken while holding the section lock; the
+	 * other way round is OK.
+	 */
+	mtx_t alock;
 #endif /* defined(FEATURE_THREADS) */
 
 	/* The number of current users.  The last user destroys the section. */
 	uint16_t ucount;
+
+	/* The number of attaches.  This must be <= @ucount. */
+	uint16_t acount;
 
 	/* The number of current mappers.  The last unmaps the section. */
 	uint16_t mcount;
@@ -187,6 +212,32 @@ extern int pt_section_get(struct pt_section *section);
  * Returns -pte_bad_lock on any locking error.
  */
 extern int pt_section_put(struct pt_section *section);
+
+/* Attaches the image section cache user.
+ *
+ * Similar to pt_section_get() but sets @section->iscache to @iscache.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section or @iscache is NULL.
+ * Returns -pte_internal if a different cache is already attached.
+ * Returns -pte_overflow if the attach count would overflow.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_attach(struct pt_section *section,
+			     struct pt_image_section_cache *iscache);
+
+/* Detaches the image section cache user.
+ *
+ * Similar to pt_section_put() but clears @section->iscache.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section or @iscache is NULL.
+ * Returns -pte_internal if the attach count is already zero.
+ * Returns -pte_internal if @section->iscache is not equal to @iscache.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_detach(struct pt_section *section,
+			     struct pt_image_section_cache *iscache);
 
 /* Return the filename of @section. */
 extern const char *pt_section_filename(const struct pt_section *section);

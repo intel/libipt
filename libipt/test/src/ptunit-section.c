@@ -38,6 +38,11 @@
 #include <stdio.h>
 
 
+
+struct pt_image_section_cache {
+	int dummy;
+};
+
 struct pt_block_cache *pt_bcache_alloc(uint64_t nentries)
 {
 	struct pt_block_cache *bcache;
@@ -238,6 +243,42 @@ static struct ptunit_result put_null(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result attach_null(void)
+{
+	struct pt_image_section_cache iscache;
+	struct pt_section section;
+	int errcode;
+
+	errcode = pt_section_attach(NULL, &iscache);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_attach(&section, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_attach(NULL, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result detach_null(void)
+{
+	struct pt_image_section_cache iscache;
+	struct pt_section section;
+	int errcode;
+
+	errcode = pt_section_detach(NULL, &iscache);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_detach(&section, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_detach(NULL, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result map_null(void)
 {
 	int errcode;
@@ -281,6 +322,27 @@ static struct ptunit_result get_overflow(struct section_fixture *sfix)
 	sfix->section->ucount = UINT16_MAX;
 
 	errcode = pt_section_get(sfix->section);
+	ptu_int_eq(errcode, -pte_overflow);
+
+	sfix->section->ucount = 1;
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_overflow(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	sfix->section->ucount = UINT16_MAX;
+
+	errcode = pt_section_attach(sfix->section, &iscache);
 	ptu_int_eq(errcode, -pte_overflow);
 
 	sfix->section->ucount = 1;
@@ -384,6 +446,78 @@ static struct ptunit_result get_put(struct section_fixture *sfix)
 	ptu_int_eq(errcode, 0);
 
 	errcode = pt_section_put(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_detach(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_bad_iscache(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache, bad;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_attach(sfix->section, &bad);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result detach_bad_iscache(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache, bad;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_detach(sfix->section, &bad);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
 	ptu_int_eq(errcode, 0);
 
 	return ptu_passed();
@@ -993,16 +1127,22 @@ int main(int argc, char **argv)
 	ptu_run(suite, size_null);
 	ptu_run(suite, get_null);
 	ptu_run(suite, put_null);
+	ptu_run(suite, attach_null);
+	ptu_run(suite, detach_null);
 	ptu_run(suite, map_null);
 	ptu_run(suite, unmap_null);
 	ptu_run(suite, cache_null);
 
 	ptu_run_f(suite, get_overflow, sfix);
+	ptu_run_f(suite, attach_overflow, sfix);
 	ptu_run_f(suite, map_change, sfix);
 	ptu_run_f(suite, map_put, sfix);
 	ptu_run_f(suite, unmap_nomap, sfix);
 	ptu_run_f(suite, map_overflow, sfix);
 	ptu_run_f(suite, get_put, sfix);
+	ptu_run_f(suite, attach_detach, sfix);
+	ptu_run_f(suite, attach_bad_iscache, sfix);
+	ptu_run_f(suite, detach_bad_iscache, sfix);
 	ptu_run_f(suite, map_unmap, sfix);
 	ptu_run_f(suite, read, sfix);
 	ptu_run_f(suite, read_null, sfix);

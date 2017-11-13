@@ -43,11 +43,17 @@ struct pt_section {
 	uint64_t offset;
 	uint64_t size;
 
+	/* The iscache back link. */
+	struct pt_image_section_cache *iscache;
+
 	/* The file content. */
 	uint8_t content[0x10];
 
 	/* The use count. */
 	int ucount;
+
+	/* The attach count. */
+	int acount;
 
 	/* The map count. */
 	int mcount;
@@ -55,6 +61,8 @@ struct pt_section {
 #if defined(FEATURE_THREADS)
 	/* A lock protecting this section. */
 	mtx_t lock;
+	/* A lock protecting the iscache and acount fields. */
+	mtx_t alock;
 #endif /* defined(FEATURE_THREADS) */
 };
 
@@ -63,6 +71,10 @@ extern struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 
 extern int pt_section_get(struct pt_section *section);
 extern int pt_section_put(struct pt_section *section);
+extern int pt_section_attach(struct pt_section *section,
+			     struct pt_image_section_cache *iscache);
+extern int pt_section_detach(struct pt_section *section,
+			     struct pt_image_section_cache *iscache);
 
 extern int pt_section_map(struct pt_section *section);
 extern int pt_section_unmap(struct pt_section *section);
@@ -84,11 +96,11 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 	if (section) {
 		uint8_t idx;
 
+		memset(section, 0, sizeof(*section));
 		section->filename = filename;
 		section->offset = offset;
 		section->size = size;
 		section->ucount = 1;
-		section->mcount = 0;
 
 		for (idx = 0; idx < sizeof(section->content); ++idx)
 			section->content[idx] = idx;
@@ -99,6 +111,13 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 
 			errcode = mtx_init(&section->lock, mtx_plain);
 			if (errcode != thrd_success) {
+				free(section);
+				section = NULL;
+			}
+
+			errcode = mtx_init(&section->alock, mtx_plain);
+			if (errcode != thrd_success) {
+				mtx_destroy(&section->lock);
 				free(section);
 				section = NULL;
 			}
@@ -137,6 +156,42 @@ static int pt_section_unlock(struct pt_section *section)
 		int errcode;
 
 		errcode = mtx_unlock(&section->lock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+static int pt_section_lock_attach(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_lock(&section->alock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+static int pt_section_unlock_attach(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_unlock(&section->alock);
 		if (errcode != thrd_success)
 			return -pte_bad_lock;
 	}
@@ -187,6 +242,92 @@ int pt_section_put(struct pt_section *section)
 
 	if (!ucount) {
 #if defined(FEATURE_THREADS)
+		mtx_destroy(&section->alock);
+		mtx_destroy(&section->lock);
+#endif /* defined(FEATURE_THREADS) */
+		free(section);
+	}
+
+	return 0;
+}
+
+int pt_section_attach(struct pt_section *section,
+		      struct pt_image_section_cache *iscache)
+{
+	int errcode, ucount, acount;
+
+	if (!section || !iscache)
+		return -pte_internal;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (section->iscache && section->iscache != iscache) {
+		(void) pt_section_unlock_attach(section);
+		return -pte_internal;
+	}
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	section->iscache = iscache;
+
+	ucount = ++section->ucount;
+	acount = ++section->acount;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_section_unlock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (!ucount || !acount)
+		return -pte_internal;
+
+	return 0;
+}
+
+int pt_section_detach(struct pt_section *section,
+		      struct pt_image_section_cache *iscache)
+{
+	int errcode, ucount, acount;
+
+	if (!section || !iscache)
+		return -pte_internal;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (section->iscache != iscache) {
+		(void) pt_section_unlock_attach(section);
+		return -pte_internal;
+	}
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	ucount = --section->ucount;
+	acount = --section->acount;
+	if (!acount)
+		section->iscache = NULL;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_section_unlock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (!ucount) {
+#if defined(FEATURE_THREADS)
+		mtx_destroy(&section->alock);
 		mtx_destroy(&section->lock);
 #endif /* defined(FEATURE_THREADS) */
 		free(section);
@@ -365,7 +506,9 @@ static struct ptunit_result cfix_fini(struct iscache_fixture *cfix)
 
 	for (idx = 0; idx < num_sections; ++idx) {
 		ptu_int_eq(cfix->section[idx]->ucount, 1);
+		ptu_int_eq(cfix->section[idx]->acount, 0);
 		ptu_int_eq(cfix->section[idx]->mcount, 0);
+		ptu_null(cfix->section[idx]->iscache);
 
 		errcode = pt_section_put(cfix->section[idx]);
 		ptu_int_eq(errcode, 0);
@@ -534,8 +677,9 @@ static struct ptunit_result add(struct iscache_fixture *cfix)
 	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0ull);
 	ptu_int_gt(isid, 0);
 
-	/* The cache gets a reference on success. */
+	/* The cache attaches and gets a reference on success. */
 	ptu_int_eq(cfix->section[0]->ucount, 2);
+	ptu_int_eq(cfix->section[0]->acount, 1);
 
 	/* The added section must be implicitly put in pt_iscache_fini. */
 	return ptu_passed();
@@ -819,8 +963,9 @@ add_twice_different_laddr(struct iscache_fixture *cfix)
 	/* We must get different identifiers. */
 	ptu_int_ne(isid[1], isid[0]);
 
-	/* We must take two references - one for each entry. */
+	/* We attach twice and take two references - one for each entry. */
 	ptu_int_eq(cfix->section[0]->ucount, 3);
+	ptu_int_eq(cfix->section[0]->acount, 2);
 
 	return ptu_passed();
 }

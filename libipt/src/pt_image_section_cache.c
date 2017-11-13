@@ -301,7 +301,7 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 			}
 		}
 
-		errcode = pt_section_get(section);
+		errcode = pt_section_attach(section, iscache);
 		if (errcode < 0)
 			goto out_unlock;
 
@@ -415,7 +415,7 @@ int pt_iscache_clear(struct pt_image_section_cache *iscache)
 		/* We do not zero-initialize the array - a NULL check is
 		 * pointless.
 		 */
-		errcode = pt_section_put(entry->section);
+		errcode = pt_section_detach(entry->section, iscache);
 		if (errcode < 0)
 			return errcode;
 	}

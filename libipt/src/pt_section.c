@@ -94,6 +94,14 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 		goto out_status;
 	}
 
+	errcode = mtx_init(&section->alock, mtx_plain);
+	if (errcode != thrd_success) {
+		mtx_destroy(&section->lock);
+		free(section->filename);
+		free(section);
+		goto out_status;
+	}
+
 #endif /* defined(FEATURE_THREADS) */
 
 	return section;
@@ -173,6 +181,7 @@ static void pt_section_free(struct pt_section *section)
 
 #if defined(FEATURE_THREADS)
 
+	mtx_destroy(&section->alock);
 	mtx_destroy(&section->lock);
 
 #endif /* defined(FEATURE_THREADS) */
@@ -229,6 +238,149 @@ int pt_section_put(struct pt_section *section)
 		return errcode;
 
 	if (!ucount || mcount)
+		return -pte_internal;
+
+	pt_section_free(section);
+	return 0;
+}
+
+static int pt_section_lock_attach(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_lock(&section->alock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+static int pt_section_unlock_attach(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+#if defined(FEATURE_THREADS)
+	{
+		int errcode;
+
+		errcode = mtx_unlock(&section->alock);
+		if (errcode != thrd_success)
+			return -pte_bad_lock;
+	}
+#endif /* defined(FEATURE_THREADS) */
+
+	return 0;
+}
+
+int pt_section_attach(struct pt_section *section,
+		      struct pt_image_section_cache *iscache)
+{
+	uint16_t acount;
+	int errcode;
+
+	if (!section || !iscache)
+		return -pte_internal;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	acount = section->acount + 1;
+	if (!acount) {
+		(void) pt_section_unlock_attach(section);
+		return -pte_overflow;
+	}
+
+	errcode = pt_section_get(section);
+	if (errcode < 0) {
+		(void) pt_section_unlock_attach(section);
+		return errcode;
+	}
+
+	if (section->iscache != iscache) {
+		if (section->iscache) {
+			(void) pt_section_put(section);
+			(void) pt_section_unlock_attach(section);
+			return -pte_internal;
+		}
+
+		section->iscache = iscache;
+	}
+
+	section->acount = acount;
+
+	return pt_section_unlock_attach(section);
+}
+
+int pt_section_detach(struct pt_section *section,
+		      struct pt_image_section_cache *iscache)
+{
+	uint16_t acount, mcount, ucount;
+	int errcode;
+
+	if (!section || !iscache)
+		return -pte_internal;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	acount = section->acount;
+	if (!acount || section->iscache != iscache) {
+		(void) pt_section_unlock_attach(section);
+		return -pte_internal;
+	}
+
+	/* We must not update @section before we can be sure that
+	 * pt_section_put() will succeed.  On the other hand, pt_section_put()
+	 * may free @section so we can not be sure that we may access it
+	 * afterwards.
+	 *
+	 * Resolve this by inlining pt_section_put() and interleaving the
+	 * updates.
+	 */
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = section->mcount;
+	ucount = section->ucount;
+	if (ucount > 1) {
+		if (acount == 1)
+			section->iscache = NULL;
+
+		section->acount = acount - 1;
+		section->ucount = ucount - 1;
+
+		errcode = pt_section_unlock(section);
+		if (errcode < 0) {
+			(void) pt_section_unlock_attach(section);
+			return errcode;
+		}
+
+		return pt_section_unlock_attach(section);
+	}
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0) {
+		(void) pt_section_unlock_attach(section);
+		return errcode;
+	}
+
+	errcode = pt_section_unlock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	if (!ucount || mcount || acount > 1)
 		return -pte_internal;
 
 	pt_section_free(section);
