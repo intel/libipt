@@ -152,10 +152,12 @@ int pt_sec_file_map(struct pt_section *section, FILE *file)
 		return -pte_nomem;
 
 	errcode = fmap_init(mapping);
-	if (errcode < 0) {
-		free(mapping);
-		return errcode;
-	}
+	if (errcode < 0)
+		goto out_mem;
+
+	errcode = pt_section_add_bcache(section);
+	if (errcode < 0)
+		goto out_mem;
 
 	mapping->file = file;
 	mapping->begin = begin;
@@ -165,7 +167,11 @@ int pt_sec_file_map(struct pt_section *section, FILE *file)
 	section->unmap = pt_sec_file_unmap;
 	section->read = pt_sec_file_read;
 
-	return pt_section_add_bcache(section);
+	return 0;
+
+out_mem:
+	free(mapping);
+	return errcode;
 }
 
 int pt_sec_file_unmap(struct pt_section *section)

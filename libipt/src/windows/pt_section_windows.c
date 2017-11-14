@@ -129,6 +129,7 @@ int pt_sec_windows_map(struct pt_section *section, int fd)
 	HANDLE fh, mh;
 	DWORD dsize;
 	uint8_t *base;
+	int errcode;
 
 	if (!section)
 		return -pte_internal;
@@ -159,12 +160,20 @@ int pt_sec_windows_map(struct pt_section *section, int fd)
 
 	base = MapViewOfFile(mh, FILE_MAP_READ, (DWORD) (offset >> 32),
 			     (DWORD) (uint32_t) offset, dsize);
-	if (!base)
+	if (!base) {
+		errcode = -pte_bad_image;
 		goto out_mh;
+	}
 
 	mapping = malloc(sizeof(*mapping));
-	if (!mapping)
+	if (!mapping) {
+		errcode = -pte_nomem;
 		goto out_map;
+	}
+
+	errcode = pt_section_add_bcache(section);
+	if (errcode < 0)
+		goto out_mem;
 
 	mapping->fd = fd;
 	mapping->mh = mh;
@@ -176,14 +185,17 @@ int pt_sec_windows_map(struct pt_section *section, int fd)
 	section->unmap = pt_sec_windows_unmap;
 	section->read = pt_sec_windows_read;
 
-	return pt_section_add_bcache(section);
+	return 0;
+
+out_mem:
+	free(mapping);
 
 out_map:
 	UnmapViewOfFile(base);
 
 out_mh:
 	CloseHandle(mh);
-	return -pte_bad_image;
+	return errcode;
 }
 
 int pt_section_map(struct pt_section *section)

@@ -101,6 +101,7 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	struct pt_sec_posix_mapping *mapping;
 	uint64_t offset, size, adjustment;
 	uint8_t *base;
+	int errcode;
 
 	if (!section)
 		return -pte_internal;
@@ -131,8 +132,14 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 		return -pte_nomem;
 
 	mapping = malloc(sizeof(*mapping));
-	if (!mapping)
+	if (!mapping) {
+		errcode = -pte_nomem;
 		goto out_map;
+	}
+
+	errcode = pt_section_add_bcache(section);
+	if (errcode < 0)
+		goto out_mem;
 
 	mapping->base = base;
 	mapping->size = size;
@@ -143,11 +150,14 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	section->unmap = pt_sec_posix_unmap;
 	section->read = pt_sec_posix_read;
 
-	return pt_section_add_bcache(section);
+	return 0;
+
+out_mem:
+	free(mapping);
 
 out_map:
 	munmap(base, (size_t) size);
-	return -pte_nomem;
+	return errcode;
 }
 
 int pt_section_map(struct pt_section *section)
