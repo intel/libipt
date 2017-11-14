@@ -143,7 +143,6 @@ add_ptunit_c_test(query
   src/pt_decoder_function.c
   src/pt_packet_decoder.c
   src/pt_config.c
-  ${LIBIPT_SECTION_FILES}
   src/pt_time.c
   src/pt_block_cache.c
 )
