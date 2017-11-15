@@ -104,6 +104,14 @@ struct pt_section {
 	int (*read)(const struct pt_section *sec, uint8_t *buffer,
 		    uint16_t size, uint64_t offset);
 
+	/* A pointer to the memsize function - NULL if the section is currently
+	 * not mapped.
+	 *
+	 * This field is set in pt_section_map() and owned by the mapping
+	 * implementation.
+	 */
+	int (*memsize)(const struct pt_section *section, uint64_t *size);
+
 #if defined(FEATURE_THREADS)
 	/* A lock protecting this section.
 	 *
@@ -247,6 +255,19 @@ extern uint64_t pt_section_offset(const struct pt_section *section);
 
 /* Return the size of the section in bytes. */
 extern uint64_t pt_section_size(const struct pt_section *section);
+
+/* Return the amount of memory currently used by the section in bytes.
+ *
+ * We only consider the amount of memory required for mapping @section; we
+ * ignore the size of the section object itself and the size of the status
+ * object.
+ *
+ * If @section is currently not mapped, the size is zero.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ * Returns -pte_internal if @size of @section is NULL.
+ */
+extern int pt_section_memsize(struct pt_section *section, uint64_t *size);
 
 /* Return @section's block cache, if available.
  *

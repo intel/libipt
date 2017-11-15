@@ -91,4 +91,16 @@ extern int pt_sec_file_unmap(struct pt_section *section);
 extern int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 			    uint16_t size, uint64_t offset);
 
+/* Compute the memory size of a section based on file operations.
+ *
+ * On success, provides the amount of memory used for mapping @section in bytes
+ * in @size.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section or @size is NULL.
+ * Returns -pte_internal if @section has not been mapped.
+ */
+extern int pt_sec_file_memsize(const struct pt_section *section,
+			       uint64_t *size);
+
 #endif /* PT_SECTION_FILE_H */

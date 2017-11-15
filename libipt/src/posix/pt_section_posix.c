@@ -149,6 +149,7 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	section->mapping = mapping;
 	section->unmap = pt_sec_posix_unmap;
 	section->read = pt_sec_posix_read;
+	section->memsize = pt_sec_posix_memsize;
 
 	return 0;
 
@@ -243,12 +244,13 @@ int pt_sec_posix_unmap(struct pt_section *section)
 		return -pte_internal;
 
 	mapping = section->mapping;
-	if (!mapping || !section->unmap || !section->read)
+	if (!mapping || !section->unmap || !section->read || !section->memsize)
 		return -pte_internal;
 
 	section->mapping = NULL;
 	section->unmap = NULL;
 	section->read = NULL;
+	section->memsize = NULL;
 
 	munmap(mapping->base, (size_t) mapping->size);
 	free(mapping);
@@ -279,4 +281,27 @@ int pt_sec_posix_read(const struct pt_section *section, uint8_t *buffer,
 
 	memcpy(buffer, begin, size);
 	return (int) size;
+}
+
+int pt_sec_posix_memsize(const struct pt_section *section, uint64_t *size)
+{
+	struct pt_sec_posix_mapping *mapping;
+	const uint8_t *begin, *end;
+
+	if (!section || !size)
+		return -pte_internal;
+
+	mapping = section->mapping;
+	if (!mapping)
+		return -pte_internal;
+
+	begin = mapping->base;
+	end = mapping->end;
+
+	if (!begin || !end || end < begin)
+		return -pte_internal;
+
+	*size = (uint64_t) (end - begin);
+
+	return 0;
 }

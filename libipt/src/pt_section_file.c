@@ -166,6 +166,7 @@ int pt_sec_file_map(struct pt_section *section, FILE *file)
 	section->mapping = mapping;
 	section->unmap = pt_sec_file_unmap;
 	section->read = pt_sec_file_read;
+	section->memsize = pt_sec_file_memsize;
 
 	return 0;
 
@@ -183,12 +184,13 @@ int pt_sec_file_unmap(struct pt_section *section)
 
 	mapping = section->mapping;
 
-	if (!mapping || !section->unmap || !section->read)
+	if (!mapping || !section->unmap || !section->read || !section->memsize)
 		return -pte_internal;
 
 	section->mapping = NULL;
 	section->unmap = NULL;
 	section->read = NULL;
+	section->memsize = NULL;
 
 	fmap_fini(mapping);
 	free(mapping);
@@ -241,4 +243,17 @@ int pt_sec_file_read(const struct pt_section *section, uint8_t *buffer,
 out_unlock:
 	(void) fmap_unlock(mapping);
 	return -pte_nomap;
+}
+
+int pt_sec_file_memsize(const struct pt_section *section, uint64_t *size)
+{
+	if (!section || !size)
+		return -pte_internal;
+
+	if (!section->mapping)
+		return -pte_internal;
+
+	*size = 0ull;
+
+	return 0;
 }

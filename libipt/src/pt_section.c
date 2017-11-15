@@ -403,6 +403,75 @@ uint64_t pt_section_size(const struct pt_section *section)
 	return section->size;
 }
 
+static int pt_section_bcache_memsize(const struct pt_section *section,
+				     uint64_t *psize)
+{
+	struct pt_block_cache *bcache;
+
+	if (!section || !psize)
+		return -pte_internal;
+
+	bcache = section->bcache;
+	if (!bcache) {
+		*psize = 0ull;
+		return 0;
+	}
+
+	*psize = sizeof(*bcache) +
+		(bcache->nentries * sizeof(struct pt_bcache_entry));
+
+	return 0;
+}
+
+static int pt_section_memsize_locked(const struct pt_section *section,
+				     uint64_t *psize)
+{
+	uint64_t msize, bcsize;
+	int (*memsize)(const struct pt_section *section, uint64_t *size);
+	int errcode;
+
+	if (!section || !psize)
+		return -pte_internal;
+
+	memsize = section->memsize;
+	if (!memsize) {
+		if (section->mcount)
+			return -pte_internal;
+
+		*psize = 0ull;
+		return 0;
+	}
+
+	errcode = memsize(section, &msize);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_section_bcache_memsize(section, &bcsize);
+	if (errcode < 0)
+		return errcode;
+
+	*psize = msize + bcsize;
+
+	return 0;
+}
+
+int pt_section_memsize(struct pt_section *section, uint64_t *size)
+{
+	int errcode, status;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_section_memsize_locked(section, size);
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
+}
+
 uint64_t pt_section_offset(const struct pt_section *section)
 {
 	if (!section)

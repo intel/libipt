@@ -213,6 +213,23 @@ static struct ptunit_result size_null(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result memsize_null(struct section_fixture *sfix)
+{
+	uint64_t size;
+	int errcode;
+
+	errcode = pt_section_memsize(NULL, &size);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_memsize(sfix->section, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	errcode = pt_section_memsize(NULL, NULL);
+	ptu_int_eq(errcode, -pte_internal);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result offset_null(void)
 {
 	uint64_t offset;
@@ -1054,6 +1071,104 @@ static struct ptunit_result cache_enable_disable(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result memsize_nomap(struct section_fixture *sfix)
+{
+	uint64_t memsize;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_memsize(sfix->section, &memsize);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(memsize, 0ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result memsize_unmap(struct section_fixture *sfix)
+{
+	uint64_t memsize;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_memsize(sfix->section, &memsize);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(memsize, 0ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result memsize_map_nobcache(struct section_fixture *sfix)
+{
+	uint64_t memsize;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	pt_section_disable_bcache(sfix->section);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	memsize = 0xfefefefefefefefeull;
+
+	errcode = pt_section_memsize(sfix->section, &memsize);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_ge(memsize, 0ull);
+	ptu_uint_le(memsize, 0x2000ull);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result memsize_map_bcache(struct section_fixture *sfix)
+{
+	uint64_t memsize;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	pt_section_enable_bcache(sfix->section);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_memsize(sfix->section, &memsize);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_ge(memsize,
+		    sfix->section->size * sizeof(struct pt_bcache_entry));
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result sfix_init(struct section_fixture *sfix)
 {
 	int errcode;
@@ -1163,6 +1278,12 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, cache, sfix);
 	ptu_run_f(suite, cache_disabled, sfix);
 	ptu_run_f(suite, cache_enable_disable, sfix);
+
+	ptu_run_f(suite, memsize_null, sfix);
+	ptu_run_f(suite, memsize_nomap, sfix);
+	ptu_run_f(suite, memsize_unmap, sfix);
+	ptu_run_f(suite, memsize_map_nobcache, sfix);
+	ptu_run_f(suite, memsize_map_bcache, sfix);
 
 	return ptunit_report(&suite);
 }
