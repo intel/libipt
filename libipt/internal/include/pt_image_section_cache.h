@@ -51,6 +51,18 @@ struct pt_iscache_entry {
 	uint64_t laddr;
 };
 
+/* An image section cache least recently used cache entry. */
+struct pt_iscache_lru_entry {
+	/* The next entry in a list ordered by recent use. */
+	struct pt_iscache_lru_entry *next;
+
+	/* The section mapped by the image section cache. */
+	struct pt_section *section;
+
+	/* The amount of memory used by mapping @section in bytes. */
+	uint64_t size;
+};
+
 /* A cache of image sections and their load addresses.
  *
  * We combine the section with its load address to reduce the amount of
@@ -69,6 +81,15 @@ struct pt_image_section_cache {
 
 	/* An array of @nentries cached sections. */
 	struct pt_iscache_entry *entries;
+
+	/* A list of mapped sections ordered by time of last access. */
+	struct pt_iscache_lru_entry *lru;
+
+	/* The memory limit for our LRU cache. */
+	uint64_t limit;
+
+	/* The current size of our LRU cache. */
+	uint64_t used;
 
 #if defined(FEATURE_THREADS)
 	/* A lock protecting this image section cache. */

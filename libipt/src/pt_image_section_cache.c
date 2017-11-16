@@ -56,6 +56,7 @@ int pt_iscache_init(struct pt_image_section_cache *iscache, const char *name)
 		return -pte_internal;
 
 	memset(iscache, 0, sizeof(*iscache));
+	iscache->limit = UINT64_MAX;
 	if (name) {
 		iscache->name = dupstr(name);
 		if (!iscache->name)
@@ -229,6 +230,142 @@ static int section_match(const struct pt_section *lhs,
 	return 1;
 }
 
+static int pt_iscache_lru_free(struct pt_iscache_lru_entry *lru)
+{
+	while (lru) {
+		struct pt_iscache_lru_entry *trash;
+		int errcode;
+
+		trash = lru;
+		lru = lru->next;
+
+		errcode = pt_section_unmap(trash->section);
+		if (errcode < 0)
+			return errcode;
+
+		free(trash);
+	}
+
+	return 0;
+}
+
+static int pt_iscache_lru_prune(struct pt_image_section_cache *iscache,
+				struct pt_iscache_lru_entry **tail)
+{
+	struct pt_iscache_lru_entry *lru, **pnext;
+	uint64_t limit, used;
+
+	if (!iscache || !tail)
+		return -pte_internal;
+
+	limit = iscache->limit;
+	used = 0ull;
+
+	pnext = &iscache->lru;
+	for (lru = *pnext; lru; pnext = &lru->next, lru = *pnext) {
+
+		used += lru->size;
+		if (used <= limit)
+			continue;
+
+		/* The cache got too big; prune it starting from @lru. */
+		iscache->used = used - lru->size;
+		*pnext = NULL;
+		*tail = lru;
+
+		return 0;
+	}
+
+	/* We shouldn't prune the cache unnecessarily. */
+	return -pte_internal;
+}
+
+/* Add @section to the front of @iscache->lru.
+ *
+ * Returns a positive integer if we need to prune the cache.
+ * Returns zero if we don't need to prune the cache.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_isache_lru_new(struct pt_image_section_cache *iscache,
+			     struct pt_section *section)
+{
+	struct pt_iscache_lru_entry *lru;
+	uint64_t memsize, used, total, limit;
+	int errcode;
+
+	if (!iscache)
+		return -pte_internal;
+
+	errcode = pt_section_memsize(section, &memsize);
+	if (errcode < 0)
+		return errcode;
+
+	/* Don't try to add the section if it is too big.  We'd prune it again
+	 * together with all other sections in our cache.
+	 */
+	limit = iscache->limit;
+	if (limit < memsize)
+		return 0;
+
+	errcode = pt_section_map_share(section);
+	if (errcode < 0)
+		return errcode;
+
+	lru = malloc(sizeof(*lru));
+	if (!lru) {
+		(void) pt_section_unmap(section);
+		return -pte_nomem;
+	}
+
+	lru->section = section;
+	lru->size = memsize;
+
+	lru->next = iscache->lru;
+	iscache->lru = lru;
+
+	used = iscache->used;
+	total = used + memsize;
+	if (total < used || total < memsize)
+		return -pte_overflow;
+
+	iscache->used = total;
+
+	return (limit < total) ? 1 : 0;
+}
+
+/* Add or move @section to the front of @iscache->lru.
+ *
+ * Returns a positive integer if we need to prune the cache.
+ * Returns zero if we don't need to prune the cache.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_iscache_lru_add(struct pt_image_section_cache *iscache,
+			      struct pt_section *section)
+{
+	struct pt_iscache_lru_entry *lru, **pnext;
+
+	if (!iscache)
+		return -pte_internal;
+
+	pnext = &iscache->lru;
+	for (lru = *pnext; lru; pnext = &lru->next, lru = *pnext) {
+
+		if (lru->section != section)
+			continue;
+
+		/* We found it in the cache.  Move it to the front. */
+		*pnext = lru->next;
+		lru->next = iscache->lru;
+		iscache->lru = lru;
+
+		return 0;
+	}
+
+	/* We didn't find it in the cache.  Add it. */
+	return pt_isache_lru_new(iscache, section);
+}
+
+
 int pt_iscache_add(struct pt_image_section_cache *iscache,
 		   struct pt_section *section, uint64_t laddr)
 {
@@ -385,6 +522,7 @@ int pt_iscache_lookup(struct pt_image_section_cache *iscache,
 
 int pt_iscache_clear(struct pt_image_section_cache *iscache)
 {
+	struct pt_iscache_lru_entry *lru;
 	struct pt_iscache_entry *entries;
 	uint16_t idx, end;
 	int errcode;
@@ -398,12 +536,19 @@ int pt_iscache_clear(struct pt_image_section_cache *iscache)
 
 	entries = iscache->entries;
 	end = iscache->size;
+	lru = iscache->lru;
 
 	iscache->entries = NULL;
 	iscache->capacity = 0;
 	iscache->size = 0;
+	iscache->lru = NULL;
+	iscache->used = 0ull;
 
 	errcode = pt_iscache_unlock(iscache);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_iscache_lru_free(lru);
 	if (errcode < 0)
 		return errcode;
 
@@ -442,6 +587,33 @@ void pt_iscache_free(struct pt_image_section_cache *iscache)
 
 	pt_iscache_fini(iscache);
 	free(iscache);
+}
+
+int pt_iscache_set_limit(struct pt_image_section_cache *iscache, uint64_t limit)
+{
+	struct pt_iscache_lru_entry *tail;
+	int errcode, status;
+
+	if (!iscache)
+		return -pte_invalid;
+
+	status = 0;
+	tail = NULL;
+
+	errcode = pt_iscache_lock(iscache);
+	if (errcode < 0)
+		return errcode;
+
+	iscache->limit = limit;
+	if (limit < iscache->used)
+		status = pt_iscache_lru_prune(iscache, &tail);
+
+	errcode = pt_iscache_unlock(iscache);
+
+	if (errcode < 0 || status < 0)
+		return (status < 0) ? status : errcode;
+
+	return pt_iscache_lru_free(tail);
 }
 
 const char *pt_iscache_name(const struct pt_image_section_cache *iscache)
@@ -534,8 +706,23 @@ int pt_iscache_read(struct pt_image_section_cache *iscache, uint8_t *buffer,
 int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
 			  struct pt_section *section)
 {
-	if (!iscache || !section)
-		return -pte_internal;
+	struct pt_iscache_lru_entry *tail;
+	int errcode, status;
 
-	return 0;
+	tail = NULL;
+
+	errcode = pt_iscache_lock(iscache);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_iscache_lru_add(iscache, section);
+	if (status > 0)
+		status = pt_iscache_lru_prune(iscache, &tail);
+
+	errcode = pt_iscache_unlock(iscache);
+
+	if (errcode < 0 || status < 0)
+		return (status < 0) ? status : errcode;
+
+	return pt_iscache_lru_free(tail);
 }

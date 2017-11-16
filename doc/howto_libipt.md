@@ -717,6 +717,16 @@ not to mix sections from different image section caches in one image.
 A traced image section cache can also be used for reading an instruction's
 memory via its IP and ISID as provided in `struct pt_insn`.
 
+The image section cache provides a cache of recently mapped sections and keeps
+them mapped when they are unmapped by the images that used them.  This avoid
+repeated unmapping and re-mapping of image sections in some parallel debug
+scenarios or when reading memory from the image section cache.
+
+Use `pt_iscache_set_limit()` to set the limit of this cache in bytes.  This
+accounts for the extra memory that will be used for keeping image sections
+mapped including any block caches associated with image sections.  To disable
+caching, set the limit to zero.
+
 
 #### Synchronizing
 

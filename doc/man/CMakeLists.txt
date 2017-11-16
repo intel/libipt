@@ -84,6 +84,7 @@ set(MAN3_FUNCTIONS
   pt_iscache_alloc
   pt_iscache_add_file
   pt_iscache_read
+  pt_iscache_set_limit
   pt_blk_alloc_decoder
   pt_blk_sync_forward
   pt_blk_get_offset

@@ -1675,6 +1675,18 @@ pt_iscache_alloc(const char *name);
  */
 extern pt_export void pt_iscache_free(struct pt_image_section_cache *iscache);
 
+/** Set the image section cache limit.
+ *
+ * Set the limit for a section cache in bytes.  A non-zero limit will keep the
+ * least recently used sections mapped until the limit is reached.  A limit of
+ * zero disables caching.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ * Returns -pte_invalid if \@iscache is NULL.
+ */
+extern pt_export int
+pt_iscache_set_limit(struct pt_image_section_cache *iscache, uint64_t limit);
+
 /** Get the image section cache name.
  *
  * Returns a pointer to \@iscache's name or NULL if there is no name.
