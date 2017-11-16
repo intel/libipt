@@ -97,6 +97,35 @@ out_file:
 	return errcode;
 }
 
+static int pt_section_map_success(struct pt_section *section)
+{
+	uint16_t mcount;
+	int errcode, status;
+
+	if (!section)
+		return -pte_internal;
+
+	mcount = section->mcount + 1;
+	if (!mcount) {
+		(void) pt_section_unlock(section);
+		return -pte_overflow;
+	}
+
+	section->mcount = mcount;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_section_on_map(section);
+	if (status < 0) {
+		(void) pt_section_unmap(section);
+		return status;
+	}
+
+	return 0;
+}
+
 int pt_section_map(struct pt_section *section)
 {
 	struct pt_file_status *status;
@@ -113,15 +142,9 @@ int pt_section_map(struct pt_section *section)
 	if (errcode < 0)
 		return errcode;
 
-	mcount = section->mcount + 1;
-	if (mcount > 1) {
-		section->mcount = mcount;
-		return pt_section_unlock(section);
-	}
-
-	errcode = -pte_overflow;
-	if (!mcount)
-		goto out_unlock;
+	mcount = section->mcount;
+	if (mcount)
+		return pt_section_map_success(section);
 
 	if (section->mapping)
 		goto out_unlock;
@@ -157,10 +180,8 @@ int pt_section_map(struct pt_section *section)
 	 * the section is unmapped.
 	 */
 	errcode = pt_sec_file_map(section, file);
-	if (!errcode) {
-		section->mcount = 1;
-		return pt_section_unlock(section);
-	}
+	if (!errcode)
+		return pt_section_map_success(section);
 
 out_file:
 	fclose(file);

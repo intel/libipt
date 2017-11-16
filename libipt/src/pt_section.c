@@ -28,6 +28,7 @@
 
 #include "pt_section.h"
 #include "pt_block_cache.h"
+#include "pt_image_section_cache.h"
 
 #include "intel-pt.h"
 
@@ -501,6 +502,67 @@ int pt_section_add_bcache(struct pt_section *section)
 		section->bcache = pt_bcache_alloc(cache_size);
 
 	return 0;
+}
+
+int pt_section_on_map(struct pt_section *section)
+{
+	struct pt_image_section_cache *iscache;
+	int errcode, status;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	iscache = section->iscache;
+	if (!iscache)
+		return pt_section_unlock_attach(section);
+
+	/* There is a potential deadlock when @section was unmapped again and
+	 * @iscache tries to map it.  This would cause this function to be
+	 * re-entered while we're still holding the attach lock.
+	 *
+	 * This scenario is very unlikely, though, since our caller does not yet
+	 * know whether pt_section_map() succeeded.
+	 */
+	status = pt_iscache_notify_map(iscache, section);
+
+	errcode = pt_section_unlock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	return status;
+}
+
+int pt_section_map_share(struct pt_section *section)
+{
+	uint16_t mcount;
+	int errcode;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		return errcode;
+
+	mcount = section->mcount;
+	if (!mcount) {
+		(void) pt_section_unlock(section);
+		return -pte_internal;
+	}
+
+	mcount += 1;
+	if (!mcount) {
+		(void) pt_section_unlock(section);
+		return -pte_overflow;
+	}
+
+	section->mcount = mcount;
+
+	return pt_section_unlock(section);
 }
 
 int pt_section_unmap(struct pt_section *section)

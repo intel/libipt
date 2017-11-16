@@ -530,3 +530,12 @@ int pt_iscache_read(struct pt_image_section_cache *iscache, uint8_t *buffer,
 
 	return status;
 }
+
+int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
+			  struct pt_section *section)
+{
+	if (!iscache || !section)
+		return -pte_internal;
+
+	return 0;
+}

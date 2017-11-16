@@ -77,6 +77,7 @@ extern int pt_section_detach(struct pt_section *section,
 			     struct pt_image_section_cache *iscache);
 
 extern int pt_section_map(struct pt_section *section);
+extern int pt_section_map_share(struct pt_section *section);
 extern int pt_section_unmap(struct pt_section *section);
 
 extern const char *pt_section_filename(const struct pt_section *section);
@@ -337,6 +338,32 @@ int pt_section_detach(struct pt_section *section,
 }
 
 int pt_section_map(struct pt_section *section)
+{
+	struct pt_image_section_cache *iscache;
+	int errcode, status;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_map_share(section);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	status = 0;
+	iscache = section->iscache;
+	if (iscache)
+		status = pt_iscache_notify_map(iscache, section);
+
+	errcode = pt_section_unlock_attach(section);
+
+	return (status < 0) ? status : errcode;
+}
+
+int pt_section_map_share(struct pt_section *section)
 {
 	int errcode, mcount;
 

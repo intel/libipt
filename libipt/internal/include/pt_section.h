@@ -328,6 +328,19 @@ extern int pt_section_mk_status(void **pstatus, uint64_t *psize,
  */
 extern int pt_section_add_bcache(struct pt_section *section);
 
+/* Perform on-map maintenance work.
+ *
+ * Notifies an attached image section cache about the mapping of @section.
+ *
+ * This function is called by the OS-specific pt_section_map() implementation
+ * after @section has been successfully mapped and @section has been unlocked.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_on_map(struct pt_section *section);
+
 /* Map a section.
  *
  * Maps @section into memory.  Mappings are use-counted.  The number of
@@ -344,6 +357,21 @@ extern int pt_section_add_bcache(struct pt_section *section);
  * Returns -pte_overflow if the map count would overflow.
  */
 extern int pt_section_map(struct pt_section *section);
+
+/* Share a section mapping.
+ *
+ * Increases the map count for @section without notifying an attached image
+ * section cache.
+ *
+ * This function should only be used by the attached image section cache to
+ * resolve a deadlock scenario when mapping a section it intends to cache.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_internal if @section->mcount is zero.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_map_share(struct pt_section *section);
 
 /* Unmap a section.
  *

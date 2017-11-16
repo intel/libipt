@@ -161,10 +161,45 @@ out_map:
 	return errcode;
 }
 
+static int pt_sec_posix_map_success(struct pt_section *section)
+{
+	uint16_t mcount;
+	int errcode, status;
+
+	if (!section)
+		return -pte_internal;
+
+	mcount = section->mcount + 1;
+	if (!mcount) {
+		(void) pt_section_unlock(section);
+		return -pte_overflow;
+	}
+
+	section->mcount = mcount;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_section_on_map(section);
+	if (status < 0) {
+		/* We had to release the section lock for pt_section_on_map() so
+		 * @section may have meanwhile been mapped by other threads.
+		 *
+		 * We still want to return the error so we release our mapping.
+		 * Our caller does not yet know whether pt_section_map()
+		 * succeeded.
+		 */
+		(void) pt_section_unmap(section);
+		return status;
+	}
+
+	return 0;
+}
+
 int pt_section_map(struct pt_section *section)
 {
 	const char *filename;
-	uint16_t mcount;
 	FILE *file;
 	int fd, errcode;
 
@@ -175,15 +210,8 @@ int pt_section_map(struct pt_section *section)
 	if (errcode < 0)
 		return errcode;
 
-	mcount = section->mcount + 1;
-	if (mcount > 1) {
-		section->mcount = mcount;
-		return pt_section_unlock(section);
-	}
-
-	errcode = -pte_overflow;
-	if (!mcount)
-		goto out_unlock;
+	if (section->mcount)
+		return pt_sec_posix_map_success(section);
 
 	if (section->mapping)
 		goto out_unlock;
@@ -204,9 +232,9 @@ int pt_section_map(struct pt_section *section)
 	/* We close the file on success.  This does not unmap the section. */
 	errcode = pt_sec_posix_map(section, fd);
 	if (!errcode) {
-		section->mcount = 1;
 		close(fd);
-		return pt_section_unlock(section);
+
+		return pt_sec_posix_map_success(section);
 	}
 
 	/* Fall back to file based sections - report the original error
@@ -220,10 +248,8 @@ int pt_section_map(struct pt_section *section)
 	 * the section is unmapped.
 	 */
 	errcode = pt_sec_file_map(section, file);
-	if (!errcode) {
-		section->mcount = 1;
-		return pt_section_unlock(section);
-	}
+	if (!errcode)
+		return pt_sec_posix_map_success(section);
 
 	fclose(file);
 	goto out_unlock;

@@ -40,8 +40,26 @@
 
 
 struct pt_image_section_cache {
-	int dummy;
+	int map;
 };
+
+extern int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
+				 struct pt_section *section);
+
+int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
+			  struct pt_section *section)
+{
+	if (!iscache)
+		return -pte_internal;
+
+	if (iscache->map <= 0)
+		return iscache->map;
+
+	/* Avoid recursion. */
+	iscache->map = 0;
+
+	return pt_section_map_share(section);
+}
 
 struct pt_block_cache *pt_bcache_alloc(uint64_t nentries)
 {
@@ -560,6 +578,133 @@ static struct ptunit_result map_unmap(struct section_fixture *sfix)
 	ptu_int_eq(errcode, 0);
 
 	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_nomap(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	iscache.map = 0;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	ptu_uint_eq(sfix->section->mcount, 2);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_map(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	iscache.map = 1;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	ptu_uint_eq(sfix->section->mcount, 3);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_bad_map(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	iscache.map = -pte_eos;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, -pte_eos);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result attach_map_overflow(struct section_fixture *sfix)
+{
+	struct pt_image_section_cache iscache;
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	int errcode;
+
+	iscache.map = 1;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
+	errcode = pt_section_attach(sfix->section, &iscache);
+	ptu_int_eq(errcode, 0);
+
+	sfix->section->mcount = UINT16_MAX - 1;
+
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, -pte_overflow);
+
+	errcode = pt_section_detach(sfix->section, &iscache);
 	ptu_int_eq(errcode, 0);
 
 	return ptu_passed();
@@ -1259,6 +1404,10 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, attach_bad_iscache, sfix);
 	ptu_run_f(suite, detach_bad_iscache, sfix);
 	ptu_run_f(suite, map_unmap, sfix);
+	ptu_run_f(suite, attach_nomap, sfix);
+	ptu_run_f(suite, attach_map, sfix);
+	ptu_run_f(suite, attach_bad_map, sfix);
+	ptu_run_f(suite, attach_map_overflow, sfix);
 	ptu_run_f(suite, read, sfix);
 	ptu_run_f(suite, read_null, sfix);
 	ptu_run_f(suite, read_offset, sfix);
