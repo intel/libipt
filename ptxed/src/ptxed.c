@@ -239,6 +239,7 @@ static void help(const char *name)
 	printf("  --time                               print the current timestamp.\n");
 	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
 	printf("  --check                              perform checks (expensive).\n");
+	printf("  --iscache-limit <size>               set the image section cache limit to <size> bytes.\n");
 	printf("  --event:time                         print the tsc for events if available.\n");
 	printf("  --event:ip                           print the ip of events if available.\n");
 	printf("  --event:tick                         request tick events.\n");
@@ -2428,6 +2429,22 @@ extern int main(int argc, char *argv[])
 		}
 		if (strcmp(arg, "--check") == 0) {
 			options.check = 1;
+			continue;
+		}
+		if (strcmp(arg, "--iscache-limit") == 0) {
+			uint64_t limit;
+
+			if (!get_arg_uint64(&limit, arg, argv[i++], prog))
+				goto err;
+
+			errcode = pt_iscache_set_limit(decoder.iscache, limit);
+			if (errcode < 0) {
+				fprintf(stderr, "%s: error setting iscache "
+					"limit: %s.\n", prog,
+					pt_errstr(pt_errcode(errcode)));
+				goto err;
+			}
+
 			continue;
 		}
 		if (strcmp(arg, "--stat") == 0) {
