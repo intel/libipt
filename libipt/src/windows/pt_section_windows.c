@@ -220,7 +220,7 @@ int pt_section_map(struct pt_section *section)
 	}
 
 	if (!mcount) {
-		errcode = -pte_internal;
+		errcode = -pte_overflow;
 		goto out_unlock;
 	}
 

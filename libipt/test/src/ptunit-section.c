@@ -419,7 +419,7 @@ static struct ptunit_result map_overflow(struct section_fixture *sfix)
 	sfix->section->mcount = UINT16_MAX;
 
 	errcode = pt_section_map(sfix->section);
-	ptu_int_eq(errcode, -pte_internal);
+	ptu_int_eq(errcode, -pte_overflow);
 
 	sfix->section->mcount = 0;
 

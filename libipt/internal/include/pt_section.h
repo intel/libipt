@@ -196,7 +196,7 @@ extern int pt_section_unlock(struct pt_section *section);
  *
  * Returns zero on success, a negative error code otherwise.
  * Returns -pte_internal if @section is NULL.
- * Returns -pte_internal if the user count would overflow.
+ * Returns -pte_overflow if the user count would overflow.
  * Returns -pte_bad_lock on any locking error.
  */
 extern int pt_section_get(struct pt_section *section);
@@ -320,6 +320,7 @@ extern int pt_section_add_bcache(struct pt_section *section);
  * Returns -pte_bad_image if @section changed or can't be opened.
  * Returns -pte_bad_lock on any locking error.
  * Returns -pte_nomem if @section can't be mapped into memory.
+ * Returns -pte_overflow if the map count would overflow.
  */
 extern int pt_section_map(struct pt_section *section);
 
