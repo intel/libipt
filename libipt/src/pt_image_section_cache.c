@@ -366,6 +366,61 @@ static int pt_iscache_lru_add(struct pt_image_section_cache *iscache,
 }
 
 
+/* Add or move @section to the front of @iscache->lru and update its size.
+ *
+ * Returns a positive integer if we need to prune the cache.
+ * Returns zero if we don't need to prune the cache.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_iscache_lru_resize(struct pt_image_section_cache *iscache,
+				 struct pt_section *section, uint64_t memsize)
+{
+	struct pt_iscache_lru_entry *lru;
+	uint64_t oldsize, used;
+	int status;
+
+	if (!iscache)
+		return -pte_internal;
+
+	status = pt_iscache_lru_add(iscache, section);
+	if (status < 0)
+		return status;
+
+	lru = iscache->lru;
+	if (!lru) {
+		if (status)
+			return -pte_internal;
+		return 0;
+	}
+
+	/* If @section is cached, it must be first.
+	 *
+	 * We may choose not to cache it, though, e.g. if it is too big.
+	 */
+	if (lru->section != section) {
+		if (iscache->limit < memsize)
+			return 0;
+
+		return -pte_internal;
+	}
+
+	oldsize = lru->size;
+	lru->size = memsize;
+
+	/* If we need to prune anyway, we're done. */
+	if (status)
+		return status;
+
+	used = iscache->used;
+	used -= oldsize;
+	used += memsize;
+
+	iscache->used = used;
+
+	return (iscache->limit < used) ? 1 : 0;
+}
+
+
 int pt_iscache_add(struct pt_image_section_cache *iscache,
 		   struct pt_section *section, uint64_t laddr)
 {
@@ -716,6 +771,30 @@ int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
 		return errcode;
 
 	status = pt_iscache_lru_add(iscache, section);
+	if (status > 0)
+		status = pt_iscache_lru_prune(iscache, &tail);
+
+	errcode = pt_iscache_unlock(iscache);
+
+	if (errcode < 0 || status < 0)
+		return (status < 0) ? status : errcode;
+
+	return pt_iscache_lru_free(tail);
+}
+
+int pt_iscache_notify_resize(struct pt_image_section_cache *iscache,
+			     struct pt_section *section, uint64_t memsize)
+{
+	struct pt_iscache_lru_entry *tail;
+	int errcode, status;
+
+	tail = NULL;
+
+	errcode = pt_iscache_lock(iscache);
+	if (errcode < 0)
+		return errcode;
+
+	status = pt_iscache_lru_resize(iscache, section, memsize);
 	if (status > 0)
 		status = pt_iscache_lru_prune(iscache, &tail);
 

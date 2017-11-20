@@ -171,10 +171,6 @@ int pt_sec_windows_map(struct pt_section *section, int fd)
 		goto out_map;
 	}
 
-	errcode = pt_section_add_bcache(section);
-	if (errcode < 0)
-		goto out_mem;
-
 	mapping->fd = fd;
 	mapping->mh = mh;
 	mapping->base = base;
@@ -187,9 +183,6 @@ int pt_sec_windows_map(struct pt_section *section, int fd)
 	section->memsize = pt_sec_windows_memsize;
 
 	return 0;
-
-out_mem:
-	free(mapping);
 
 out_map:
 	UnmapViewOfFile(base);

@@ -36,8 +36,9 @@
 #  include <threads.h>
 #endif /* defined(FEATURE_THREADS) */
 
+#include "intel-pt.h"
+
 struct pt_block_cache;
-struct pt_image_section_cache;
 
 
 /* A section of contiguous memory loaded from a file. */
@@ -71,8 +72,15 @@ struct pt_section {
 
 	/* A pointer to an optional block cache.
 	 *
-	 * The cache is created and destroyed implicitly when the section is
-	 * mapped and unmapped respectively.
+	 * The cache is created on request and destroyed implicitly when the
+	 * section is unmapped.
+	 *
+	 * We read this field without locking and only lock the section in order
+	 * to install the block cache.
+	 *
+	 * We rely on guaranteed atomic operations as specified in section 8.1.1
+	 * in Volume 3A of the Intel(R) Software Developer's Manual at
+	 * http://www.intel.com/sdm.
 	 */
 	struct pt_block_cache *bcache;
 
@@ -139,12 +147,6 @@ struct pt_section {
 
 	/* The number of current mappers.  The last unmaps the section. */
 	uint16_t mcount;
-
-	/* A collection of flags to:
-	 *
-	 * - disable block caching.
-	 */
-	uint32_t disable_bcache:1;
 };
 
 /* Create a section.
@@ -269,12 +271,33 @@ extern uint64_t pt_section_size(const struct pt_section *section);
  */
 extern int pt_section_memsize(struct pt_section *section, uint64_t *size);
 
+/* Allocate a block cache.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ * Returns -pte_internal if @section is NULL.
+ * Returns -pte_nomem if the block cache can't be allocated.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_section_alloc_bcache(struct pt_section *section);
+
+/* Request block caching.
+ *
+ * The caller must ensure that @section is mapped.
+ */
+static inline int pt_section_request_bcache(struct pt_section *section)
+{
+	if (!section)
+		return -pte_internal;
+
+	if (section->bcache)
+		return 0;
+
+	return pt_section_alloc_bcache(section);
+}
+
 /* Return @section's block cache, if available.
  *
- * @section must be mapped.
- *
- * The cache, if available, is implicitly created when the section is mapped and
- * implicitly destroyed when the section is unmapped.
+ * The caller must ensure that @section is mapped.
  *
  * The cache is not use-counted.  It is only valid as long as the caller keeps
  * @section mapped.
@@ -286,18 +309,6 @@ pt_section_bcache(const struct pt_section *section)
 		return NULL;
 
 	return section->bcache;
-}
-
-/* Enable block caching. */
-static inline void pt_section_enable_bcache(struct pt_section *section)
-{
-	section->disable_bcache = 0;
-}
-
-/* Disable block caching. */
-static inline void pt_section_disable_bcache(struct pt_section *section)
-{
-	section->disable_bcache = 1;
 }
 
 /* Create the OS-specific file status.
@@ -316,17 +327,6 @@ static inline void pt_section_disable_bcache(struct pt_section *section)
  */
 extern int pt_section_mk_status(void **pstatus, uint64_t *psize,
 				const char *filename);
-
-/* Setup a block cache.
- *
- * This function is called from the OS-specific implementation when the section
- * is mapped.  Do not call this function directly.
- *
- * Returns zero on success, a negative error code otherwise.
- * Returns -pte_internal if @section is NULL.
- * Returns -pte_internal if @section already has an instruction cache.
- */
-extern int pt_section_add_bcache(struct pt_section *section);
 
 /* Perform on-map maintenance work.
  *

@@ -137,10 +137,6 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 		goto out_map;
 	}
 
-	errcode = pt_section_add_bcache(section);
-	if (errcode < 0)
-		goto out_mem;
-
 	mapping->base = base;
 	mapping->size = size;
 	mapping->begin = base + adjustment;
@@ -152,9 +148,6 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	section->memsize = pt_sec_posix_memsize;
 
 	return 0;
-
-out_mem:
-	free(mapping);
 
 out_map:
 	munmap(base, (size_t) size);

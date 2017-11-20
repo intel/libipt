@@ -45,6 +45,8 @@ struct pt_image_section_cache {
 
 extern int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
 				 struct pt_section *section);
+extern int pt_iscache_notify_resize(struct pt_image_section_cache *iscache,
+				    struct pt_section *section, uint64_t size);
 
 int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
 			  struct pt_section *section)
@@ -57,6 +59,31 @@ int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
 
 	/* Avoid recursion. */
 	iscache->map = 0;
+
+	return pt_section_map_share(section);
+}
+
+int pt_iscache_notify_resize(struct pt_image_section_cache *iscache,
+			     struct pt_section *section, uint64_t size)
+{
+	uint64_t memsize;
+	int errcode;
+
+	if (!iscache)
+		return -pte_internal;
+
+	if (iscache->map <= 0)
+		return iscache->map;
+
+	/* Avoid recursion. */
+	iscache->map = 0;
+
+	errcode = pt_section_memsize(section, &memsize);
+	if (errcode < 0)
+		return errcode;
+
+	if (size != memsize)
+		return -pte_internal;
 
 	return pt_section_map_share(section);
 }
@@ -1047,7 +1074,7 @@ static struct ptunit_result clone_tail(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static int worker(void *arg)
+static int worker_read(void *arg)
 {
 	struct section_fixture *sfix;
 	int it, errcode;
@@ -1095,7 +1122,53 @@ out_put:
 	return errcode;
 }
 
-static struct ptunit_result stress(struct section_fixture *sfix)
+static int worker_bcache(void *arg)
+{
+	struct section_fixture *sfix;
+	int it, errcode;
+
+	sfix = arg;
+	if (!sfix)
+		return -pte_internal;
+
+	errcode = pt_section_get(sfix->section);
+	if (errcode < 0)
+		return errcode;
+
+	for (it = 0; it < num_work; ++it) {
+		struct pt_block_cache *bcache;
+
+		errcode = pt_section_map(sfix->section);
+		if (errcode < 0)
+			goto out_put;
+
+		errcode = pt_section_request_bcache(sfix->section);
+		if (errcode < 0)
+			goto out_unmap;
+
+		bcache = pt_section_bcache(sfix->section);
+		if (!bcache) {
+			errcode = -pte_nomem;
+			goto out_unmap;
+		}
+
+		errcode = pt_section_unmap(sfix->section);
+		if (errcode < 0)
+			goto out_put;
+	}
+
+	return pt_section_put(sfix->section);
+
+out_unmap:
+	(void) pt_section_unmap(sfix->section);
+
+out_put:
+	(void) pt_section_put(sfix->section);
+	return errcode;
+}
+
+static struct ptunit_result stress(struct section_fixture *sfix,
+				   int (*worker)(void *))
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
 	int errcode;
@@ -1120,7 +1193,7 @@ static struct ptunit_result stress(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result cache(struct section_fixture *sfix)
+static struct ptunit_result init_no_bcache(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
 	struct pt_block_cache *bcache;
@@ -1131,10 +1204,33 @@ static struct ptunit_result cache(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
+	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
 	bcache = pt_section_bcache(sfix->section);
 	ptu_null(bcache);
 
+	errcode = pt_section_unmap(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result bcache_alloc_free(struct section_fixture *sfix)
+{
+	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
+	struct pt_block_cache *bcache;
+	int errcode;
+
+	sfix_write(sfix, bytes);
+
+	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
+	ptu_ptr(sfix->section);
+
 	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_alloc_bcache(sfix->section);
 	ptu_int_eq(errcode, 0);
 
 	bcache = pt_section_bcache(sfix->section);
@@ -1150,10 +1246,9 @@ static struct ptunit_result cache(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result cache_disabled(struct section_fixture *sfix)
+static struct ptunit_result bcache_alloc_twice(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
-	struct pt_block_cache *bcache;
 	int errcode;
 
 	sfix_write(sfix, bytes);
@@ -1161,13 +1256,14 @@ static struct ptunit_result cache_disabled(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	pt_section_disable_bcache(sfix->section);
-
 	errcode = pt_section_map(sfix->section);
 	ptu_int_eq(errcode, 0);
 
-	bcache = pt_section_bcache(sfix->section);
-	ptu_null(bcache);
+	errcode = pt_section_alloc_bcache(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_alloc_bcache(sfix->section);
+	ptu_int_eq(errcode, 0);
 
 	errcode = pt_section_unmap(sfix->section);
 	ptu_int_eq(errcode, 0);
@@ -1175,10 +1271,9 @@ static struct ptunit_result cache_disabled(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result cache_enable_disable(struct section_fixture *sfix)
+static struct ptunit_result bcache_alloc_nomap(struct section_fixture *sfix)
 {
 	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0x6 };
-	struct pt_block_cache *bcache;
 	int errcode;
 
 	sfix_write(sfix, bytes);
@@ -1186,32 +1281,8 @@ static struct ptunit_result cache_enable_disable(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	bcache = pt_section_bcache(sfix->section);
-	ptu_null(bcache);
-
-	errcode = pt_section_map(sfix->section);
-	ptu_int_eq(errcode, 0);
-
-	pt_section_disable_bcache(sfix->section);
-
-	bcache = pt_section_bcache(sfix->section);
-	ptu_ptr(bcache);
-	ptu_uint_eq(bcache->nentries, sfix->section->size);
-
-	errcode = pt_section_unmap(sfix->section);
-	ptu_int_eq(errcode, 0);
-
-	bcache = pt_section_bcache(sfix->section);
-	ptu_null(bcache);
-
-	errcode = pt_section_map(sfix->section);
-	ptu_int_eq(errcode, 0);
-
-	bcache = pt_section_bcache(sfix->section);
-	ptu_null(bcache);
-
-	errcode = pt_section_unmap(sfix->section);
-	ptu_int_eq(errcode, 0);
+	errcode = pt_section_alloc_bcache(sfix->section);
+	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -1269,8 +1340,6 @@ static struct ptunit_result memsize_map_nobcache(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	pt_section_disable_bcache(sfix->section);
-
 	errcode = pt_section_map(sfix->section);
 	ptu_int_eq(errcode, 0);
 
@@ -1298,9 +1367,10 @@ static struct ptunit_result memsize_map_bcache(struct section_fixture *sfix)
 	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x3ull);
 	ptu_ptr(sfix->section);
 
-	pt_section_enable_bcache(sfix->section);
-
 	errcode = pt_section_map(sfix->section);
+	ptu_int_eq(errcode, 0);
+
+	errcode = pt_section_alloc_bcache(sfix->section);
 	ptu_int_eq(errcode, 0);
 
 	errcode = pt_section_memsize(sfix->section, &memsize);
@@ -1418,21 +1488,24 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, read_overflow_32bit, sfix);
 	ptu_run_f(suite, read_nomap, sfix);
 	ptu_run_f(suite, read_unmap_map, sfix);
-	ptu_run_f(suite, stress, sfix);
 
 	ptu_run_f(suite, clone_bad_range, sfix);
 	ptu_run_f(suite, clone_head, sfix);
 	ptu_run_f(suite, clone_tail, sfix);
 
-	ptu_run_f(suite, cache, sfix);
-	ptu_run_f(suite, cache_disabled, sfix);
-	ptu_run_f(suite, cache_enable_disable, sfix);
+	ptu_run_f(suite, init_no_bcache, sfix);
+	ptu_run_f(suite, bcache_alloc_free, sfix);
+	ptu_run_f(suite, bcache_alloc_twice, sfix);
+	ptu_run_f(suite, bcache_alloc_nomap, sfix);
 
 	ptu_run_f(suite, memsize_null, sfix);
 	ptu_run_f(suite, memsize_nomap, sfix);
 	ptu_run_f(suite, memsize_unmap, sfix);
 	ptu_run_f(suite, memsize_map_nobcache, sfix);
 	ptu_run_f(suite, memsize_map_bcache, sfix);
+
+	ptu_run_fp(suite, stress, sfix, worker_bcache);
+	ptu_run_fp(suite, stress, sfix, worker_read);
 
 	return ptunit_report(&suite);
 }

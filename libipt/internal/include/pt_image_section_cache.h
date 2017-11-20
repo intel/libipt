@@ -186,4 +186,21 @@ extern int pt_iscache_clear(struct pt_image_section_cache *iscache);
 extern int pt_iscache_notify_map(struct pt_image_section_cache *iscache,
 				 struct pt_section *section);
 
+/* Notify about a size change of a mapped section.
+ *
+ * Notifies @iscache that @section's size has changed while it was mapped.
+ *
+ * The caller guarantees that @iscache contains @section (by using @section's
+ * iscache pointer) and prevents @iscache from detaching.
+ *
+ * The caller must not lock @section to allow @iscache to map it.  This function
+ * must not try to detach from @section.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ * Returns -pte_internal if @iscache or @section is NULL.
+ * Returns -pte_bad_lock on any locking error.
+ */
+extern int pt_iscache_notify_resize(struct pt_image_section_cache *iscache,
+				    struct pt_section *section, uint64_t size);
+
 #endif /* PT_IMAGE_SECTION_CACHE_H */

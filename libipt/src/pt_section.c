@@ -481,27 +481,91 @@ uint64_t pt_section_offset(const struct pt_section *section)
 	return section->offset;
 }
 
-int pt_section_add_bcache(struct pt_section *section)
+int pt_section_alloc_bcache(struct pt_section *section)
 {
-	uint32_t cache_size;
+	struct pt_image_section_cache *iscache;
+	struct pt_block_cache *bcache;
+	uint64_t ssize, memsize;
+	uint32_t csize;
+	int errcode;
 
-	if (!section || section->bcache)
+	if (!section)
 		return -pte_internal;
 
-	if (section->disable_bcache)
-		return 0;
+	if (!section->mcount)
+		return -pte_internal;
 
-	cache_size = (uint32_t) section->size;
+	ssize = pt_section_size(section);
+	csize = (uint32_t) ssize;
 
-	/* We do not allocate a cache if it would get too big.
+	if (csize != ssize)
+		return -pte_not_supported;
+
+	memsize = 0ull;
+
+	/* We need to take both the attach and the section lock in order to pair
+	 * the block cache allocation and the resize notification.
 	 *
-	 * We also do not treat failure to allocate a cache as an error.
-	 * Without the cache, decode will be slower but still correct.
+	 * This allows map notifications in between but they only change the
+	 * order of sections in the cache.
+	 *
+	 * The attach lock needs to be taken first.
 	 */
-	if (cache_size == section->size)
-		section->bcache = pt_bcache_alloc(cache_size);
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
 
-	return 0;
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		goto out_alock;
+
+	bcache = pt_section_bcache(section);
+	if (bcache) {
+		errcode = 0;
+		goto out_lock;
+	}
+
+	bcache = pt_bcache_alloc(csize);
+	if (!bcache) {
+		errcode = -pte_nomem;
+		goto out_lock;
+	}
+
+	/* Install the block cache.  It will become visible and may be used
+	 * immediately.
+	 *
+	 * If we fail later on, we leave the block cache and report the error to
+	 * the allocating decoder thread.
+	 */
+	section->bcache = bcache;
+
+	errcode = pt_section_memsize_locked(section, &memsize);
+	if (errcode < 0)
+		goto out_lock;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		goto out_alock;
+
+	if (memsize) {
+		iscache = section->iscache;
+		if (iscache) {
+			errcode = pt_iscache_notify_resize(iscache, section,
+							  memsize);
+			if (errcode < 0)
+				goto out_alock;
+		}
+	}
+
+	return pt_section_unlock_attach(section);
+
+
+out_lock:
+	(void) pt_section_unlock(section);
+
+out_alock:
+	(void) pt_section_unlock_attach(section);
+	return errcode;
 }
 
 int pt_section_on_map_lock(struct pt_section *section)

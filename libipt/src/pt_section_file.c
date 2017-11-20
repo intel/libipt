@@ -155,10 +155,6 @@ int pt_sec_file_map(struct pt_section *section, FILE *file)
 	if (errcode < 0)
 		goto out_mem;
 
-	errcode = pt_section_add_bcache(section);
-	if (errcode < 0)
-		goto out_mem;
-
 	mapping->file = file;
 	mapping->begin = begin;
 	mapping->end = end;

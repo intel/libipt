@@ -43,6 +43,9 @@ struct pt_section {
 	uint64_t offset;
 	uint64_t size;
 
+	/* The bcache size. */
+	uint64_t bcsize;
+
 	/* The iscache back link. */
 	struct pt_image_section_cache *iscache;
 
@@ -79,6 +82,7 @@ extern int pt_section_detach(struct pt_section *section,
 extern int pt_section_map(struct pt_section *section);
 extern int pt_section_map_share(struct pt_section *section);
 extern int pt_section_unmap(struct pt_section *section);
+extern int pt_section_request_bcache(struct pt_section *section);
 
 extern const char *pt_section_filename(const struct pt_section *section);
 extern uint64_t pt_section_offset(const struct pt_section *section);
@@ -398,6 +402,7 @@ int pt_section_unmap(struct pt_section *section)
 	if (errcode < 0)
 		return errcode;
 
+	section->bcsize = 0ull;
 	mcount = --section->mcount;
 
 	errcode = pt_section_unlock(section);
@@ -408,6 +413,51 @@ int pt_section_unmap(struct pt_section *section)
 		return -pte_internal;
 
 	return 0;
+}
+
+int pt_section_request_bcache(struct pt_section *section)
+{
+	struct pt_image_section_cache *iscache;
+	uint64_t memsize;
+	int errcode;
+
+	if (!section)
+		return -pte_internal;
+
+	errcode = pt_section_lock_attach(section);
+	if (errcode < 0)
+		return errcode;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
+		goto out_alock;
+
+	if (section->bcsize)
+		goto out_lock;
+
+	section->bcsize = section->size * 3;
+	memsize = section->size + section->bcsize;
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
+		goto out_alock;
+
+	iscache = section->iscache;
+	if (iscache) {
+		errcode = pt_iscache_notify_resize(iscache, section, memsize);
+		if (errcode < 0)
+			goto out_alock;
+	}
+
+	return pt_section_unlock_attach(section);
+
+
+out_lock:
+	(void) pt_section_unlock(section);
+
+out_alock:
+	(void) pt_section_unlock_attach(section);
+	return errcode;
 }
 
 const char *pt_section_filename(const struct pt_section *section)
@@ -439,7 +489,7 @@ int pt_section_memsize(struct pt_section *section, uint64_t *size)
 	if (!section || !size)
 		return -pte_internal;
 
-	*size = section->mcount ? section->size : 0ull;
+	*size = section->mcount ? section->size + section->bcsize : 0ull;
 
 	return 0;
 }
@@ -537,7 +587,7 @@ static struct ptunit_result sfix_init(struct iscache_fixture *cfix)
 
 	ptu_test(cfix_init, cfix);
 
-	cfix->iscache.limit = 0x8000;
+	cfix->iscache.limit = 0x7800;
 
 	for (idx = 0; idx < num_sections; ++idx) {
 		status = pt_iscache_add(&cfix->iscache, cfix->section[idx],
@@ -1394,6 +1444,79 @@ static struct ptunit_result lru_map_evict(struct iscache_fixture *cfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result lru_bcache_evict(struct iscache_fixture *cfix)
+{
+	int status, isid;
+
+	cfix->iscache.limit = 4 * cfix->section[0]->size +
+		cfix->section[1]->size - 1;
+	ptu_uint_eq(cfix->iscache.used, 0ull);
+	ptu_null(cfix->iscache.lru);
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[1], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_section_map(cfix->section[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_unmap(cfix->section[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_map(cfix->section[1]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_unmap(cfix->section[1]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_request_bcache(cfix->section[0]);
+	ptu_int_eq(status, 0);
+
+	ptu_ptr(cfix->iscache.lru);
+	ptu_ptr_eq(cfix->iscache.lru->section, cfix->section[0]);
+	ptu_null(cfix->iscache.lru->next);
+	ptu_uint_eq(cfix->iscache.used, 4 * cfix->section[0]->size);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result lru_bcache_clear(struct iscache_fixture *cfix)
+{
+	int status, isid;
+
+	cfix->iscache.limit = cfix->section[0]->size + cfix->section[1]->size;
+	ptu_uint_eq(cfix->iscache.used, 0ull);
+	ptu_null(cfix->iscache.lru);
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[0], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	isid = pt_iscache_add(&cfix->iscache, cfix->section[1], 0xa000ull);
+	ptu_int_gt(isid, 0);
+
+	status = pt_section_map(cfix->section[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_unmap(cfix->section[0]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_map(cfix->section[1]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_unmap(cfix->section[1]);
+	ptu_int_eq(status, 0);
+
+	status = pt_section_request_bcache(cfix->section[0]);
+	ptu_int_eq(status, 0);
+
+	ptu_null(cfix->iscache.lru);
+	ptu_uint_eq(cfix->iscache.used, 0ull);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result lru_limit_evict(struct iscache_fixture *cfix)
 {
 	int status, isid;
@@ -1625,6 +1748,42 @@ static int worker_map_limit(void *arg)
 	return 0;
 }
 
+static int worker_map_bcache(void *arg)
+{
+	struct iscache_fixture *cfix;
+	int it, sec, status;
+
+	cfix = arg;
+	if (!cfix)
+		return -pte_internal;
+
+	for (it = 0; it < num_iterations; ++it) {
+		for (sec = 0; sec < num_sections; ++sec) {
+			struct pt_section *section;
+
+			section = cfix->section[sec];
+
+			status = pt_section_map(section);
+			if (status < 0)
+				return status;
+
+			if (it % 13 == 0) {
+				status = pt_section_request_bcache(section);
+				if (status < 0) {
+					(void) pt_section_unmap(section);
+					return status;
+				}
+			}
+
+			status = pt_section_unmap(section);
+			if (status < 0)
+				return status;
+		}
+	}
+
+	return 0;
+}
+
 static struct ptunit_result stress(struct iscache_fixture *cfix,
 				   int (*worker)(void *))
 {
@@ -1717,12 +1876,15 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, lru_map_move_front, cfix);
 	ptu_run_f(suite, lru_map_evict, cfix);
 	ptu_run_f(suite, lru_limit_evict, cfix);
+	ptu_run_f(suite, lru_bcache_evict, cfix);
+	ptu_run_f(suite, lru_bcache_clear, cfix);
 	ptu_run_f(suite, lru_clear, cfix);
 
 	ptu_run_fp(suite, stress, cfix, worker_add);
 	ptu_run_fp(suite, stress, cfix, worker_add_file);
 	ptu_run_fp(suite, stress, sfix, worker_map);
 	ptu_run_fp(suite, stress, sfix, worker_map_limit);
+	ptu_run_fp(suite, stress, sfix, worker_map_bcache);
 
 	return ptunit_report(&suite);
 }

@@ -2516,6 +2516,10 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 		if (errcode < 0)
 			goto out_put;
 
+		errcode = pt_section_request_bcache(section);
+		if (errcode < 0)
+			goto out_unmap;
+
 		errcode = pt_blk_cache_section(&decoder->scache, section, laddr,
 					       isid);
 		if (errcode < 0)
