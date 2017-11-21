@@ -339,7 +339,15 @@ extern int pt_section_add_bcache(struct pt_section *section);
  * Returns -pte_internal if @section is NULL.
  * Returns -pte_bad_lock on any locking error.
  */
-extern int pt_section_on_map(struct pt_section *section);
+extern int pt_section_on_map_lock(struct pt_section *section);
+
+static inline int pt_section_on_map(struct pt_section *section)
+{
+	if (section && !section->iscache)
+		return 0;
+
+	return pt_section_on_map_lock(section);
+}
 
 /* Map a section.
  *

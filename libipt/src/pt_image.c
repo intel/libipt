@@ -705,7 +705,15 @@ static int pt_image_fetch_section(struct pt_image *image,
 				if (cache < already)
 					return pt_image_prune_cache(image);
 			}
+
+			return 0;
 		}
+
+		/* Moving the section is like re-mapping it if we didn't keep it
+		 * mapped.
+		 */
+		if (list != start)
+			return pt_section_on_map(pt_msec_section(msec));
 
 		return 0;
 	}

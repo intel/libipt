@@ -504,7 +504,7 @@ int pt_section_add_bcache(struct pt_section *section)
 	return 0;
 }
 
-int pt_section_on_map(struct pt_section *section)
+int pt_section_on_map_lock(struct pt_section *section)
 {
 	struct pt_image_section_cache *iscache;
 	int errcode, status;
