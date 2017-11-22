@@ -53,7 +53,9 @@ static char *dupstr(const char *str)
 
 static struct pt_section_list *pt_mk_section_list(struct pt_section *section,
 						  const struct pt_asid *asid,
-						  uint64_t vaddr, int isid)
+						  uint64_t vaddr,
+						  uint64_t offset,
+						  uint64_t size, int isid)
 {
 	struct pt_section_list *list;
 	int errcode;
@@ -68,7 +70,7 @@ static struct pt_section_list *pt_mk_section_list(struct pt_section *section,
 	if (errcode < 0)
 		goto out_mem;
 
-	pt_msec_init(&list->section, section, asid, vaddr);
+	pt_msec_init(&list->section, section, asid, vaddr, offset, size);
 	list->isid = isid;
 
 	return list;
@@ -149,78 +151,26 @@ const char *pt_image_name(const struct pt_image *image)
 	return image->name;
 }
 
-static int pt_image_clone(struct pt_section_list **list,
-			  const struct pt_mapped_section *msec,
-			  uint64_t begin, uint64_t end, int isid)
-{
-	const struct pt_asid *masid;
-	struct pt_section_list *next;
-	struct pt_section *section, *sec;
-	uint64_t mbegin, sbegin, offset, size;
-	int errcode;
-
-	if (!list || !msec)
-		return -pte_internal;
-
-	sec = pt_msec_section(msec);
-	masid = pt_msec_asid(msec);
-	mbegin = pt_msec_begin(msec);
-	sbegin = pt_section_offset(sec);
-
-	if (end <= begin)
-		return -pte_internal;
-
-	if (begin < mbegin)
-		return -pte_internal;
-
-	offset = begin - mbegin;
-	size = end - begin;
-
-	errcode = pt_section_clone(&section, sec, sbegin + offset, size);
-	if (errcode < 0)
-		return errcode;
-
-	next = pt_mk_section_list(section, masid, begin, isid);
-	if (!next) {
-		(void) pt_section_put(section);
-
-		return -pte_nomem;
-	}
-
-	/* The image list got its own reference; let's drop ours. */
-	errcode = pt_section_put(section);
-	if (errcode < 0) {
-		pt_section_list_free(next);
-
-		return errcode;
-	}
-
-	/* Add the new section. */
-	next->next = *list;
-	*list = next;
-
-	return 0;
-}
-
 int pt_image_add(struct pt_image *image, struct pt_section *section,
 		 const struct pt_asid *asid, uint64_t vaddr, int isid)
 {
-	struct pt_section_list **list, *next, *removed;
-	uint64_t begin, end;
+	struct pt_section_list **list, *next, *removed, *new;
+	uint64_t size, begin, end;
 	int errcode;
 
 	if (!image || !section)
 		return -pte_internal;
 
-	next = pt_mk_section_list(section, asid, vaddr, isid);
+	size = pt_section_size(section);
+	begin = vaddr;
+	end = begin + size;
+
+	next = pt_mk_section_list(section, asid, begin, 0ull, size, isid);
 	if (!next)
 		return -pte_nomem;
 
 	removed = NULL;
 	errcode = 0;
-
-	begin = vaddr;
-	end = begin + pt_section_size(section);
 
 	/* Check for overlaps while we move to the end of the list. */
 	list = &(image->sections);
@@ -229,7 +179,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		const struct pt_asid *masid;
 		struct pt_section_list *current;
 		struct pt_section *lsec;
-		uint64_t lbegin, lend;
+		uint64_t lbegin, lend, loff;
 
 		current = *list;
 		msec = &current->section;
@@ -254,6 +204,7 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 
 		/* The new section overlaps with @msec's section. */
 		lsec = pt_msec_section(msec);
+		loff = pt_msec_offset(msec);
 
 		/* We remove @msec and insert new sections for the remaining
 		 * parts, if any.  Those new sections are not mapped initially
@@ -276,28 +227,31 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 			current->mapped = 0;
 		}
 
-		/* Add a section covering the remaining bytes at the front.
-		 *
-		 * We preserve the section identifier to indicate that the new
-		 * section originated from the original section.
-		 */
+		/* Add a section covering the remaining bytes at the front. */
 		if (lbegin < begin) {
-			errcode = pt_image_clone(&next, msec, lbegin, begin,
-						 current->isid);
-			if (errcode < 0)
+			new = pt_mk_section_list(lsec, masid, lbegin, loff,
+						 begin - lbegin, current->isid);
+			if (!new) {
+				errcode = -pte_nomem;
 				break;
+			}
+
+			new->next = next;
+			next = new;
 		}
 
-		/* Add a section covering the remaining bytes at the back.
-		 *
-		 * We preserve the section identifier to indicate that the new
-		 * section originated from the original section.
-		 */
+		/* Add a section covering the remaining bytes at the back. */
 		if (end < lend) {
-			errcode = pt_image_clone(&next, msec, end, lend,
-						 current->isid);
-			if (errcode < 0)
+			new = pt_mk_section_list(lsec, masid, end,
+						 loff + (end - lbegin),
+						 lend - end, current->isid);
+			if (!new) {
+				errcode = -pte_nomem;
 				break;
+			}
+
+			new->next = next;
+			next = new;
 		}
 	}
 

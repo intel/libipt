@@ -2058,11 +2058,16 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	dip = nip + bce.displacement;
 	disp = (int64_t) (dip - insn.ip);
 
-	/* We must not have switched sections between @nip and @dip since the
-	 * cache entry at @nip brought us to @dip.
+	/* We may have switched sections if the section was split.  See
+	 * pt_blk_proceed_no_event_cached() for a more elaborate comment.
+	 *
+	 * We're not adding a block cache entry since this won't apply to the
+	 * original section which may be shared with other decoders.
+	 *
+	 * We will instead take the slow path until the end of the section.
 	 */
 	if (!pt_blk_is_in_section(msec, dip))
-		return -pte_internal;
+		return 0;
 
 	/* Let's try to reach @nip's decision point from @insn.ip.
 	 *
@@ -2177,7 +2182,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 {
 	struct pt_bcache_entry bce;
 	uint16_t binsn, ninsn;
-	uint64_t offset;
+	uint64_t offset, nip;
 	int status;
 
 	if (!decoder || !block)
@@ -2193,6 +2198,31 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		return pt_blk_proceed_no_event_fill_cache(decoder, block,
 							  bcache, msec,
 							  bcache_fill_steps);
+
+	/* If we switched sections, the origianl section must have been split
+	 * underneath us.  A split preserves the block cache of the original
+	 * section.
+	 *
+	 * Crossing sections requires ending the block so we can indicate the
+	 * proper isid for the entire block.
+	 *
+	 * Plus there's the chance that the new section that caused the original
+	 * section to split changed instructions.
+	 *
+	 * This check will also cover changes to a linear sequence of code we
+	 * would otherwise have jumped over as long as the start and end are in
+	 * different sub-sections.
+	 *
+	 * The only case that we do not cover is a sequence of instructions that
+	 * walks into a new section and then jumps back into the originating
+	 * section via a direct unconditional near branch.  Unless the same
+	 * instructions have been patched, this will result in a decode error.
+	 *
+	 * Switch to the slow path until we reach the end of this section.
+	 */
+	nip = decoder->ip + bce.displacement;
+	if (!pt_blk_is_in_section(msec, nip))
+		return pt_blk_proceed_no_event_uncached(decoder, block);
 
 	/* We have a valid cache entry.  Let's first check if the way to the
 	 * decision point still fits into @block.
@@ -2213,13 +2243,13 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	 * We're not switching execution modes so even if @block already has an
 	 * execution mode, it will be the one we're going to set.
 	 */
-	decoder->ip += bce.displacement;
+	decoder->ip = nip;
 
 	/* We don't know the instruction class so we should be setting it to
 	 * ptic_error.  Since we will be able to fill it back in later in most
 	 * cases, we move the clearing to the switch cases that don't.
 	 */
-	block->end_ip = decoder->ip;
+	block->end_ip = nip;
 	block->ninsn = ninsn;
 	block->mode = pt_bce_exec_mode(bce);
 

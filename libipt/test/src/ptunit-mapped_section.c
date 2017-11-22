@@ -33,21 +33,13 @@
 #include "intel-pt.h"
 
 
-uint64_t pt_section_size(const struct pt_section *section)
-{
-	if (!section)
-		return 0ull;
-
-	return 0x1000ull;
-}
-
 static struct ptunit_result begin(void)
 {
 	struct pt_mapped_section msec;
 	struct pt_section sec;
 	uint64_t begin;
 
-	pt_msec_init(&msec, &sec, NULL, 0x2000ull);
+	pt_msec_init(&msec, &sec, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
 	begin = pt_msec_begin(&msec);
 	ptu_uint_eq(begin, 0x2000);
@@ -59,25 +51,40 @@ static struct ptunit_result end(void)
 {
 	struct pt_mapped_section msec;
 	struct pt_section sec;
-	uint64_t begin;
+	uint64_t end;
 
-	pt_msec_init(&msec, &sec, NULL, 0x2000ull);
+	pt_msec_init(&msec, &sec, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
-	begin = pt_msec_end(&msec);
-	ptu_uint_eq(begin, 0x3000);
+	end = pt_msec_end(&msec);
+	ptu_uint_eq(end, 0x3000);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result end_bad(void)
+static struct ptunit_result offset(void)
 {
 	struct pt_mapped_section msec;
-	uint64_t end;
+	struct pt_section sec;
+	uint64_t offset;
 
-	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+	pt_msec_init(&msec, &sec, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
-	end = pt_msec_end(&msec);
-	ptu_uint_eq(end, 0ull);
+	offset = pt_msec_offset(&msec);
+	ptu_uint_eq(offset, 0x100ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result size(void)
+{
+	struct pt_mapped_section msec;
+	struct pt_section sec;
+	uint64_t size;
+
+	pt_msec_init(&msec, &sec, NULL, 0x2000ull, 0x100ull, 0x1000ull);
+
+	size = pt_msec_size(&msec);
+	ptu_uint_eq(size, 0x1000ull);
 
 	return ptu_passed();
 }
@@ -92,7 +99,7 @@ static struct ptunit_result asid(void)
 	asid.cr3 = 0xa00000ull;
 	asid.vmcs = 0xb00000ull;
 
-	pt_msec_init(&msec, NULL, &asid, 0x2000ull);
+	pt_msec_init(&msec, NULL, &asid, 0x2000ull, 0x100ull, 0x1000ull);
 
 	pasid = pt_msec_asid(&msec);
 	ptu_ptr(pasid);
@@ -107,7 +114,7 @@ static struct ptunit_result asid_null(void)
 	struct pt_mapped_section msec;
 	const struct pt_asid *pasid;
 
-	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
 	pasid = pt_msec_asid(&msec);
 	ptu_ptr(pasid);
@@ -122,10 +129,10 @@ static struct ptunit_result map(void)
 	struct pt_mapped_section msec;
 	uint64_t mapped;
 
-	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
-	mapped = pt_msec_map(&msec, 0x1000);
-	ptu_uint_eq(mapped, 0x3000);
+	mapped = pt_msec_map(&msec, 0x900);
+	ptu_uint_eq(mapped, 0x2800);
 
 	return ptu_passed();
 }
@@ -135,10 +142,10 @@ static struct ptunit_result unmap(void)
 	struct pt_mapped_section msec;
 	uint64_t offset;
 
-	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
 	offset = pt_msec_unmap(&msec, 0x3000);
-	ptu_uint_eq(offset, 0x1000);
+	ptu_uint_eq(offset, 0x1100);
 
 	return ptu_passed();
 }
@@ -149,7 +156,7 @@ static struct ptunit_result section(void)
 	struct pt_mapped_section msec;
 	struct pt_section *psection;
 
-	pt_msec_init(&msec, &section, NULL, 0x2000ull);
+	pt_msec_init(&msec, &section, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
 	psection = pt_msec_section(&msec);
 	ptu_ptr_eq(psection, &section);
@@ -162,7 +169,7 @@ static struct ptunit_result section_null(void)
 	struct pt_mapped_section msec;
 	struct pt_section *psection;
 
-	pt_msec_init(&msec, NULL, NULL, 0x2000ull);
+	pt_msec_init(&msec, NULL, NULL, 0x2000ull, 0x100ull, 0x1000ull);
 
 	psection = pt_msec_section(&msec);
 	ptu_ptr_eq(psection, NULL);
@@ -178,7 +185,8 @@ int main(int argc, char **argv)
 
 	ptu_run(suite, begin);
 	ptu_run(suite, end);
-	ptu_run(suite, end_bad);
+	ptu_run(suite, offset);
+	ptu_run(suite, size);
 	ptu_run(suite, asid);
 	ptu_run(suite, asid_null);
 	ptu_run(suite, map);

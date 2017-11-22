@@ -45,20 +45,35 @@ struct pt_mapped_section {
 
 	/* The virtual address at which the section is mapped. */
 	uint64_t vaddr;
+
+	/* The offset into the section.
+	 *
+	 * This is normally zero but when @section is split, @offset is added to
+	 * the section/file offset when accessing @section.
+	 */
+	uint64_t offset;
+
+	/* The size of the section.
+	 *
+	 * This is normally @section->size but when @section is split, this is
+	 * used to determine the size of the sub-section.
+	 */
+	uint64_t size;
 };
 
 
-/* Initialize a mapped section - @section may be NULL. */
 static inline void pt_msec_init(struct pt_mapped_section *msec,
 				struct pt_section *section,
 				const struct pt_asid *asid,
-				uint64_t vaddr)
+				uint64_t vaddr, uint64_t offset, uint64_t size)
 {
 	if (!msec)
 		return;
 
 	msec->section = section;
 	msec->vaddr = vaddr;
+	msec->offset = offset;
+	msec->size = size;
 
 	if (asid)
 		msec->asid = *asid;
@@ -86,16 +101,28 @@ static inline uint64_t pt_msec_begin(const struct pt_mapped_section *msec)
 /* Return the virtual address one byte past the end of the memory region. */
 static inline uint64_t pt_msec_end(const struct pt_mapped_section *msec)
 {
-	uint64_t size;
-
 	if (!msec)
 		return 0ull;
 
-	size = pt_section_size(msec->section);
-	if (size)
-		size += msec->vaddr;
+	return msec->vaddr + msec->size;
+}
 
-	return size;
+/* Return the section/file offset. */
+static inline uint64_t pt_msec_offset(const struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return 0ull;
+
+	return msec->offset;
+}
+
+/* Return the section size. */
+static inline uint64_t pt_msec_size(const struct pt_mapped_section *msec)
+{
+	if (!msec)
+		return 0ull;
+
+	return msec->size;
 }
 
 /* Return the underlying section. */
@@ -119,14 +146,14 @@ pt_msec_asid(const struct pt_mapped_section *msec)
 static inline uint64_t pt_msec_map(const struct pt_mapped_section *msec,
 				   uint64_t offset)
 {
-	return offset + msec->vaddr;
+	return (offset - msec->offset) + msec->vaddr;
 }
 
 /* Translate a virtual address into a section/file offset. */
 static inline uint64_t pt_msec_unmap(const struct pt_mapped_section *msec,
 				     uint64_t vaddr)
 {
-	return vaddr - msec->vaddr;
+	return (vaddr - msec->vaddr) + msec->offset;
 }
 
 /* Read memory from a mapped section.
