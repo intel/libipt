@@ -829,7 +829,7 @@ int pt_image_add_cached(struct pt_image *image,
 }
 
 static int pt_image_find_cold(struct pt_image *image,
-			      struct pt_section **psection, uint64_t *laddr,
+			      struct pt_mapped_section *usec,
 			      const struct pt_asid *asid, uint64_t vaddr)
 {
 	struct pt_mapped_section *msec;
@@ -837,7 +837,7 @@ static int pt_image_find_cold(struct pt_image *image,
 	struct pt_section *section;
 	int errcode;
 
-	if (!image || !psection || !laddr)
+	if (!image || !usec)
 		return -pte_internal;
 
 	errcode = pt_image_fetch_section(image, asid, vaddr);
@@ -860,21 +860,20 @@ static int pt_image_find_cold(struct pt_image *image,
 	if (errcode < 0)
 		return errcode;
 
-	*psection = section;
-	*laddr = pt_msec_begin(msec);
+	*usec = *msec;
 
 	return slist->isid;
 }
 
-int pt_image_find(struct pt_image *image, struct pt_section **psection,
-		  uint64_t *laddr, const struct pt_asid *asid, uint64_t vaddr)
+int pt_image_find(struct pt_image *image, struct pt_mapped_section *usec,
+		  const struct pt_asid *asid, uint64_t vaddr)
 {
 	struct pt_mapped_section *msec;
 	struct pt_section_list *slist;
 	struct pt_section *section;
 	int errcode;
 
-	if (!image || !psection || !laddr)
+	if (!image || !usec)
 		return -pte_internal;
 
 	slist = image->sections;
@@ -882,7 +881,7 @@ int pt_image_find(struct pt_image *image, struct pt_section **psection,
 		return -pte_nomap;
 
 	if (!slist->mapped)
-		return pt_image_find_cold(image, psection, laddr, asid, vaddr);
+		return pt_image_find_cold(image, usec, asid, vaddr);
 
 	msec = &slist->section;
 
@@ -891,7 +890,7 @@ int pt_image_find(struct pt_image *image, struct pt_section **psection,
 		if (errcode != -pte_nomap)
 			return errcode;
 
-		return pt_image_find_cold(image, psection, laddr, asid, vaddr);
+		return pt_image_find_cold(image, usec, asid, vaddr);
 	}
 
 	section = pt_msec_section(msec);
@@ -900,25 +899,31 @@ int pt_image_find(struct pt_image *image, struct pt_section **psection,
 	if (errcode < 0)
 		return errcode;
 
-	*psection = section;
-	*laddr = pt_msec_begin(msec);
+	*usec = *msec;
 
 	return slist->isid;
 }
 
-int pt_image_validate(const struct pt_image *image, const struct pt_asid *asid,
-		      uint64_t vaddr, const struct pt_section *section,
-		      uint64_t laddr, int isid)
+int pt_image_validate(const struct pt_image *image,
+		      const struct pt_mapped_section *usec, uint64_t vaddr,
+		      int isid)
 {
-	struct pt_mapped_section *msec;
-	struct pt_section_list *slist;
+	const struct pt_section_list *slist;
+	uint64_t begin, end;
+	int status;
 
-	if (!image)
+	if (!image || !usec)
 		return -pte_internal;
 
-	/* We only look at the top of our LRU stack and accept sporadic
-	 * validation fails if @section moved down in the LRU stack or has been
-	 * evicted.
+	/* Check that @vaddr lies within @usec. */
+	begin = pt_msec_begin(usec);
+	end = pt_msec_end(usec);
+	if (vaddr < begin || end <= vaddr)
+		return -pte_nomap;
+
+	/* We assume that @usec is a copy of the top of our stack and accept
+	 * sporadic validation fails if it isn't, e.g. because it has moved
+	 * down.
 	 *
 	 * A failed validation requires decoders to re-fetch the section so it
 	 * only results in a (relatively small) performance loss.
@@ -930,13 +935,9 @@ int pt_image_validate(const struct pt_image *image, const struct pt_asid *asid,
 	if (slist->isid != isid)
 		return -pte_nomap;
 
-	msec = &slist->section;
-
-	if (pt_msec_section(msec) != section)
+	status = memcmp(&slist->section, usec, sizeof(*usec));
+	if (status)
 		return -pte_nomap;
 
-	if (pt_msec_begin(msec) != laddr)
-		return -pte_nomap;
-
-	return pt_image_check_msec(msec, asid, vaddr);
+	return 0;
 }

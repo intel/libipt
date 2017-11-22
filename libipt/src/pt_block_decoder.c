@@ -87,7 +87,7 @@ static int pt_blk_scache_invalidate(struct pt_cached_section *scache)
 	if (!scache)
 		return -pte_internal;
 
-	section = scache->section;
+	section = pt_msec_section(&scache->msec);
 	if (!section)
 		return 0;
 
@@ -95,72 +95,92 @@ static int pt_blk_scache_invalidate(struct pt_cached_section *scache)
 	if (errcode < 0)
 		return errcode;
 
-	scache->section = NULL;
+	scache->msec.section = NULL;
 
 	return pt_section_put(section);
 }
 
-/* Cache @section loaded at @laddr identified by @isid in @scache.
- *
- * The caller transfers its use- and map-count to @scache.
+/* Cache the section returned by @image when looking up @vaddr in @asid.
  *
  * Returns zero on success, a negative error code otherwise.
- * Returns -pte_internal if @scache or @section is NULL.
+ * Returns -pte_internal if @scache or @image is NULL.
  * Returns -pte_internal if another section is already cached.
  */
 static int pt_blk_cache_section(struct pt_cached_section *scache,
-				struct pt_section *section, uint64_t laddr,
-				int isid)
+				struct pt_image *image,
+				const struct pt_asid *asid, uint64_t vaddr)
 {
-	if (!scache || !section)
+	struct pt_section *section;
+	int errcode, isid;
+
+	if (!scache)
 		return -pte_internal;
 
-	if (scache->section)
-		return -pte_internal;
+	errcode = pt_blk_scache_invalidate(scache);
+	if (errcode < 0)
+		return errcode;
 
-	scache->section = section;
-	scache->laddr = laddr;
+	isid = pt_image_find(image, &scache->msec, asid, vaddr);
+	if (isid < 0)
+		return isid;
+
+	section = pt_msec_section(&scache->msec);
+
+	errcode = pt_section_map(section);
+	if (errcode < 0)
+		goto out_put;
+
+	errcode = pt_section_request_bcache(section);
+	if (errcode < 0)
+		goto out_unmap;
+
 	scache->isid = isid;
 
-	return 0;
+	return isid;
+
+out_unmap:
+	(void) pt_section_unmap(section);
+
+out_put:
+	(void) pt_section_put(section);
+	scache->msec.section = NULL;
+
+	return errcode;
 }
 
 /* Get @scache's cached section.
  *
- * Check whether @scache contains a section that an image lookup of @ip in @asid
- * would return.  On success, provides the cached section in @psection and its
- * load address in @pladdr.
+ * Check whether @scache contains a section that an image lookup of @ip would
+ * return.  On success, provides the cached section in @pmsec.
  *
  * Returns the section's identifier on success, a negative error code otherwise.
- * Returns -pte_internal if @scache, @psection, or @pladdr is NULL.
+ * Returns -pte_internal if @scache or @pmsec is NULL.
  * Returns -pte_nomap if @scache does not have a section cached.
  * Returns -pte_nomap if @scache's cached section does not contain @ip.
  */
 static int pt_blk_cached_section(struct pt_cached_section *scache,
-				 struct pt_section **psection, uint64_t *pladdr,
-				 struct pt_image *image, struct pt_asid *asid,
-				 uint64_t ip)
+				 struct pt_mapped_section **pmsec,
+				 struct pt_image *image,  uint64_t ip)
 {
+	struct pt_mapped_section *msec;
 	struct pt_section *section;
-	uint64_t laddr;
 	int isid, errcode;
 
-	if (!scache || !psection || !pladdr)
+	if (!scache || !pmsec)
 		return -pte_internal;
 
-
-	section = scache->section;
-	laddr = scache->laddr;
+	msec = &scache->msec;
 	isid = scache->isid;
+
+	section = pt_msec_section(msec);
 	if (!section)
 		return -pte_nomap;
 
-	errcode = pt_image_validate(image, asid, ip, section, laddr, isid);
+	errcode = pt_image_validate(image, msec, ip, isid);
 	if (errcode < 0)
 		return errcode;
 
-	*psection = section;
-	*pladdr = laddr;
+	*pmsec = msec;
 
 	return isid;
 }
@@ -755,15 +775,14 @@ static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
 
 /* Decode one instruction in a known section.
  *
- * Decode the instruction at @insn->ip in @section loaded at @laddr assuming
- * execution mode @insn->mode.
+ * Decode the instruction at @insn->ip in @msec assuming execution mode
+ * @insn->mode.
  *
  * Returns zero on success, a negative error code otherwise.
  */
 static int pt_blk_decode_in_section(struct pt_insn *insn,
 				    struct pt_insn_ext *iext,
-				    const struct pt_section *section,
-				    uint64_t laddr)
+				    const struct pt_mapped_section *msec)
 {
 	int status;
 
@@ -774,8 +793,7 @@ static int pt_blk_decode_in_section(struct pt_insn *insn,
 	 *
 	 * Note that we need to translate @ip into a section offset.
 	 */
-	status = pt_section_read(section, insn->raw, sizeof(insn->raw),
-				 insn->ip - laddr);
+	status = pt_msec_read(msec, insn->raw, sizeof(insn->raw), insn->ip);
 	if (status < 0)
 		return status;
 
@@ -1766,14 +1784,13 @@ static int pt_blk_proceed_no_event_uncached(struct pt_block_decoder *decoder,
  * Returns non-zero if it is.
  * Returns zero if it isn't or of @section is NULL.
  */
-static inline int pt_blk_is_in_section(uint64_t ip,
-				       const struct pt_section *section,
-				       uint64_t laddr)
+static inline int pt_blk_is_in_section(const struct pt_mapped_section *msec,
+				       uint64_t ip)
 {
 	uint64_t begin, end;
 
-	begin = laddr;
-	end = begin + pt_section_size(section);
+	begin = pt_msec_begin(msec);
+	end = pt_msec_end(msec);
 
 	return (begin <= ip && ip < end);
 }
@@ -1839,14 +1856,14 @@ enum {
 static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 					      struct pt_block *block,
 					      struct pt_block_cache *bcache,
-					      struct pt_section *section,
-					      uint64_t laddr, size_t steps)
+					      struct pt_mapped_section *msec,
+					      size_t steps)
 {
 	struct pt_bcache_entry bce;
 	struct pt_insn_ext iext;
 	struct pt_insn insn;
 	uint64_t nip, dip;
-	int64_t disp;
+	int64_t disp, ioff, noff;
 	int status;
 
 	if (!decoder || !steps)
@@ -1860,6 +1877,8 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	status = pt_blk_proceed_one_insn(decoder, block, &insn, &iext);
 	if (status <= 0)
 		return status;
+
+	ioff = pt_msec_unmap(msec, insn.ip);
 
 	/* Let's see if we can proceed to the next IP without trace.
 	 *
@@ -1926,7 +1945,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 		if (block->truncated)
 			bce.qualifier = ptbq_decode;
 
-		status = pt_bcache_add(bcache, insn.ip - laddr, bce);
+		status = pt_bcache_add(bcache, ioff, bce);
 		if (status < 0)
 			return status;
 
@@ -1935,6 +1954,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 
 	/* The next instruction's IP. */
 	nip = decoder->ip;
+	noff = pt_msec_unmap(msec, nip);
 
 	/* Even if we were able to proceed without trace, we might have to stop
 	 * here for various reasons:
@@ -1973,20 +1993,20 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 *     everything in place.
 	 */
 	if (insn.iclass == ptic_call ||
-	    !pt_blk_is_in_section(nip, section, laddr) || block->truncated) {
+	    !pt_blk_is_in_section(msec, nip) || block->truncated) {
 
 		memset(&bce, 0, sizeof(bce));
 		bce.ninsn = 1;
 		bce.mode = insn.mode;
 		bce.qualifier = ptbq_decode;
 
-		return pt_bcache_add(bcache, insn.ip - laddr, bce);
+		return pt_bcache_add(bcache, ioff, bce);
 	}
 
 	/* We proceeded one instruction.  Let's see if we have a cache entry for
 	 * the next instruction.
 	 */
-	status = pt_bcache_lookup(&bce, bcache, nip - laddr);
+	status = pt_bcache_lookup(&bce, bcache, noff);
 	if (status < 0)
 		return status;
 
@@ -2005,17 +2025,17 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 		 */
 		steps -= 1;
 		if (!steps)
-			return pt_blk_add_trampoline(bcache, insn.ip - laddr,
-						     nip - laddr, insn.mode);
+			return pt_blk_add_trampoline(bcache, ioff, noff,
+						     insn.mode);
 
 		status = pt_blk_proceed_no_event_fill_cache(decoder, block,
-							    bcache, section,
-							    laddr, steps);
+							    bcache, msec,
+							    steps);
 		if (status < 0)
 			return status;
 
 		/* Let's see if we have more luck this time. */
-		status = pt_bcache_lookup(&bce, bcache, nip - laddr);
+		status = pt_bcache_lookup(&bce, bcache, noff);
 		if (status < 0)
 			return status;
 
@@ -2041,7 +2061,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	/* We must not have switched sections between @nip and @dip since the
 	 * cache entry at @nip brought us to @dip.
 	 */
-	if (!pt_blk_is_in_section(dip, section, laddr))
+	if (!pt_blk_is_in_section(msec, dip))
 		return -pte_internal;
 
 	/* Let's try to reach @nip's decision point from @insn.ip.
@@ -2058,8 +2078,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * try to reach @dip via a ptbq_again entry to @nip.
 	 */
 	if (!bce.ninsn || ((int64_t) bce.displacement != disp))
-		return pt_blk_add_trampoline(bcache, insn.ip - laddr,
-					     nip - laddr, insn.mode);
+		return pt_blk_add_trampoline(bcache, ioff, noff, insn.mode);
 
 	/* We're done.  Add the cache entry.
 	 *
@@ -2070,7 +2089,7 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * Cache updates are atomic so even if the two versions were not
 	 * identical, we wouldn't care because they are both correct.
 	 */
-	return pt_bcache_add(bcache, insn.ip - laddr, bce);
+	return pt_bcache_add(bcache, ioff, bce);
 }
 
 /* Proceed at a potentially truncated instruction.
@@ -2138,7 +2157,7 @@ static int pt_blk_proceed_truncated(struct pt_block_decoder *decoder,
 /* Proceed to the next decision point using the block cache.
  *
  * Tracing is enabled and we don't have an event pending.  We already set
- * @block's isid.  All reads are done within @section as we're not switching
+ * @block's isid.  All reads are done within @msec as we're not switching
  * sections between blocks.
  *
  * Proceed as far as we get without trace.  Stop when we either:
@@ -2154,25 +2173,25 @@ static int pt_blk_proceed_truncated(struct pt_block_decoder *decoder,
 static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 					  struct pt_block *block,
 					  struct pt_block_cache *bcache,
-					  struct pt_section *section,
-					  uint64_t laddr)
+					  struct pt_mapped_section *msec)
 {
 	struct pt_bcache_entry bce;
 	uint16_t binsn, ninsn;
+	uint64_t offset;
 	int status;
 
 	if (!decoder || !block)
 		return -pte_internal;
 
-	status = pt_bcache_lookup(&bce, bcache, decoder->ip - laddr);
+	offset = pt_msec_unmap(msec, decoder->ip);
+	status = pt_bcache_lookup(&bce, bcache, offset);
 	if (status < 0)
 		return status;
 
 	/* If we don't find a valid cache entry, fill the cache. */
 	if (!pt_bce_is_valid(bce))
 		return pt_blk_proceed_no_event_fill_cache(decoder, block,
-							  bcache, section,
-							  laddr,
+							  bcache, msec,
 							  bcache_fill_steps);
 
 	/* We have a valid cache entry.  Let's first check if the way to the
@@ -2218,7 +2237,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		block->iclass = ptic_error;
 
 		return pt_blk_proceed_no_event_cached(decoder, block, bcache,
-						      section, laddr);
+						      msec);
 
 	case ptbq_cond:
 		/* We're at a conditional branch. */
@@ -2263,8 +2282,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 				insn.ip = ip;
 
 				status = pt_blk_decode_in_section(&insn, &iext,
-								  section,
-								  laddr);
+								  msec);
 				if (status < 0)
 					return status;
 
@@ -2293,7 +2311,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		insn.mode = pt_bce_exec_mode(bce);
 		insn.ip = decoder->ip;
 
-		status = pt_blk_decode_in_section(&insn, &iext, section, laddr);
+		status = pt_blk_decode_in_section(&insn, &iext, msec);
 		if (status < 0) {
 			if (status != -pte_bad_insn)
 				return status;
@@ -2334,16 +2352,16 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		    (insn.iclass == ptic_call))
 			break;
 
-		/* If we can proceed without trace and we stay in @section we
-		 * may proceed further.
+		/* If we can proceed without trace and we stay in @msec we may
+		 * proceed further.
 		 *
 		 * We're done if we switch sections, though.
 		 */
-		if (!pt_blk_is_in_section(decoder->ip, section, laddr))
+		if (!pt_blk_is_in_section(msec, decoder->ip))
 			break;
 
 		return pt_blk_proceed_no_event_cached(decoder, block, bcache,
-						      section, laddr);
+						      msec);
 	}
 
 	case ptbq_ind_call: {
@@ -2372,8 +2390,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			insn.mode = pt_bce_exec_mode(bce);
 			insn.ip = ip;
 
-			status = pt_blk_decode_in_section(&insn, &iext, section,
-							  laddr);
+			status = pt_blk_decode_in_section(&insn, &iext, msec);
 			if (status < 0)
 				return status;
 
@@ -2481,27 +2498,27 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 				   struct pt_block *block)
 {
+	struct pt_cached_section *scache;
+	struct pt_mapped_section *msec;
 	struct pt_block_cache *bcache;
 	struct pt_section *section;
-	uint64_t laddr;
-	int isid, errcode;
+	struct pt_image *image;
+	uint64_t ip;
+	int isid;
 
 	if (!decoder || !block)
 		return -pte_internal;
 
-	isid = pt_blk_cached_section(&decoder->scache, &section, &laddr,
-				     decoder->image, &decoder->asid,
-				     decoder->ip);
+	scache = &decoder->scache;
+	image = decoder->image;
+	ip = decoder->ip;
+
+	isid = pt_blk_cached_section(scache, &msec, image, ip);
 	if (isid < 0) {
 		if (isid != -pte_nomap)
 			return isid;
 
-		errcode = pt_blk_scache_invalidate(&decoder->scache);
-		if (errcode < 0)
-			return errcode;
-
-		isid = pt_image_find(decoder->image, &section, &laddr,
-				     &decoder->asid, decoder->ip);
+		isid = pt_blk_cache_section(scache, image, &decoder->asid, ip);
 		if (isid < 0) {
 			if (isid != -pte_nomap)
 				return isid;
@@ -2512,18 +2529,7 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 			return pt_blk_proceed_no_event_uncached(decoder, block);
 		}
 
-		errcode = pt_section_map(section);
-		if (errcode < 0)
-			goto out_put;
-
-		errcode = pt_section_request_bcache(section);
-		if (errcode < 0)
-			goto out_unmap;
-
-		errcode = pt_blk_cache_section(&decoder->scache, section, laddr,
-					       isid);
-		if (errcode < 0)
-			goto out_unmap;
+		msec = &scache->msec;
 	}
 
 	/* We do not switch sections inside a block. */
@@ -2534,19 +2540,15 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 		block->isid = isid;
 	}
 
+	section = pt_msec_section(msec);
+	if (!section)
+		return -pte_internal;
+
 	bcache = pt_section_bcache(section);
 	if (!bcache)
 		return pt_blk_proceed_no_event_uncached(decoder, block);
 
-	return pt_blk_proceed_no_event_cached(decoder, block, bcache, section,
-					      laddr);
-
-out_unmap:
-	(void) pt_section_unmap(section);
-
-out_put:
-	(void) pt_section_put(section);
-	return errcode;
+	return pt_blk_proceed_no_event_cached(decoder, block, bcache, msec);
 }
 
 /* Proceed to the next event or decision point.
@@ -3145,10 +3147,21 @@ static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
 static int pt_blk_process_paging(struct pt_block_decoder *decoder,
 				 const struct pt_event *ev)
 {
+	uint64_t cr3;
+	int errcode;
+
 	if (!decoder || !ev)
 		return -pte_internal;
 
-	decoder->asid.cr3 = ev->variant.paging.cr3;
+	cr3 = ev->variant.paging.cr3;
+	if (decoder->asid.cr3 != cr3) {
+		errcode = pt_blk_scache_invalidate(&decoder->scache);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->asid.cr3 = cr3;
+	}
+
 	decoder->process_event = 0;
 
 	return 0;
@@ -3161,10 +3174,21 @@ static int pt_blk_process_paging(struct pt_block_decoder *decoder,
 static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
 			       const struct pt_event *ev)
 {
+	uint64_t vmcs;
+	int errcode;
+
 	if (!decoder || !ev)
 		return -pte_internal;
 
-	decoder->asid.vmcs = ev->variant.vmcs.base;
+	vmcs = ev->variant.vmcs.base;
+	if (decoder->asid.vmcs != vmcs) {
+		errcode = pt_blk_scache_invalidate(&decoder->scache);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->asid.vmcs = vmcs;
+	}
+
 	decoder->process_event = 0;
 
 	return 0;

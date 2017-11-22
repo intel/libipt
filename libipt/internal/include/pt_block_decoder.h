@@ -50,15 +50,12 @@ struct pt_section;
 struct pt_cached_section {
 	/* The cached section.
 	 *
-	 * The cache is valid if and only if @section is non-NULL.
+	 * The cache is valid if and only if @msec.section is not NULL.
 	 *
 	 * It needs to be unmapped and put.  Use pt_blk_scache_invalidate() to
 	 * release the cached section and to invalidate the cache.
 	 */
-	struct pt_section *section;
-
-	/* The virtual address at which @section was loaded. */
-	uint64_t laddr;
+	struct pt_mapped_section msec;
 
 	/* The section identifier. */
 	int isid;
