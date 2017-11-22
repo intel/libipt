@@ -702,9 +702,8 @@ static int pt_image_read_cold(struct pt_image *image, int *isid,
 			      uint8_t *buffer, uint16_t size,
 			      const struct pt_asid *asid, uint64_t addr)
 {
-	struct pt_mapped_section *msec;
 	struct pt_section_list *section;
-	int errcode;
+	int errcode, status;
 
 	if (!image || !isid)
 		return -pte_internal;
@@ -713,55 +712,53 @@ static int pt_image_read_cold(struct pt_image *image, int *isid,
 	if (errcode < 0) {
 		if (errcode != -pte_nomap)
 			return errcode;
+
+		return pt_image_read_callback(image, isid, buffer, size, asid,
+					      addr);
 	}
 
 	section = image->sections;
 	if (!section)
-		return pt_image_read_callback(image, isid, buffer, size, asid,
-					      addr);
-
-	msec = &section->section;
-
-	errcode = pt_image_check_msec(msec, asid, addr);
-	if (errcode < 0) {
-		if (errcode != -pte_nomap)
-			return errcode;
-
-		return pt_image_read_callback(image, isid, buffer, size, asid,
-					      addr);
-	}
+		return -pte_internal;
 
 	*isid = section->isid;
 
 	if (section->mapped)
-		return pt_msec_read(msec, buffer, size, addr);
+		status = pt_msec_read(&section->section, buffer, size, addr);
 	else {
 		struct pt_section *sec;
-		int status;
 
-		sec = pt_msec_section(msec);
+		sec = pt_msec_section(&section->section);
 
 		errcode = pt_section_map(sec);
 		if (errcode < 0)
 			return errcode;
 
-		status = pt_msec_read(msec, buffer, size, addr);
+		status = pt_msec_read(&section->section, buffer, size, addr);
 
 		errcode = pt_section_unmap(sec);
 		if (errcode < 0)
 			return errcode;
-
-		return status;
 	}
+
+	if (status < 0) {
+		if (status != -pte_nomap)
+			return status;
+
+		return pt_image_read_callback(image, isid, buffer, size, asid,
+					      addr);
+	}
+
+	return status;
 }
 
 
 int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
 		  uint16_t size, const struct pt_asid *asid, uint64_t addr)
 {
-	struct pt_mapped_section *msec;
 	struct pt_section_list *section;
-	int errcode;
+	const struct pt_asid *masid;
+	int status;
 
 	if (!image || !isid)
 		return -pte_internal;
@@ -775,12 +772,11 @@ int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
 		return pt_image_read_cold(image, isid, buffer, size, asid,
 					  addr);
 
-	msec = &section->section;
-
-	errcode = pt_image_check_msec(msec, asid, addr);
-	if (errcode < 0) {
-		if (errcode != -pte_nomap)
-			return errcode;
+	masid = pt_msec_asid(&section->section);
+	status = pt_asid_match(masid, asid);
+	if (status <= 0) {
+		if (status < 0)
+			return status;
 
 		return pt_image_read_cold(image, isid, buffer, size, asid,
 					  addr);
@@ -788,7 +784,16 @@ int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
 
 	*isid = section->isid;
 
-	return pt_msec_read(msec, buffer, size, addr);
+	status = pt_msec_read(&section->section, buffer, size, addr);
+	if (status < 0) {
+		if (status != -pte_nomap)
+			return status;
+
+		return pt_image_read_cold(image, isid, buffer, size, asid,
+					  addr);
+	}
+
+	return status;
 }
 
 int pt_image_add_cached(struct pt_image *image,
