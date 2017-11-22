@@ -129,4 +129,44 @@ static inline uint64_t pt_msec_unmap(const struct pt_mapped_section *msec,
 	return vaddr - msec->vaddr;
 }
 
+/* Read memory from a mapped section.
+ *
+ * The caller must check @msec->asid.
+ * The caller must ensure that @msec->section is mapped.
+ *
+ * Returns the number of bytes read on success.
+ * Returns a negative error code otherwise.
+ */
+static inline int pt_msec_read(const struct pt_mapped_section *msec,
+			       uint8_t *buffer, uint16_t size,
+			       uint64_t vaddr)
+{
+	struct pt_section *section;
+	uint64_t begin, end, mbegin, mend, offset;
+
+	if (!msec)
+		return -pte_internal;
+
+	begin = vaddr;
+	end = begin + size;
+	if (end < begin)
+		end = UINT64_MAX;
+
+	mbegin = pt_msec_begin(msec);
+	mend = pt_msec_end(msec);
+
+	if (begin < mbegin || mend <= begin)
+		return -pte_nomap;
+
+	if (mend < end)
+		end = mend;
+
+	size = (uint16_t) (end - begin);
+
+	section = pt_msec_section(msec);
+	offset = pt_msec_unmap(msec, begin);
+
+	return pt_section_read(section, buffer, size, offset);
+}
+
 #endif /* PT_MAPPED_SECTION_H */
