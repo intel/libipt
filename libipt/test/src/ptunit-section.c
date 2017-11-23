@@ -126,9 +126,6 @@ struct section_fixture {
 	/* The section. */
 	struct pt_section *section;
 
-	/* A cloned section. */
-	struct pt_section *clone;
-
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct section_fixture *);
 	struct ptunit_result (*fini)(struct section_fixture *);
@@ -218,22 +215,6 @@ static struct ptunit_result create_empty(struct section_fixture *sfix)
 {
 	sfix->section = pt_mk_section(sfix->name, 0x0ull, 0x10ull);
 	ptu_null(sfix->section);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result clone_null(void)
-{
-	struct pt_section *section;
-	int errcode;
-
-	section = NULL;
-
-	errcode = pt_section_clone(NULL, section, 0ull, 1ull);
-	ptu_int_eq(errcode, -pte_internal);
-
-	errcode = pt_section_clone(&section, NULL, 0ull, 1ull);
-	ptu_int_eq(errcode, -pte_internal);
 
 	return ptu_passed();
 }
@@ -999,81 +980,6 @@ static struct ptunit_result read_unmap_map(struct section_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result clone_bad_range(struct section_fixture *sfix)
-{
-	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0xcc };
-	int errcode;
-
-	sfix_write(sfix, bytes);
-
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x2ull);
-	ptu_ptr(sfix->section);
-
-	errcode = pt_section_clone(&sfix->clone, sfix->section, 0x0ull, 0x2ull);
-	ptu_int_eq(errcode, -pte_internal);
-
-	errcode = pt_section_clone(&sfix->clone, sfix->section, 0x2ull, 0x2ull);
-	ptu_int_eq(errcode, -pte_internal);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result clone_head(struct section_fixture *sfix)
-{
-	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0xcc };
-	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
-	int status;
-
-	sfix_write(sfix, bytes);
-
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x2ull);
-	ptu_ptr(sfix->section);
-
-	status = pt_section_clone(&sfix->clone, sfix->section, 0x1ull, 0x1ull);
-	ptu_int_eq(status, 0);
-
-	status = pt_section_map(sfix->clone);
-	ptu_int_eq(status, 0);
-
-	status = pt_section_read(sfix->clone, buffer, 2, 0x0ull);
-	ptu_int_eq(status, 1);
-	ptu_uint_eq(buffer[0], bytes[1]);
-	ptu_uint_eq(buffer[1], 0xcc);
-
-	status = pt_section_unmap(sfix->clone);
-	ptu_int_eq(status, 0);
-
-	return ptu_passed();
-}
-
-static struct ptunit_result clone_tail(struct section_fixture *sfix)
-{
-	uint8_t bytes[] = { 0xcc, 0x2, 0x4, 0xcc };
-	uint8_t buffer[] = { 0xcc, 0xcc, 0xcc };
-	int status;
-
-	sfix_write(sfix, bytes);
-
-	sfix->section = pt_mk_section(sfix->name, 0x1ull, 0x2ull);
-	ptu_ptr(sfix->section);
-
-	status = pt_section_clone(&sfix->clone, sfix->section, 0x2ull, 0x1ull);
-	ptu_int_eq(status, 0);
-
-	status = pt_section_map(sfix->clone);
-	ptu_int_eq(status, 0);
-
-	status = pt_section_read(sfix->clone, buffer, 2, 0x0ull);
-	ptu_int_eq(status, 1);
-	ptu_uint_eq(buffer[0], bytes[2]);
-	ptu_uint_eq(buffer[1], 0xcc);
-
-	status = pt_section_unmap(sfix->clone);
-	ptu_int_eq(status, 0);
-
-	return ptu_passed();
-}
-
 static int worker_read(void *arg)
 {
 	struct section_fixture *sfix;
@@ -1389,7 +1295,6 @@ static struct ptunit_result sfix_init(struct section_fixture *sfix)
 	int errcode;
 
 	sfix->section = NULL;
-	sfix->clone = NULL;
 	sfix->file = NULL;
 	sfix->name = NULL;
 
@@ -1413,11 +1318,6 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 	if (sfix->section) {
 		pt_section_put(sfix->section);
 		sfix->section = NULL;
-	}
-
-	if (sfix->clone) {
-		pt_section_put(sfix->clone);
-		sfix->clone = NULL;
 	}
 
 	if (sfix->file) {
@@ -1451,7 +1351,6 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, create_truncated, sfix);
 	ptu_run_f(suite, create_empty, sfix);
 
-	ptu_run(suite, clone_null);
 	ptu_run(suite, filename_null);
 	ptu_run(suite, offset_null);
 	ptu_run(suite, size_null);
@@ -1488,10 +1387,6 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, read_overflow_32bit, sfix);
 	ptu_run_f(suite, read_nomap, sfix);
 	ptu_run_f(suite, read_unmap_map, sfix);
-
-	ptu_run_f(suite, clone_bad_range, sfix);
-	ptu_run_f(suite, clone_head, sfix);
-	ptu_run_f(suite, clone_tail, sfix);
 
 	ptu_run_f(suite, init_no_bcache, sfix);
 	ptu_run_f(suite, bcache_alloc_free, sfix);

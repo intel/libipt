@@ -184,65 +184,6 @@ static int ifix_cache_section(struct image_fixture *ifix,
 	return index;
 }
 
-int pt_section_clone(struct pt_section **clone,
-		     const struct pt_section *section, uint64_t offset,
-		     uint64_t size)
-{
-	struct image_fixture *ifix;
-	struct ifix_mapping *mapping, *smapping;
-	struct ifix_status *status;
-	uint64_t begin, end, sbegin, send, start;
-	int index;
-
-	if (!clone || !section)
-		return -pte_internal;
-
-	status = section->status;
-	if (!status || status->deleted)
-		return -pte_internal;
-
-	begin = offset;
-	end = begin + size;
-
-	if (end <= begin)
-		return -pte_bad_image;
-
-	sbegin = pt_section_offset(section);
-	send = sbegin + pt_section_size(section);
-
-	if (send <= sbegin)
-		return -pte_internal;
-
-	if ((begin < sbegin) || (send < end))
-		return -pte_invalid;
-
-	start = begin - sbegin;
-
-	ifix = status->ifix;
-	if (!ifix)
-		return -pte_internal;
-
-	index = ifix_add_section(ifix, section->filename);
-	if (index < 0)
-		return index;
-
-	mapping = &ifix->mapping[index];
-	mapping->size = size;
-
-	smapping = status->mapping;
-	if (!smapping)
-		return -pte_internal;
-
-	memset(mapping->content, 0xcd, sizeof(mapping->content));
-	memcpy(mapping->content, &smapping->content[start], (size_t) size);
-
-	ifix->section[index].size = size;
-	ifix->section[index].offset = offset;
-	ifix->section[index].ucount = 1;
-	*clone = &ifix->section[index];
-	return 0;
-}
-
 const char *pt_section_filename(const struct pt_section *section)
 {
 	if (!section)

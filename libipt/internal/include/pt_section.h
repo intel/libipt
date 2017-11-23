@@ -167,21 +167,6 @@ struct pt_section {
 extern struct pt_section *pt_mk_section(const char *file, uint64_t offset,
 					uint64_t size);
 
-/* Clone (parts of) a section.
- *
- * The cloned section describes the same content as @section but starting at
- * @offset for @size bytes.  The cloned range must lie within @section.
- *
- * The cloned section is not mapped and starts with a user count of one.
- *
- * Returns zero on success, a negative error code otherwise.
- * Returns -pte_internal if @clone or @section is NULL.
- * Returns -pte_internal if the cloned range lies outside of @section.
- */
-extern int pt_section_clone(struct pt_section **clone,
-			    const struct pt_section *section, uint64_t offset,
-			    uint64_t size);
-
 /* Lock a section.
  *
  * Locks @section.  The section must not be locked.
