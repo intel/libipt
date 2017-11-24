@@ -33,6 +33,7 @@
 #include "pt_image.h"
 #include "pt_retstack.h"
 #include "pt_ild.h"
+#include "pt_msec_cache.h"
 
 #include <inttypes.h>
 
@@ -53,6 +54,9 @@ struct pt_insn_decoder {
 
 	/* The image. */
 	struct pt_image *image;
+
+	/* The current cached section. */
+	struct pt_msec_cache scache;
 
 	/* The current address space. */
 	struct pt_asid asid;

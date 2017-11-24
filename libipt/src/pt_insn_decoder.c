@@ -131,6 +131,10 @@ int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
 	pt_image_init(&decoder->default_image, NULL);
 	decoder->image = &decoder->default_image;
 
+	errcode = pt_msec_cache_init(&decoder->scache);
+	if (errcode < 0)
+		return errcode;
+
 	pt_insn_reset(decoder);
 
 	return 0;
@@ -141,6 +145,7 @@ void pt_insn_decoder_fini(struct pt_insn_decoder *decoder)
 	if (!decoder)
 		return;
 
+	pt_msec_cache_fini(&decoder->scache);
 	pt_image_fini(&decoder->default_image);
 	pt_qry_decoder_fini(&decoder->query);
 }
@@ -1202,9 +1207,91 @@ static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 	return 0;
 }
 
+static int pt_insn_decode_cached(struct pt_insn_decoder *decoder,
+				 const struct pt_mapped_section *msec,
+				 struct pt_insn *insn, struct pt_insn_ext *iext)
+{
+	int status;
+
+	if (!decoder || !insn || !iext)
+		return -pte_internal;
+
+	/* Try reading the memory containing @insn from the cached section.  If
+	 * that fails, if we don't have a cached section, or if decode fails
+	 * later on, fall back to decoding @insn from @decoder->image.
+	 *
+	 * The latter will also handle truncated instructions that cross section
+	 * boundaries.
+	 */
+
+	if (!msec)
+		return pt_insn_decode(insn, iext, decoder->image,
+				      &decoder->asid);
+
+	status = pt_msec_read(msec, insn->raw, sizeof(insn->raw), insn->ip);
+	if (status < 0) {
+		if (status != -pte_nomap)
+			return status;
+
+		return pt_insn_decode(insn, iext, decoder->image,
+				      &decoder->asid);
+	}
+
+	/* We initialize @insn->size to the maximal possible size.  It will be
+	 * set to the actual size during instruction decode.
+	 */
+	insn->size = (uint8_t) status;
+
+	status = pt_ild_decode(insn, iext);
+	if (status < 0) {
+		if (status != -pte_bad_insn)
+			return status;
+
+		return pt_insn_decode(insn, iext, decoder->image,
+				      &decoder->asid);
+	}
+
+	return status;
+}
+
+static int pt_insn_msec_lookup(struct pt_insn_decoder *decoder,
+			       const struct pt_mapped_section **pmsec)
+{
+	struct pt_msec_cache *scache;
+	struct pt_section *section;
+	struct pt_image *image;
+	uint64_t ip;
+	int isid;
+
+	if (!decoder || !pmsec)
+		return -pte_internal;
+
+	scache = &decoder->scache;
+	image = decoder->image;
+	ip = decoder->ip;
+
+	isid = pt_msec_cache_read(scache, pmsec, image, ip);
+	if (isid < 0) {
+		if (isid != -pte_nomap)
+			return isid;
+
+		isid = pt_msec_cache_fill(scache, pmsec, image,
+					  &decoder->asid, ip);
+		if (isid < 0)
+			return isid;
+
+		section = pt_msec_section(*pmsec);
+		if (!section)
+			return -pte_internal;
+	}
+
+	return isid;
+}
+
 int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 		 size_t size)
 {
+	const struct pt_mapped_section *msec;
 	struct pt_insn_ext iext;
 	struct pt_insn insn, *pinsn;
 	int status;
@@ -1239,7 +1326,15 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	pinsn->ip = decoder->ip;
 	pinsn->mode = decoder->mode;
 
-	status = pt_insn_decode(pinsn, &iext, decoder->image, &decoder->asid);
+	status = pt_insn_msec_lookup(decoder, &msec);
+	if (status < 0) {
+		if (status != -pte_nomap)
+			return status;
+
+		msec = NULL;
+	}
+
+	status = pt_insn_decode_cached(decoder, msec, pinsn, &iext);
 	if (status < 0) {
 		/* Provide the incomplete instruction - the IP and mode fields
 		 * are valid and may help diagnose the error.
@@ -1358,10 +1453,20 @@ static int pt_insn_process_async_branch(struct pt_insn_decoder *decoder)
 
 static int pt_insn_process_paging(struct pt_insn_decoder *decoder)
 {
+	uint64_t cr3;
+	int errcode;
+
 	if (!decoder)
 		return -pte_internal;
 
-	decoder->asid.cr3 = decoder->event.variant.paging.cr3;
+	cr3 = decoder->event.variant.paging.cr3;
+	if (decoder->asid.cr3 != cr3) {
+		errcode = pt_msec_cache_invalidate(&decoder->scache);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->asid.cr3 = cr3;
+	}
 
 	return 0;
 }
@@ -1464,10 +1569,20 @@ static int pt_insn_process_stop(struct pt_insn_decoder *decoder)
 
 static int pt_insn_process_vmcs(struct pt_insn_decoder *decoder)
 {
+	uint64_t vmcs;
+	int errcode;
+
 	if (!decoder)
 		return -pte_internal;
 
-	decoder->asid.vmcs = decoder->event.variant.vmcs.base;
+	vmcs = decoder->event.variant.vmcs.base;
+	if (decoder->asid.vmcs != vmcs) {
+		errcode = pt_msec_cache_invalidate(&decoder->scache);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->asid.vmcs = vmcs;
+	}
 
 	return 0;
 }
