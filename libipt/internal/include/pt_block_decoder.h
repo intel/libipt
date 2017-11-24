@@ -33,33 +33,8 @@
 #include "pt_image.h"
 #include "pt_retstack.h"
 #include "pt_ild.h"
+#include "pt_msec_cache.h"
 
-struct pt_section;
-
-
-/* A cached mapped section.
- *
- * This caches a single mapped section across pt_blk_next() calls to avoid
- * repeated get/map and unmap/put of the current section.
- *
- * Since we can't guarantee that the image doesn't change between pt_blk_next()
- * calls, we still need to validate that the cached section is accurate.  This
- * can be done without additional get/put or map/unmap of the cached section,
- * though, and is significantly cheaper.
- */
-struct pt_cached_section {
-	/* The cached section.
-	 *
-	 * The cache is valid if and only if @msec.section is not NULL.
-	 *
-	 * It needs to be unmapped and put.  Use pt_blk_scache_invalidate() to
-	 * release the cached section and to invalidate the cache.
-	 */
-	struct pt_mapped_section msec;
-
-	/* The section identifier. */
-	int isid;
-};
 
 /* A block decoder.
  *
@@ -85,7 +60,7 @@ struct pt_block_decoder {
 	struct pt_image *image;
 
 	/* The current cached section. */
-	struct pt_cached_section scache;
+	struct pt_msec_cache scache;
 
 	/* The current address space. */
 	struct pt_asid asid;
