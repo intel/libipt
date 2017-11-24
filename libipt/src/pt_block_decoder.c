@@ -1834,6 +1834,25 @@ static inline int pt_blk_add_trampoline(struct pt_block_cache *bcache,
 	return pt_bcache_add(bcache, ip, bce);
 }
 
+/* Insert a decode block cache entry.
+ *
+ * Add a decode block cache entry at @ioff.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static inline int pt_blk_add_decode(struct pt_block_cache *bcache,
+				    uint64_t ioff, enum pt_exec_mode mode)
+{
+	struct pt_bcache_entry bce;
+
+	memset(&bce, 0, sizeof(bce));
+	bce.ninsn = 1;
+	bce.mode = mode;
+	bce.qualifier = ptbq_decode;
+
+	return pt_bcache_add(bcache, ioff, bce);
+}
+
 enum {
 	/* The maximum number of steps when filling the block cache. */
 	bcache_fill_steps	= 0x400
@@ -1973,6 +1992,25 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 *     postpone it to the next iteration.  Make sure to end the block if
 	 *     @decoder->flags.variant.block.end_on_call is set, though.
 	 *
+	 *   - at near direct backwards jumps to detect section splits
+	 *
+	 *     In case the current section is split underneath us, we must take
+	 *     care to detect that split.
+	 *
+	 *     There is one corner case where the split is in the middle of a
+	 *     linear sequence of instructions that branches back into the
+	 *     originating section.
+	 *
+	 *     Calls, indirect branches, and far branches are already covered
+	 *     since they either require trace or already require us to stop
+	 *     (i.e. near direct calls) for other reasons.  That leaves near
+	 *     direct backward jumps.
+	 *
+	 *     Instead of the decode stop at the jump instruction we're using we
+	 *     could have made sure that other block cache entries that extend
+	 *     this one insert a trampoline to the jump's entry.  This would
+	 *     have been a bit more complicated.
+	 *
 	 *   - if we switched sections
 	 *
 	 *     This ends a block just like a branch that requires trace.
@@ -1992,15 +2030,26 @@ static int pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 *     route it through the decode flow, where we already have
 	 *     everything in place.
 	 */
-	if (insn.iclass == ptic_call ||
-	    !pt_blk_is_in_section(msec, nip) || block->truncated) {
+	switch (insn.iclass) {
+	case ptic_call:
+		return pt_blk_add_decode(bcache, ioff, insn.mode);
 
-		memset(&bce, 0, sizeof(bce));
-		bce.ninsn = 1;
-		bce.mode = insn.mode;
-		bce.qualifier = ptbq_decode;
+	case ptic_jump:
+		/* An indirect branch requires trace and should have been
+		 * handled above.
+		 */
+		if (!iext.variant.branch.is_direct)
+			return -pte_internal;
 
-		return pt_bcache_add(bcache, ioff, bce);
+		if (iext.variant.branch.displacement < 0)
+			return pt_blk_add_decode(bcache, ioff, insn.mode);
+
+		fallthrough;
+	default:
+		if (!pt_blk_is_in_section(msec, nip) || block->truncated)
+			return pt_blk_add_decode(bcache, ioff, insn.mode);
+
+		break;
 	}
 
 	/* We proceeded one instruction.  Let's see if we have a cache entry for
@@ -2213,10 +2262,9 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	 * would otherwise have jumped over as long as the start and end are in
 	 * different sub-sections.
 	 *
-	 * The only case that we do not cover is a sequence of instructions that
-	 * walks into a new section and then jumps back into the originating
-	 * section via a direct unconditional near branch.  Unless the same
-	 * instructions have been patched, this will result in a decode error.
+	 * Since we stop on every (backwards) branch (through an artificial stop
+	 * in the case of a near direct backward branch) we will detect all
+	 * section splits.
 	 *
 	 * Switch to the slow path until we reach the end of this section.
 	 */
