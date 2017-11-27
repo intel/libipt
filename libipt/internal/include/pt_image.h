@@ -46,9 +46,6 @@ struct pt_section_list {
 
 	/* The image section identifier. */
 	int isid;
-
-	/* A flag saying whether @section is already mapped. */
-	uint32_t mapped:1;
 };
 
 /* A traced image consisting of a collection of sections. */
@@ -67,12 +64,6 @@ struct pt_image {
 		/* The callback context. */
 		void *context;
 	} readmem;
-
-	/* The cache size as number of to-keep-mapped sections. */
-	uint16_t cache;
-
-	/* The number of permanently mapped sections. */
-	uint16_t mapped;
 };
 
 /* Initialize an image with an optional @name. */
@@ -136,8 +127,7 @@ extern int pt_image_find(struct pt_image *image, struct pt_mapped_section *msec,
  * Validate that a lookup of @vaddr in @msec->asid in @image would result in
  * @msec identified by @isid.
  *
- * Validation may fail sporadically, e.g. if @msec has been evicted from
- * @image's LRU cache.
+ * Validation may fail sporadically.
  *
  * Returns zero on success, a negative error code otherwise.
  * Returns -pte_invalid if @image or @msec is NULL.

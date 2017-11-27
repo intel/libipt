@@ -85,8 +85,6 @@ static void pt_section_list_free(struct pt_section_list *list)
 	if (!list)
 		return;
 
-	if (list->mapped)
-		pt_section_unmap(list->section.section);
 	pt_section_put(list->section.section);
 	pt_msec_fini(&list->section);
 	free(list);
@@ -112,7 +110,6 @@ void pt_image_init(struct pt_image *image, const char *name)
 	memset(image, 0, sizeof(*image));
 
 	image->name = dupstr(name);
-	image->cache = 10;
 }
 
 void pt_image_fini(struct pt_image *image)
@@ -217,15 +214,6 @@ int pt_image_add(struct pt_image *image, struct pt_section *section,
 		 */
 		current->next = removed;
 		removed = current;
-
-		/* Unmap the removed section.  If we need to re-add it, it will
-		 * be moved to the end of the section list where the unmapped
-		 * sections are.
-		 */
-		if (current->mapped) {
-			pt_section_unmap(lsec);
-			current->mapped = 0;
-		}
 
 		/* Add a section covering the remaining bytes at the front. */
 		if (lbegin < begin) {
@@ -480,45 +468,6 @@ int pt_image_set_callback(struct pt_image *image,
 	return 0;
 }
 
-static int pt_image_prune_cache(struct pt_image *image)
-{
-	struct pt_section_list *list;
-	uint16_t cache, mapped;
-	int status;
-
-	if (!image)
-		return -pte_internal;
-
-	cache = image->cache;
-	status = 0;
-	mapped = 0;
-	for (list = image->sections; list; list = list->next) {
-		int errcode;
-
-		/* Let's traverse the entire list.  It isn't very long and
-		 * this allows us to fix up any previous unmap errors.
-		 */
-		if (!list->mapped)
-			continue;
-
-		mapped += 1;
-		if (mapped <= cache)
-			continue;
-
-		errcode = pt_section_unmap(list->section.section);
-		if (errcode < 0) {
-			status = errcode;
-			continue;
-		}
-
-		list->mapped = 0;
-		mapped -= 1;
-	}
-
-	image->mapped = mapped;
-	return status;
-}
-
 static int pt_image_read_callback(struct pt_image *image, int *isid,
 				  uint8_t *buffer, uint16_t size,
 				  const struct pt_asid *asid, uint64_t addr)
@@ -611,52 +560,18 @@ static int pt_image_fetch_section(struct pt_image *image,
 			*start = elem;
 		}
 
-		/* Map the section if it isn't already - provided we do cache
-		 * recently used sections.
-		 */
-		if (!elem->mapped) {
-			uint16_t cache, already;
-
-			already = image->mapped;
-			cache = image->cache;
-			if (cache) {
-				struct pt_section *section;
-
-				section = pt_msec_section(msec);
-
-				errcode = pt_section_map(section);
-				if (errcode < 0)
-					return errcode;
-
-				elem->mapped = 1;
-
-				already += 1;
-				image->mapped = already;
-
-				if (cache < already)
-					return pt_image_prune_cache(image);
-			}
-
-			return 0;
-		}
-
-		/* Moving the section is like re-mapping it if we didn't keep it
-		 * mapped.
-		 */
-		if (list != start)
-			return pt_section_on_map(pt_msec_section(msec));
-
 		return 0;
 	}
 
 	return -pte_nomap;
 }
 
-static int pt_image_read_cold(struct pt_image *image, int *isid,
-			      uint8_t *buffer, uint16_t size,
-			      const struct pt_asid *asid, uint64_t addr)
+int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
+		  uint16_t size, const struct pt_asid *asid, uint64_t addr)
 {
-	struct pt_section_list *section;
+	struct pt_mapped_section *msec;
+	struct pt_section_list *slist;
+	struct pt_section *section;
 	int errcode, status;
 
 	if (!image || !isid)
@@ -671,29 +586,24 @@ static int pt_image_read_cold(struct pt_image *image, int *isid,
 					      addr);
 	}
 
-	section = image->sections;
-	if (!section)
+	slist = image->sections;
+	if (!slist)
 		return -pte_internal;
 
-	*isid = section->isid;
+	*isid = slist->isid;
+	msec = &slist->section;
 
-	if (section->mapped)
-		status = pt_msec_read(&section->section, buffer, size, addr);
-	else {
-		struct pt_section *sec;
+	section = pt_msec_section(msec);
 
-		sec = pt_msec_section(&section->section);
+	errcode = pt_section_map(section);
+	if (errcode < 0)
+		return errcode;
 
-		errcode = pt_section_map(sec);
+	status = pt_msec_read(msec, buffer, size, addr);
+
+	errcode = pt_section_unmap(section);
 		if (errcode < 0)
 			return errcode;
-
-		status = pt_msec_read(&section->section, buffer, size, addr);
-
-		errcode = pt_section_unmap(sec);
-		if (errcode < 0)
-			return errcode;
-	}
 
 	if (status < 0) {
 		if (status != -pte_nomap)
@@ -701,50 +611,6 @@ static int pt_image_read_cold(struct pt_image *image, int *isid,
 
 		return pt_image_read_callback(image, isid, buffer, size, asid,
 					      addr);
-	}
-
-	return status;
-}
-
-
-int pt_image_read(struct pt_image *image, int *isid, uint8_t *buffer,
-		  uint16_t size, const struct pt_asid *asid, uint64_t addr)
-{
-	struct pt_section_list *section;
-	const struct pt_asid *masid;
-	int status;
-
-	if (!image || !isid)
-		return -pte_internal;
-
-	section = image->sections;
-	if (!section)
-		return pt_image_read_callback(image, isid, buffer, size, asid,
-					      addr);
-
-	if (!section->mapped)
-		return pt_image_read_cold(image, isid, buffer, size, asid,
-					  addr);
-
-	masid = pt_msec_asid(&section->section);
-	status = pt_asid_match(masid, asid);
-	if (status <= 0) {
-		if (status < 0)
-			return status;
-
-		return pt_image_read_cold(image, isid, buffer, size, asid,
-					  addr);
-	}
-
-	*isid = section->isid;
-
-	status = pt_msec_read(&section->section, buffer, size, addr);
-	if (status < 0) {
-		if (status != -pte_nomap)
-			return status;
-
-		return pt_image_read_cold(image, isid, buffer, size, asid,
-					  addr);
 	}
 
 	return status;
@@ -782,9 +648,8 @@ int pt_image_add_cached(struct pt_image *image,
 	return status;
 }
 
-static int pt_image_find_cold(struct pt_image *image,
-			      struct pt_mapped_section *usec,
-			      const struct pt_asid *asid, uint64_t vaddr)
+int pt_image_find(struct pt_image *image, struct pt_mapped_section *usec,
+		  const struct pt_asid *asid, uint64_t vaddr)
 {
 	struct pt_mapped_section *msec;
 	struct pt_section_list *slist;
@@ -800,53 +665,9 @@ static int pt_image_find_cold(struct pt_image *image,
 
 	slist = image->sections;
 	if (!slist)
-		return -pte_nomap;
-
-	msec = &slist->section;
-
-	errcode = pt_image_check_msec(msec, asid, vaddr);
-	if (errcode < 0)
-		return errcode;
-
-	section = pt_msec_section(msec);
-
-	errcode = pt_section_get(section);
-	if (errcode < 0)
-		return errcode;
-
-	*usec = *msec;
-
-	return slist->isid;
-}
-
-int pt_image_find(struct pt_image *image, struct pt_mapped_section *usec,
-		  const struct pt_asid *asid, uint64_t vaddr)
-{
-	struct pt_mapped_section *msec;
-	struct pt_section_list *slist;
-	struct pt_section *section;
-	int errcode;
-
-	if (!image || !usec)
 		return -pte_internal;
 
-	slist = image->sections;
-	if (!slist)
-		return -pte_nomap;
-
-	if (!slist->mapped)
-		return pt_image_find_cold(image, usec, asid, vaddr);
-
 	msec = &slist->section;
-
-	errcode = pt_image_check_msec(msec, asid, vaddr);
-	if (errcode < 0) {
-		if (errcode != -pte_nomap)
-			return errcode;
-
-		return pt_image_find_cold(image, usec, asid, vaddr);
-	}
-
 	section = pt_msec_section(msec);
 
 	errcode = pt_section_get(section);
