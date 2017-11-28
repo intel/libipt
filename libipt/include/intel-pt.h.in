@@ -342,6 +342,9 @@ struct pt_conf_flags {
 
 			/** Enable tick events for timing updates. */
 			uint32_t enable_tick_events:1;
+
+			/** End a block after a jump instruction. */
+			uint32_t end_on_jump:1;
 		} block;
 
 		/** Flags for the instruction flow decoder. */

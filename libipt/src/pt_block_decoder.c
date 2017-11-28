@@ -849,11 +849,14 @@ static int pt_blk_proceed_to_insn(struct pt_block_decoder *decoder,
 
 		/* End the block if the user asked us to.
 		 *
-		 * We only need to take care about direct near calls.  Indirect
-		 * and far calls require trace and will naturally end a block.
+		 * We only need to take care about direct near branches.
+		 * Indirect and far branches require trace and will naturally
+		 * end a block.
 		 */
-		if (decoder->flags.variant.block.end_on_call &&
-		    (insn->iclass == ptic_call))
+		if ((decoder->flags.variant.block.end_on_call &&
+		     (insn->iclass == ptic_call)) ||
+		    (decoder->flags.variant.block.end_on_jump &&
+		     (insn->iclass == ptic_jump)))
 			return 0;
 	}
 }
@@ -904,14 +907,17 @@ static int pt_blk_proceed_to_ip(struct pt_block_decoder *decoder,
 
 		/* End the block if the user asked us to.
 		 *
-		 * We only need to take care about direct near calls.  Indirect
-		 * and far calls require trace and will naturally end a block.
+		 * We only need to take care about direct near branches.
+		 * Indirect and far branches require trace and will naturally
+		 * end a block.
 		 *
 		 * The call at the end of the block may have reached @ip; make
 		 * sure to indicate that.
 		 */
-		if (decoder->flags.variant.block.end_on_call &&
-		    (insn->iclass == ptic_call)) {
+		if ((decoder->flags.variant.block.end_on_call &&
+		     (insn->iclass == ptic_call)) ||
+		    (decoder->flags.variant.block.end_on_jump &&
+		     (insn->iclass == ptic_jump))) {
 			return (decoder->ip == ip ? 1 : 0);
 		}
 	}
@@ -1042,11 +1048,14 @@ static int pt_blk_proceed_skl014(struct pt_block_decoder *decoder,
 
 		/* End the block if the user asked us to.
 		 *
-		 * We only need to take care about direct near calls.  Indirect
-		 * and far calls require trace and will naturally end a block.
+		 * We only need to take care about direct near branches.
+		 * Indirect and far branches require trace and will naturally
+		 * end a block.
 		 */
-		if (decoder->flags.variant.block.end_on_call &&
-		    (insn->iclass == ptic_call))
+		if ((decoder->flags.variant.block.end_on_call &&
+		    (insn->iclass == ptic_call)) ||
+		    (decoder->flags.variant.block.end_on_jump &&
+		    (insn->iclass == ptic_jump)))
 			break;
 	}
 
@@ -1929,7 +1938,8 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 		if (!iext.variant.branch.is_direct)
 			return -pte_internal;
 
-		if (iext.variant.branch.displacement < 0)
+		if (iext.variant.branch.displacement < 0 ||
+		    decoder->flags.variant.block.end_on_jump)
 			return pt_blk_add_decode(bcache, ioff, insn.mode);
 
 		fallthrough;
@@ -2311,11 +2321,14 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 
 		/* End the block if the user asked us to.
 		 *
-		 * We only need to take care about direct near calls.  Indirect
-		 * and far calls require trace and will naturally end a block.
+		 * We only need to take care about direct near branches.
+		 * Indirect and far branches require trace and will naturally
+		 * end a block.
 		 */
-		if (decoder->flags.variant.block.end_on_call &&
-		    (insn.iclass == ptic_call))
+		if ((decoder->flags.variant.block.end_on_call &&
+		     (insn.iclass == ptic_call)) ||
+		    (decoder->flags.variant.block.end_on_jump &&
+		     (insn.iclass == ptic_jump)))
 			break;
 
 		/* If we can proceed without trace and we stay in @msec we may

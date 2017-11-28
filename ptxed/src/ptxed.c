@@ -297,6 +297,7 @@ static void help(const char *name)
 	printf("  --block-decoder                      use the block decoder.\n");
 	printf("  --block:show-blocks                  show blocks in the output.\n");
 	printf("  --block:end-on-call                  set the end-on-call block decoder flag.\n");
+	printf("  --block:end-on-jump                  set the end-on-jump block decoder flag.\n");
 	printf("\n");
 #if defined(FEATURE_ELF)
 	printf("You must specify at least one binary or ELF file (--raw|--elf).\n");
@@ -2753,6 +2754,11 @@ extern int main(int argc, char *argv[])
 
 		if (strcmp(arg, "--block:end-on-call") == 0) {
 			config.flags.variant.block.end_on_call = 1;
+			continue;
+		}
+
+		if (strcmp(arg, "--block:end-on-jump") == 0) {
+			config.flags.variant.block.end_on_jump = 1;
 			continue;
 		}
 
