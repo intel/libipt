@@ -802,6 +802,26 @@ static void check_insn(const struct pt_insn *insn, uint64_t offset)
 	check_insn_iclass(xed_decoded_inst_inst(&inst), insn, offset);
 }
 
+static void print_raw_insn(const struct pt_insn *insn)
+{
+	uint8_t length, idx;
+
+	if (!insn) {
+		printf("[internal error]");
+		return;
+	}
+
+	length = insn->size;
+	if (sizeof(insn->raw) < length)
+		length = sizeof(insn->raw);
+
+	for (idx = 0; idx < length; ++idx)
+		printf(" %02x", insn->raw[idx]);
+
+	for (; idx < pt_max_insn_size; ++idx)
+		printf("   ");
+}
+
 static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
 			   const struct ptxed_options *options)
 {
@@ -880,6 +900,8 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 			break;
 
 		default:
+			print_raw_insn(insn);
+
 			printf(" [xed decode error: (%u) %s]", errcode,
 			       xed_error_enum_t2str(errcode));
 			break;
@@ -1504,6 +1526,8 @@ static void print_block(struct ptxed_decoder *decoder,
 
 		xederrcode = xed_decode(&inst, insn.raw, insn.size);
 		if (xederrcode != XED_ERROR_NONE) {
+			print_raw_insn(&insn);
+
 			printf(" [xed decode error: (%u) %s]\n", xederrcode,
 			       xed_error_enum_t2str(xederrcode));
 			break;
