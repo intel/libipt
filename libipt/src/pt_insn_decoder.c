@@ -633,13 +633,7 @@ static int pt_insn_at_skl014(const struct pt_event *ev,
 		if (!iext->variant.branch.is_direct)
 			break;
 
-		/* Without a filter configuration, we bind the event to the
-		 * first matching branch.
-		 */
-		if (!config->addr_filter.config.addr_cfg)
-			return 1;
-
-		/* Otherwise we check the filter against the branch target. */
+		/* Check the filter against the branch target. */
 		ip = insn->ip;
 		ip += insn->size;
 		ip += iext->variant.branch.displacement;
@@ -674,7 +668,13 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 		    pt_insn_changes_cr3(insn, iext))
 			return 1;
 
-		if (config->errata.skl014 &&
+		/* If we don't have a filter configuration we assume that no
+		 * address filters were used and the erratum does not apply.
+		 *
+		 * We might otherwise disable tracing too early.
+		 */
+		if (config->addr_filter.config.addr_cfg &&
+		    config->errata.skl014 &&
 		    pt_insn_at_skl014(ev, insn, iext, config))
 			return 1;
 	} else {
