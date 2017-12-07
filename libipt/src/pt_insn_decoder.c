@@ -791,13 +791,7 @@ static int pt_insn_at_skl014(const struct pt_insn *insn,
 		if (!iext->variant.branch.is_direct)
 			break;
 
-		/* Without a filter configuration, we bind the event to the
-		 * first matching branch.
-		 */
-		if (!config->addr_filter.config.addr_cfg)
-			return 1;
-
-		/* Otherwise we check the filter against the branch target. */
+		/* Check the filter against the branch target. */
 		ip = insn->ip;
 		ip += insn->size;
 		ip += iext->variant.branch.displacement;
@@ -849,7 +843,14 @@ static int process_one_event_after(struct pt_insn_decoder *decoder,
 				return process_sync_disabled_event(decoder,
 								   insn, iext);
 
-			if (decoder->query.config.errata.skl014 &&
+			/* If we don't have a filter configuration we assume
+			 * that no address filters were used and the erratum
+			 * does not apply.
+			 *
+			 * We might otherwise disable tracing too early.
+			 */
+			if (decoder->query.config.addr_filter.config.addr_cfg &&
+			    decoder->query.config.errata.skl014 &&
 			    pt_insn_at_skl014(insn, iext,
 					      &decoder->query.config))
 				return process_sync_disabled_event(decoder,
