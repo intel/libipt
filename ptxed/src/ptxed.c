@@ -301,8 +301,11 @@ static void help(const char *name)
 	printf("  --elf <<file>[:<base>]               load an ELF from <file> at address <base>.\n");
 	printf("                                       use the default load address if <base> is omitted.\n");
 	printf("  --core:list <file>                   list available tasks in <file>.\n");
+	printf("  --core-pt:<task> <file>[:<from>[-<to>]]\n");
+	printf("                                       load the trace for <task> from <file>.\n");
 	printf("  --core:<task> <file>[:<from>[-<to>]]\n");
-	printf("                                       load the processor trace for task <task> from <file>.\n");
+	printf("                                       load the trace for <task> and the image from <file>.\n");
+	printf("                                       same as --core-pt:<task> <file>[...] --elf <file>.\n");
 #endif /* defined(FEATURE_ELF) */
 	printf("  --raw <file>[:<from>[-<to>]]:<base>  load a raw binary from <file> at address <base>.\n");
 	printf("                                       an optional offset or range can be given.\n");
@@ -607,6 +610,52 @@ static int load_raw(struct pt_image_section_cache *iscache,
 }
 
 #if defined(FEATURE_ELF)
+
+static int ptxed_load_core_pt(struct pt_config *config,
+			      const struct ptxed_options *options, char *arg,
+			      uint32_t task, const char *prog)
+{
+	struct pt_config uconf;
+	uint64_t offset, size;
+	int errcode;
+
+	errcode = preprocess_filename(arg, &offset, &size);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: bad file %s: %s.\n", prog, arg,
+			pt_errstr(pt_errcode(errcode)));
+		return -1;
+	}
+
+	uconf = *config;
+
+	errcode = pt_elf_load_trace(config, arg, offset, size, task);
+	if (errcode < 0) {
+		fprintf(stderr, "%s: error reading trace from %s: %s.\n", prog,
+			arg, pt_errstr(pt_errcode(errcode)));
+
+		return -1;
+	}
+
+	/* The core dump also contains some configuration information.
+	 * Overwrite any user-supplied fields.
+	 */
+	if (options->have_cpu)
+		config->cpu = uconf.cpu;
+
+	if (options->have_mtc_freq)
+		config->mtc_freq = uconf.mtc_freq;
+
+	if (options->have_nom_freq)
+		config->nom_freq = uconf.nom_freq;
+
+	if (options->have_cpuid_0x15_eax)
+		config->cpuid_0x15_eax = uconf.cpuid_0x15_eax;
+
+	if (options->have_cpuid_0x15_ebx)
+		config->cpuid_0x15_ebx = uconf.cpuid_0x15_ebx;
+
+	return 0;
+}
 
 static int ptxed_load_core(struct pt_image_section_cache *iscache,
 			   struct pt_image *image, struct pt_config *config,
@@ -2269,6 +2318,8 @@ extern int main(int argc, char *argv[])
 
 			continue;
 		}
+#if defined(FEATURE_ELF)
+#endif /* defined(FEATURE_ELF) */
 		if (strcmp(arg, "--raw") == 0) {
 			if (argc <= i) {
 				fprintf(stderr,
@@ -2363,6 +2414,43 @@ extern int main(int argc, char *argv[])
 			errcode = ptxed_load_core(decoder.iscache, image,
 						  &config, &options, task,
 						  arg, prog);
+			if (errcode < 0)
+				goto err;
+
+			errcode = pt_cpu_errata(&config.errata, &config.cpu);
+			if (errcode < 0)
+				goto err;
+
+			errcode = alloc_decoder(&decoder, &config, image,
+						&options, prog);
+			if (errcode < 0)
+				goto err;
+
+			continue;
+		}
+		if (strncmp(arg, "--core-pt:", strlen("--core-pt:")) == 0) {
+			uint32_t task;
+
+			if (!get_arg_uint32(&task, "--core-pt:<task>",
+					    arg + strlen("--core-pt:"), prog))
+				goto err;
+
+			if (argc <= i) {
+				fprintf(stderr, "%s: %s: missing argument.\n",
+					prog, arg);
+				goto err;
+			}
+			arg = argv[i++];
+
+			if (ptxed_have_decoder(&decoder)) {
+				fprintf(stderr,
+					"%s: duplicate pt sources: %s.\n",
+					prog, arg);
+				goto err;
+			}
+
+			errcode = ptxed_load_core_pt(&config, &options, arg,
+						     task, prog);
 			if (errcode < 0)
 				goto err;
 
