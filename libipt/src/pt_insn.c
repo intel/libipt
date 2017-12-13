@@ -252,6 +252,10 @@ static int pt_insn_decode_retry(struct pt_insn *insn, struct pt_insn_ext *iext,
 		if (!size)
 			return -pte_internal;
 
+		/* Preserve the original error if there are no more bytes. */
+		if (size == -pte_nomap)
+			size = -pte_bad_insn;
+
 		return size;
 	}
 
