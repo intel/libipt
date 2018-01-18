@@ -1921,9 +1921,11 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	errcode = pt_cpu_errata(&config.errata, &config.cpu);
-	if (errcode < 0)
-		diag("failed to determine errata", 0ull, errcode);
+	if (config.cpu.vendor) {
+		errcode = pt_cpu_errata(&config.errata, &config.cpu);
+		if (errcode < 0)
+			diag("failed to determine errata", 0ull, errcode);
+	}
 
 	errcode = load_pt(&config, ptfile, pt_offset, pt_size, argv[0]);
 	if (errcode < 0)

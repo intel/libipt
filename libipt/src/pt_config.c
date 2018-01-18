@@ -44,7 +44,7 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 
 	/* We don't know about others. */
 	if (cpu->vendor != pcv_intel)
-		return 0;
+		return -pte_bad_cpu;
 
 	switch (cpu->family) {
 	case 0x6:
@@ -55,7 +55,7 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 		case 0x56:
 			errata->bdm70 = 1;
 			errata->bdm64 = 1;
-			break;
+			return 0;
 
 		case 0x4e:
 		case 0x5e:
@@ -64,7 +64,7 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			errata->skd022 = 1;
 			errata->skd010 = 1;
 			errata->skl014 = 1;
-			break;
+			return 0;
 
 		case 0x8e:
 		case 0x9e:
@@ -73,18 +73,18 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			errata->skd022 = 1;
 			errata->skd010 = 1;
 			errata->skd007 = 1;
-			break;
+			return 0;
 
 		case 0x5c:
 		case 0x5f:
 			errata->apl12 = 1;
 			errata->apl11 = 1;
-			break;
+			return 0;
 		}
 		break;
 	}
 
-	return 0;
+	return -pte_bad_cpu;
 }
 
 int pt_config_from_user(struct pt_config *config,

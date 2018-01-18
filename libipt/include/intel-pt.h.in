@@ -193,7 +193,10 @@ enum pt_error_code {
 	pte_overflow,
 
 	/* A file handling error. */
-	pte_bad_file
+	pte_bad_file,
+
+	/* Unknown cpu. */
+	pte_bad_cpu
 };
 
 
@@ -482,6 +485,7 @@ static inline void pt_config_init(struct pt_config *config)
  *
  * Returns 0 on success, a negative error code otherwise.
  * Returns -pte_invalid if \@errata or \@cpu is NULL.
+ * Returns -pte_bad_cpu if \@cpu is not known.
  */
 extern pt_export int pt_cpu_errata(struct pt_errata *errata,
 				   const struct pt_cpu *cpu);

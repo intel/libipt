@@ -43,11 +43,14 @@ int pttc_main(const struct pttc_options *options)
 	conf.end = buf+buflen;
 
 	/* apply errata for the chosen cpu. */
-	errcode = pt_cpu_errata(&conf.errata, &conf.cpu);
-	if (errcode < 0) {
-		fprintf(stderr, "fatal: errata configuration failed %d: %s\n",
-			errcode, pt_errstr(pt_errcode(errcode)));
-		return errcode;
+	if (conf.cpu.vendor) {
+		errcode = pt_cpu_errata(&conf.errata, &conf.cpu);
+		if (errcode < 0) {
+			fprintf(stderr,
+				"fatal: errata configuration failed %d: %s\n",
+				errcode, pt_errstr(pt_errcode(errcode)));
+			return errcode;
+		}
 	}
 
 	errcode = parse(options->pttfile, &conf);

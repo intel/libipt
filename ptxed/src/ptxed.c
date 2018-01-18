@@ -2169,9 +2169,13 @@ extern int main(int argc, char *argv[])
 				goto err;
 			}
 
-			errcode = pt_cpu_errata(&config.errata, &config.cpu);
-			if (errcode < 0)
-				goto err;
+			if (config.cpu.vendor) {
+				errcode = pt_cpu_errata(&config.errata,
+							&config.cpu);
+				if (errcode < 0)
+					printf("[0, 0: config error: %s]\n",
+					       pt_errstr(pt_errcode(errcode)));
+			}
 
 			errcode = load_pt(&config, arg, prog);
 			if (errcode < 0)

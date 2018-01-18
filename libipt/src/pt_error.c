@@ -112,6 +112,9 @@ const char *pt_errstr(enum pt_error_code errcode)
 
 	case pte_bad_file:
 		return "bad file";
+
+	case pte_bad_cpu:
+		return "unknown cpu";
 	}
 
 	/* Should not reach here. */
