@@ -2,7 +2,7 @@ Capturing Intel(R) Processor Trace (Intel PT) {#capture}
 =============================================
 
 <!---
- ! Copyright (c) 2015-2017, Intel Corporation
+ ! Copyright (c) 2015-2018, Intel Corporation
  !
  ! Redistribution and use in source and binary forms, with or without
  ! modification, are permitted provided that the following conditions are met:
