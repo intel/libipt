@@ -619,6 +619,94 @@ Trace losses may go unnoticed or may lead to all kinds of errors.  Ptxed
 diagnoses trace losses as warning to stderr.
 
 
+### Capturing Intel PT in coredumps
+
+This feature is currently under development.  See branch perf-detached-shmem-wip
+on https://git.kernel.org/pub/scm/linux/kernel/git/ash/linux.git.
+
+When a coredump is generated for a process that is being recorded with a
+detached per-thread `intel_pt` event, the trace buffers are copied into the
+coredump and can be read using ptdump and ptxed.
+
+Unlike normal per-thread events, detached events are inherited.  You would
+typically start by recording your shell.
+
+~~~{.sh}
+    $ perf record -e intel_pt//u --per-thread --detached -p $$ [-m <npages>]
+~~~
+
+
+Every program launched by that shell will inherit the detached event.  For each
+recorded task, there will be a file in `perffs`.  In our example, we would see
+two files: one for the shell and one for ls.
+
+~~~{.sh}
+    # mount -t perffs none /sys/kernel/perf
+    $ ls /sys/kernel/perf
+    intel_pt:task-25799:0abb5a760.event  intel_pt:task-25828:042f9aa45.event
+~~~
+
+To destroy a detached event, remove the corresponding file.
+
+
+When a recorded program crashes and generates a coredump, those files will
+appear in the file notes for each recorded task.
+
+~~~{.sh}
+    $ readelf -n core.1862
+    [...]
+    0x00007fef05ed4000  0x00007fef06355000  0x0000000000000000
+        /perf/intel_pt:task-1863:065de2d28.event (deleted)
+    0x00007fef0714a000  0x00007fef075cb000  0x0000000000000000
+        /perf/intel_pt:task-1862:0edf2d597.event (deleted)
+    [...]
+~~~
+
+Both pdump and ptxed support reading the trace for a single task from a coredump
+as well as listing all tasks for which trace is available via the options:
+
+  * --core:[tid]
+  * --core:list
+
+
+In the above example, this would give:
+
+~~~{.sh}
+    $ ptdump --core:list core.1862
+    1862 1863
+    $ ptxed --core:list core.1862
+    1862 1863
+~~~
+
+
+Once we know for which tasks trace is available we can either dump the trace
+using ptdump or dump the executed instructions using ptxed.  Both work on a
+single task:
+
+~~~{.sh}
+    $ ptdump --core:1862 core.1862
+    [...]
+    $ ptxed --core:1862 core.1862
+    [...]
+~~~
+
+
+In addition to the trace, ptxed will also read the executable segments from the
+coredump.  This is similar to what it would do with the --elf option.  To
+prevent that, use:
+
+  * --core-pt:[tid]
+
+
+You can then use other options to specify the program image to be used for
+decode.  The following commands should be equivalent:
+
+~~~{.sh}
+    $ ptxed --core:1862 core.1862
+    $ ptxed --core-pt:1862 core.1862 --elf core.1862
+~~~
+
+
 ### Capturing Intel PT via Simple-PT
 
 The Simple-PT project on github supports capturing Intel PT on Linux with an
