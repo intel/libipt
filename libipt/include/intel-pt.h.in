@@ -331,6 +331,16 @@ struct pt_errata {
 	 */
 	uint32_t apl11:1;
 
+	/** SKL168: Intel(R) PT CYC Packets Can be Dropped When Immediately
+	 *          Preceding PSB
+	 *
+	 * Due to a rare microarchitectural condition, generation of an Intel
+	 * PT (Processor Trace) PSB (Packet Stream Boundary) packet can cause a
+	 * single CYC (Cycle Count) packet, possibly along with an associated
+	 * MTC (Mini Time Counter) packet, to be dropped.
+	 */
+	uint32_t skl168:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
