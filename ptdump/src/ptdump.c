@@ -1070,6 +1070,14 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 	case ppt_psb:
 		print_field(buffer->opcode, "psb");
 
+		if (options->track_time) {
+			int errcode;
+
+			errcode = pt_tcal_update_psb(&tracking->tcal, config);
+			if (errcode < 0)
+				diag("error calibrating time", offset, errcode);
+		}
+
 		tracking->in_header = 1;
 		return 0;
 
