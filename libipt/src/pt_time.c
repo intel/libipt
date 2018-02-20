@@ -519,6 +519,10 @@ int pt_tcal_header_tsc(struct pt_time_cal *tcal,
 	if (!last_tsc || !cyc)
 		return 0;
 
+	/* Prefer MTC over TSC for calibration. */
+	if (tcal->have_mtc)
+		return 0;
+
 	/* Correct a single wrap-around. */
 	if (tsc < last_tsc) {
 		tsc += 1ull << pt_pl_tsc_bit_size;
