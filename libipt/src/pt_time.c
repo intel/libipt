@@ -477,6 +477,18 @@ int pt_tcal_set_fcr(struct pt_time_cal *tcal, uint64_t fcr)
 	return 0;
 }
 
+int pt_tcal_update_psb(struct pt_time_cal *tcal,
+		       const struct pt_config *config)
+{
+	if (!tcal || !config)
+		return -pte_internal;
+
+	if (config->errata.skl168)
+		tcal->check_skl168 = 1;
+
+	return 0;
+}
+
 int pt_tcal_update_tsc(struct pt_time_cal *tcal,
 		      const struct pt_packet_tsc *packet,
 		      const struct pt_config *config)
@@ -594,7 +606,7 @@ int pt_tcal_update_mtc(struct pt_time_cal *tcal,
 		      const struct pt_packet_mtc *packet,
 		      const struct pt_config *config)
 {
-	uint32_t last_ctc, ctc, ctc_delta, have_mtc;
+	uint32_t last_ctc, ctc, ctc_delta, have_mtc, check_skl168;
 	uint64_t cyc, fc, fcr;
 	int errcode;
 
@@ -604,6 +616,10 @@ int pt_tcal_update_mtc(struct pt_time_cal *tcal,
 	last_ctc = tcal->ctc;
 	have_mtc = tcal->have_mtc;
 	cyc = tcal->cyc_mtc;
+	check_skl168 = tcal->check_skl168;
+
+	/* This only affects the first MTC after PSB. */
+	tcal->check_skl168 = 0;
 
 	ctc = packet->ctc << config->mtc_freq;
 
@@ -647,6 +663,49 @@ int pt_tcal_update_mtc(struct pt_time_cal *tcal,
 		return -pte_internal;
 
 	fcr = (fc << pt_tcal_fcr_shr) / cyc;
+
+	/* SKL168: Intel(R) PT CYC Packets Can be Dropped When Immediately
+	 * Preceding PSB.
+	 *
+	 * We skip this MTC if we lost one or more MTC since the last PSB or if
+	 * it looks like we lost a wrap CYC packet.
+	 *
+	 * This is not an error but we count that MTC as lost.
+	 */
+	if (check_skl168) {
+		/* If we lost one or more MTC, the case is clear. */
+		if ((1u << config->mtc_freq) < ctc_delta)
+			return 0;
+
+		/* The case is less clear for a lost wrap CYC packet since we do
+		 * have some variation in the number of cycles.
+		 *
+		 * The CYC counter wraps on the affected processors every 4096
+		 * cycles.  For low MTC frequencies (high values), losing one
+		 * may not be noticeable.
+		 *
+		 * We restrict the workaround to higher MTC frequencies (lower
+		 * values).
+		 *
+		 * We also need a previous FCR so we know how many cycles to
+		 * expect.
+		 */
+		if ((config->mtc_freq < 10) && pt_tcal_have_fcr(tcal)) {
+			uint64_t dfc;
+
+			/* We choose a slightly lower adjustment to account for
+			 * some normal variation.
+			 */
+			dfc = (tcal->fcr * (cyc + 0xf00)) >> pt_tcal_fcr_shr;
+
+			/* If we didn't drop a wrap CYC, @dfc should be way
+			 * bigger than @fc.  If it isn't, we assume that the
+			 * erratum applied.
+			 */
+			if (dfc < fc)
+				return 0;
+		}
+	}
 
 	errcode = pt_tcal_set_fcr(tcal, fcr);
 	if (errcode < 0)

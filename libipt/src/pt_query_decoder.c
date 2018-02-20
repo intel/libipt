@@ -1076,6 +1076,10 @@ int pt_qry_decode_psb(struct pt_query_decoder *decoder)
 	if (size < 0)
 		return size;
 
+	errcode = pt_tcal_update_psb(&decoder->tcal, &decoder->config);
+	if (errcode < 0)
+		return errcode;
+
 	decoder->pos += size;
 
 	errcode = pt_qry_read_psb_header(decoder);
