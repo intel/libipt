@@ -204,32 +204,6 @@ static int pt_iscache_find_locked(struct pt_image_section_cache *iscache,
 	return 0;
 }
 
-static int section_match(const struct pt_section *lhs,
-			 const struct pt_section *rhs)
-{
-	const char *lfilename, *rfilename;
-
-	if (!lhs || !rhs)
-		return -pte_internal;
-
-	if (pt_section_offset(lhs) != pt_section_offset(rhs))
-		return 0;
-
-	if (pt_section_size(lhs) != pt_section_size(rhs))
-		return 0;
-
-	lfilename = pt_section_filename(lhs);
-	rfilename = pt_section_filename(rhs);
-
-	if (!lfilename || !rfilename)
-		return -pte_internal;
-
-	if (strcmp(lfilename, rfilename) != 0)
-		return 0;
-
-	return 1;
-}
-
 static int pt_iscache_lru_free(struct pt_iscache_lru_entry *lru)
 {
 	while (lru) {
@@ -483,15 +457,17 @@ static int pt_iscache_lru_clear(struct pt_image_section_cache *iscache)
  */
 static int
 pt_iscache_find_section_locked(const struct pt_image_section_cache *iscache,
-			       const struct pt_section *section,
-			       uint64_t laddr)
+			       const char *filename, uint64_t offset,
+			       uint64_t size, uint64_t laddr)
 {
+	const struct pt_section *section;
 	uint16_t idx, end;
 	int match;
 
-	if (!iscache || !section)
+	if (!iscache || !filename)
 		return -pte_internal;
 
+	section = NULL;
 	match = end = iscache->size;
 	for (idx = 0; idx < end; ++idx) {
 		const struct pt_iscache_entry *entry;
@@ -506,15 +482,20 @@ pt_iscache_find_section_locked(const struct pt_image_section_cache *iscache,
 
 		/* Avoid redundant match checks. */
 		if (sec != section) {
-			int errcode;
+			const char *sec_filename;
 
-			errcode = section_match(section, sec);
-			if (errcode <= 0) {
-				if (errcode < 0)
-					return errcode;
-
+			if (offset != pt_section_offset(sec))
 				continue;
-			}
+
+			if (size != pt_section_size(sec))
+				continue;
+
+			sec_filename = pt_section_filename(sec);
+			if (!sec_filename)
+				return -pte_internal;
+
+			if (strcmp(filename, sec_filename) != 0)
+				continue;
 
 			/* Use the cached section instead. */
 			section = sec;
@@ -532,6 +513,8 @@ pt_iscache_find_section_locked(const struct pt_image_section_cache *iscache,
 int pt_iscache_add(struct pt_image_section_cache *iscache,
 		   struct pt_section *section, uint64_t laddr)
 {
+	const char *filename;
+	uint64_t offset, size;
 	uint16_t idx;
 	int errcode;
 
@@ -539,8 +522,12 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 		return -pte_internal;
 
 	/* We must have a filename for @section. */
-	if (!pt_section_filename(section))
+	filename = pt_section_filename(section);
+	if (!filename)
 		return -pte_internal;
+
+	offset = pt_section_offset(section);
+	size = pt_section_size(section);
 
 	/* Adding a section is slightly complicated by a potential deadlock
 	 * scenario:
@@ -596,7 +583,8 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 		/* Find an existing section matching @section that we'd share
 		 * rather than adding @section.
 		 */
-		match = pt_iscache_find_section_locked(iscache, section, laddr);
+		match = pt_iscache_find_section_locked(iscache, filename,
+						       offset, size, laddr);
 		if (match < 0) {
 			errcode = match;
 			goto out_unlock_detach;
