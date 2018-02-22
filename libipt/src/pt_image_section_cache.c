@@ -366,6 +366,34 @@ static int pt_iscache_lru_add(struct pt_image_section_cache *iscache,
 }
 
 
+/* Remove @section from @iscache->lru.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_iscache_lru_remove(struct pt_image_section_cache *iscache,
+				 const struct pt_section *section)
+{
+	struct pt_iscache_lru_entry *lru, **pnext;
+
+	if (!iscache)
+		return -pte_internal;
+
+	pnext = &iscache->lru;
+	for (lru = *pnext; lru; pnext = &lru->next, lru = *pnext) {
+
+		if (lru->section != section)
+			continue;
+
+		/* We found it in the cache.  Remove it. */
+		*pnext = lru->next;
+		lru->next = NULL;
+		break;
+	}
+
+	return pt_iscache_lru_free(lru);
+}
+
+
 /* Add or move @section to the front of @iscache->lru and update its size.
  *
  * Returns a positive integer if we need to prune the cache.
@@ -420,11 +448,91 @@ static int pt_iscache_lru_resize(struct pt_image_section_cache *iscache,
 	return (iscache->limit < used) ? 1 : 0;
 }
 
+/* Clear @iscache->lru.
+ *
+ * Unlike other iscache_lru functions, the caller does not lock @iscache.
+ *
+ * Return zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_iscache_lru_clear(struct pt_image_section_cache *iscache)
+{
+	struct pt_iscache_lru_entry *lru;
+	int errcode;
+
+	errcode = pt_iscache_lock(iscache);
+	if (errcode < 0)
+		return errcode;
+
+	lru = iscache->lru;
+	iscache->lru = NULL;
+	iscache->used = 0ull;
+
+	errcode = pt_iscache_unlock(iscache);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_iscache_lru_free(lru);
+}
+
+/* Search @iscache for a partial or exact match of @section loaded at @laddr and
+ * return the corresponding index or @iscache->size if no match is found.
+ *
+ * The caller must lock @iscache.
+ *
+ * Returns a non-zero index on success, a negative pt_error_code otherwise.
+ */
+static int
+pt_iscache_find_section_locked(const struct pt_image_section_cache *iscache,
+			       const struct pt_section *section,
+			       uint64_t laddr)
+{
+	uint16_t idx, end;
+	int match;
+
+	if (!iscache || !section)
+		return -pte_internal;
+
+	match = end = iscache->size;
+	for (idx = 0; idx < end; ++idx) {
+		const struct pt_iscache_entry *entry;
+		const struct pt_section *sec;
+
+		entry = &iscache->entries[idx];
+
+		/* We do not zero-initialize the array - a NULL check is
+		 * pointless.
+		 */
+		sec = entry->section;
+
+		/* Avoid redundant match checks. */
+		if (sec != section) {
+			int errcode;
+
+			errcode = section_match(section, sec);
+			if (errcode <= 0) {
+				if (errcode < 0)
+					return errcode;
+
+				continue;
+			}
+
+			/* Use the cached section instead. */
+			section = sec;
+			match = idx;
+		}
+
+		/* If we also find a matching load address, we're done. */
+		if (laddr == entry->laddr)
+			return idx;
+	}
+
+	return match;
+}
 
 int pt_iscache_add(struct pt_image_section_cache *iscache,
 		   struct pt_section *section, uint64_t laddr)
 {
-	uint16_t idx, end;
+	uint16_t idx;
 	int errcode;
 
 	if (!iscache || !section)
@@ -434,75 +542,218 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 	if (!pt_section_filename(section))
 		return -pte_internal;
 
-	errcode = pt_iscache_lock(iscache);
+	/* Adding a section is slightly complicated by a potential deadlock
+	 * scenario:
+	 *
+	 *   - in order to add a section, we need to attach to it, which
+	 *     requires taking the section's attach lock.
+	 *
+	 *   - if we are already attached to it, we may receive on-map
+	 *     notifications, which will be sent while holding the attach lock
+	 *     and require taking the iscache lock.
+	 *
+	 * Hence we can't attach to a section while holding the iscache lock.
+	 *
+	 *
+	 * We therefore attach to @section first and then lock @iscache.
+	 *
+	 * This opens a small window where an existing @section may be removed
+	 * from @iscache and replaced by a new matching section.  We would want
+	 * to share that new section rather than adding a duplicate @section.
+	 *
+	 * After locking @iscache, we therefore check for existing matching
+	 * sections and, if one is found, update @section.  This involves
+	 * detaching from @section and attaching to the existing section.
+	 *
+	 * And for this, we will have to temporarily unlock @iscache again.
+	 */
+	errcode = pt_section_attach(section, iscache);
 	if (errcode < 0)
 		return errcode;
 
-	end = iscache->size;
-	for (idx = 0; idx < end; ++idx) {
+	errcode = pt_iscache_lock(iscache);
+	if (errcode < 0)
+		goto out_detach;
+
+	/* We may need to repeat this step.
+	 *
+	 * Typically we don't and this takes only a single iteration.  One
+	 * scenario where we do repeat this is when adding a section with an
+	 * out-of-bounds size.
+	 *
+	 * We will not find a matching section in pt_iscache_add_file() so we
+	 * create a new section.  This will have its size reduced to match the
+	 * actual file size.
+	 *
+	 * For this reduced size, we may now find an existing section, and we
+	 * will take another trip in the below loop.
+	 */
+	for (;;) {
 		const struct pt_iscache_entry *entry;
 		struct pt_section *sec;
+		int match;
 
-		entry = &iscache->entries[idx];
+		/* Find an existing section matching @section that we'd share
+		 * rather than adding @section.
+		 */
+		match = pt_iscache_find_section_locked(iscache, section, laddr);
+		if (match < 0) {
+			errcode = match;
+			goto out_unlock_detach;
+		}
 
-		/* We do not zero-initialize the array - a NULL check is
-		 * pointless.
+		/* We're done if we have not found a matching section. */
+		if (iscache->size <= match)
+			break;
+
+		entry = &iscache->entries[match];
+
+		/* We're also done if we found the same section again.
+		 *
+		 * We further check for a perfect match.  In that case, we don't
+		 * need to insert anything, at all.
 		 */
 		sec = entry->section;
+		if (sec == section) {
+			if (entry->laddr == laddr) {
+				errcode = pt_iscache_unlock(iscache);
+				if (errcode < 0)
+					goto out_detach;
 
-		errcode = section_match(section, sec);
-		if (errcode <= 0) {
-			if (errcode < 0)
-				goto out_unlock;
+				errcode = pt_section_detach(section, iscache);
+				if (errcode < 0)
+					goto out_lru;
 
-			continue;
+				return isid_from_index((uint16_t) match);
+			}
+
+			break;
 		}
 
-		/* Use the cached section instead of the argument section.
+		/* We update @section to share the existing @sec.
 		 *
-		 * We'll be able to drop the argument section in this case and
-		 * only keep one copy around and, more importantly, mapped.
+		 * This requires detaching from @section, which, in turn,
+		 * requires temporarily unlocking @iscache.
+		 *
+		 * This, in turn, requires taking a reference to @sec so it
+		 * won't go away when we unlock @iscache.
+		 *
+		 * We further need to remove @section from @iscache->lru.  To
+		 * prevent it from going away when we detach, we need to get
+		 * another temporary reference to it.
+		 *
+		 * For the original @section, our caller will hold a reference.
+		 * But if we already swapped sections, we will be responsible.
+		 */
+		errcode = pt_section_get(sec);
+		if (errcode < 0)
+			goto out_unlock_detach;
+
+		errcode = pt_section_get(section);
+		if (errcode < 0) {
+			(void) pt_section_put(sec);
+			goto out_unlock_detach;
+		}
+
+		errcode = pt_iscache_unlock(iscache);
+		if (errcode < 0) {
+			(void) pt_section_put(section);
+			(void) pt_section_put(sec);
+			goto out_detach;
+		}
+
+		errcode = pt_section_detach(section, iscache);
+		if (errcode < 0) {
+			/* We will put @section as part of out_lru. */
+			(void) pt_section_put(sec);
+			goto out_lru;
+		}
+
+		errcode = pt_section_attach(sec, iscache);
+		if (errcode < 0) {
+			/* We will put @section as part of out_lru. */
+			(void) pt_section_put(sec);
+			goto out_lru;
+		}
+
+		/* Drop the extra reference to @sec.
+		 *
+		 * It is no longer needed since attach will implicitly get a
+		 * reference.
+		 */
+		errcode = pt_section_put(sec);
+		if (errcode < 0) {
+			(void) pt_section_put(section);
+			/* Complete the swap for cleanup. */
+			section = sec;
+			goto out_detach;
+		}
+
+		errcode = pt_iscache_lock(iscache);
+		if (errcode < 0) {
+			(void) pt_section_put(section);
+			/* Complete the swap for cleanup. */
+			section = sec;
+			goto out_detach;
+		}
+
+		/* We may have received on-map notifications for @section and we
+		 * may have added @section to @iscache->lru.
+		 *
+		 * Since we're still holding a reference to it, no harm has been
+		 * done.  But we need to remove it before we drop our reference.
+		 */
+		errcode = pt_iscache_lru_remove(iscache, section);
+		if (errcode < 0) {
+			(void) pt_section_put(section);
+			/* Complete the swap for cleanup. */
+			section = sec;
+			goto out_unlock_detach;
+		}
+
+		/* Drop the extra reference on @section. */
+		errcode = pt_section_put(section);
+		if (errcode < 0) {
+			/* Complete the swap for cleanup. */
+			section = sec;
+			goto out_unlock_detach;
+		}
+
+		/* Swap sections.
+		 *
+		 * We will try again in the next iteration.
 		 */
 		section = sec;
-
-		/* If we also find a matching load address, we're done. */
-		if (laddr == entry->laddr)
-			break;
 	}
 
-	/* If we have not found a matching entry, add one. */
-	if (idx == end) {
-		struct pt_iscache_entry *entry;
-
-		/* Expand the cache, if necessary. */
-		if (iscache->capacity <= iscache->size) {
-			/* We must never exceed the capacity. */
-			if (iscache->capacity < iscache->size) {
-				errcode = -pte_internal;
-				goto out_unlock;
-			}
-
-			errcode = pt_iscache_expand(iscache);
-			if (errcode < 0)
-				goto out_unlock;
-
-			/* Make sure it is big enough, now. */
-			if (iscache->capacity <= iscache->size) {
-				errcode = -pte_internal;
-				goto out_unlock;
-			}
+	/* Expand the cache, if necessary. */
+	if (iscache->capacity <= iscache->size) {
+		/* We must never exceed the capacity. */
+		if (iscache->capacity < iscache->size) {
+			errcode = -pte_internal;
+			goto out_unlock_detach;
 		}
 
-		errcode = pt_section_attach(section, iscache);
+		errcode = pt_iscache_expand(iscache);
 		if (errcode < 0)
-			goto out_unlock;
+			goto out_unlock_detach;
 
-		idx = iscache->size++;
-
-		entry = &iscache->entries[idx];
-		entry->section = section;
-		entry->laddr = laddr;
+		/* Make sure it is big enough, now. */
+		if (iscache->capacity <= iscache->size) {
+			errcode = -pte_internal;
+			goto out_unlock_detach;
+		}
 	}
+
+	/* Insert a new entry for @section at @laddr.
+	 *
+	 * This hands the attach reference over to @iscache.  We will detach
+	 * again when the entry is removed.
+	 */
+	idx = iscache->size++;
+
+	iscache->entries[idx].section = section;
+	iscache->entries[idx].laddr = laddr;
 
 	errcode = pt_iscache_unlock(iscache);
 	if (errcode < 0)
@@ -510,8 +761,21 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 
 	return isid_from_index(idx);
 
- out_unlock:
+ out_unlock_detach:
 	(void) pt_iscache_unlock(iscache);
+
+ out_detach:
+	/* We need to take a reference to @section so it won't go away when we
+	 * clear @iscache->lru and try to unmap @section.
+	 */
+	(void) pt_section_get(section);
+	(void) pt_section_detach(section, iscache);
+
+ out_lru:
+	/* We may have added @section to @iscache->lru. */
+	(void) pt_iscache_lru_clear(iscache);
+	(void) pt_section_put(section);
+
 	return errcode;
 }
 

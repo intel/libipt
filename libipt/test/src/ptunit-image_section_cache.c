@@ -1784,6 +1784,68 @@ static int worker_map_bcache(void *arg)
 	return 0;
 }
 
+static int worker_add_map(void *arg)
+{
+	struct iscache_fixture *cfix;
+	struct pt_section *section;
+	int it;
+
+	cfix = arg;
+	if (!cfix)
+		return -pte_internal;
+
+	section = cfix->section[0];
+	for (it = 0; it < num_iterations; ++it) {
+		uint64_t laddr;
+		int isid, errcode;
+
+		laddr = (uint64_t) it << 3;
+
+		isid = pt_iscache_add(&cfix->iscache, section, laddr);
+		if (isid < 0)
+			return isid;
+
+		errcode = pt_section_map(section);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_section_unmap(section);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return 0;
+}
+
+static int worker_add_clear(void *arg)
+{
+	struct iscache_fixture *cfix;
+	struct pt_section *section;
+	int it;
+
+	cfix = arg;
+	if (!cfix)
+		return -pte_internal;
+
+	section = cfix->section[0];
+	for (it = 0; it < num_iterations; ++it) {
+		uint64_t laddr;
+		int isid, errcode;
+
+		laddr = (uint64_t) it << 3;
+
+		isid = pt_iscache_add(&cfix->iscache, section, laddr);
+		if (isid < 0)
+			return isid;
+
+		errcode = pt_iscache_clear(&cfix->iscache);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return 0;
+}
+
 static struct ptunit_result stress(struct iscache_fixture *cfix,
 				   int (*worker)(void *))
 {
@@ -1885,6 +1947,8 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, stress, sfix, worker_map);
 	ptu_run_fp(suite, stress, sfix, worker_map_limit);
 	ptu_run_fp(suite, stress, sfix, worker_map_bcache);
+	ptu_run_fp(suite, stress, cfix, worker_add_map);
+	ptu_run_fp(suite, stress, cfix, worker_add_clear);
 
 	return ptunit_report(&suite);
 }
