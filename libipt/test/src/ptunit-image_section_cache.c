@@ -1846,6 +1846,82 @@ static int worker_add_clear(void *arg)
 	return 0;
 }
 
+static int worker_add_file_map(void *arg)
+{
+	struct iscache_fixture *cfix;
+	int it;
+
+	cfix = arg;
+	if (!cfix)
+		return -pte_internal;
+
+	for (it = 0; it < num_iterations; ++it) {
+		struct pt_section *section;
+		uint64_t offset, size, laddr, addr;
+		int isid, errcode;
+
+		offset = it % 7 < 4 ? 0x1000 : 0x2000;
+		size = it % 5 < 3 ? 0x1000 : 0x2000;
+		laddr = it % 3 < 2 ? 0x1000 : 0x2000;
+
+		isid = pt_iscache_add_file(&cfix->iscache, "name",
+					   offset, size, laddr);
+		if (isid < 0)
+			return isid;
+
+		errcode = pt_iscache_lookup(&cfix->iscache, &section,
+					    &addr, isid);
+		if (errcode < 0)
+			return errcode;
+
+		if (addr != laddr)
+			return -pte_internal;
+
+		errcode = pt_section_map(section);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_section_unmap(section);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return 0;
+}
+
+static int worker_add_file_clear(void *arg)
+{
+	struct iscache_fixture *cfix;
+	int it;
+
+	cfix = arg;
+	if (!cfix)
+		return -pte_internal;
+
+	for (it = 0; it < num_iterations; ++it) {
+		uint64_t offset, size, laddr;
+		int isid, errcode;
+
+		offset = it % 7 < 4 ? 0x1000 : 0x2000;
+		size = it % 5 < 3 ? 0x1000 : 0x2000;
+		laddr = it % 3 < 2 ? 0x1000 : 0x2000;
+
+		isid = pt_iscache_add_file(&cfix->iscache, "name",
+					   offset, size, laddr);
+		if (isid < 0)
+			return isid;
+
+		if (it % 11 < 9)
+			continue;
+
+		errcode = pt_iscache_clear(&cfix->iscache);
+		if (errcode < 0)
+			return errcode;
+	}
+
+	return 0;
+}
+
 static struct ptunit_result stress(struct iscache_fixture *cfix,
 				   int (*worker)(void *))
 {
@@ -1949,6 +2025,8 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, stress, sfix, worker_map_bcache);
 	ptu_run_fp(suite, stress, cfix, worker_add_map);
 	ptu_run_fp(suite, stress, cfix, worker_add_clear);
+	ptu_run_fp(suite, stress, cfix, worker_add_file_map);
+	ptu_run_fp(suite, stress, cfix, worker_add_file_clear);
 
 	return ptunit_report(&suite);
 }

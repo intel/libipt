@@ -936,23 +936,69 @@ int pt_iscache_add_file(struct pt_image_section_cache *iscache,
 			uint64_t vaddr)
 {
 	struct pt_section *section;
-	int isid, errcode;
+	int errcode, match, isid;
 
 	if (!iscache || !filename)
 		return -pte_invalid;
 
-	isid = pt_iscache_find(iscache, filename, offset, size, vaddr);
-	if (isid != 0)
-		return isid;
+	errcode = pt_iscache_lock(iscache);
+	if (errcode < 0)
+		return errcode;
 
-	section = pt_mk_section(filename, offset, size);
-	if (!section)
-		return -pte_invalid;
+	match = pt_iscache_find_section_locked(iscache, filename, offset,
+					       size, vaddr);
+	if (match < 0) {
+		(void) pt_iscache_unlock(iscache);
+		return match;
+	}
 
+	/* If we found a perfect match, we will share the existing entry.
+	 *
+	 * If we found a section, we need to grab a reference before we unlock.
+	 *
+	 * If we didn't find a matching section, we create a new section, which
+	 * implicitly gives us a reference to it.
+	 */
+	if (match < iscache->size) {
+		const struct pt_iscache_entry *entry;
+
+		entry = &iscache->entries[match];
+		if (entry->laddr == vaddr) {
+			errcode = pt_iscache_unlock(iscache);
+			if (errcode < 0)
+				return errcode;
+
+			return isid_from_index((uint16_t) match);
+		}
+
+		section = entry->section;
+
+		errcode = pt_section_get(section);
+		if (errcode < 0) {
+			(void) pt_iscache_unlock(iscache);
+			return errcode;
+		}
+
+		errcode = pt_iscache_unlock(iscache);
+		if (errcode < 0) {
+			(void) pt_section_put(section);
+			return errcode;
+		}
+	} else {
+		errcode = pt_iscache_unlock(iscache);
+		if (errcode < 0)
+			return errcode;
+
+		section = pt_mk_section(filename, offset, size);
+		if (!section)
+			return -pte_invalid;
+	}
+
+	/* We unlocked @iscache and hold a reference to @section. */
 	isid = pt_iscache_add(iscache, section, vaddr);
 
 	/* We grab a reference when we add the section.  Drop the one we
-	 * obtained when creating the section.
+	 * obtained before.
 	 */
 	errcode = pt_section_put(section);
 	if (errcode < 0)
