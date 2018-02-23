@@ -484,6 +484,10 @@ pt_iscache_find_section_locked(const struct pt_image_section_cache *iscache,
 		if (sec != section) {
 			const char *sec_filename;
 
+			/* We don't have duplicates.  Skip the check. */
+			if (section)
+				continue;
+
 			if (offset != pt_section_offset(sec))
 				continue;
 
@@ -502,7 +506,10 @@ pt_iscache_find_section_locked(const struct pt_image_section_cache *iscache,
 			match = idx;
 		}
 
-		/* If we also find a matching load address, we're done. */
+		/* If we didn't continue, @section == @sec and we have a match.
+		 *
+		 * If we also find a matching load address, we're done.
+		 */
 		if (laddr == entry->laddr)
 			return idx;
 	}
