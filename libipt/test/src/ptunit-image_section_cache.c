@@ -269,32 +269,37 @@ int pt_section_attach(struct pt_section *section,
 	if (errcode < 0)
 		return errcode;
 
-	if (section->iscache && section->iscache != iscache) {
-		(void) pt_section_unlock_attach(section);
-		return -pte_internal;
+	ucount = section->ucount;
+	acount = section->acount;
+	if (!acount) {
+		if (section->iscache || !ucount)
+			goto out_unlock;
+
+		section->iscache = iscache;
+		section->acount = 1;
+
+		return pt_section_unlock_attach(section);
 	}
 
-	errcode = pt_section_lock(section);
-	if (errcode < 0)
-		return errcode;
+	acount += 1;
+	if (!acount) {
+		(void) pt_section_unlock_attach(section);
+		return -pte_overflow;
+	}
 
-	section->iscache = iscache;
+	if (ucount < acount)
+		goto out_unlock;
 
-	ucount = ++section->ucount;
-	acount = ++section->acount;
+	if (section->iscache != iscache)
+		goto out_unlock;
 
-	errcode = pt_section_unlock(section);
-	if (errcode < 0)
-		return errcode;
+	section->acount = acount;
 
-	errcode = pt_section_unlock_attach(section);
-	if (errcode < 0)
-		return errcode;
+	return pt_section_unlock_attach(section);
 
-	if (!ucount || !acount)
-		return -pte_internal;
-
-	return 0;
+ out_unlock:
+	(void) pt_section_unlock_attach(section);
+	return -pte_internal;
 }
 
 int pt_section_detach(struct pt_section *section,
@@ -309,37 +314,27 @@ int pt_section_detach(struct pt_section *section,
 	if (errcode < 0)
 		return errcode;
 
-	if (section->iscache != iscache) {
-		(void) pt_section_unlock_attach(section);
-		return -pte_internal;
-	}
+	if (section->iscache != iscache)
+		goto out_unlock;
 
-	errcode = pt_section_lock(section);
-	if (errcode < 0)
-		return errcode;
+	acount = section->acount;
+	if (!acount)
+		goto out_unlock;
 
-	ucount = --section->ucount;
-	acount = --section->acount;
+	acount -= 1;
+	ucount = section->ucount;
+	if (ucount < acount)
+		goto out_unlock;
+
+	section->acount = acount;
 	if (!acount)
 		section->iscache = NULL;
 
-	errcode = pt_section_unlock(section);
-	if (errcode < 0)
-		return errcode;
+	return pt_section_unlock_attach(section);
 
-	errcode = pt_section_unlock_attach(section);
-	if (errcode < 0)
-		return errcode;
-
-	if (!ucount) {
-#if defined(FEATURE_THREADS)
-		mtx_destroy(&section->alock);
-		mtx_destroy(&section->lock);
-#endif /* defined(FEATURE_THREADS) */
-		free(section);
-	}
-
-	return 0;
+ out_unlock:
+	(void) pt_section_unlock_attach(section);
+	return -pte_internal;
 }
 
 int pt_section_map(struct pt_section *section)

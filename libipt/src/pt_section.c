@@ -257,7 +257,7 @@ static int pt_section_unlock_attach(struct pt_section *section)
 int pt_section_attach(struct pt_section *section,
 		      struct pt_image_section_cache *iscache)
 {
-	uint16_t acount;
+	uint16_t acount, ucount;
 	int errcode;
 
 	if (!section || !iscache)
@@ -267,37 +267,43 @@ int pt_section_attach(struct pt_section *section,
 	if (errcode < 0)
 		return errcode;
 
-	acount = section->acount + 1;
+	ucount = section->ucount;
+	acount = section->acount;
+	if (!acount) {
+		if (section->iscache || !ucount)
+			goto out_unlock;
+
+		section->iscache = iscache;
+		section->acount = 1;
+
+		return pt_section_unlock_attach(section);
+	}
+
+	acount += 1;
 	if (!acount) {
 		(void) pt_section_unlock_attach(section);
 		return -pte_overflow;
 	}
 
-	errcode = pt_section_get(section);
-	if (errcode < 0) {
-		(void) pt_section_unlock_attach(section);
-		return errcode;
-	}
+	if (ucount < acount)
+		goto out_unlock;
 
-	if (section->iscache != iscache) {
-		if (section->iscache) {
-			(void) pt_section_put(section);
-			(void) pt_section_unlock_attach(section);
-			return -pte_internal;
-		}
-
-		section->iscache = iscache;
-	}
+	if (section->iscache != iscache)
+		goto out_unlock;
 
 	section->acount = acount;
 
 	return pt_section_unlock_attach(section);
+
+ out_unlock:
+	(void) pt_section_unlock_attach(section);
+	return -pte_internal;
 }
 
 int pt_section_detach(struct pt_section *section,
 		      struct pt_image_section_cache *iscache)
 {
-	uint16_t acount, mcount, ucount;
+	uint16_t acount, ucount;
 	int errcode;
 
 	if (!section || !iscache)
@@ -307,58 +313,27 @@ int pt_section_detach(struct pt_section *section,
 	if (errcode < 0)
 		return errcode;
 
+	if (section->iscache != iscache)
+		goto out_unlock;
+
 	acount = section->acount;
-	if (!acount || section->iscache != iscache) {
-		(void) pt_section_unlock_attach(section);
-		return -pte_internal;
-	}
+	if (!acount)
+		goto out_unlock;
 
-	/* We must not update @section before we can be sure that
-	 * pt_section_put() will succeed.  On the other hand, pt_section_put()
-	 * may free @section so we can not be sure that we may access it
-	 * afterwards.
-	 *
-	 * Resolve this by inlining pt_section_put() and interleaving the
-	 * updates.
-	 */
-
-	errcode = pt_section_lock(section);
-	if (errcode < 0)
-		return errcode;
-
-	mcount = section->mcount;
+	acount -= 1;
 	ucount = section->ucount;
-	if (ucount > 1) {
-		if (acount == 1)
-			section->iscache = NULL;
+	if (ucount < acount)
+		goto out_unlock;
 
-		section->acount = acount - 1;
-		section->ucount = ucount - 1;
+	section->acount = acount;
+	if (!acount)
+		section->iscache = NULL;
 
-		errcode = pt_section_unlock(section);
-		if (errcode < 0) {
-			(void) pt_section_unlock_attach(section);
-			return errcode;
-		}
+	return pt_section_unlock_attach(section);
 
-		return pt_section_unlock_attach(section);
-	}
-
-	errcode = pt_section_unlock(section);
-	if (errcode < 0) {
-		(void) pt_section_unlock_attach(section);
-		return errcode;
-	}
-
-	errcode = pt_section_unlock_attach(section);
-	if (errcode < 0)
-		return errcode;
-
-	if (!ucount || mcount || acount > 1)
-		return -pte_internal;
-
-	pt_section_free(section);
-	return 0;
+ out_unlock:
+	(void) pt_section_unlock_attach(section);
+	return -pte_internal;
 }
 
 const char *pt_section_filename(const struct pt_section *section)

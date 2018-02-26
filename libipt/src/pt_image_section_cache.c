@@ -561,9 +561,13 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 	 *
 	 * And for this, we will have to temporarily unlock @iscache again.
 	 */
-	errcode = pt_section_attach(section, iscache);
+	errcode = pt_section_get(section);
 	if (errcode < 0)
 		return errcode;
+
+	errcode = pt_section_attach(section, iscache);
+	if (errcode < 0)
+		goto out_put;
 
 	errcode = pt_iscache_lock(iscache);
 	if (errcode < 0)
@@ -619,6 +623,10 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 				if (errcode < 0)
 					goto out_lru;
 
+				errcode = pt_section_put(section);
+				if (errcode < 0)
+					return errcode;
+
 				return isid_from_index((uint16_t) match);
 			}
 
@@ -630,58 +638,28 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 		 * This requires detaching from @section, which, in turn,
 		 * requires temporarily unlocking @iscache.
 		 *
-		 * This, in turn, requires taking a reference to @sec so it
-		 * won't go away when we unlock @iscache.
-		 *
-		 * We further need to remove @section from @iscache->lru.  To
-		 * prevent it from going away when we detach, we need to get
-		 * another temporary reference to it.
-		 *
-		 * For the original @section, our caller will hold a reference.
-		 * But if we already swapped sections, we will be responsible.
+		 * We further need to remove @section from @iscache->lru.
 		 */
 		errcode = pt_section_get(sec);
 		if (errcode < 0)
 			goto out_unlock_detach;
 
-		errcode = pt_section_get(section);
-		if (errcode < 0) {
-			(void) pt_section_put(sec);
-			goto out_unlock_detach;
-		}
-
 		errcode = pt_iscache_unlock(iscache);
 		if (errcode < 0) {
-			(void) pt_section_put(section);
 			(void) pt_section_put(sec);
 			goto out_detach;
 		}
 
 		errcode = pt_section_detach(section, iscache);
 		if (errcode < 0) {
-			/* We will put @section as part of out_lru. */
 			(void) pt_section_put(sec);
 			goto out_lru;
 		}
 
 		errcode = pt_section_attach(sec, iscache);
 		if (errcode < 0) {
-			/* We will put @section as part of out_lru. */
 			(void) pt_section_put(sec);
 			goto out_lru;
-		}
-
-		/* Drop the extra reference to @sec.
-		 *
-		 * It is no longer needed since attach will implicitly get a
-		 * reference.
-		 */
-		errcode = pt_section_put(sec);
-		if (errcode < 0) {
-			(void) pt_section_put(section);
-			/* Complete the swap for cleanup. */
-			section = sec;
-			goto out_detach;
 		}
 
 		errcode = pt_iscache_lock(iscache);
@@ -706,7 +684,7 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 			goto out_unlock_detach;
 		}
 
-		/* Drop the extra reference on @section. */
+		/* Drop the reference to @section. */
 		errcode = pt_section_put(section);
 		if (errcode < 0) {
 			/* Complete the swap for cleanup. */
@@ -742,8 +720,8 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 
 	/* Insert a new entry for @section at @laddr.
 	 *
-	 * This hands the attach reference over to @iscache.  We will detach
-	 * again when the entry is removed.
+	 * This hands both attach and reference over to @iscache.  We will
+	 * detach and drop the reference again when the entry is removed.
 	 */
 	idx = iscache->size++;
 
@@ -760,15 +738,12 @@ int pt_iscache_add(struct pt_image_section_cache *iscache,
 	(void) pt_iscache_unlock(iscache);
 
  out_detach:
-	/* We need to take a reference to @section so it won't go away when we
-	 * clear @iscache->lru and try to unmap @section.
-	 */
-	(void) pt_section_get(section);
 	(void) pt_section_detach(section, iscache);
 
  out_lru:
-	/* We may have added @section to @iscache->lru. */
 	(void) pt_iscache_lru_clear(iscache);
+
+ out_put:
 	(void) pt_section_put(section);
 
 	return errcode;
@@ -867,14 +842,18 @@ int pt_iscache_clear(struct pt_image_section_cache *iscache)
 		return errcode;
 
 	for (idx = 0; idx < end; ++idx) {
-		const struct pt_iscache_entry *entry;
+		struct pt_section *section;
 
-		entry = &entries[idx];
+		section = entries[idx].section;
 
 		/* We do not zero-initialize the array - a NULL check is
 		 * pointless.
 		 */
-		errcode = pt_section_detach(entry->section, iscache);
+		errcode = pt_section_detach(section, iscache);
+		if (errcode < 0)
+			return errcode;
+
+		errcode = pt_section_put(section);
 		if (errcode < 0)
 			return errcode;
 	}

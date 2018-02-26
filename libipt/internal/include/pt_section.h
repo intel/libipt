@@ -90,8 +90,8 @@ struct pt_section {
 	 * it detaches again.  There can be at most one iscache attached to this
 	 * section at any time.
 	 *
-	 * When attaching, the iscache will also obtain a reference to the
-	 * section, which it will drop again when detaching.
+	 * In addition to attaching, the iscache will need to obtain a reference
+	 * to the section, which it needs to drop again after detaching.
 	 */
 	struct pt_image_section_cache *iscache;
 
