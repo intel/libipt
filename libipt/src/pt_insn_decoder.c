@@ -1258,7 +1258,6 @@ static int pt_insn_msec_lookup(struct pt_insn_decoder *decoder,
 			       const struct pt_mapped_section **pmsec)
 {
 	struct pt_msec_cache *scache;
-	struct pt_section *section;
 	struct pt_image *image;
 	uint64_t ip;
 	int isid;
@@ -1275,14 +1274,8 @@ static int pt_insn_msec_lookup(struct pt_insn_decoder *decoder,
 		if (isid != -pte_nomap)
 			return isid;
 
-		isid = pt_msec_cache_fill(scache, pmsec, image,
+		return pt_msec_cache_fill(scache, pmsec, image,
 					  &decoder->asid, ip);
-		if (isid < 0)
-			return isid;
-
-		section = pt_msec_section(*pmsec);
-		if (!section)
-			return -pte_internal;
 	}
 
 	return isid;
