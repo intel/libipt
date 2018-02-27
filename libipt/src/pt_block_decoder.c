@@ -2466,7 +2466,7 @@ static int pt_blk_msec_fill(struct pt_block_decoder *decoder,
 {
 	const struct pt_mapped_section *msec;
 	struct pt_section *section;
-	int isid;
+	int isid, errcode;
 
 	if (!decoder || !pmsec)
 		return -pte_internal;
@@ -2482,7 +2482,11 @@ static int pt_blk_msec_fill(struct pt_block_decoder *decoder,
 
 	*pmsec = msec;
 
-	return pt_section_request_bcache(section);
+	errcode = pt_section_request_bcache(section);
+	if (errcode < 0)
+		return errcode;
+
+	return isid;
 }
 
 static inline int pt_blk_msec_lookup(struct pt_block_decoder *decoder,

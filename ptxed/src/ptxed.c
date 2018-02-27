@@ -1386,6 +1386,7 @@ static int block_fetch_insn(struct pt_insn *insn, const struct pt_block *block,
 
 	memset(insn, 0, sizeof(*insn));
 	insn->mode = block->mode;
+	insn->isid = block->isid;
 	insn->ip = ip;
 
 	/* The last instruction in a block may be truncated. */
@@ -1399,11 +1400,10 @@ static int block_fetch_insn(struct pt_insn *insn, const struct pt_block *block,
 		int size;
 
 		size = pt_iscache_read(iscache, insn->raw, sizeof(insn->raw),
-				       block->isid, ip);
+				       insn->isid, ip);
 		if (size < 0)
 			return size;
 
-		insn->isid = block->isid;
 		insn->size = (uint8_t) size;
 	}
 
@@ -1584,6 +1584,10 @@ static void check_block(const struct pt_block *block,
 	ninsn = block->ninsn;
 	if (!ninsn)
 		return;
+
+	if (block->isid <= 0)
+		printf("[%" PRIx64 ", %" PRIx64 ": check error: "
+		       "bad isid]\n", offset, block->ip);
 
 	ip = block->ip;
 	do {
