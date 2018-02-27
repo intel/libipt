@@ -791,6 +791,15 @@ static void check_insn(const struct pt_insn *insn, uint64_t offset)
 {
 	xed_decoded_inst_t inst;
 
+	if (!insn) {
+		printf("[internal error]\n");
+		return;
+	}
+
+	if (insn->isid <= 0)
+		printf("[%" PRIx64 ", %" PRIx64 ": check error: "
+		       "bad isid]\n", offset, insn->ip);
+
 	xed_decoded_inst_zero(&inst);
 	check_insn_decode(&inst, insn, offset);
 

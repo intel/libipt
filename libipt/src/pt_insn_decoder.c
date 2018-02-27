@@ -1287,7 +1287,7 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	const struct pt_mapped_section *msec;
 	struct pt_insn_ext iext;
 	struct pt_insn insn, *pinsn;
-	int status;
+	int status, isid;
 
 	if (!uinsn || !decoder)
 		return -pte_invalid;
@@ -1319,13 +1319,18 @@ int pt_insn_next(struct pt_insn_decoder *decoder, struct pt_insn *uinsn,
 	pinsn->ip = decoder->ip;
 	pinsn->mode = decoder->mode;
 
-	status = pt_insn_msec_lookup(decoder, &msec);
-	if (status < 0) {
-		if (status != -pte_nomap)
-			return status;
+	isid = pt_insn_msec_lookup(decoder, &msec);
+	if (isid < 0) {
+		if (isid != -pte_nomap)
+			return isid;
 
 		msec = NULL;
 	}
+
+	/* We set an incorrect isid if @msec is NULL.  This will be corrected
+	 * when we read the memory from the image later on.
+	 */
+	pinsn->isid = isid;
 
 	status = pt_insn_decode_cached(decoder, msec, pinsn, &iext);
 	if (status < 0) {
