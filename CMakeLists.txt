@@ -26,7 +26,7 @@
 
 cmake_minimum_required(VERSION 2.8.6)
 
-project(PT)
+project(PT C)
 
 # versioning
 #
@@ -91,6 +91,10 @@ endif ()
 
 if (PTUNIT OR PTT)
   ENABLE_TESTING()
+endif()
+
+if (PTUNIT)
+  enable_language(CXX)
 endif()
 
 include_directories(
