@@ -145,14 +145,18 @@ static int pt_sb_pevent_error(const struct pt_sb_session *session, int errcode,
 	offset = 0ull;
 
 	if (priv) {
-		const uint8_t *pos;
+		const uint8_t *pos, *begin;
 
 		pos = priv->current;
 		if (!pos)
 			pos = priv->next;
 
+		begin = priv->begin;
+		if (pos < begin)
+			return -pte_internal;
+
 		filename = priv->filename;
-		offset = (uint64_t) (pos - priv->begin);
+		offset = (uint64_t) (int64_t) (pos - begin);
 	}
 
 	return pt_sb_error(session, errcode, filename, offset);
@@ -828,16 +832,24 @@ static int pt_sb_pevent_print(struct pt_sb_pevent_priv *priv, FILE *stream,
 			      uint32_t flags)
 {
 	struct pev_event *event;
+	const uint8_t *pos, *begin;
+	const char *filename;
 	int errcode;
 
 	if (!priv)
 		return -pte_internal;
 
 	/* We should not be called before fetching the first record. */
-	if (!priv->current)
+	pos = priv->current;
+	if (!pos)
 		return -pte_internal;
 
-	if (!priv->filename)
+	begin = priv->begin;
+	if (pos < begin)
+		return -pte_internal;
+
+	filename = priv->filename;
+	if (!filename)
 		return -pte_internal;
 
 	event = &priv->event;
@@ -845,17 +857,17 @@ static int pt_sb_pevent_print(struct pt_sb_pevent_priv *priv, FILE *stream,
 	/* Print filename and/or file offset before the actual record. */
 	switch (flags & (ptsbp_filename | ptsbp_file_offset)) {
 	case ptsbp_filename | ptsbp_file_offset:
-		fprintf(stream, "%s:%016" PRIx64 "  ", priv->filename,
-			(uint64_t) (priv->current - priv->begin));
+		fprintf(stream, "%s:%016" PRIx64 "  ", filename,
+			(uint64_t) (int64_t) (pos - begin));
 		break;
 
 	case ptsbp_filename:
-		fprintf(stream, "%s  ", priv->filename);
+		fprintf(stream, "%s  ", filename);
 		break;
 
 	case ptsbp_file_offset:
 		fprintf(stream, "%016" PRIx64 "  ",
-			(uint64_t) (priv->current - priv->begin));
+			(uint64_t) (int64_t) (pos - begin));
 		break;
 	}
 
