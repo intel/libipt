@@ -63,3 +63,10 @@ target_link_libraries(libipt-sb libipt)
 if (PEVENT)
   target_link_libraries(libipt-sb pevent)
 endif (PEVENT)
+
+install(TARGETS libipt-sb
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
