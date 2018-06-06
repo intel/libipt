@@ -67,6 +67,12 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			errata->skl014 = 1;
 			break;
 
+		case 0x55:
+			errata->bdm70 = 1;
+			errata->skl014 = 1;
+			errata->skd022 = 1;
+			break;
+
 		case 0x5c:
 		case 0x5f:
 			errata->apl12 = 1;

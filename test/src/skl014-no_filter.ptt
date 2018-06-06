@@ -28,6 +28,7 @@
 ; branch if we do not have a filter configuration.
 ;
 ;   cpu 6/78
+;   cpu 6/85
 ;   cpu 6/94
 ;   cpu 6/142
 ;   cpu 6/158
