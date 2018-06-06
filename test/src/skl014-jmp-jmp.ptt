@@ -37,6 +37,7 @@
 ; opt:ptxed --filter:addr0_cfg 1 --filter:addr0_a 0x1000 --filter:addr0_b 0x10ff
 ;
 ;   cpu 6/78
+;   cpu 6/85
 ;   cpu 6/94
 ;   cpu 6/142
 ;   cpu 6/158

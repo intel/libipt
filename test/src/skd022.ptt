@@ -33,6 +33,7 @@
 ;         VM-entry MSR-load area includes an entry for the IA32_RTIT_CTL MSR.
 ;
 ;   cpu 6/78
+;   cpu 6/85
 ;   cpu 6/94
 ;   cpu 6/142
 ;   cpu 6/158
