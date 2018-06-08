@@ -923,12 +923,20 @@ static int pt_sb_pevent_cancel_context_switch(struct pt_sb_pevent_priv *priv)
 }
 
 static int pt_sb_pevent_prepare_context_switch(struct pt_sb_pevent_priv *priv,
-					       struct pt_sb_context *context)
+					       struct pt_sb_context *context, uint64_t tsc)
 {
 	int errcode;
 
 	if (!priv || !context)
 		return -pte_internal;
+
+	/*
+	 * Apply latest time when context scheduled on this CPU, so we can order
+	 * control flow across different CPUs.
+	 */
+	if (tsc > context->tsc) {
+	  context->tsc = tsc;
+	}
 
 	/* There's nothing to do if this switch is already pending.
 	 *
@@ -968,7 +976,7 @@ static int pt_sb_pevent_prepare_context_switch(struct pt_sb_pevent_priv *priv,
 
 static int pt_sb_pevent_prepare_switch_to_pid(struct pt_sb_session *session,
 					      struct pt_sb_pevent_priv *priv,
-					      uint32_t pid)
+					      uint32_t pid, uint64_t tsc)
 {
 	struct pt_sb_context *context;
 	int errcode;
@@ -978,7 +986,7 @@ static int pt_sb_pevent_prepare_switch_to_pid(struct pt_sb_session *session,
 	if (errcode < 0)
 		return errcode;
 
-	return pt_sb_pevent_prepare_context_switch(priv, context);
+	return pt_sb_pevent_prepare_context_switch(priv, context, tsc);
 }
 
 static int pt_sb_pevent_remove_context_for_pid(struct pt_sb_session *session,
@@ -1002,7 +1010,7 @@ static int
 pt_sb_pevent_itrace_start(struct pt_sb_session *session,
 			  struct pt_image **image,
 			  struct pt_sb_pevent_priv *priv,
-			  const struct pev_record_itrace_start *record)
+			  const struct pev_record_itrace_start *record, uint64_t tsc)
 {
 	int errcode;
 
@@ -1010,7 +1018,7 @@ pt_sb_pevent_itrace_start(struct pt_sb_session *session,
 		return -pte_internal;
 
 	errcode = pt_sb_pevent_prepare_switch_to_pid(session, priv,
-						     record->pid);
+						     record->pid, tsc);
 	if (errcode < 0)
 		return errcode;
 
@@ -1092,7 +1100,7 @@ static int pt_sb_pevent_fork(struct pt_sb_session *session,
 static int pt_sb_pevent_exec(struct pt_sb_session *session,
 			     struct pt_image **image,
 			     struct pt_sb_pevent_priv *priv,
-			     const struct pev_record_comm *record)
+			     const struct pev_record_comm *record, uint64_t tsc)
 {
 	struct pt_sb_context *context;
 	uint32_t pid;
@@ -1136,29 +1144,29 @@ static int pt_sb_pevent_exec(struct pt_sb_session *session,
 	 * we removed earlier in order to reach the location where we transition
 	 * into the kernel.  In the trace, we have not yet exec'ed.
 	 */
-	return pt_sb_pevent_prepare_context_switch(priv, context);
+	return pt_sb_pevent_prepare_context_switch(priv, context, tsc);
 }
 
 static int pt_sb_pevent_switch(struct pt_sb_session *session,
 			       struct pt_sb_pevent_priv *priv,
-			       const uint32_t *pid)
+			       const uint32_t *pid, uint64_t tsc)
 {
 	if (!pid)
 		return -pte_bad_config;
 
-	return pt_sb_pevent_prepare_switch_to_pid(session, priv, *pid);
+	return pt_sb_pevent_prepare_switch_to_pid(session, priv, *pid, tsc);
 }
 
 static int
 pt_sb_pevent_switch_cpu(struct pt_sb_session *session,
 			struct pt_sb_pevent_priv *priv,
-			const struct pev_record_switch_cpu_wide *record)
+			const struct pev_record_switch_cpu_wide *record, uint64_t tsc)
 {
 	if (!record)
 		return -pte_internal;
 
 	return pt_sb_pevent_prepare_switch_to_pid(session, priv,
-						  record->next_prev_pid);
+						  record->next_prev_pid, tsc);
 }
 
 static int pt_sb_pevent_map(struct pt_sb_session *session,
@@ -1311,7 +1319,7 @@ static int pt_sb_pevent_apply_event_record(struct pt_sb_session *session,
 			break;
 
 		return pt_sb_pevent_itrace_start(session, image, priv,
-						 event->record.itrace_start);
+						 event->record.itrace_start, event->sample.tsc);
 
 	case PERF_RECORD_FORK:
 		return pt_sb_pevent_fork(session, event->record.fork);
@@ -1322,7 +1330,7 @@ static int pt_sb_pevent_apply_event_record(struct pt_sb_session *session,
 			break;
 
 		return pt_sb_pevent_exec(session, image, priv,
-					 event->record.comm);
+					 event->record.comm, event->sample.tsc);
 
 	case PERF_RECORD_SWITCH:
 		/* Ignore context switches from secondary sideband channels. */
@@ -1333,7 +1341,7 @@ static int pt_sb_pevent_apply_event_record(struct pt_sb_session *session,
 		if (event->misc & PERF_RECORD_MISC_SWITCH_OUT)
 			break;
 
-		return pt_sb_pevent_switch(session, priv, event->sample.pid);
+		return pt_sb_pevent_switch(session, priv, event->sample.pid, event->sample.tsc);
 
 	case PERF_RECORD_SWITCH_CPU_WIDE:
 		/* Ignore context switches from secondary sideband channels. */
@@ -1353,11 +1361,11 @@ static int pt_sb_pevent_apply_event_record(struct pt_sb_session *session,
 				break;
 
 			return pt_sb_pevent_switch(session, priv,
-						   event->sample.pid);
+						   event->sample.pid, event->sample.tsc);
 		}
 
 		return pt_sb_pevent_switch_cpu(session, priv,
-					       event->record.switch_cpu_wide);
+					       event->record.switch_cpu_wide, event->sample.tsc);
 
 	case PERF_RECORD_MMAP:
 		/* We intentionally ignore some MMAP records. */

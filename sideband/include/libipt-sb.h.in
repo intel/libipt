@@ -259,6 +259,18 @@ extern pt_sb_export int pt_sb_ctx_put(struct pt_sb_context *context);
 extern pt_sb_export struct pt_image *
 pt_sb_ctx_image(const struct pt_sb_context *context);
 
+/* Get the context's pid.
+ */
+extern pt_sb_export uint32_t
+pt_sb_ctx_pid(const struct pt_sb_context *context);
+
+/* Get the tsc of the last event that scheduled this process context.
+ * If a context is associated with a single thread this can be used to order
+ * control flow across different CPU schedules.
+ */
+extern pt_sb_export uint64_t
+pt_sb_ctx_tsc(const struct pt_sb_context *context);
+
 /* Map a file section into a context's image.
  *
  * Adds a section of @size bytes from @filename starting at @offset to @context's

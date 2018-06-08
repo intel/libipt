@@ -111,6 +111,22 @@ struct pt_image *pt_sb_ctx_image(const struct pt_sb_context *context)
 	return context->image;
 }
 
+uint32_t pt_sb_ctx_pid(const struct pt_sb_context *context)
+{
+	if (!context)
+		return 0;
+
+	return context->pid;
+}
+
+uint64_t pt_sb_ctx_tsc(const struct pt_sb_context *context)
+{
+	if (!context)
+		return 0;
+
+	return context->tsc;
+}
+
 int pt_sb_ctx_mmap(struct pt_sb_session *session, struct pt_sb_context *context,
 		   const char *filename, uint64_t offset, uint64_t size,
 		   uint64_t vaddr)

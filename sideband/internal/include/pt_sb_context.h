@@ -75,6 +75,11 @@ struct pt_sb_context {
 	 * CR3 and all sideband records refer to pid/tid, so we're using those.
 	 */
 	uint32_t pid;
+  
+	/* Time when the context was scheduled
+	 *
+	 */
+	uint64_t tsc;
 
 	/* The number of current users.
 	 *
