@@ -724,12 +724,8 @@ static int print_tcal(struct ptdump_buffer *buffer,
 		dold_fcr = (double) old_fcr;
 		dold_fcr /= (double) (1ull << pt_tcal_fcr_shr);
 
-		if (old_fcr <= fcr)
-			print_field(buffer->tracking.payload, "+%.3f",
-				    dfcr - dold_fcr);
-		else
-			print_field(buffer->tracking.payload, "-%.3f",
-				    dold_fcr - dfcr);
+		print_field(buffer->tracking.payload, "%+.3f",
+			    dfcr - dold_fcr);
 
 		tracking->fcr = fcr;
 	} else
