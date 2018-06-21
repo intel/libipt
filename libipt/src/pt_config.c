@@ -79,6 +79,10 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			errata->apl12 = 1;
 			errata->apl11 = 1;
 			return 0;
+
+		case 0x7a:
+			errata->apl11 = 1;
+			return 0;
 		}
 		break;
 	}
