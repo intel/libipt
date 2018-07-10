@@ -573,8 +573,7 @@ error:
 
 static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
 {
-	char *endptr;
-	unsigned long i;
+	int errcode;
 
 	if (bug_on(!hints || !ext))
 		return -err_internal;
@@ -583,27 +582,17 @@ static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
 	if (!payload || *payload == '\0')
 		return -err_parse_no_args;
 
-	i = strtoul(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
-
-	if (UINT32_MAX < i)
-		return -err_parse_int_too_big;
-
-	*hints = (uint32_t)i;
+	errcode = str_to_uint32(payload, hints, 0);
+	if (errcode < 0)
+		return errcode;
 
 	payload = strtok(NULL, " ,");
 	if (!payload)
 		return -err_parse_no_args;
 
-	i = strtoul(payload, &endptr, 0);
-	if (payload == endptr || *endptr != '\0')
-		return -err_parse_int;
-
-	if (UINT32_MAX < i)
-		return -err_parse_int_too_big;
-
-	*ext = (uint32_t)i;
+	errcode = str_to_uint32(payload, ext, 0);
+	if (errcode < 0)
+		return errcode;
 
 	/* no more tokens left.  */
 	payload = strtok(NULL, " ");

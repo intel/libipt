@@ -190,7 +190,18 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 
 		tmp = strstr(line, "[org");
 		if (tmp) {
-			base_addr = strtol(tmp+strlen("[org"), NULL, 0);
+			char *org;
+
+			org = tmp + strlen("[org");
+			tmp = strstr(org, "]");
+			if (!tmp)
+				return -err_no_org_directive;
+
+			*tmp = 0;
+
+			errcode = str_to_uint64(org, &base_addr, 0);
+			if (errcode < 0)
+				return errcode;
 
 			errcode = l_append(l, "org", base_addr);
 			if (errcode < 0)
