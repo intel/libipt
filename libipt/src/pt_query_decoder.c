@@ -560,19 +560,33 @@ static int pt_qry_apply_cyc(struct pt_time *time, struct pt_time_cal *tcal,
 
 int pt_qry_sync_forward(struct pt_query_decoder *decoder, uint64_t *ip)
 {
-	const uint8_t *pos, *sync;
+	const uint8_t *pos, *sync, *begin;
+	ptrdiff_t space;
 	int errcode;
 
 	if (!decoder)
 		return -pte_invalid;
 
+	begin = decoder->config.begin;
 	sync = decoder->sync;
 	pos = decoder->pos;
 	if (!pos)
-		pos = decoder->config.begin;
+		pos = begin;
 
 	if (pos == sync)
 		pos += ptps_psb;
+
+	if (pos < begin)
+		return -pte_internal;
+
+	/* Start a bit earlier so we find PSB that have been partially consumed
+	 * by a preceding packet.
+	 */
+	space = pos - begin;
+	if (ptps_psb <= space)
+		space = ptps_psb - 1;
+
+	pos -= space;
 
 	errcode = pt_sync_forward(&sync, pos, &decoder->config);
 	if (errcode < 0)
