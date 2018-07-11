@@ -582,6 +582,21 @@ error:
 	return -err_file_open;
 }
 
+static int report_lib_error(struct parser *p, const char *message, int errcode)
+{
+	char buffer[128];
+
+	if (bug_on(!p))
+		return err_internal;
+
+	snprintf(buffer, sizeof(buffer), "%s: %s", message,
+		 pt_errstr(pt_errcode(errcode)));
+
+	yasm_print_err(p->y, buffer, -err_pt_lib);
+
+	return -err_pt_lib;
+}
+
 static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
 {
 	int errcode;
@@ -654,6 +669,70 @@ static int parse_c_state(uint8_t *state, uint8_t *sub_state, const char *input)
 		*sub_state = (uint8_t) ((min - 1) & 0xf);
 
 	return 0;
+}
+
+static int pt_raw(struct parser *p, struct pt_encoder *e,
+		  const void *buffer, size_t size)
+{
+	const struct pt_config *conf;
+	uint8_t *begin, *end, *pos, *start;
+	uint64_t offset;
+	int errcode;
+
+	if (bug_on(!p) || bug_on(!e))
+		return -err_internal;
+
+	conf = p->conf;
+	if (bug_on(!conf))
+		return -err_internal;
+
+	errcode = pt_enc_get_offset(e, &offset);
+	if (errcode < 0)
+		return report_lib_error(p, "error getting encoder offset",
+					errcode);
+
+	begin = conf->begin;
+	end = conf->end;
+	pos = begin + offset;
+	if (pos < begin || end <= pos)
+		return err_internal;
+
+	start = pos;
+	pos += size;
+	if (pos < begin || end <= pos) {
+		yasm_print_err(p->y, "buffer full", -err_no_mem);
+		return -err_no_mem;
+	}
+
+	memcpy(start, buffer, size);
+
+	errcode = pt_enc_sync_set(e, offset + size);
+	if (errcode < 0)
+		return report_lib_error(p, "error setting encoder offset",
+					errcode);
+
+	p->pt_bytes_written += (int) size;
+	return (int) size;
+}
+
+static int pt_raw_8(struct parser *p, struct pt_encoder *e, uint8_t value)
+{
+	return pt_raw(p, e, &value, sizeof(value));
+}
+
+static int pt_raw_16(struct parser *p, struct pt_encoder *e, uint16_t value)
+{
+	return pt_raw(p, e, &value, sizeof(value));
+}
+
+static int pt_raw_32(struct parser *p, struct pt_encoder *e, uint32_t value)
+{
+	return pt_raw(p, e, &value, sizeof(value));
+}
+
+static int pt_raw_64(struct parser *p, struct pt_encoder *e, uint64_t value)
+{
+	return pt_raw(p, e, &value, sizeof(value));
 }
 
 /* Processes the current directive.
@@ -1009,6 +1088,46 @@ static int p_process_pt(struct parser *p, struct pt_encoder *e)
 
 			packet.payload.ptw.ip = 1;
 		}
+	} else if (strcmp(directive, "raw-8") == 0) {
+		uint8_t value;
+
+		errcode = parse_uint8(&value, payload);
+		if (errcode < 0) {
+			yasm_print_err(p->y, payload, errcode);
+			return errcode;
+		}
+
+		return pt_raw_8(p, e, value);
+	} else if (strcmp(directive, "raw-16") == 0) {
+		uint16_t value;
+
+		errcode = parse_uint16(&value, payload);
+		if (errcode < 0) {
+			yasm_print_err(p->y, payload, errcode);
+			return errcode;
+		}
+
+		return pt_raw_16(p, e, value);
+	} else if (strcmp(directive, "raw-32") == 0) {
+		uint32_t value;
+
+		errcode = parse_uint32(&value, payload);
+		if (errcode < 0) {
+			yasm_print_err(p->y, payload, errcode);
+			return errcode;
+		}
+
+		return pt_raw_32(p, e, value);
+	} else if (strcmp(directive, "raw-64") == 0) {
+		uint64_t value;
+
+		errcode = parse_uint64(&value, payload);
+		if (errcode < 0) {
+			yasm_print_err(p->y, payload, errcode);
+			return errcode;
+		}
+
+		return pt_raw_64(p, e, value);
 	} else {
 		errcode = yasm_print_err(p->y, "invalid syntax",
 					 -err_parse_unknown_directive);

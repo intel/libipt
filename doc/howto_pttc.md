@@ -76,6 +76,16 @@ The general syntax for pt directives is as follows:
 This section lists the directives that are understood by pttc.
 
 
+#### raw
+
+    @pt raw-8(value)
+    @pt raw-16(value)
+    @pt raw-32(value)
+    @pt raw-64(value)
+
+Writes a raw unsigned 8, 16, 32, or 64 bit value.
+
+
 #### psb, psbend, pad, ovf, stop
 
 	@pt psb()
