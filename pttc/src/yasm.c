@@ -298,6 +298,8 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 			continue;
 
 		if (!make_label(tmp)) {
+			uint64_t laddr;
+
 			/* get address in case we find a label later.  */
 			if (sscanf(tmp, "%" PRIx64, &addr) != 1)
 				continue;
@@ -312,7 +314,13 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 			if (!make_label(tmp))
 				continue;
 
-			errcode = l_append(l, tmp, addr + base_addr);
+			laddr = addr + base_addr;
+			if (laddr < base_addr) {
+				errcode = -err_label_addr;
+				goto error;
+			}
+
+			errcode = l_append(l, tmp, laddr);
 			if (errcode < 0)
 				goto error;
 			continue;
@@ -337,7 +345,15 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 			}
 			if (sscanf(line, "%*d %" PRIx64 " %*x %*s", &addr)
 			    == 1) {
-				errcode = l_append(l, name, addr + base_addr);
+				uint64_t laddr;
+
+				laddr = addr + base_addr;
+				if (laddr < base_addr) {
+					errcode = -err_label_addr;
+					break;
+				}
+
+				errcode = l_append(l, name, laddr);
 				break;
 			}
 		}
