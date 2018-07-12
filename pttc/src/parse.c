@@ -614,6 +614,9 @@ static int parse_c_state(uint8_t *state, uint8_t *sub_state, const char *input)
 	min = 0;
 	matches = sscanf(input, " c%u.%u", &maj, &min);
 	switch (matches) {
+	default:
+		return -err_parse;
+
 	case 0:
 		return -err_parse_no_args;
 
