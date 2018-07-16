@@ -88,9 +88,14 @@ static void sb_rename_file(struct sb_file *sb)
 		}
 
 		ext_len = (size_t) printed;
-		suffix_len = strnlen(sb_suffix, sizeof(filename));
 
+		suffix_len = strnlen(sb_suffix, sizeof(filename));
 		base_len = strnlen(sb->name, sizeof(filename));
+		if (base_len < suffix_len) {
+			fprintf(stderr, "error renaming %s.\n", sb->name);
+			return;
+		}
+
 		base_len -= suffix_len;
 
 		total_len = base_len + ext_len + suffix_len + 1;
