@@ -31,19 +31,22 @@ project(PT C)
 # versioning
 #
 # the major and the minor number define the supported Intel PT set.
+# the patch level is only used for bug-fixes.
 #
 # a build number and a version extension can be optionally specified.
 #
 set(PT_VERSION_MAJOR 1)
 set(PT_VERSION_MINOR 6)
+set(PT_VERSION_PATCH 0)
 set(PT_VERSION_BUILD "0" CACHE STRING "")
 set(PT_VERSION_EXT "" CACHE STRING "")
 
-set(PT_VERSION "${PT_VERSION_MAJOR}.${PT_VERSION_MINOR}.${PT_VERSION_BUILD}")
+set(PT_VERSION "${PT_VERSION_MAJOR}.${PT_VERSION_MINOR}.${PT_VERSION_PATCH}")
 
 add_definitions(
   -DPT_VERSION_MAJOR=${PT_VERSION_MAJOR}
   -DPT_VERSION_MINOR=${PT_VERSION_MINOR}
+  -DPT_VERSION_PATCH=${PT_VERSION_PATCH}
   -DPT_VERSION_BUILD=${PT_VERSION_BUILD}
   -DPT_VERSION_EXT=\"${PT_VERSION_EXT}\"
 )

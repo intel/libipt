@@ -30,6 +30,7 @@
 #include "pt_last_ip.h"
 #include "pt_time.h"
 #include "pt_compiler.h"
+#include "pt_version.h"
 
 #include "intel-pt.h"
 
@@ -252,12 +253,7 @@ static int help(const char *name)
 
 static int version(const char *name)
 {
-	struct pt_version v = pt_library_version();
-
-	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
-	       name, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
-	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
-
+	pt_print_tool_version(name);
 	return 1;
 }
 

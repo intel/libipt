@@ -29,21 +29,11 @@
 #include "pttc.h"
 
 #include "pt_cpu.h"
+#include "pt_version.h"
 
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-
-/* Prints this tools version number and libipt version number on stdout.  */
-static void version(const char *prog)
-{
-	struct pt_version v;
-
-	v = pt_library_version();
-	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
-	       prog, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
-	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
-}
 
 /* Prints usage information to stdout.  */
 static void help(const char *prog)
@@ -79,7 +69,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 		if (strcmp(arg, "--version") == 0) {
-			version(prog);
+			pt_print_tool_version(prog);
 			return 0;
 		}
 		if (strcmp(arg, "--cpu") == 0) {

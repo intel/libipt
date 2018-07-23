@@ -60,8 +60,8 @@ struct pt_version {
 	/** Minor version number. */
 	uint8_t minor;
 
-	/** Reserved bits. */
-	uint16_t reserved;
+	/** Patch level. */
+	uint16_t patch;
 
 	/** Build number. */
 	uint32_t build;

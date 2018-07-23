@@ -31,6 +31,7 @@
 #endif /* defined(FEATURE_ELF) */
 
 #include "pt_cpu.h"
+#include "pt_version.h"
 
 #include "intel-pt.h"
 
@@ -215,15 +216,6 @@ static void ptxed_free_decoder(struct ptxed_decoder *decoder)
 #endif
 
 	pt_iscache_free(decoder->iscache);
-}
-
-static void version(const char *name)
-{
-	struct pt_version v = pt_library_version();
-
-	printf("%s-%d.%d.%d%s / libipt-%" PRIu8 ".%" PRIu8 ".%" PRIu32 "%s\n",
-	       name, PT_VERSION_MAJOR, PT_VERSION_MINOR, PT_VERSION_BUILD,
-	       PT_VERSION_EXT, v.major, v.minor, v.build, v.ext);
 }
 
 static void help(const char *name)
@@ -2166,7 +2158,7 @@ extern int main(int argc, char *argv[])
 			goto out;
 		}
 		if (strcmp(arg, "--version") == 0) {
-			version(prog);
+			pt_print_tool_version(prog);
 			goto out;
 		}
 		if (strcmp(arg, "--pt") == 0) {

@@ -100,18 +100,18 @@ available on all supported platforms.
 
 ### Version Settings
 
-The major and minor version numbers are set in the sources and must be changed
-there.  You can set the build number and an arbitrary extension string.
-build.
+The major, minor, and patch version numbers are set in the sources and
+must be changed there.  You can set the optional build number and an
+arbitrary extension string.
 
-    PT_VERSION_BUILD    The build number.
+    PT_VERSION_BUILD    The optional build number.
 
-                        Defaults to zero.
+                        Defaults to zero (no build number).
 
 
     PT_VERSION_EXT      An arbitrary version extension string.
 
-                        Defaults to the empty string.
+                        Defaults to the empty string (no extension string).
 
 
 ### Dependencies
