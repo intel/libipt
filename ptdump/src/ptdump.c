@@ -414,7 +414,7 @@ static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
 
 	fsize = end - begin;
 
-	content = malloc(fsize);
+	content = malloc((size_t) fsize);
 	if (!content) {
 		fprintf(stderr, "%s: failed to allocated memory %s.\n",
 			prog, filename);
@@ -428,7 +428,7 @@ static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
 		goto err_content;
 	}
 
-	read = fread(content, fsize, 1, file);
+	read = fread(content, (size_t) fsize, 1u, file);
 	if (read != 1) {
 		fprintf(stderr, "%s: failed to load %s: %d.\n",
 			prog, filename, errno);
@@ -438,7 +438,7 @@ static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
 	fclose(file);
 
 	*buffer = content;
-	*psize = fsize;
+	*psize = (size_t) fsize;
 
 	return 0;
 
@@ -1725,17 +1725,17 @@ static int process_args(int argc, char *argv[],
 #if defined(FEATURE_SIDEBAND)
 		else if ((strcmp(argv[idx], "--sb:compact") == 0) ||
 			 (strcmp(argv[idx], "--sb") == 0)) {
-			options->sb_dump_flags &= ~ptsbp_verbose;
-			options->sb_dump_flags |= ptsbp_compact;
+			options->sb_dump_flags &= ~(uint32_t) ptsbp_verbose;
+			options->sb_dump_flags |= (uint32_t) ptsbp_compact;
 		} else if (strcmp(argv[idx], "--sb:verbose") == 0) {
-			options->sb_dump_flags &= ~ptsbp_compact;
-			options->sb_dump_flags |= ptsbp_verbose;
+			options->sb_dump_flags &= ~(uint32_t) ptsbp_compact;
+			options->sb_dump_flags |= (uint32_t) ptsbp_verbose;
 		} else if (strcmp(argv[idx], "--sb:filename") == 0)
-			options->sb_dump_flags |= ptsbp_filename;
+			options->sb_dump_flags |= (uint32_t) ptsbp_filename;
 		else if (strcmp(argv[idx], "--sb:offset") == 0)
-			options->sb_dump_flags |= ptsbp_file_offset;
+			options->sb_dump_flags |= (uint32_t) ptsbp_file_offset;
 		else if (strcmp(argv[idx], "--sb:time") == 0)
-			options->sb_dump_flags |= ptsbp_tsc;
+			options->sb_dump_flags |= (uint32_t) ptsbp_tsc;
 		else if (strcmp(argv[idx], "--sb:warn") == 0)
 			options->print_sb_warnings = 1;
 #if defined(FEATURE_PEVENT)

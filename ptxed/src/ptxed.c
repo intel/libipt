@@ -484,7 +484,7 @@ static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
 
 	fsize = end - begin;
 
-	content = malloc(fsize);
+	content = malloc((size_t) fsize);
 	if (!content) {
 		fprintf(stderr, "%s: failed to allocated memory %s.\n",
 			prog, filename);
@@ -498,7 +498,7 @@ static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
 		goto err_content;
 	}
 
-	read = fread(content, fsize, 1, file);
+	read = fread(content, (size_t) fsize, 1u, file);
 	if (read != 1) {
 		fprintf(stderr, "%s: failed to load %s: %d.\n",
 			prog, filename, errno);
@@ -508,7 +508,7 @@ static int load_file(uint8_t **buffer, size_t *psize, const char *filename,
 	fclose(file);
 
 	*buffer = content;
-	*psize = fsize;
+	*psize = (size_t) fsize;
 
 	return 0;
 
@@ -1368,7 +1368,8 @@ static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
 	 */
 	disp_width = xed_decoded_inst_get_branch_displacement_width(inst);
 	if (disp_width)
-		ip += xed_decoded_inst_get_branch_displacement(inst);
+		ip += (uint64_t) (int64_t)
+			xed_decoded_inst_get_branch_displacement(inst);
 
 	*pip = ip;
 	return 0;
@@ -2480,25 +2481,25 @@ extern int main(int argc, char *argv[])
 #if defined(FEATURE_SIDEBAND)
 		if ((strcmp(arg, "--sb:compact") == 0) ||
 		    (strcmp(arg, "--sb") == 0)) {
-			options.sb_dump_flags &= ~ptsbp_verbose;
-			options.sb_dump_flags |= ptsbp_compact;
+			options.sb_dump_flags &= ~(uint32_t) ptsbp_verbose;
+			options.sb_dump_flags |= (uint32_t) ptsbp_compact;
 			continue;
 		}
 		if (strcmp(arg, "--sb:verbose") == 0) {
-			options.sb_dump_flags &= ~ptsbp_compact;
-			options.sb_dump_flags |= ptsbp_verbose;
+			options.sb_dump_flags &= ~(uint32_t) ptsbp_compact;
+			options.sb_dump_flags |= (uint32_t) ptsbp_verbose;
 			continue;
 		}
 		if (strcmp(arg, "--sb:filename") == 0) {
-			options.sb_dump_flags |= ptsbp_filename;
+			options.sb_dump_flags |= (uint32_t) ptsbp_filename;
 			continue;
 		}
 		if (strcmp(arg, "--sb:offset") == 0) {
-			options.sb_dump_flags |= ptsbp_file_offset;
+			options.sb_dump_flags |= (uint32_t) ptsbp_file_offset;
 			continue;
 		}
 		if (strcmp(arg, "--sb:time") == 0) {
-			options.sb_dump_flags |= ptsbp_tsc;
+			options.sb_dump_flags |= (uint32_t) ptsbp_tsc;
 			continue;
 		}
 		if (strcmp(arg, "--sb:switch") == 0) {

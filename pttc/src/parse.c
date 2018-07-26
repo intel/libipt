@@ -250,16 +250,22 @@ static char *expfilename(struct parser *p, const char *extra)
 
 	if (p->conf->cpu.vendor != pcv_unknown) {
 		struct pt_cpu cpu;
+		int len;
 
 		cpu = p->conf->cpu;
 		if (cpu.stepping)
-			n += sprintf(cpu_suffix,
-				     "-cpu_%" PRIu16 "_%" PRIu8 "_%" PRIu8 "",
-				     cpu.family, cpu.model, cpu.stepping);
+			len = sprintf(cpu_suffix,
+				      "-cpu_%" PRIu16 "_%" PRIu8 "_%" PRIu8 "",
+				      cpu.family, cpu.model, cpu.stepping);
 		else
-			n += sprintf(cpu_suffix,
-				     "-cpu_%" PRIu16 "_%" PRIu8 "", cpu.family,
-				     cpu.model);
+			len = sprintf(cpu_suffix,
+				      "-cpu_%" PRIu16 "_%" PRIu8 "", cpu.family,
+				      cpu.model);
+
+		if (len < 0)
+			return NULL;
+
+		n += (size_t) len;
 	}
 
 	n += strlen(exp_suffix);
@@ -1436,7 +1442,7 @@ static int sb_pevent(struct parser *p, struct pev_event *event, char *payload)
 	/* Emitting a pevent sideband event finalizes the configuration. */
 	sb->variant.pevent.is_final = 1;
 
-	return sb_raw(p, raw, size);
+	return sb_raw(p, raw, (size_t) size);
 }
 
 static int pevent_mmap_section(struct parser *p, const char *section,
@@ -2368,7 +2374,8 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		/* this is the end of processing pt directives, so we
 		 * add a p_last label to the pt directive labels.
 		 */
-		errcode = l_append(p->pt_labels, "eos", p->pt_bytes_written);
+		errcode = l_append(p->pt_labels, "eos",
+				   (uint64_t) p->pt_bytes_written);
 		if (errcode < 0)
 			return yasm_print_err(p->y, "append label", errcode);
 
@@ -2440,7 +2447,8 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		if (bytes_written < 0)
 			return bytes_written;
 
-		errcode = l_append(p->pt_labels, pt_label_name, bytes_written);
+		errcode = l_append(p->pt_labels, pt_label_name,
+				   (uint64_t) bytes_written);
 		if (errcode < 0)
 			return errcode;
 
@@ -2507,7 +2515,8 @@ static int p_start(struct parser *p)
 			errcode = bytes_written;
 			break;
 		}
-		if (fwrite(p->conf->begin, 1, bytes_written, p->ptfile)
+		if (fwrite(p->conf->begin, 1u, (size_t) bytes_written,
+			   p->ptfile)
 		    != (size_t)bytes_written) {
 			fprintf(stderr, "write %s failed", p->ptfilename);
 			errcode = -err_file_write;

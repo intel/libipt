@@ -166,7 +166,7 @@ int pt_pkt_get_offset(const struct pt_packet_decoder *decoder, uint64_t *offset)
 	if (!pos)
 		return -pte_nosync;
 
-	*offset = pos - begin;
+	*offset = (uint64_t) (int64_t) (pos - begin);
 	return 0;
 }
 
@@ -184,7 +184,7 @@ int pt_pkt_get_sync_offset(const struct pt_packet_decoder *decoder,
 	if (!sync)
 		return -pte_nosync;
 
-	*offset = sync - begin;
+	*offset = (uint64_t) (int64_t) (sync - begin);
 	return 0;
 }
 

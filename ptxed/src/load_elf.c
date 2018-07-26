@@ -62,7 +62,7 @@ static int load_elf32(struct pt_image_section_cache *iscache,
 {
 	Elf32_Ehdr ehdr;
 	Elf32_Half pidx;
-	int64_t offset;
+	uint64_t offset;
 	size_t count;
 	int errcode, sections;
 
@@ -179,7 +179,7 @@ static int load_elf64(struct pt_image_section_cache *iscache,
 {
 	Elf64_Ehdr ehdr;
 	Elf64_Half pidx;
-	int64_t offset;
+	uint64_t offset;
 	size_t count;
 	int errcode, sections;
 

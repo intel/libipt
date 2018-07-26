@@ -598,7 +598,8 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	 * and all flavors of far transfers.
 	 */
 	if (iext->variant.branch.is_direct)
-		decoder->ip += iext->variant.branch.displacement;
+		decoder->ip += (uint64_t) (int64_t)
+			iext->variant.branch.displacement;
 	else {
 		int status;
 
@@ -641,7 +642,7 @@ static int pt_insn_at_skl014(const struct pt_event *ev,
 		/* Check the filter against the branch target. */
 		ip = insn->ip;
 		ip += insn->size;
-		ip += iext->variant.branch.displacement;
+		ip += (uint64_t) (int64_t) iext->variant.branch.displacement;
 
 		status = pt_filter_addr_check(&config->addr_filter, ip);
 		if (status <= 0) {
@@ -698,7 +699,8 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 
 				ip = insn->ip;
 				ip += insn->size;
-				ip += iext->variant.branch.displacement;
+				ip += (uint64_t) (int64_t)
+					iext->variant.branch.displacement;
 
 				if (ip != ev->variant.disabled.ip)
 					break;

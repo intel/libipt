@@ -65,7 +65,7 @@ int pt_section_mk_status(void **pstatus, uint64_t *psize, const char *filename)
 	status->stat = buffer;
 
 	*pstatus = status;
-	*psize = buffer.st_size;
+	*psize = (uint64_t) buffer.st_size;
 
 	return 0;
 }
@@ -101,6 +101,7 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	struct pt_sec_posix_mapping *mapping;
 	uint64_t offset, size, adjustment;
 	uint8_t *base;
+	long page_size;
 	int errcode;
 
 	if (!section)
@@ -109,7 +110,11 @@ int pt_sec_posix_map(struct pt_section *section, int fd)
 	offset = section->offset;
 	size = section->size;
 
-	adjustment = offset % sysconf(_SC_PAGESIZE);
+	page_size = sysconf(_SC_PAGESIZE);
+	if (page_size < 0)
+		return -pte_bad_config;
+
+	adjustment = offset % (uint64_t) page_size;
 
 	offset -= adjustment;
 	size += adjustment;

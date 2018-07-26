@@ -254,7 +254,7 @@ int pt_time_update_mtc(struct pt_time *time,
 	last_ctc = time->ctc;
 	mtc_freq = config->mtc_freq;
 
-	ctc = packet->ctc << mtc_freq;
+	ctc = (uint32_t) packet->ctc << mtc_freq;
 
 	/* Store our CTC value if we have or would have reset FC. */
 	if (time->fc || time->lost_cyc || !have_mtc)
@@ -288,14 +288,14 @@ int pt_time_update_mtc(struct pt_time *time,
 		/* The TMA's CTC value didn't provide enough bits - otherwise,
 		 * we would have treated the TMA as an MTC.
 		 */
-		if (last_ctc & ~pt_pl_tma_ctc_mask)
+		if (last_ctc & ~(uint32_t) pt_pl_tma_ctc_mask)
 			return -pte_internal;
 
 		/* Split this MTC's CTC value into low and high parts with
 		 * respect to the bits provided by TMA.
 		 */
-		ctc_lo = ctc & pt_pl_tma_ctc_mask;
-		ctc_hi = ctc & ~pt_pl_tma_ctc_mask;
+		ctc_lo = ctc & (uint32_t) pt_pl_tma_ctc_mask;
+		ctc_hi = ctc & ~(uint32_t) pt_pl_tma_ctc_mask;
 
 		/* We estimate the high-order CTC bits that are not provided by
 		 * TMA based on the CTC bits provided by this MTC.
@@ -310,7 +310,7 @@ int pt_time_update_mtc(struct pt_time *time,
 		 */
 		if (ctc_lo < last_ctc) {
 			ctc_hi -= 1u << pt_pl_tma_ctc_bit_size;
-			ctc_hi &= pt_pl_mtc_mask << mtc_freq;
+			ctc_hi &= (uint32_t) pt_pl_mtc_mask << mtc_freq;
 		}
 
 		last_ctc |= ctc_hi;
@@ -602,7 +602,7 @@ int pt_tcal_update_mtc(struct pt_time_cal *tcal,
 	have_mtc = tcal->have_mtc;
 	cyc = tcal->cyc_mtc;
 
-	ctc = packet->ctc << config->mtc_freq;
+	ctc = (uint32_t) packet->ctc << config->mtc_freq;
 
 	/* We need at least two MTC (including this). */
 	if (!have_mtc) {

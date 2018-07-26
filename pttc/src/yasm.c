@@ -773,8 +773,8 @@ static int yasm_advance_next_line(struct yasm *y)
 
 
 	for (;;) {
-		errcode = fl_getline(y->fl, s, slen, y->lstfile,
-				     y->lst_curr_line);
+		errcode = fl_getline(y->fl, s, (size_t) slen, y->lstfile,
+				     (size_t) y->lst_curr_line);
 		/* always advance in lst file.  */
 		y->lst_curr_line += 1;
 
@@ -802,8 +802,9 @@ static int yasm_advance_next_line(struct yasm *y)
 		 * correlated to the source file, so we retrieve the
 		 * line from it and update the state.
 		 */
-		errcode = fl_getline(y->fl, s, slen, y->st_asm->filename,
-				     y->st_asm->n-1);
+		errcode = fl_getline(y->fl, s, (size_t) slen,
+				     y->st_asm->filename,
+				     (size_t) y->st_asm->n - 1u);
 		st_update(y->st_asm, s);
 		break;
 	}

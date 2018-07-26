@@ -33,6 +33,7 @@
 
 static struct ptunit_result cmp_pass(void)
 {
+	unsigned int uzero = 0u, uone = 1u;
 	int zero = 0, one = 1, neg = -1;
 	const char *szero = "zero", *sone = "one", *null = NULL;
 
@@ -41,10 +42,10 @@ static struct ptunit_result cmp_pass(void)
 	ptu_int_lt(neg, 0);
 	ptu_int_gt(zero, neg);
 
-	ptu_uint_eq(zero, 0);
-	ptu_uint_ne(zero, one);
-	ptu_uint_lt(zero, one);
-	ptu_uint_gt(neg, one);
+	ptu_uint_eq(uzero, 0u);
+	ptu_uint_ne(uzero, uone);
+	ptu_uint_lt(uzero, uone);
+	ptu_uint_gt(uone, uzero);
 
 	ptu_ptr_eq(szero, szero);
 	ptu_ptr_ne(szero, sone);
@@ -103,8 +104,8 @@ static struct ptunit_result uint_fail(void)
 	ptu_uint_lt(result.failed.where.line, __LINE__);
 	ptu_str_eq(result.failed.variant.unsigned_int.expr, "zero==one");
 	ptu_str_eq(result.failed.variant.unsigned_int.cmp, "==");
-	ptu_int_eq(result.failed.variant.unsigned_int.expected, 1);
-	ptu_int_eq(result.failed.variant.unsigned_int.actual, 0);
+	ptu_uint_eq(result.failed.variant.unsigned_int.expected, 1u);
+	ptu_uint_eq(result.failed.variant.unsigned_int.actual, 0u);
 
 	return ptu_passed();
 }

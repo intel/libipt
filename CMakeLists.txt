@@ -232,7 +232,6 @@ if (CMAKE_HOST_UNIX)
 
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-disabled-macro-expansion")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-covered-switch-default")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-sign-conversion")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-switch-enum")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-padded")
