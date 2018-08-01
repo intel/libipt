@@ -249,6 +249,7 @@ static void help(const char *name)
 	printf("  --stat                               print statistics (even when quiet).\n");
 	printf("                                       collects all statistics unless one or more are selected.\n");
 	printf("  --stat:insn                          collect number of instructions.\n");
+	printf("  --stat:blocks                        collect number of blocks.\n");
 #if defined(FEATURE_SIDEBAND)
 	printf("  --sb:compact | --sb                  show sideband records in compact format.\n");
 	printf("  --sb:verbose                         show sideband records in verbose format.\n");
