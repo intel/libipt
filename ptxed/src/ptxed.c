@@ -2472,10 +2472,12 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 		if (strcmp(arg, "--stat:insn") == 0) {
+			options.print_stats = 1;
 			stats.flags |= ptxed_stat_insn;
 			continue;
 		}
 		if (strcmp(arg, "--stat:blocks") == 0) {
+			options.print_stats = 1;
 			stats.flags |= ptxed_stat_blocks;
 			continue;
 		}

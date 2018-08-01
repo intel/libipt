@@ -26,7 +26,7 @@
 
 ; Test that ptxed counts instructions correctly.
 ;
-; opt:ptxed --stat --stat:insn
+; opt:ptxed --stat:insn
 
 org 0x1000
 bits 64
