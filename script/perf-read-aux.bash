@@ -94,12 +94,8 @@ fi
 
 
 perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
-  /PERF_RECORD_AUXTRACE / {
-    offset = strtonum($1)
-    hsize  = strtonum(substr($2, 2))
-    size   = strtonum($5)
-    idx    = strtonum($11)
-    ext    = ""
+  function handle_auxtrace(offset, hsize, size, idx) {
+    ext = ""
 
     if (snapshot != 0) {
         piece = pieces[idx]
@@ -120,5 +116,32 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
     else {
       system(cmd)
     }
+  }
+
+  /^[0-9]+ [0-9]+ 0x[0-9a-f]+ \[0x[0-9a-f]+\]: PERF_RECORD_AUXTRACE / {
+    offset = strtonum($3)
+    hsize  = strtonum(substr($4, 2))
+    size   = strtonum($7)
+    idx    = strtonum($13)
+
+    handle_auxtrace(offset, hsize, size, idx)
+  }
+
+  /^[0-9]+ 0x[0-9a-f]+ \[0x[0-9a-f]+\]: PERF_RECORD_AUXTRACE / {
+    offset = strtonum($2)
+    hsize  = strtonum(substr($3, 2))
+    size   = strtonum($6)
+    idx    = strtonum($12)
+
+    handle_auxtrace(offset, hsize, size, idx)
+  }
+
+  /^0x[0-9a-f]+ \[0x[0-9a-f]+\]: PERF_RECORD_AUXTRACE / {
+    offset = strtonum($1)
+    hsize  = strtonum(substr($2, 2))
+    size   = strtonum($5)
+    idx    = strtonum($11)
+
+    handle_auxtrace(offset, hsize, size, idx)
   }
 ' file="$file" base="$base" dry_run="$dry_run" snapshot="$snapshot"
