@@ -446,7 +446,7 @@ static int p_gen_expfile(struct parser *p)
 				errcode = -err_label_name;
 				goto error;
 			}
-			strncpy(label, line, i);
+			strncpy(label, line, (size_t) i);
 			label[i] = '\0';
 
 			/* advance to next character.  */
