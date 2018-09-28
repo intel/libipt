@@ -154,13 +154,19 @@ int pt_time_update_cbr(struct pt_time *time,
 		       const struct pt_packet_cbr *packet,
 		       const struct pt_config *config)
 {
+	uint8_t cbr;
+
 	(void) config;
 
 	if (!time || !packet)
 		return -pte_internal;
 
+	cbr = packet->ratio;
+	if (!cbr)
+		return -pte_bad_packet;
+
 	time->have_cbr = 1;
-	time->cbr = packet->ratio;
+	time->cbr = cbr;
 
 	return 0;
 }
@@ -585,6 +591,8 @@ int pt_tcal_header_cbr(struct pt_time_cal *tcal,
 
 	/* If we know the nominal frequency, we can use it for calibration. */
 	cbr = packet->ratio;
+	if (!cbr)
+		return -pte_bad_packet;
 
 	fcr = (p1 << pt_tcal_fcr_shr) / cbr;
 
