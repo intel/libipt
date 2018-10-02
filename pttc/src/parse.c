@@ -62,7 +62,7 @@ static void sb_rename_file(struct sb_file *sb)
 	/* We encode the configuration in the sideband filename. */
 	switch (sb->format) {
 	case sbf_raw:
-		strncpy(filename, sb->name, sizeof(filename));
+		strncpy(filename, sb->name, sizeof(filename) - 1);
 
 		/* Make sure @filename is terminated. */
 		filename[sizeof(filename) - 1] = 0;
@@ -1590,7 +1590,7 @@ static int pevent_mmap_section(struct parser *p, const char *section,
 	}
 
 	strncpy(record.mmap.filename, filename,
-		sizeof(record.buffer) - sizeof(record.mmap));
+		sizeof(record.buffer) - sizeof(record.mmap) - 1);
 
 	errcode = str_to_uint32(pid, &record.mmap.pid, 0);
 	if (errcode < 0) {
@@ -1696,7 +1696,7 @@ static int pevent_mmap(struct parser *p, const char *pid, const char *tid,
 	}
 
 	strncpy(record.mmap.filename, filename,
-		sizeof(record.buffer) - sizeof(record.mmap));
+		sizeof(record.buffer) - sizeof(record.mmap) - 1);
 
 	event.type = PERF_RECORD_MMAP;
 	event.record.mmap = &record.mmap;
