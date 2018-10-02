@@ -245,6 +245,8 @@ if (CMAKE_HOST_UNIX)
 
       add_cflag_if_available("-Wimplicit-fallthrough=5"
         HAVE_C_Wimplicit_fallthrough)
+      add_cflag_if_available("-Wno-format-truncation"
+        HAVE_C_Wno_format_truncation)
     endif (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
 
     # warnings are errors
