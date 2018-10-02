@@ -138,12 +138,12 @@ if (PEVENT)
 endif (PEVENT)
 
 
-function(add_cflag_if_available option)
+function(add_cflag_if_available option guard)
 
-  check_c_compiler_flag(${option} ${option}_supported)
-  if (${option}_supported)
+  check_c_compiler_flag(${option} ${guard})
+  if (${guard})
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${option}" PARENT_SCOPE)
-  endif (${option}_supported)
+  endif (${guard})
 
 endfunction(add_cflag_if_available)
 
@@ -243,7 +243,8 @@ if (CMAKE_HOST_UNIX)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
 
-      add_cflag_if_available("-Wimplicit-fallthrough=5")
+      add_cflag_if_available("-Wimplicit-fallthrough=5"
+        HAVE_C_Wimplicit_fallthrough)
     endif (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
 
     # warnings are errors
