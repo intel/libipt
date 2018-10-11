@@ -360,6 +360,9 @@ int pt_pkt_read_tma(struct pt_packet_tma *packet, const uint8_t *pos,
 	if (fc & ~pt_pl_tma_fc_mask)
 		return -pte_bad_packet;
 
+	if (pos[pt_pl_tma_ctc_1 + 1])
+		return -pte_bad_packet;
+
 	packet->ctc = ctc;
 	packet->fc = fc;
 
