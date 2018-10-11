@@ -3196,8 +3196,21 @@ int pt_qry_decode_tma(struct pt_query_decoder *decoder)
 		return -pte_internal;
 
 	size = pt_pkt_read_tma(&packet, decoder->pos, &decoder->config);
-	if (size < 0)
+	if (size < 0) {
+		/** SKZ84: Use of VMX TSC Scaling or TSC Offsetting Will Result
+		 *         in Corrupted Intel PT Packets
+		 *
+		 * We cannot detect all kinds of corruption but we can detect
+		 * reserved bits being set.
+		 */
+		if (decoder->config.errata.skz84 &&
+		    (size == -pte_bad_packet)) {
+			decoder->pos += ptps_tma + 1;
+			return 0;
+		}
+
 		return size;
+	}
 
 	errcode = pt_qry_apply_tma(&decoder->time, &decoder->tcal,
 				   &packet, &decoder->config);

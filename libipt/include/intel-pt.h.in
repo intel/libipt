@@ -341,6 +341,21 @@ struct pt_errata {
 	 */
 	uint32_t skl168:1;
 
+	/** SKZ84: Use of VMX TSC Scaling or TSC Offsetting Will Result in
+	 *         Corrupted Intel PT Packets
+	 *
+	 * When Intel(R) PT (Processor Trace) is enabled within a VMX (Virtual
+	 * Machine Extensions) guest, and TSC (Time Stamp Counter) offsetting
+	 * or TSC scaling is enabled for that guest, by setting primary
+	 * processor-based execution control bit 3 or secondary processor-based
+	 * execution control bit 25, respectively, in the VMCS (Virtual Machine
+	 * Control Structure) for that guest, any TMA (TSC(MTC Alignment)
+	 * packet generated will have corrupted values in the CTC (Core Timer
+	 * Copy) and FastCounter fields.  Additionally, the corrupted TMA
+	 * packet will be followed by a bogus data byte.
+	 */
+	uint32_t skz84:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };

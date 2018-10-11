@@ -543,8 +543,23 @@ int pt_pkt_decode_tma(struct pt_packet_decoder *decoder,
 
 	size = pt_pkt_read_tma(&packet->payload.tma, decoder->pos,
 			       &decoder->config);
-	if (size < 0)
+	if (size < 0) {
+		/** SKZ84: Use of VMX TSC Scaling or TSC Offsetting Will Result
+		 *         in Corrupted Intel PT Packets
+		 *
+		 * We cannot detect all kinds of corruption but we can detect
+		 * reserved bits being set.
+		 */
+		if (decoder->config.errata.skz84
+		    && (size == -pte_bad_packet)) {
+			size = ptps_tma + 1;
+
+			packet->type = ppt_invalid;
+			packet->size = (uint8_t) size;
+		}
+
 		return size;
+	}
 
 	packet->type = ppt_tma;
 	packet->size = (uint8_t) size;
