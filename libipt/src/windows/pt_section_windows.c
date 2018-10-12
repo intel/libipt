@@ -256,8 +256,8 @@ int pt_section_map(struct pt_section *section)
 		goto out_unlock;
 	}
 
-	fh = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
-			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	fh = CreateFileA(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
+			 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (fh == INVALID_HANDLE_VALUE) {
 		/* We failed to open the file read-only.  Let's try to open it
 		 * read-write; maybe our user has the file open for writing.
@@ -265,8 +265,9 @@ int pt_section_map(struct pt_section *section)
 		 * We will detect changes to the file via fstat().
 		 */
 
-		fh = CreateFile(filename, GENERIC_READ, FILE_SHARE_WRITE, NULL,
-				OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		fh = CreateFileA(filename, GENERIC_READ, FILE_SHARE_WRITE,
+				 NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+				 NULL);
 		if (fh == INVALID_HANDLE_VALUE) {
 			errcode = -pte_bad_image;
 			goto out_unlock;
