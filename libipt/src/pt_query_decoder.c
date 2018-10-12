@@ -2853,6 +2853,7 @@ static int pt_qry_find_ovf_fup(const struct pt_query_decoder *decoder)
 
 int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 {
+	struct pt_time_cal tcal;
 	struct pt_time time;
 	int status, offset;
 
@@ -2869,8 +2870,18 @@ int pt_qry_decode_ovf(struct pt_query_decoder *decoder)
 
 	/* Reset the decoder state but preserve timing. */
 	time = decoder->time;
+	tcal = decoder->tcal;
+
 	pt_qry_reset(decoder);
+
 	decoder->time = time;
+	if (decoder->config.flags.variant.query.keep_tcal_on_ovf) {
+		status = pt_tcal_update_ovf(&tcal, &decoder->config);
+		if (status < 0)
+			return status;
+
+		decoder->tcal = tcal;
+	}
 
 	/* We must consume the OVF before we search for the binding packet. */
 	decoder->pos += ptps_ovf;

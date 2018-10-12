@@ -359,13 +359,25 @@ struct pt_conf_flags {
 
 			/** End a block after a jump instruction. */
 			uint32_t end_on_jump:1;
+
+			/** Preserve timing calibration on overflow. */
+			uint32_t keep_tcal_on_ovf:1;
 		} block;
 
 		/** Flags for the instruction flow decoder. */
 		struct {
 			/** Enable tick events for timing updates. */
 			uint32_t enable_tick_events:1;
+
+			/** Preserve timing calibration on overflow. */
+			uint32_t keep_tcal_on_ovf:1;
 		} insn;
+
+		/** Flags for the query decoder. */
+		struct {
+			/** Preserve timing calibration on overflow. */
+			uint32_t keep_tcal_on_ovf:1;
+		} query;
 
 		/* Reserve a few bytes for future extensions. */
 		uint32_t reserved[4];

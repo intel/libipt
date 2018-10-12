@@ -303,10 +303,12 @@ static void help(const char *name)
 	printf("  --cpuid-0x15.eax                     set the value of cpuid[0x15].eax.\n");
 	printf("  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n");
 	printf("  --insn-decoder                       use the instruction flow decoder (default).\n");
+	printf("  --insn:keep-tcal-on-ovf              preserve timing calibration on overflow.\n");
 	printf("  --block-decoder                      use the block decoder.\n");
 	printf("  --block:show-blocks                  show blocks in the output.\n");
 	printf("  --block:end-on-call                  set the end-on-call block decoder flag.\n");
 	printf("  --block:end-on-jump                  set the end-on-jump block decoder flag.\n");
+	printf("  --block:keep-tcal-on-ovf             preserve timing calibration on overflow.\n");
 	printf("\n");
 #if defined(FEATURE_ELF)
 	printf("You must specify at least one binary or ELF file (--raw|--elf).\n");
@@ -2783,6 +2785,12 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 
+		if (strcmp(arg, "--insn:keep-tcal-on-ovf") == 0) {
+			decoder.insn.flags.variant.insn.keep_tcal_on_ovf = 1;
+			continue;
+		}
+
+
 		if (strcmp(arg, "--block-decoder") == 0) {
 			if (ptxed_have_decoder(&decoder)) {
 				fprintf(stderr,
@@ -2807,6 +2815,11 @@ extern int main(int argc, char *argv[])
 
 		if (strcmp(arg, "--block:end-on-jump") == 0) {
 			decoder.block.flags.variant.block.end_on_jump = 1;
+			continue;
+		}
+
+		if (strcmp(arg, "--block:keep-tcal-on-ovf") == 0) {
+			decoder.block.flags.variant.block.keep_tcal_on_ovf = 1;
 			continue;
 		}
 

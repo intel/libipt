@@ -102,6 +102,8 @@ static int pt_blk_init_qry_flags(struct pt_conf_flags *qflags,
 		return -pte_internal;
 
 	memset(qflags, 0, sizeof(*qflags));
+	qflags->variant.query.keep_tcal_on_ovf =
+		flags->variant.block.keep_tcal_on_ovf;
 
 	return 0;
 }

@@ -743,3 +743,18 @@ int pt_tcal_update_cyc(struct pt_time_cal *tcal,
 
 	return 0;
 }
+
+int pt_tcal_update_ovf(struct pt_time_cal *tcal,
+		       const struct pt_config *config)
+{
+	if (!tcal || !config)
+		return -pte_internal;
+
+	tcal->tsc = 0ull;
+	tcal->cyc_tsc = 0ull;
+	tcal->cyc_mtc = 0ull;
+	tcal->ctc = 0;
+	tcal->have_mtc = 0;
+
+	return 0;
+}

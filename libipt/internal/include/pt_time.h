@@ -233,5 +233,7 @@ extern int pt_tcal_update_cyc(struct pt_time_cal *,
 			      const struct pt_config *);
 extern int pt_tcal_update_psb(struct pt_time_cal *,
 			      const struct pt_config *);
+extern int pt_tcal_update_ovf(struct pt_time_cal *,
+			      const struct pt_config *);
 
 #endif /* PT_TIME_H */
