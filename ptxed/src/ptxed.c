@@ -68,6 +68,25 @@ struct ptxed_decoder {
 		struct pt_block_decoder *block;
 	} variant;
 
+	/* Decoder-specific configuration.
+	 *
+	 * We use a set of structs to store the configuration for multiple
+	 * decoders.
+	 *
+	 * - block decoder.
+	 */
+	struct {
+		/* A collection of decoder-specific flags. */
+		struct pt_conf_flags flags;
+	} block;
+
+	/* - instruction flow decoder. */
+	struct {
+		/* A collection of decoder-specific flags. */
+		struct pt_conf_flags flags;
+	} insn;
+
+
 	/* The image section cache. */
 	struct pt_image_section_cache *iscache;
 
@@ -1841,6 +1860,8 @@ static int alloc_decoder(struct ptxed_decoder *decoder,
 
 	switch (decoder->type) {
 	case pdt_insn_decoder:
+		config.flags = decoder->insn.flags;
+
 		if (options->enable_tick_events)
 			config.flags.variant.insn.enable_tick_events = 1;
 
@@ -1860,6 +1881,8 @@ static int alloc_decoder(struct ptxed_decoder *decoder,
 		break;
 
 	case pdt_block_decoder:
+		config.flags = decoder->block.flags;
+
 		if (options->enable_tick_events)
 			config.flags.variant.block.enable_tick_events = 1;
 
@@ -2785,12 +2808,12 @@ extern int main(int argc, char *argv[])
 		}
 
 		if (strcmp(arg, "--block:end-on-call") == 0) {
-			config.flags.variant.block.end_on_call = 1;
+			decoder.block.flags.variant.block.end_on_call = 1;
 			continue;
 		}
 
 		if (strcmp(arg, "--block:end-on-jump") == 0) {
-			config.flags.variant.block.end_on_jump = 1;
+			decoder.block.flags.variant.block.end_on_jump = 1;
 			continue;
 		}
 
