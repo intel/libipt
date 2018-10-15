@@ -146,9 +146,6 @@ struct ptxed_options {
 	/* Print the ip of events. */
 	uint32_t print_event_ip:1;
 
-	/* Request tick events. */
-	uint32_t enable_tick_events:1;
-
 #if defined(FEATURE_SIDEBAND)
 	/* Print sideband warnings. */
 	uint32_t print_sb_warnings:1;
@@ -1862,9 +1859,6 @@ static int alloc_decoder(struct ptxed_decoder *decoder,
 	case pdt_insn_decoder:
 		config.flags = decoder->insn.flags;
 
-		if (options->enable_tick_events)
-			config.flags.variant.insn.enable_tick_events = 1;
-
 		decoder->variant.insn = pt_insn_alloc_decoder(&config);
 		if (!decoder->variant.insn) {
 			fprintf(stderr,
@@ -1882,9 +1876,6 @@ static int alloc_decoder(struct ptxed_decoder *decoder,
 
 	case pdt_block_decoder:
 		config.flags = decoder->block.flags;
-
-		if (options->enable_tick_events)
-			config.flags.variant.block.enable_tick_events = 1;
 
 		decoder->variant.block = pt_blk_alloc_decoder(&config);
 		if (!decoder->variant.block) {
@@ -2313,7 +2304,9 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 		if (strcmp(arg, "--event:tick") == 0) {
-			options.enable_tick_events = 1;
+			decoder.block.flags.variant.block.
+				enable_tick_events = 1;
+			decoder.insn.flags.variant.insn.enable_tick_events = 1;
 
 			continue;
 		}
