@@ -66,11 +66,11 @@ set(MAN3_FUNCTIONS
   pt_pkt_alloc_decoder
   pt_pkt_sync_forward
   pt_pkt_get_offset
+  pt_evt_next
   pt_qry_alloc_decoder
   pt_qry_sync_forward
   pt_qry_get_offset
   pt_qry_cond_branch
-  pt_qry_event
   pt_qry_time
   pt_image_alloc
   pt_image_add_file
@@ -121,8 +121,9 @@ add_man_page_alias(3 pt_qry_time pt_insn_time)
 add_man_page_alias(3 pt_qry_time pt_insn_core_bus_ratio)
 add_man_page_alias(3 pt_qry_time pt_blk_time)
 add_man_page_alias(3 pt_qry_time pt_blk_core_bus_ratio)
-add_man_page_alias(3 pt_qry_event pt_insn_event)
-add_man_page_alias(3 pt_qry_event pt_blk_event)
+add_man_page_alias(3 pt_evt_next pt_qry_event)
+add_man_page_alias(3 pt_evt_next pt_insn_event)
+add_man_page_alias(3 pt_evt_next pt_blk_event)
 add_man_page_alias(3 pt_image_alloc pt_image_free)
 add_man_page_alias(3 pt_image_alloc pt_image_name)
 add_man_page_alias(3 pt_image_add_file pt_image_copy)

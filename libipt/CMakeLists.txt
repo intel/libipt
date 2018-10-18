@@ -36,6 +36,7 @@ set(LIBIPT_SECTION_FILES
 set(LIBIPT_FILES
   src/pt_error.c
   src/pt_packet_decoder.c
+  src/pt_event_decoder.c
   src/pt_query_decoder.c
   src/pt_encoder.c
   src/pt_sync.c

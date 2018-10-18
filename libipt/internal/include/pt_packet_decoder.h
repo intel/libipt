@@ -64,6 +64,27 @@ pt_pkt_config(const struct pt_packet_decoder *decoder)
 	return &decoder->config;
 }
 
+static inline const uint8_t *
+pt_pkt_pos(const struct pt_packet_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return decoder->pos;
+}
+
+static inline const uint8_t *
+pt_pkt_end(const struct pt_packet_decoder *decoder)
+{
+	const struct pt_config *config;
+
+	config = pt_pkt_config(decoder);
+	if (!config)
+		return NULL;
+
+	return config->end;
+}
+
 
 /* Decoder functions for the packet decoder. */
 extern int pt_pkt_decode_unknown(struct pt_packet_decoder *,

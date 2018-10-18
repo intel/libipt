@@ -54,6 +54,9 @@ are organized as follows:
   * *events*                This layer deals with packet combinations that
                             encode higher-level events.
 
+  * *query*                 This layer deals with the execution flow on branch
+                            level.
+
   * *instruction flow*      This layer deals with the execution flow on the
                             instruction level.
 
@@ -72,7 +75,8 @@ abbreviations are used:
 
   * *enc*     Packet encoding (packet layer).
   * *pkt*     Packet decoding (packet layer).
-  * *qry*     Event (or query) layer.
+  * *evt*     Event layer.
+  * *qry*     Query layer.
   * *insn*    Instruction flow layer.
   * *blk*     Block layer.
 
@@ -413,6 +417,111 @@ It is used for reconstructing execution flow for users who need finer-grain
 control not available via the instruction flow layer or for users who want to
 integrate execution flow reconstruction with other functionality more tightly
 than it would be possible otherwise.
+
+It provides a linear stream of events.  Start by configuring and allocating a
+`pt_evt_decoder` as shown below:
+
+~~~{.c}
+    struct pt_event_decoder *decoder;
+    struct pt_config config;
+    int errcode;
+
+    memset(&config, 0, sizeof(config));
+    config.size = sizeof(config);
+    config.begin = <pt buffer begin>;
+    config.end = <pt buffer end>;
+    config.cpu = <cpu identifier>;
+    config.decode.callback = <decode function>;
+    config.decode.context = <decode context>;
+
+    decoder = pt_evt_alloc_decoder(&config);
+    if (!decoder)
+        <handle error>(errcode);
+~~~
+
+An optional packet decode callback function may be specified in addition to the
+mandatory config fields.  If specified, the callback function will be called for
+packets the decoder does not know about.  The decoder will ignore the unknown
+packet except for its size in order to skip it.  If there is no decode callback
+specified, the decoder will abort with `-pte_bad_opc`.  In addition to the
+callback function pointer, an optional pointer to user-defined context
+information can be specified.  This context will be passed to the decode
+callback function.
+
+Before the decoder can be used, it needs to be synchronized onto the Intel PT
+packet stream.  To iterate over synchronization points in the Intel PT packet
+stream in forward or backward direction, the event decoder offers the following
+two synchronization functions:
+
+    pt_evt_sync_forward()
+    pt_evt_sync_backward()
+
+
+To manually synchronize the decoder at a synchronization point (i.e. PSB packet)
+in the Intel PT packet stream, use the following function:
+
+    pt_evt_sync_set()
+
+
+After successfully synchronizing, the event decoder will start reading the PSB+
+header to initialize its internal state.  The following example shows
+synchronizing to the first synchronization point:
+
+~~~{.c}
+    struct pt_event_decoder *decoder;
+    uint64_t ip;
+    int status;
+
+    status = pt_evt_sync_forward(decoder);
+    if (status < 0)
+        <handle error>(status);
+~~~
+
+The decoder will remember the last synchronization packet it decoded.
+Subsequent calls to `pt_evt_sync_forward` and `pt_evt_sync_backward` will use
+this as their starting point.
+
+You can get the current decoder position as offset into the Intel PT buffer via:
+
+    pt_evt_get_offset()
+
+
+You can get the position of the last synchronization point as offset into the
+Intel PT buffer via:
+
+    pt_evt_get_sync_offset()
+
+
+In addition to an event decoder, you will need an instruction decoder for
+decoding and classifying instructions.
+
+
+#### Iterating
+
+Once the decoder is synchronized, you can iterate over processor trace events by
+repeated calls to `pt_evt_next()` as shown in the following example:
+
+~~~{.c}
+    struct pt_event_decoder *decoder;
+    int status;
+
+    for (;;) {
+        struct pt_event event;
+
+        status = pt_evt_next(decoder, &event, sizeof(event));
+        if (status < 0)
+            break;
+
+        ...
+    }
+~~~
+
+
+## The Query Layer
+
+The query layer provides an API for querying processor trace whenever a
+non-obvious control-flow decision needs to be made.  If further provides
+information about asynchronous events.
 
 This section describes how to use the query decoder for reconstructing execution
 flow.  See the instruction flow decoder as an example.  Start by configuring and

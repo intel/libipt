@@ -45,6 +45,7 @@ extern "C" {
  * - Errors
  * - Configuration
  * - Packet encoder / decoder
+ * - Event decoder
  * - Query decoder
  * - Traced image
  * - Instruction flow decoder
@@ -55,6 +56,7 @@ extern "C" {
 
 struct pt_encoder;
 struct pt_packet_decoder;
+struct pt_event_decoder;
 struct pt_query_decoder;
 struct pt_insn_decoder;
 struct pt_block_decoder;
@@ -393,6 +395,12 @@ struct pt_conf_flags {
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
 		} query;
+
+		/** Flags for the event decoder. */
+		struct {
+			/** Preserve timing calibration on overflow. */
+			uint32_t keep_tcal_on_ovf:1;
+		} event;
 
 		/* Reserve a few bytes for future extensions. */
 		uint32_t reserved[4];
@@ -1095,21 +1103,9 @@ extern pt_export int pt_pkt_next(struct pt_packet_decoder *decoder,
 
 
 
-/* Query decoder. */
+/* Event decoder. */
 
 
-
-/** Decoder status flags. */
-enum pt_status_flag {
-	/** There is an event pending. */
-	pts_event_pending	= 1 << 0,
-
-	/** The address has been suppressed. */
-	pts_ip_suppressed	= 1 << 1,
-
-	/** There is no more trace data available. */
-	pts_eos			= 1 << 2
-};
 
 /** Event types. */
 enum pt_event_type {
@@ -1501,6 +1497,129 @@ struct pt_event {
 	} variant;
 };
 
+
+/** Allocate an Intel PT event decoder.
+ *
+ * The decoder will work on the buffer defined in \@config, it shall contain
+ * raw trace data and remain valid for the lifetime of the decoder.
+ *
+ * The decoder needs to be synchronized before it can be used.
+ */
+extern pt_export struct pt_event_decoder *
+pt_evt_alloc_decoder(const struct pt_config *config);
+
+/** Free an Intel PT event decoder.
+ *
+ * The \@decoder must not be used after a successful return.
+ */
+extern pt_export void pt_evt_free_decoder(struct pt_event_decoder *decoder);
+
+/** Synchronize an Intel PT event decoder.
+ *
+ * Search for the next synchronization point in forward or backward direction.
+ *
+ * If \@decoder has not been synchronized, yet, the search is started at the
+ * beginning of the trace buffer in case of forward synchronization and at the
+ * end of the trace buffer in case of backward synchronization.
+ *
+ * Returns zero or a positive value on success, a negative error code otherwise.
+ *
+ * Returns -pte_bad_opc if an unknown packet is encountered.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if no further synchronization point is found.
+ * Returns -pte_invalid if \@decoder is NULL.
+ */
+extern pt_export int pt_evt_sync_forward(struct pt_event_decoder *decoder);
+extern pt_export int pt_evt_sync_backward(struct pt_event_decoder *decoder);
+
+/** Manually synchronize an Intel PT event decoder.
+ *
+ * Synchronize \@decoder on the syncpoint at \@offset.  There must be a PSB
+ * packet at \@offset.
+ *
+ * Returns zero or a positive value on success, a negative error code otherwise.
+ *
+ * Returns -pte_bad_opc if an unknown packet is encountered.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if \@offset lies outside of \@decoder's trace buffer.
+ * Returns -pte_eos if \@decoder reaches the end of its trace buffer.
+ * Returns -pte_invalid if \@decoder is NULL.
+ * Returns -pte_nosync if there is no syncpoint at \@offset.
+ */
+extern pt_export int pt_evt_sync_set(struct pt_event_decoder *decoder,
+				     uint64_t offset);
+
+/** Get the current decoder position.
+ *
+ * Fills the current \@decoder position into \@offset.
+ *
+ * This is useful for reporting errors.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
+ */
+extern pt_export int pt_evt_get_offset(const struct pt_event_decoder *decoder,
+				       uint64_t *offset);
+
+/** Get the position of the last synchronization point.
+ *
+ * Fills the last synchronization position into \@offset.
+ *
+ * This is useful for splitting a trace stream for parallel decoding.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ *
+ * Returns -pte_invalid if \@decoder or \@offset is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
+ */
+extern pt_export int
+pt_evt_get_sync_offset(const struct pt_event_decoder *decoder,
+		       uint64_t *offset);
+
+/* Return a pointer to \@decoder's configuration.
+ *
+ * Returns a non-null pointer on success, NULL if \@decoder is NULL.
+ */
+extern pt_export const struct pt_config *
+pt_evt_get_config(const struct pt_event_decoder *decoder);
+
+/** Determine the next event.
+ *
+ * On success, provides the next event in \@event.
+ *
+ * The \@size argument must be set to sizeof(struct pt_event).
+ *
+ * Returns zero or a positive value on success, a negative error code
+ * otherwise.
+ *
+ * Returns -pte_bad_opc if the packet is unknown.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if \@decoder reached the end of the Intel PT buffer.
+ * Returns -pte_invalid if \@decoder or \@event is NULL.
+ * Returns -pte_nosync if \@decoder is out of sync.
+ */
+extern pt_export int pt_evt_next(struct pt_event_decoder *decoder,
+				 struct pt_event *event, size_t size);
+
+
+
+/* Query decoder. */
+
+
+
+/** Decoder status flags. */
+enum pt_status_flag {
+	/** There is an event pending. */
+	pts_event_pending	= 1 << 0,
+
+	/** The address has been suppressed. */
+	pts_ip_suppressed	= 1 << 1,
+
+	/** There is no more trace data available. */
+	pts_eos			= 1 << 2
+};
 
 /** Allocate an Intel PT query decoder.
  *

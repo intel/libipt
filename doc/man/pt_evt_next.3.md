@@ -1,4 +1,4 @@
-% PT_QRY_EVENT(3)
+% PT_EVT_NEXT(3)
 
 <!---
  ! Copyright (c) 2015-2021, Intel Corporation
@@ -30,13 +30,16 @@
 
 # NAME
 
-pt_qry_event, pt_insn_event, pt_blk_event - query an Intel(R) Processor Trace
-decoder for an asynchronous event
+pt_evt_next, pt_qry_event, pt_insn_event, pt_blk_event - query an Intel(R)
+Processor Trace decoder for an (asynchronous) event
 
 
 # SYNOPSIS
 
 | **\#include `<intel-pt.h>`**
+|
+| **int pt_evt_next(struct pt_event_decoder \**decoder*,**
+|                 **struct pt_event \**event*, size_t *size*);**
 |
 | **int pt_qry_event(struct pt_query_decoder \**decoder*,**
 |                  **struct pt_event \**event*, size_t *size*);**
@@ -52,9 +55,15 @@ Link with *-lipt*.
 
 # DESCRIPTION
 
+**pt_evt_next**() provides the next Intel Processor Trace (Intel PT) event in
+*decoder*'s Intel PT decode in the *pt_event* object pointed to by the *event*
+argument.  This function provides asynchronous events as well as synchronous
+control-flow events.
+
 **pt_qry_event**(), **pt_insn_event**(), and **pt_blk_event**() provide the next
-pending asynchronous event in *decoder*'s Intel Processor Trace (Intel PT)
-decode in the *pt_event* object pointed to by the *event* argument.
+pending asynchronous event in *decoder*'s Intel PT decode in the *pt_event*
+object pointed to by the *event* argument.  Synchronous control-flow events are
+interpreted by the decoder and will not be provided through this interface.
 
 The *size* argument must be set to *sizeof(struct pt_event)*.  The function will
 provide at most *size* bytes of the *pt_event* structure.  A newer decoder
@@ -241,12 +250,13 @@ variant
 
 # RETURN VALUE
 
-**pt_qry_event**(), **pt_insn_event**(), and **pt_blk_event**() return zero or a
-*positive value on success or a negative pt_error_code* enumeration constant in
-*case of an error.
+**pt_evt_next**(), **pt_qry_event**(), **pt_insn_event**(), and
+**pt_blk_event**() return zero or a positive value on success or a negative
+*pt_error_code* enumeration constant in case of an error.
 
-On success, a bit-vector of *pt_status_flag* enumeration constants is returned.
-The *pt_status_flag* enumeration is declared as:
+On success, **pt_qry_event**(), **pt_insn_event**(), and **pt_blk_event**()
+return a bit-vector of *pt_status_flag* enumeration constants.  The
+*pt_status_flag* enumeration is declared as:
 
 ~~~{.c}
 /** Decoder status flags. */
@@ -274,8 +284,8 @@ pte_eos
 
 pte_nosync
 :   The decoder has not been synchronized onto the trace stream.  Use
-    **pt_qry_sync_forward**(3), **pt_qry_sync_backward**(3), or
-    **pt_qry_sync_set**(3) to synchronize *decoder*.
+    **pt_evt_sync_forward**(3), **pt_evt_sync_backward**(3), or
+    **pt_evt_sync_set**(3) to synchronize *decoder*.
 
 pte_bad_opc
 :   The decoder encountered an unsupported Intel PT packet opcode.
@@ -292,6 +302,6 @@ pte_bad_query
 
 # SEE ALSO
 
-**pt_qry_alloc_decoder**(3), **pt_qry_free_decoder**(3),
-**pt_qry_cond_branch**(3), **pt_qry_indirect_branch**(3), **pt_qry_time**(3),
-**pt_qry_core_bus_ratio**(3), **pt_insn_next**(3), **pt_blk_next**(3)
+**pt_evt_alloc_decoder**(3), **pt_evt_free_decoder**(3),
+**pt_qry_cond_branch**(3), **pt_qry_indirect_branch**(3), **pt_insn_next**(3),
+**pt_blk_next**(3)
