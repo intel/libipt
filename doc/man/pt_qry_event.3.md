@@ -199,7 +199,13 @@ enum pt_event_type {
 	ptev_cbr,
 
 	/* A maintenance event. */
-	ptev_mnt
+	ptev_mnt,
+
+	/* An indirect branch event. */
+	ptev_tip,
+
+	/* A conditional branch indicator event. */
+	ptev_tnt
 };
 ~~~
 

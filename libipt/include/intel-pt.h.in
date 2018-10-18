@@ -1169,7 +1169,13 @@ enum pt_event_type {
 	ptev_cbr,
 
 	/* A maintenance event. */
-	ptev_mnt
+	ptev_mnt,
+
+	/* An indirect branch event. */
+	ptev_tip,
+
+	/* A conditional branch indicator event. */
+	ptev_tnt
 };
 
 /** An event. */
@@ -1470,6 +1476,28 @@ struct pt_event {
 			/** The raw payload. */
 			uint64_t payload;
 		} mnt;
+
+		/** Event: tip. */
+		struct {
+			/** The target instruction address. */
+			uint64_t ip;
+		} tip;
+
+		/** Event: tnt. */
+		struct {
+			/** A sequence of conditional branch indicator bits.
+			 *
+			 * Indicators are ordered from oldest (bits[size-1]) to
+			 * youngest (bits[0]) branch:
+			 *
+			 *   0...branch not taken
+			 *   1...branch taken
+			 */
+			uint64_t bits;
+
+			/** The number of valid bits in @bits. */
+			uint8_t size;
+		} tnt;
 	} variant;
 };
 

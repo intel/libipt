@@ -1539,6 +1539,9 @@ static int ploc_from_event(enum pt_sb_pevent_loc *loc,
 					    event->variant.tick.ip);
 
 		break;
+
+	case ptev_tip:
+		return ploc_from_ip(loc, priv, event->variant.tip.ip);
 	}
 
 	*loc = ploc_unknown;

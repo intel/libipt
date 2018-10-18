@@ -1650,6 +1650,10 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 	case ptev_cbr:
 	case ptev_mnt:
 		break;
+
+	case ptev_tip:
+	case ptev_tnt:
+		return -pte_internal;
 	}
 
 	return pt_blk_status(decoder, pts_event_pending);
@@ -3060,6 +3064,10 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 			return status;
 
 		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_tip:
+	case ptev_tnt:
+		return -pte_internal;
 	}
 
 	/* No further events.  Proceed past any postponed instruction. */
@@ -3490,6 +3498,10 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	case ptev_mnt:
 		decoder->process_event = 0;
 		break;
+
+	case ptev_tip:
+	case ptev_tnt:
+		return -pte_internal;
 	}
 
 	/* Copy the event to the user.  Make sure we're not writing beyond the

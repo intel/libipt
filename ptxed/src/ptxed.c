@@ -1183,6 +1183,20 @@ static void print_event(const struct pt_event *event,
 	case ptev_mnt:
 		printf("mnt: %" PRIx64, event->variant.mnt.payload);
 		break;
+
+	case ptev_tip:
+		printf("tip: %" PRIx64, event->variant.tip.ip);
+		break;
+
+	case ptev_tnt: {
+		uint64_t index;
+
+		printf("tnt: ");
+		for (index = event->variant.tnt.size; index; index >>= 1)
+			printf("%s",
+			       (event->variant.tnt.bits & index) ? "!" : ".");
+	}
+		break;
 	}
 
 	printf("]\n");

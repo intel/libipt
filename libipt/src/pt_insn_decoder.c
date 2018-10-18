@@ -820,6 +820,10 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 
 	ev = &decoder->event;
 	switch (ev->type) {
+	case ptev_tip:
+	case ptev_tnt:
+		return -pte_internal;
+
 	case ptev_enabled:
 	case ptev_overflow:
 	case ptev_async_paging:
@@ -1198,6 +1202,10 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 	case ptev_cbr:
 	case ptev_mnt:
 		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_tip:
+	case ptev_tnt:
+		return -pte_internal;
 	}
 
 	return pt_insn_status(decoder, 0);
@@ -1737,6 +1745,10 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	case ptev_cbr:
 	case ptev_mnt:
 		break;
+
+	case ptev_tip:
+	case ptev_tnt:
+		return -pte_internal;
 	}
 
 	/* Copy the event to the user.  Make sure we're not writing beyond the
