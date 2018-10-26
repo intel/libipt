@@ -64,26 +64,28 @@ int pt_tnt_cache_query(struct pt_tnt_cache *cache)
 	return taken;
 }
 
-int pt_tnt_cache_update_tnt(struct pt_tnt_cache *cache,
-			    const struct pt_packet_tnt *packet,
-			    const struct pt_config *config)
+int pt_tnt_cache_add(struct pt_tnt_cache *cache, uint64_t tnt, uint8_t size)
 {
-	uint8_t bit_size;
+	uint64_t index;
 
-	(void) config;
-
-	if (!cache || !packet)
+	if (!cache)
 		return -pte_invalid;
 
-	if (cache->index)
-		return -pte_bad_context;
+	if (!size)
+		return 0;
 
-	bit_size = packet->bit_size;
-	if (!bit_size)
-		return -pte_bad_packet;
+	index = cache->index;
+	if (index)
+		index <<= size;
+	else
+		index = 1ull << (size - 1);
 
-	cache->tnt = packet->payload;
-	cache->index = 1ull << (bit_size - 1);
+	if (!index)
+		return -pte_overflow;
+
+	cache->index = index;
+	cache->tnt <<= size;
+	cache->tnt |= tnt & ((1ull << size) - 1);
 
 	return 0;
 }

@@ -72,17 +72,15 @@ extern int pt_tnt_cache_is_empty(const struct pt_tnt_cache *cache);
  */
 extern int pt_tnt_cache_query(struct pt_tnt_cache *cache);
 
-/* Update the tnt cache based on Intel PT packets.
+/* Add TNT bits to the cache.
  *
- * Updates @cache based on @packet and, if non-null, @config.
+ * Add the least significant @size bits from @tnt to @cache.
  *
- * Returns zero on success.
- * Returns -pte_invalid if @cache or @packet is NULL.
- * Returns -pte_bad_packet if @packet appears to be corrupted.
- * Returns -pte_bad_context if the tnt cache is not empty.
+ * Returns zero on success, a negative pt_error_code otherwise.
+ * Returns -pte_invalid if @cache is NULL.
+ * Returns -pte_overflow if @cache has not enough space.
  */
-extern int pt_tnt_cache_update_tnt(struct pt_tnt_cache *cache,
-				   const struct pt_packet_tnt *packet,
-				   const struct pt_config *config);
+extern int pt_tnt_cache_add(struct pt_tnt_cache *cache, uint64_t tnt,
+			    uint8_t size);
 
 #endif /* PT_TNT_CACHE_H */

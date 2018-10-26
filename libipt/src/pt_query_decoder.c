@@ -1233,8 +1233,8 @@ int pt_qry_decode_tnt_8(struct pt_query_decoder *decoder)
 	if (size < 0)
 		return size;
 
-	errcode = pt_tnt_cache_update_tnt(&decoder->tnt, &packet,
-					  &decoder->config);
+	errcode = pt_tnt_cache_add(&decoder->tnt, packet.payload,
+				   packet.bit_size);
 	if (errcode < 0)
 		return errcode;
 
@@ -1254,8 +1254,8 @@ int pt_qry_decode_tnt_64(struct pt_query_decoder *decoder)
 	if (size < 0)
 		return size;
 
-	errcode = pt_tnt_cache_update_tnt(&decoder->tnt, &packet,
-					  &decoder->config);
+	errcode = pt_tnt_cache_add(&decoder->tnt, packet.payload,
+				   packet.bit_size);
 	if (errcode < 0)
 		return errcode;
 

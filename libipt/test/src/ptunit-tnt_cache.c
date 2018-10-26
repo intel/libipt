@@ -158,54 +158,63 @@ static struct ptunit_result query_null(void)
 	return ptu_passed();
 }
 
-static struct ptunit_result update_tnt(void)
+static struct ptunit_result add_empty(void)
 {
 	struct pt_tnt_cache tnt_cache;
-	struct pt_packet_tnt packet;
 	int errcode;
 
 	pt_tnt_cache_init(&tnt_cache);
 
-	packet.bit_size = 4ull;
-	packet.payload = 8ull;
-
-	errcode = pt_tnt_cache_update_tnt(&tnt_cache, &packet, NULL);
+	errcode = pt_tnt_cache_add(&tnt_cache, 0x29ull, 7);
 	ptu_int_eq(errcode, 0);
-	ptu_uint_eq(tnt_cache.tnt, 8ull);
-	ptu_uint_eq(tnt_cache.index, 1ull << 3);
+	ptu_uint_eq(tnt_cache.tnt, 0x29ull);
+	ptu_uint_eq(tnt_cache.index, 0x40);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result update_tnt_not_empty(void)
+static struct ptunit_result add_partial(void)
 {
 	struct pt_tnt_cache tnt_cache;
-	struct pt_packet_tnt packet;
 	int errcode;
 
-	tnt_cache.tnt = 42ull;
-	tnt_cache.index = 12ull;
+	pt_tnt_cache_init(&tnt_cache);
 
-	errcode = pt_tnt_cache_update_tnt(&tnt_cache, &packet, NULL);
-	ptu_int_eq(errcode, -pte_bad_context);
-	ptu_uint_eq(tnt_cache.tnt, 42ull);
-	ptu_uint_eq(tnt_cache.index, 12ull);
+	errcode = pt_tnt_cache_add(&tnt_cache, 0x29ull, 3);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(tnt_cache.tnt, 0x1ull);
+	ptu_uint_eq(tnt_cache.index, 0x4);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result update_tnt_null_tnt(void)
+static struct ptunit_result add_not_empty(void)
 {
-	struct pt_packet_tnt packet;
+	struct pt_tnt_cache tnt_cache;
 	int errcode;
 
-	errcode = pt_tnt_cache_update_tnt(NULL, &packet, NULL);
+	tnt_cache.tnt = 0x23ull;
+	tnt_cache.index = 0x80ull;
+
+	errcode = pt_tnt_cache_add(&tnt_cache, 0x6ull, 4);
+	ptu_int_eq(errcode, 0);
+	ptu_uint_eq(tnt_cache.tnt, 0x236ull);
+	ptu_uint_eq(tnt_cache.index, 0x800ull);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result add_null_tnt(void)
+{
+	int errcode;
+
+	errcode = pt_tnt_cache_add(NULL, 0ull, 1);
 	ptu_int_eq(errcode, -pte_invalid);
 
 	return ptu_passed();
 }
 
-static struct ptunit_result update_tnt_null_packet(void)
+static struct ptunit_result add_zero_size(void)
 {
 	struct pt_tnt_cache tnt_cache;
 	int errcode;
@@ -213,8 +222,8 @@ static struct ptunit_result update_tnt_null_packet(void)
 	tnt_cache.tnt = 42ull;
 	tnt_cache.index = 12ull;
 
-	errcode = pt_tnt_cache_update_tnt(&tnt_cache, NULL, NULL);
-	ptu_int_eq(errcode, -pte_invalid);
+	errcode = pt_tnt_cache_add(&tnt_cache, 0xffull, 0);
+	ptu_int_eq(errcode, 0);
 	ptu_uint_eq(tnt_cache.tnt, 42ull);
 	ptu_uint_eq(tnt_cache.index, 12ull);
 
@@ -237,10 +246,11 @@ int main(int argc, char **argv)
 	ptu_run(suite, query_not_taken);
 	ptu_run(suite, query_empty);
 	ptu_run(suite, query_null);
-	ptu_run(suite, update_tnt);
-	ptu_run(suite, update_tnt_not_empty);
-	ptu_run(suite, update_tnt_null_tnt);
-	ptu_run(suite, update_tnt_null_packet);
+	ptu_run(suite, add_empty);
+	ptu_run(suite, add_partial);
+	ptu_run(suite, add_not_empty);
+	ptu_run(suite, add_null_tnt);
+	ptu_run(suite, add_zero_size);
 
 	return ptunit_report(&suite);
 }
