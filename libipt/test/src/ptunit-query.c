@@ -29,7 +29,6 @@
 #include "ptunit.h"
 
 #include "pt_last_ip.h"
-#include "pt_decoder_function.h"
 #include "pt_query_decoder.h"
 #include "pt_encoder.h"
 #include "pt_opcodes.h"
@@ -76,12 +75,25 @@ static const uint64_t pt_dfix_max_cr3 = ((1ull << 47) - 1ull) & ~0x1full;
  */
 static struct ptunit_result ptu_sync_decoder(struct pt_query_decoder *decoder)
 {
+	int errcode;
+
 	ptu_ptr(decoder);
-	decoder->enabled = 1;
 
-	decoder->pos = decoder->config.begin;
+	errcode = pt_pkt_sync_set(&decoder->evdec.pacdec, 0ull);
+	ptu_int_eq(errcode, 0);
 
-	(void) pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
+	errcode = pt_pkt_next(&decoder->evdec.pacdec, &decoder->evdec.packet,
+			      sizeof(decoder->evdec.packet));
+	if (errcode < 0) {
+		decoder->evdec.packet.type = ppt_invalid;
+		decoder->evdec.status = errcode;
+	}
+
+	decoder->evdec.enabled = 1;
+
+	decoder->status = pt_evt_next(&decoder->evdec, &decoder->event,
+				      sizeof(decoder->event));
+
 	return ptu_passed();
 }
 
@@ -89,6 +101,7 @@ static struct ptunit_result ptu_sync_decoder(struct pt_query_decoder *decoder)
 static struct ptunit_result cutoff(struct pt_query_decoder *decoder,
 				   const struct pt_encoder *encoder)
 {
+	struct pt_config *config = &decoder->evdec.pacdec.config;
 	uint8_t *pos;
 
 	ptu_ptr(decoder);
@@ -98,9 +111,9 @@ static struct ptunit_result cutoff(struct pt_query_decoder *decoder,
 	ptu_ptr(pos);
 
 	pos -= 1;
-	ptu_ptr_le(decoder->config.begin, pos);
+	ptu_ptr_le(config->begin, pos);
 
-	decoder->config.end = pos;
+	config->end = pos;
 	return ptu_passed();
 }
 
@@ -744,21 +757,23 @@ static struct ptunit_result event_enabled(struct ptu_decoder_fixture *dfix,
 	pt_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
 	ptu_check(ptu_sync_decoder, decoder);
+	decoder->evdec.enabled = 0;
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_eq(errcode, pts_eos);
+	ptu_int_eq(event.type, ptev_enabled);
 	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, -pte_bad_packet);
+		ptu_uint_ne(event.ip_suppressed, 0u);
 	else {
-		ptu_int_eq(errcode, pts_eos);
-		ptu_int_eq(event.type, ptev_enabled);
+		ptu_uint_eq(event.ip_suppressed, 0u);
 		ptu_uint_eq(event.variant.enabled.ip, dfix->last_ip.ip);
+	}
 
-		if (!tsc)
-			ptu_int_eq(event.has_tsc, 0);
-		else {
-			ptu_int_eq(event.has_tsc, 1);
-			ptu_uint_eq(event.tsc, tsc);
-		}
+	if (!tsc)
+		ptu_uint_eq(event.has_tsc, 0u);
+	else {
+		ptu_uint_ne(event.has_tsc, 0u);
+		ptu_uint_eq(event.tsc, tsc);
 	}
 
 	return ptu_passed();
@@ -1229,27 +1244,20 @@ static struct ptunit_result event_overflow_fup(struct ptu_decoder_fixture *dfix,
 	ptu_check(ptu_sync_decoder, decoder);
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	switch (ipc) {
-	case pt_ipc_suppressed:
-		ptu_int_eq(errcode, -pte_noip);
-		break;
-
-	case pt_ipc_update_16:
-	case pt_ipc_update_32:
-	case pt_ipc_update_48:
-	case pt_ipc_sext_48:
-	case pt_ipc_full:
-		ptu_int_eq(errcode, pts_eos);
-		ptu_int_eq(event.type, ptev_overflow);
+	ptu_int_eq(errcode, pts_eos);
+	ptu_int_eq(event.type, ptev_overflow);
+	if (ipc == pt_ipc_suppressed)
+		ptu_uint_ne(event.ip_suppressed, 0u);
+	else {
+		ptu_uint_eq(event.ip_suppressed, 0u);
 		ptu_uint_eq(event.variant.overflow.ip, dfix->last_ip.ip);
+	}
 
-		if (!tsc)
-			ptu_int_eq(event.has_tsc, 0);
-		else {
-			ptu_int_eq(event.has_tsc, 1);
-			ptu_uint_eq(event.tsc, tsc);
-		}
-		break;
+	if (!tsc)
+		ptu_uint_eq(event.has_tsc, 0u);
+	else {
+		ptu_uint_ne(event.has_tsc, 0u);
+		ptu_uint_eq(event.tsc, tsc);
 	}
 
 	return ptu_passed();
@@ -1289,27 +1297,20 @@ event_overflow_tip_pge(struct ptu_decoder_fixture *dfix,
 	}
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	switch (ipc) {
-	case pt_ipc_suppressed:
-		ptu_int_eq(errcode, -pte_bad_packet);
-		break;
-
-	case pt_ipc_update_16:
-	case pt_ipc_update_32:
-	case pt_ipc_update_48:
-	case pt_ipc_sext_48:
-	case pt_ipc_full:
-		ptu_int_eq(errcode, pts_eos);
-		ptu_int_eq(event.type, ptev_enabled);
+	ptu_int_eq(errcode, pts_eos);
+	ptu_int_eq(event.type, ptev_enabled);
+	if (ipc == pt_ipc_suppressed)
+		ptu_uint_ne(event.ip_suppressed, 0u);
+	else {
+		ptu_uint_eq(event.ip_suppressed, 0u);
 		ptu_uint_eq(event.variant.enabled.ip, dfix->last_ip.ip);
+	}
 
-		if (!tsc)
-			ptu_int_eq(event.has_tsc, 0);
-		else {
-			ptu_int_eq(event.has_tsc, 1);
-			ptu_uint_eq(event.tsc, tsc);
-		}
-		break;
+	if (!tsc)
+		ptu_uint_eq(event.has_tsc, 0u);
+	else {
+		ptu_uint_ne(event.has_tsc, 0u);
+		ptu_uint_eq(event.tsc, tsc);
 	}
 
 	return ptu_passed();
@@ -1381,8 +1382,16 @@ event_exec_mode_tip(struct ptu_decoder_fixture *dfix,
 
 	ptu_check(ptu_sync_decoder, decoder);
 
+	errcode = pt_qry_indirect_branch(decoder, &addr);
+	if (ipc == pt_ipc_suppressed)
+		ptu_int_eq(errcode, pts_ip_suppressed | pts_event_pending);
+	else {
+		ptu_int_eq(errcode, pts_event_pending);
+		ptu_uint_eq(addr, dfix->last_ip.ip);
+	}
+
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	ptu_int_eq(errcode, 0);
+	ptu_int_eq(errcode, pts_eos);
 	if (ipc == pt_ipc_suppressed)
 		ptu_uint_ne(event.ip_suppressed, 0);
 	else {
@@ -1397,14 +1406,6 @@ event_exec_mode_tip(struct ptu_decoder_fixture *dfix,
 	else {
 		ptu_int_eq(event.has_tsc, 1);
 		ptu_uint_eq(event.tsc, tsc);
-	}
-
-	errcode = pt_qry_indirect_branch(decoder, &addr);
-	if (ipc == pt_ipc_suppressed)
-		ptu_int_eq(errcode, pts_ip_suppressed | pts_eos);
-	else {
-		ptu_int_eq(errcode, pts_eos);
-		ptu_uint_eq(addr, dfix->last_ip.ip);
 	}
 
 	return ptu_passed();
@@ -1439,7 +1440,6 @@ event_exec_mode_tip_pge(struct ptu_decoder_fixture *dfix,
 	enum pt_exec_mode mode = ptem_16bit;
 	struct pt_packet_ip packet;
 	struct pt_event event;
-	uint64_t addr = 0ull;
 	int errcode;
 
 	packet.ipc = ipc;
@@ -1450,36 +1450,41 @@ event_exec_mode_tip_pge(struct ptu_decoder_fixture *dfix,
 	pt_encode_tip_pge(encoder, packet.ip, packet.ipc);
 
 	ptu_check(ptu_sync_decoder, decoder);
-	decoder->enabled = 0;
+	decoder->evdec.enabled = 0;
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	if (ipc == pt_ipc_suppressed) {
-		ptu_int_eq(errcode, -pte_bad_packet);
-		ptu_uint_eq(addr, 0ull);
-	} else {
-		ptu_int_eq(errcode, pts_event_pending);
-		ptu_int_eq(event.type, ptev_enabled);
-		ptu_uint_eq(event.variant.enabled.ip, dfix->last_ip.ip);
+	ptu_int_eq(errcode, pts_event_pending);
+	ptu_int_eq(event.type, ptev_enabled);
+	if (ipc == pt_ipc_suppressed)
+		ptu_uint_ne(event.ip_suppressed, 0u);
+	else {
+		ptu_uint_eq(event.ip_suppressed, 0u);
+		ptu_uint_eq(event.variant.overflow.ip, dfix->last_ip.ip);
+	}
 
-		if (!tsc)
-			ptu_int_eq(event.has_tsc, 0);
-		else {
-			ptu_int_eq(event.has_tsc, 1);
-			ptu_uint_eq(event.tsc, tsc);
-		}
+	if (!tsc)
+		ptu_uint_eq(event.has_tsc, 0u);
+	else {
+		ptu_uint_ne(event.has_tsc, 0u);
+		ptu_uint_eq(event.tsc, tsc);
+	}
 
-		errcode = pt_qry_event(decoder, &event, sizeof(event));
-		ptu_int_eq(errcode, pts_eos);
-		ptu_int_eq(event.type, ptev_exec_mode);
-		ptu_int_eq(event.variant.exec_mode.mode, mode);
+	errcode = pt_qry_event(decoder, &event, sizeof(event));
+	ptu_int_eq(errcode, pts_eos);
+	ptu_int_eq(event.type, ptev_exec_mode);
+	ptu_int_eq(event.variant.exec_mode.mode, mode);
+	if (ipc == pt_ipc_suppressed)
+		ptu_uint_ne(event.ip_suppressed, 0u);
+	else {
+		ptu_uint_eq(event.ip_suppressed, 0u);
 		ptu_uint_eq(event.variant.exec_mode.ip, dfix->last_ip.ip);
+	}
 
-		if (!tsc)
-			ptu_int_eq(event.has_tsc, 0);
-		else {
-			ptu_int_eq(event.has_tsc, 1);
-			ptu_uint_eq(event.tsc, tsc);
-		}
+	if (!tsc)
+		ptu_uint_eq(event.has_tsc, 0u);
+	else {
+		ptu_uint_ne(event.has_tsc, 0u);
+		ptu_uint_eq(event.tsc, tsc);
 	}
 
 	return ptu_passed();
@@ -1825,23 +1830,17 @@ static struct ptunit_result sync_ovf_event(struct ptu_decoder_fixture *dfix,
 	ptu_uint_eq(event.tsc, 0x1000);
 
 	errcode = pt_qry_event(decoder, &event, sizeof(event));
-	switch (ipc) {
-	case pt_ipc_suppressed:
-		ptu_int_eq(errcode, -pte_noip);
-		return ptu_passed();
-
-	case pt_ipc_update_16:
-	case pt_ipc_update_32:
-	case pt_ipc_update_48:
-	case pt_ipc_sext_48:
-	case pt_ipc_full:
-		ptu_int_eq(errcode, pts_eos);
-		ptu_int_eq(event.type, ptev_overflow);
+	ptu_int_eq(errcode, pts_eos);
+	ptu_int_eq(event.type, ptev_overflow);
+	if (ipc == pt_ipc_suppressed)
+		ptu_uint_ne(event.ip_suppressed, 0u);
+	else {
+		ptu_uint_eq(event.ip_suppressed, 0u);
 		ptu_uint_eq(event.variant.overflow.ip, dfix->last_ip.ip);
-		ptu_int_eq(event.has_tsc, 1);
-		ptu_uint_eq(event.tsc, 0x1000);
-		break;
 	}
+
+	ptu_int_eq(event.has_tsc, 1);
+	ptu_uint_eq(event.tsc, 0x1000);
 
 	return ptu_passed();
 }
@@ -2042,11 +2041,11 @@ static struct ptunit_result ptu_dfix_init(struct ptu_decoder_fixture *dfix)
 	errcode = pt_qry_decoder_init(&dfix->decoder, config);
 	ptu_int_eq(errcode, 0);
 
-	dfix->decoder.ip.ip = pt_dfix_bad_ip;
-	dfix->decoder.ip.have_ip = 1;
-	dfix->decoder.ip.suppressed = 0;
+	dfix->decoder.evdec.ip.ip = pt_dfix_bad_ip;
+	dfix->decoder.evdec.ip.have_ip = 1;
+	dfix->decoder.evdec.ip.suppressed = 0;
 
-	dfix->last_ip = dfix->decoder.ip;
+	dfix->last_ip = dfix->decoder.evdec.ip;
 
 	if (dfix->header)
 		dfix->header(dfix);
@@ -2089,7 +2088,7 @@ ptu_dfix_header_cond(struct ptu_decoder_fixture *dfix)
 	 */
 	fup.ipc = pt_ipc_sext_48;
 	fup.ip = pt_dfix_sext_ip;
-	pt_last_ip_update_ip(&decoder->ip, &fup, &dfix->config);
+	pt_last_ip_update_ip(&decoder->evdec.ip, &fup, &dfix->config);
 
 	pt_encode_pad(encoder);
 	pt_encode_mtc(encoder, 1);
@@ -2126,7 +2125,7 @@ ptu_dfix_header_event_psb(struct ptu_decoder_fixture *dfix)
 	 */
 	fup.ipc = pt_ipc_sext_48;
 	fup.ip = pt_dfix_sext_ip;
-	pt_last_ip_update_ip(&decoder->ip, &fup, &dfix->config);
+	pt_last_ip_update_ip(&decoder->evdec.ip, &fup, &dfix->config);
 
 	pt_encode_pad(encoder);
 	pt_encode_mtc(encoder, 1);
