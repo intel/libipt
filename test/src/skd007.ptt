@@ -69,8 +69,7 @@ l3: hlt
 ;%0p0  psb
 ;%0p1  mode.exec  cs.l
 ;%0p2  fup        3: %?l0
-;%0p3  cyc        3e
-;%0p4  cyc        1e
+;%0p3  ovf
 ;%0p5  pad
 ;%0p6  fup        3: %?l1
 ;%0p7  fup        1: %?l2.2

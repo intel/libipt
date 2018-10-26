@@ -586,10 +586,55 @@ int pt_pkt_decode_mtc(struct pt_packet_decoder *decoder,
 	return size;
 }
 
+static int pt_pkt_handle_skd007(struct pt_packet_decoder *decoder,
+				struct pt_packet *packet)
+{
+	const uint8_t *pos;
+	uint16_t payload;
+	uint8_t size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	if (packet->type != ppt_cyc)
+		return -pte_internal;
+
+	/* It must be a 2-byte CYC. */
+	size = packet->size;
+	if (size != 2)
+		return 0;
+
+	payload = (uint16_t) packet->payload.cyc.value;
+
+	/* The 2nd byte of the CYC payload must look like an ext opcode. */
+	if ((payload & ~0x1f) != 0x20)
+		return 0;
+
+	/* Skip this CYC packet. */
+	pos = decoder->pos + size;
+	if (decoder->config.end <= pos)
+		return 0;
+
+	/* See if we got a second CYC that looks like an OVF ext opcode. */
+	if (*pos != pt_ext_ovf)
+		return 0;
+
+	/* We shouldn't get back-to-back CYCs unless they are sent when the
+	 * counter wraps around.  In this case, we'd expect a full payload.
+	 *
+	 * Since we got two non-full CYC packets, we assume the erratum hit.
+	 * We ignore the CYC since we cannot provide its correct content,
+	 * anyway, and report the OVF, instead.
+	 */
+	decoder->pos += 1;
+
+	return pt_pkt_decode_ovf(decoder, packet);
+}
+
 int pt_pkt_decode_cyc(struct pt_packet_decoder *decoder,
 		      struct pt_packet *packet)
 {
-	int size;
+	int size, errcode;
 
 	if (!decoder || !packet)
 		return -pte_internal;
@@ -601,6 +646,12 @@ int pt_pkt_decode_cyc(struct pt_packet_decoder *decoder,
 
 	packet->type = ppt_cyc;
 	packet->size = (uint8_t) size;
+
+	if (decoder->config.errata.skd007) {
+		errcode = pt_pkt_handle_skd007(decoder, packet);
+		if (errcode != 0)
+			return errcode;
+	}
 
 	return size;
 }
