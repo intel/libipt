@@ -55,6 +55,15 @@ extern int pt_pkt_decoder_init(struct pt_packet_decoder *,
 /* Finalize the packet decoder. */
 extern void pt_pkt_decoder_fini(struct pt_packet_decoder *);
 
+static inline const struct pt_config *
+pt_pkt_config(const struct pt_packet_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return &decoder->config;
+}
+
 
 /* Decoder functions for the packet decoder. */
 extern int pt_pkt_decode_unknown(struct pt_packet_decoder *,

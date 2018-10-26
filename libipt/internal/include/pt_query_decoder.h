@@ -94,6 +94,15 @@ extern int pt_qry_decoder_init(struct pt_query_decoder *,
 /* Finalize the query decoder. */
 extern void pt_qry_decoder_fini(struct pt_query_decoder *);
 
+static inline const struct pt_config *
+pt_qry_config(const struct pt_query_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return &decoder->config;
+}
+
 /* Decoder functions (tracing context). */
 extern int pt_qry_decode_unknown(struct pt_query_decoder *);
 extern int pt_qry_decode_pad(struct pt_query_decoder *);

@@ -1007,12 +1007,17 @@ static int pt_blk_proceed_skl014(struct pt_block_decoder *decoder,
 				 struct pt_insn_ext *iext)
 {
 	const struct pt_conf_addr_filter *addr_filter;
+	const struct pt_config *config;
 	int status;
 
 	if (!decoder || !block || !insn || !iext)
 		return -pte_internal;
 
-	addr_filter = &decoder->query.config.addr_filter;
+	config = pt_blk_config(decoder);
+	if (!config)
+		return -pte_internal;
+
+	addr_filter = &config->addr_filter;
 	for (;;) {
 		uint64_t ip;
 
@@ -1087,6 +1092,12 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 		return -pte_internal;
 
 	if (ev->ip_suppressed) {
+		const struct pt_config *config;
+
+		config = pt_blk_config(decoder);
+		if (!config)
+			return -pte_internal;
+
 		/* Due to SKL014 the TIP.PGD payload may be suppressed also for
 		 * direct branches.
 		 *
@@ -1095,8 +1106,8 @@ static int pt_blk_proceed_to_disabled(struct pt_block_decoder *decoder,
 		 *
 		 * We might otherwise disable tracing too early.
 		 */
-		if (decoder->query.config.addr_filter.config.addr_cfg &&
-		    decoder->query.config.errata.skl014)
+		if (config->addr_filter.config.addr_cfg &&
+		    config->errata.skl014)
 			return pt_blk_proceed_skl014(decoder, block, insn,
 						     iext);
 
@@ -1487,13 +1498,19 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 		break;
 
-	case ptev_async_disabled:
+	case ptev_async_disabled: {
+		const struct pt_config *config;
+
 		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
 					      ev->variant.async_disabled.at);
 		if (status <= 0)
 			return status;
 
-		if (decoder->query.config.errata.skd022) {
+		config = pt_blk_config(decoder);
+		if (!config)
+			return -pte_internal;
+
+		if (config->errata.skd022) {
 			status = pt_blk_handle_erratum_skd022(decoder, ev);
 			if (status != 0) {
 				if (status < 0)
@@ -1507,6 +1524,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		}
 
 		break;
+	}
 
 	case ptev_async_branch:
 		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
@@ -2694,10 +2712,19 @@ static inline int pt_blk_postpone_trailing_tsx(struct pt_block_decoder *decoder,
 	if (ev->ip_suppressed)
 		return 0;
 
-	if (block && decoder->query.config.errata.bdm64) {
-		status = pt_blk_handle_erratum_bdm64(decoder, block, ev);
-		if (status < 0)
-			return 1;
+	if (block) {
+		const struct pt_config *config;
+
+		config = pt_blk_config(decoder);
+		if (!config)
+			return -pte_internal;
+
+		if (config->errata.bdm64) {
+			status = pt_blk_handle_erratum_bdm64(decoder, block,
+							     ev);
+			if (status < 0)
+				return 1;
+		}
 	}
 
 	if (decoder->ip != ev->variant.tsx.ip)
@@ -2795,7 +2822,9 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 		return pt_blk_status(decoder, pts_event_pending);
 
-	case ptev_async_disabled:
+	case ptev_async_disabled: {
+		const struct pt_config *config;
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2804,7 +2833,11 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		if (decoder->ip != ev->variant.async_disabled.at)
 			break;
 
-		if (decoder->query.config.errata.skd022) {
+		config = pt_blk_config(decoder);
+		if (!config)
+			return -pte_internal;
+
+		if (config->errata.skd022) {
 			status = pt_blk_handle_erratum_skd022(decoder, ev);
 			if (status != 0) {
 				if (status < 0)
@@ -2820,6 +2853,7 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		}
 
 		return pt_blk_status(decoder, pts_event_pending);
+	}
 
 	case ptev_async_branch:
 		/* This event does not bind to an instruction. */

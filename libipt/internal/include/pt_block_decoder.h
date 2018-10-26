@@ -140,4 +140,13 @@ extern int pt_blk_decoder_init(struct pt_block_decoder *decoder,
 /* Finalize a block decoder. */
 extern void pt_blk_decoder_fini(struct pt_block_decoder *decoder);
 
+static inline const struct pt_config *
+pt_blk_config(const struct pt_block_decoder *decoder)
+{
+	if (!decoder)
+		return NULL;
+
+	return pt_qry_config(&decoder->query);
+}
+
 #endif /* PT_BLOCK_DECODER_H */
