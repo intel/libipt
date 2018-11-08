@@ -1481,6 +1481,9 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		break;
 
 	case ptev_disabled:
+		if (ev->status_update)
+			break;
+
 		status = pt_blk_proceed_to_disabled(decoder, block, &insn,
 						    &iext, ev);
 		if (status <= 0) {
@@ -3125,9 +3128,14 @@ static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
 	if (!decoder || !ev)
 		return -pte_internal;
 
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
+	/* Use status update events to diagnose inconsistencies. */
+	if (ev->status_update) {
+		if (!decoder->enabled)
+			return -pte_bad_status_update;
+
+		decoder->process_event = 0;
+		return 0;
+	}
 
 	/* We must have an IP in order to start decoding. */
 	if (ev->ip_suppressed)
@@ -3154,9 +3162,14 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 	if (!decoder || !ev)
 		return -pte_internal;
 
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
+	/* Use status update events to diagnose inconsistencies. */
+	if (ev->status_update) {
+		if (decoder->enabled)
+			return -pte_bad_status_update;
+
+		decoder->process_event = 0;
+		return 0;
+	}
 
 	/* We must currently be enabled. */
 	if (!decoder->enabled)

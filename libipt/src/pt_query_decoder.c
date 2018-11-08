@@ -624,12 +624,10 @@ int pt_qry_sync_backward(struct pt_query_decoder *decoder, uint64_t *ip)
 			return errcode;
 		}
 
-		/* An empty trace segment in the middle of the trace might bring
-		 * us back to where we started.
-		 *
-		 * We're done when we reached a new position.
+		/* When starting inside or right after PSB+, we may end up at
+		 * the same PSB again.  Skip it.
 		 */
-		if (decoder->pos != start)
+		if (decoder->pos < start)
 			break;
 	}
 
@@ -1012,15 +1010,27 @@ int pt_qry_decode_pad(struct pt_query_decoder *decoder)
 
 static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 {
+	const struct pt_decoder_function *dfun;
+	struct pt_event *ev;
+	int errcode;
+
 	if (!decoder)
 		return -pte_internal;
 
 	pt_last_ip_init(&decoder->ip);
 
-	for (;;) {
-		const struct pt_decoder_function *dfun;
-		int errcode;
+	/* Add a status update event telling whether tracing is enabled or
+	 * disabled.
+	 *
+	 * We want this event to be first.
+	 */
+	ev = pt_evq_enqueue(&decoder->evq, evb_psbend);
+	if (!ev)
+		return -pte_nomem;
 
+	ev->type = ptev_disabled;
+
+	for (;;) {
 		errcode = pt_df_fetch(&decoder->next, decoder->pos,
 				      &decoder->config);
 		if (errcode)
@@ -1032,7 +1042,7 @@ static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 
 		/* We're done once we reach an psbend packet. */
 		if (dfun->flags & pdff_psbend)
-			return 0;
+			break;
 
 		if (!dfun->header)
 			return -pte_bad_context;
@@ -1041,6 +1051,23 @@ static int pt_qry_read_psb_header(struct pt_query_decoder *decoder)
 		if (errcode)
 			return errcode;
 	}
+
+	if (decoder->enabled)
+		ev->type = ptev_enabled;
+
+	/* We need to remove the disabled event if PSB+ ends in OVF since we
+	 * may simply have lost the FUP we were looking for.
+	 *
+	 * The disabled event might then lead to state inconsistency
+	 * diagnostics before we reach the overflow event.
+	 */
+	if ((dfun == &pt_decode_ovf) && (ev->type == ptev_disabled)) {
+		ev = pt_evq_dequeue(&decoder->evq, evb_psbend);
+		if (!ev || (ev->type != ptev_disabled))
+			return -pte_internal;
+	}
+
+	return 0;
 }
 
 int pt_qry_decode_psb(struct pt_query_decoder *decoder)
@@ -1777,6 +1804,14 @@ static int pt_qry_event_psbend(struct pt_event *ev,
 		return errcode;
 
 	switch (ev->type) {
+	case ptev_enabled:
+		return pt_qry_event_ip(&ev->variant.enabled.ip, ev,
+				       decoder);
+
+	case ptev_disabled:
+		ev->ip_suppressed = 1;
+		return 0;
+
 	case ptev_async_paging:
 		return pt_qry_event_ip(&ev->variant.async_paging.ip, ev,
 				       decoder);

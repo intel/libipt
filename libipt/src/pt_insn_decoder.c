@@ -844,6 +844,9 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		return 0;
 
 	case ptev_disabled:
+		if (ev->status_update)
+			return 0;
+
 		status = pt_insn_at_disabled_event(ev, insn, iext,
 						   pt_insn_config(decoder));
 		if (status <= 0)
@@ -1075,6 +1078,9 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 	ev = &decoder->event;
 	switch (ev->type) {
 	case ptev_disabled:
+		if (ev->status_update)
+			return pt_insn_status(decoder, pts_event_pending);
+
 		break;
 
 	case ptev_enabled:
@@ -1408,9 +1414,13 @@ static int pt_insn_process_enabled(struct pt_insn_decoder *decoder)
 
 	ev = &decoder->event;
 
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
+	/* Use status update events to diagnose inconsistencies. */
+	if (ev->status_update) {
+		if (!decoder->enabled)
+			return -pte_bad_status_update;
+
+		return 0;
+	}
 
 	/* We must have an IP in order to start decoding. */
 	if (ev->ip_suppressed)
@@ -1435,9 +1445,13 @@ static int pt_insn_process_disabled(struct pt_insn_decoder *decoder)
 
 	ev = &decoder->event;
 
-	/* This event can't be a status update. */
-	if (ev->status_update)
-		return -pte_bad_context;
+	/* Use status update events to diagnose inconsistencies. */
+	if (ev->status_update) {
+		if (decoder->enabled)
+			return -pte_bad_status_update;
+
+		return 0;
+	}
 
 	/* We must currently be enabled. */
 	if (!decoder->enabled)
