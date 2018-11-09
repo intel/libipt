@@ -79,6 +79,8 @@ static struct ptunit_result ptu_sync_decoder(struct pt_query_decoder *decoder)
 	ptu_ptr(decoder);
 	decoder->enabled = 1;
 
+	decoder->pos = decoder->config.begin;
+
 	(void) pt_df_fetch(&decoder->next, decoder->pos, &decoder->config);
 	return ptu_passed();
 }
@@ -270,7 +272,6 @@ decode_sync_backward(struct ptu_decoder_fixture *dfix)
 static struct ptunit_result indir_null(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_config *config = &decoder->config;
 	uint64_t ip = pt_dfix_bad_ip, addr = ip;
 	int errcode;
 
@@ -280,7 +281,6 @@ static struct ptunit_result indir_null(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_indirect_branch(decoder, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
-	ptu_ptr_eq(decoder->pos, config->begin);
 
 	return ptu_passed();
 }
@@ -288,11 +288,10 @@ static struct ptunit_result indir_null(struct ptu_decoder_fixture *dfix)
 static struct ptunit_result indir_empty(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_config *config = &decoder->config;
 	uint64_t ip = pt_dfix_bad_ip, addr = ip;
 	int errcode;
 
-	decoder->pos = config->end;
+	ptu_check(ptu_sync_decoder, decoder);
 
 	errcode = pt_qry_indirect_branch(decoder, &addr);
 	ptu_int_eq(errcode, -pte_eos);
@@ -497,7 +496,6 @@ indir_skip_fup_tip_pgd_fail(struct ptu_decoder_fixture *dfix)
 static struct ptunit_result cond_null(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_config *config = &decoder->config;
 	int errcode, tnt = 0xbc, taken = tnt;
 
 	errcode = pt_qry_cond_branch(NULL, &taken);
@@ -506,7 +504,6 @@ static struct ptunit_result cond_null(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_cond_branch(decoder, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
-	ptu_ptr_eq(decoder->pos, config->begin);
 
 	return ptu_passed();
 }
@@ -672,7 +669,6 @@ cond_skip_fup_tip_pgd_fail(struct ptu_decoder_fixture *dfix)
 static struct ptunit_result event_null(struct ptu_decoder_fixture *dfix)
 {
 	struct pt_query_decoder *decoder = &dfix->decoder;
-	struct pt_config *config = &decoder->config;
 	struct pt_event event;
 	int errcode;
 
@@ -681,7 +677,6 @@ static struct ptunit_result event_null(struct ptu_decoder_fixture *dfix)
 
 	errcode = pt_qry_event(decoder, NULL, sizeof(event));
 	ptu_int_eq(errcode, -pte_invalid);
-	ptu_ptr_eq(decoder->pos, config->begin);
 
 	return ptu_passed();
 }
@@ -2099,25 +2094,10 @@ static struct ptunit_result ptu_dfix_fini(struct ptu_decoder_fixture *dfix)
 	return ptu_passed();
 }
 
-/* Synchronize the decoder at the beginnig of an empty buffer. */
-static struct ptunit_result
-ptu_dfix_header_sync(struct ptu_decoder_fixture *dfix)
-{
-	struct pt_query_decoder *decoder = &dfix->decoder;
-
-	/* Synchronize the decoder at the beginning of the buffer. */
-	decoder->pos = decoder->config.begin;
-
-	return ptu_passed();
-}
-
-/* Synchronize the decoder at the beginnig of a buffer containing packets that
- * should be skipped for unconditional indirect branch queries.
- */
+/* Generate packets to be skipped for unconditional indirect branch queries. */
 static struct ptunit_result
 ptu_dfix_header_indir(struct ptu_decoder_fixture *dfix)
 {
-	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 
 	pt_encode_pad(encoder);
@@ -2125,15 +2105,10 @@ ptu_dfix_header_indir(struct ptu_decoder_fixture *dfix)
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0);
 
-	/* Synchronize the decoder at the beginning of the buffer. */
-	decoder->pos = decoder->config.begin;
-
 	return ptu_passed();
 }
 
-/* Synchronize the decoder at the beginnig of a buffer containing packets that
- * should be skipped for conditional branch queries.
- */
+/* Generate packets to be skipped for conditional branch queries. */
 static struct ptunit_result
 ptu_dfix_header_cond(struct ptu_decoder_fixture *dfix)
 {
@@ -2153,19 +2128,13 @@ ptu_dfix_header_cond(struct ptu_decoder_fixture *dfix)
 	pt_encode_tsc(encoder, 0);
 	pt_encode_pad(encoder);
 
-	/* Synchronize the decoder at the beginning of the buffer. */
-	decoder->pos = decoder->config.begin;
-
 	return ptu_passed();
 }
 
-/* Synchronize the decoder at the beginnig of a buffer containing packets that
- * should be skipped for event queries.
- */
+/* Generate packets to be skipped for event queries. */
 static struct ptunit_result
 ptu_dfix_header_event(struct ptu_decoder_fixture *dfix)
 {
-	struct pt_query_decoder *decoder = &dfix->decoder;
 	struct pt_encoder *encoder = &dfix->encoder;
 
 	pt_encode_pad(encoder);
@@ -2173,15 +2142,10 @@ ptu_dfix_header_event(struct ptu_decoder_fixture *dfix)
 	pt_encode_pad(encoder);
 	pt_encode_tsc(encoder, 0x1000);
 
-	/* Synchronize the decoder at the beginning of the buffer. */
-	decoder->pos = decoder->config.begin;
-
 	return ptu_passed();
 }
 
-/* Synchronize the decoder at the beginnig of a buffer containing packets that
- * should be skipped for event queries including a PSB.
- */
+/* Generate packets to be skipped for event queries including a PSB. */
 static struct ptunit_result
 ptu_dfix_header_event_psb(struct ptu_decoder_fixture *dfix)
 {
@@ -2202,13 +2166,9 @@ ptu_dfix_header_event_psb(struct ptu_decoder_fixture *dfix)
 	pt_encode_tsc(encoder, 0x1000);
 	pt_encode_pad(encoder);
 
-	/* Synchronize the decoder at the beginning of the buffer. */
-	decoder->pos = decoder->config.begin;
-
 	return ptu_passed();
 }
 
-static struct ptu_decoder_fixture dfix_raw;
 static struct ptu_decoder_fixture dfix_empty;
 static struct ptu_decoder_fixture dfix_indir;
 static struct ptu_decoder_fixture dfix_cond;
@@ -2217,22 +2177,19 @@ static struct ptu_decoder_fixture dfix_event_psb;
 
 static void init_fixtures(void)
 {
-	dfix_raw.init = ptu_dfix_init;
-	dfix_raw.fini = ptu_dfix_fini;
+	dfix_empty.init = ptu_dfix_init;
+	dfix_empty.fini = ptu_dfix_fini;
 
-	dfix_empty = dfix_raw;
-	dfix_empty.header = ptu_dfix_header_sync;
-
-	dfix_indir = dfix_raw;
+	dfix_indir = dfix_empty;
 	dfix_indir.header = ptu_dfix_header_indir;
 
-	dfix_cond = dfix_raw;
+	dfix_cond = dfix_empty;
 	dfix_cond.header = ptu_dfix_header_cond;
 
-	dfix_event = dfix_raw;
+	dfix_event = dfix_empty;
 	dfix_event.header = ptu_dfix_header_event;
 
-	dfix_event_psb = dfix_raw;
+	dfix_event_psb = dfix_empty;
 	dfix_event_psb.header = ptu_dfix_header_event_psb;
 }
 
@@ -2244,12 +2201,12 @@ int main(int argc, char **argv)
 
 	suite = ptunit_mk_suite(argc, argv);
 
-	ptu_run_f(suite, indir_not_synced, dfix_raw);
-	ptu_run_f(suite, cond_not_synced, dfix_raw);
-	ptu_run_f(suite, event_not_synced, dfix_raw);
+	ptu_run_f(suite, indir_not_synced, dfix_empty);
+	ptu_run_f(suite, cond_not_synced, dfix_empty);
+	ptu_run_f(suite, event_not_synced, dfix_empty);
 
-	ptu_run_f(suite, sync_backward, dfix_raw);
-	ptu_run_f(suite, decode_sync_backward, dfix_raw);
+	ptu_run_f(suite, sync_backward, dfix_empty);
+	ptu_run_f(suite, decode_sync_backward, dfix_empty);
 
 	ptu_run_f(suite, indir_null, dfix_empty);
 	ptu_run_f(suite, indir_empty, dfix_empty);
