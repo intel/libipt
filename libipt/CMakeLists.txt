@@ -52,7 +52,6 @@ set(LIBIPT_FILES
   src/pt_asid.c
   src/pt_event_queue.c
   src/pt_packet.c
-  src/pt_decoder_function.c
   src/pt_config.c
   src/pt_insn.c
   src/pt_block_decoder.c
@@ -143,7 +142,6 @@ add_ptunit_c_test(query
   src/pt_event_queue.c
   src/pt_query_decoder.c
   src/pt_packet.c
-  src/pt_decoder_function.c
   src/pt_packet_decoder.c
   src/pt_config.c
   src/pt_time.c
@@ -160,12 +158,6 @@ add_ptunit_c_test(packet
   src/pt_packet_decoder.c
   src/pt_sync.c
   src/pt_packet.c
-  src/pt_decoder_function.c
-  src/pt_config.c
-)
-add_ptunit_c_test(fetch
-  src/pt_decoder_function.c
-  src/pt_encoder.c
   src/pt_config.c
 )
 add_ptunit_c_test(encoder
@@ -177,7 +169,6 @@ add_ptunit_c_test(packet_decoder
   src/pt_packet.c
   src/pt_config.c
   src/pt_sync.c
-  src/pt_decoder_function.c
   src/pt_query_decoder.c
   src/pt_event_decoder.c
   src/pt_event_queue.c
