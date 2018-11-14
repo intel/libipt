@@ -44,6 +44,28 @@
 static int pt_blk_proceed_trailing_event(struct pt_block_decoder *,
 					 struct pt_block *);
 
+static int pt_blk_fetch_event(struct pt_block_decoder *decoder)
+{
+	struct pt_event *ev;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	ev = &decoder->event;
+	decoder->tsc = ev->tsc;
+	decoder->has_tsc = ev->has_tsc;
+	decoder->lost_mtc = ev->lost_mtc;
+	decoder->lost_cyc = ev->lost_cyc;
+
+	errcode = pt_evt_next(&decoder->evdec, ev, sizeof(*ev));
+	if (errcode < 0) {
+		decoder->status = errcode;
+		memset(ev, 0xff, sizeof(*ev));
+	}
+
+	return 0;
+}
 
 static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
 {
@@ -52,22 +74,18 @@ static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
 	if (!decoder)
 		return -pte_internal;
 
-	status = decoder->status;
-
-	/* Indicate whether tracing is disabled or enabled.
-	 *
-	 * This duplicates the indication in struct pt_insn and covers the case
-	 * where we indicate the status after synchronizing.
-	 */
 	if (!decoder->enabled)
 		flags |= pts_ip_suppressed;
 
-	/* Forward end-of-trace indications.
-	 *
-	 * Postpone it as long as we're still processing events, though.
-	 */
-	if ((status & pts_eos) && !decoder->process_event)
-		flags |= pts_eos;
+	if (decoder->status == -pte_eos) {
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status != 0) {
+			if (status < 0)
+				return status;
+
+			flags |= pts_eos;
+		}
+	}
 
 	return flags;
 }
@@ -77,32 +95,37 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	if (!decoder)
 		return;
 
+	decoder->tsc = 0ull;
+	decoder->lost_mtc = 0u;
+	decoder->lost_cyc = 0u;
+	decoder->cbr = 0u;
 	decoder->mode = ptem_unknown;
 	decoder->ip = 0ull;
-	decoder->status = 0;
+	decoder->status = -pte_nosync;
 	decoder->enabled = 0;
-	decoder->process_event = 0;
 	decoder->speculative = 0;
+	decoder->has_tsc = 0;
 	decoder->process_insn = 0;
 	decoder->bound_paging = 0;
 	decoder->bound_vmcs = 0;
 	decoder->bound_ptwrite = 0;
 
-	memset(&decoder->event, 0, sizeof(decoder->event));
+	memset(&decoder->event, 0xff, sizeof(decoder->event));
+	pt_tnt_cache_init(&decoder->tnt);
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
 }
 
-/* Initialize the query decoder flags based on our flags. */
+/* Initialize the event decoder flags based on our flags. */
 
-static int pt_blk_init_qry_flags(struct pt_conf_flags *qflags,
+static int pt_blk_init_evt_flags(struct pt_conf_flags *qflags,
 				 const struct pt_conf_flags *flags)
 {
 	if (!qflags || !flags)
 		return -pte_internal;
 
 	memset(qflags, 0, sizeof(*qflags));
-	qflags->variant.query.keep_tcal_on_ovf =
+	qflags->variant.event.keep_tcal_on_ovf =
 		flags->variant.block.keep_tcal_on_ovf;
 
 	return 0;
@@ -124,12 +147,12 @@ int pt_blk_decoder_init(struct pt_block_decoder *decoder,
 	/* The user supplied decoder flags. */
 	decoder->flags = config.flags;
 
-	/* Set the flags we need for the query decoder we use. */
-	errcode = pt_blk_init_qry_flags(&config.flags, &decoder->flags);
+	/* Set the flags we need for the event decoder we use. */
+	errcode = pt_blk_init_evt_flags(&config.flags, &decoder->flags);
 	if (errcode < 0)
 		return errcode;
 
-	errcode = pt_qry_decoder_init(&decoder->query, &config);
+	errcode = pt_evt_decoder_init(&decoder->evdec, &config);
 	if (errcode < 0)
 		return errcode;
 
@@ -152,7 +175,7 @@ void pt_blk_decoder_fini(struct pt_block_decoder *decoder)
 
 	pt_msec_cache_fini(&decoder->scache);
 	pt_image_fini(&decoder->default_image);
-	pt_qry_decoder_fini(&decoder->query);
+	pt_evt_decoder_fini(&decoder->evdec);
 }
 
 struct pt_block_decoder *
@@ -183,146 +206,187 @@ void pt_blk_free_decoder(struct pt_block_decoder *decoder)
 	free(decoder);
 }
 
-/* Maybe synthesize a tick event.
+/* Synthesize a tick event or fetch the next event.
  *
- * If we're not already processing events, check the current time against the
- * last event's time.  If it changed, synthesize a tick event with the new time.
+ * We consumed a TIP or TNT event.  If the user asked for tick events, rewrite
+ * the current event, otherwise fetch the next event.
  *
- * Returns zero if no tick event has been created.
- * Returns a positive integer if a tick event has been created.
- * Returns a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 static int pt_blk_tick(struct pt_block_decoder *decoder, uint64_t ip)
 {
+	if (!decoder)
+		return -pte_internal;
+
+	if (decoder->flags.variant.block.enable_tick_events) {
+		struct pt_event *ev;
+
+		ev = &decoder->event;
+		if (ev->tsc != decoder->tsc) {
+			ev->type = ptev_tick;
+			ev->variant.tick.ip = ip;
+
+			return 0;
+		}
+	}
+
+	return pt_blk_fetch_event(decoder);
+}
+
+/* Handle an indirect branch.
+ *
+ * Returns zero on success, a negative pt_error_code otherwise.
+ */
+static int pt_blk_proceed_indirect(struct pt_block_decoder *decoder)
+{
 	struct pt_event *ev;
-	uint64_t tsc;
-	uint32_t lost_mtc, lost_cyc;
+	uint64_t ip;
 	int errcode;
 
 	if (!decoder)
 		return -pte_internal;
 
-	/* We're not generating tick events if tracing is disabled. */
-	if (!decoder->enabled)
-		return -pte_internal;
-
-	/* Events already provide a timestamp so there is no need to synthesize
-	 * an artificial tick event.  There's no room, either, since this would
-	 * overwrite the in-progress event.
-	 *
-	 * In rare cases where we need to proceed to an event location using
-	 * trace this may cause us to miss a timing update if the event is not
-	 * forwarded to the user.
-	 *
-	 * The only case I can come up with at the moment is a MODE.EXEC binding
-	 * to the TIP IP of a far branch.
-	 */
-	if (decoder->process_event)
-		return 0;
-
-	errcode = pt_qry_time(&decoder->query, &tsc, &lost_mtc, &lost_cyc);
-	if (errcode < 0) {
-		/* If we don't have wall-clock time, we use relative time. */
-		if (errcode != -pte_no_time)
-			return errcode;
-	}
-
 	ev = &decoder->event;
+	if (ev->type != ptev_tip) {
+		/* Fill our TNT cache if we have a TNT event. */
+		if (ev->type != ptev_tnt)
+			return -pte_bad_query;
 
-	/* We're done if time has not changed since the last event. */
-	if (tsc == ev->tsc)
-		return 0;
-
-	/* Time has changed so we create a new tick event. */
-	memset(ev, 0, sizeof(*ev));
-	ev->type = ptev_tick;
-	ev->variant.tick.ip = ip;
-
-	/* Indicate if we have wall-clock time or only relative time. */
-	if (errcode != -pte_no_time)
-		ev->has_tsc = 1;
-	ev->tsc = tsc;
-	ev->lost_mtc = lost_mtc;
-	ev->lost_cyc = lost_cyc;
-
-	/* We now have an event to process. */
-	decoder->process_event = 1;
-
-	return 1;
-}
-
-/* Query an indirect branch.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_indirect_branch(struct pt_block_decoder *decoder,
-				  uint64_t *ip)
-{
-	uint64_t evip;
-	int status, errcode;
-
-	if (!decoder)
-		return -pte_internal;
-
-	evip = decoder->ip;
-
-	status = pt_qry_indirect_branch(&decoder->query, ip);
-	if (status < 0)
-		return status;
-
-	if (decoder->flags.variant.block.enable_tick_events) {
-		errcode = pt_blk_tick(decoder, evip);
+		errcode = pt_tnt_cache_add(&decoder->tnt,
+					   ev->variant.tnt.bits,
+					   ev->variant.tnt.size);
 		if (errcode < 0)
 			return errcode;
+
+		errcode = pt_evt_next(&decoder->evdec, ev, sizeof(*ev));
+		if (errcode < 0) {
+			decoder->status = errcode;
+			memset(ev, 0xff, sizeof(*ev));
+
+			return errcode;
+		}
+
+		if (ev->type != ptev_tip)
+			return -pte_bad_query;
 	}
 
-	return status;
+	if (ev->ip_suppressed)
+		return -pte_bad_packet;
+
+	ip = decoder->ip;
+	decoder->ip = ev->variant.tip.ip;
+
+	return pt_blk_tick(decoder, ip);
 }
 
-/* Query a conditional branch.
+/* Handle a conditional branch.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns a positive number if the branch was taken.
+ * Returns zero if the branch was not taken.
+ * Returns a negative pt_error_code otherwise.
  */
-static int pt_blk_cond_branch(struct pt_block_decoder *decoder, int *taken)
+static int pt_blk_cond_branch(struct pt_block_decoder *decoder)
 {
-	int status, errcode;
+	const struct pt_event *ev;
+	int errcode, tnt;
 
 	if (!decoder)
 		return -pte_internal;
 
-	status = pt_qry_cond_branch(&decoder->query, taken);
-	if (status < 0)
-		return status;
+	tnt = pt_tnt_cache_query(&decoder->tnt);
+	if (tnt < 0) {
+		if (tnt != -pte_bad_query)
+			return tnt;
 
-	if (decoder->flags.variant.block.enable_tick_events) {
+		/* Report any deferred event decode errors.
+		 *
+		 * We deferred them until we consumed the last TNT bit in our
+		 * cache.
+		 */
+		errcode = decoder->status;
+		if (errcode < 0)
+			return errcode;
+
+		ev = &decoder->event;
+		if (ev->type != ptev_tnt)
+			return -pte_bad_query;
+
+		errcode = pt_tnt_cache_add(&decoder->tnt,
+					   ev->variant.tnt.bits,
+					   ev->variant.tnt.size);
+		if (errcode < 0)
+			return errcode;
+
 		errcode = pt_blk_tick(decoder, decoder->ip);
 		if (errcode < 0)
 			return errcode;
+
+		return pt_tnt_cache_query(&decoder->tnt);
 	}
 
-	return status;
+	return tnt;
 }
 
-static int pt_blk_start(struct pt_block_decoder *decoder, int status)
+static int pt_blk_start(struct pt_block_decoder *decoder)
 {
+	struct pt_event_decoder evdec;
+	struct pt_event ev;
+	int errcode;
+
 	if (!decoder)
 		return -pte_internal;
 
-	if (status < 0)
-		return status;
-
-	decoder->status = status;
-	if (!(status & pts_ip_suppressed))
-		decoder->enabled = 1;
-
-	/* We will always have an event.
+	/* We need to process satus update events from PSB+ in order to
+	 * initialize our internal state and be able to diagnose
+	 * inconsistencies during tracing.
 	 *
-	 * If we synchronized onto an empty PSB+, tracing is disabled and we'll
-	 * process events until the enabled event.
-	 *
-	 * If tracing is enabled, PSB+ must at least provide the execution mode,
-	 * which we're going to forward to the user.
+	 * On the other hand, we need to provide those same status events to
+	 * our user.  We do that by using a local copy of our event decoder, so
+	 * when we're done, we rewind back to where we started.
 	 */
+	evdec = decoder->evdec;
+
+	/* Process status update events from PSB+ to initialize our state. */
+	for (;;) {
+		/* Check that we're still processing the initial events.
+		 *
+		 * When the event decoder moves ahead, we're done with the
+		 * initial PSB+.  We may get additional events from an adjacent
+		 * PSB+, but we don't want to process them here.
+		 */
+		if (pt_evt_pos(&evdec) != pt_blk_pos(decoder))
+			break;
+
+		errcode = pt_evt_next(&evdec, &ev, sizeof(ev));
+		if (errcode < 0) {
+			if (errcode != -pte_eos)
+				return errcode;
+
+			break;
+		}
+
+		if (!ev.status_update)
+			break;
+
+		switch (ev.type) {
+		case ptev_enabled:
+			decoder->enabled = 1;
+			decoder->ip = ev.variant.enabled.ip;
+			break;
+
+		default:
+			continue;
+		}
+
+		break;
+	}
+
+	decoder->status = 0;
+
+	errcode = pt_blk_fetch_event(decoder);
+	if (errcode < 0)
+		return errcode;
+
 	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
 
@@ -338,7 +402,7 @@ static int pt_blk_sync_reset(struct pt_block_decoder *decoder)
 
 int pt_blk_sync_forward(struct pt_block_decoder *decoder)
 {
-	int errcode, status;
+	int errcode;
 
 	if (!decoder)
 		return -pte_invalid;
@@ -347,30 +411,75 @@ int pt_blk_sync_forward(struct pt_block_decoder *decoder)
 	if (errcode < 0)
 		return errcode;
 
-	status = pt_qry_sync_forward(&decoder->query, &decoder->ip);
+	errcode = pt_evt_sync_forward(&decoder->evdec);
+	if (errcode < 0)
+		return errcode;
 
-	return pt_blk_start(decoder, status);
+	return pt_blk_start(decoder);
 }
 
 int pt_blk_sync_backward(struct pt_block_decoder *decoder)
 {
-	int errcode, status;
+	const uint8_t *start, *sync, *pos;
+	int errcode;
 
 	if (!decoder)
 		return -pte_invalid;
 
-	errcode = pt_blk_sync_reset(decoder);
-	if (errcode < 0)
-		return errcode;
+	start = pt_blk_pos(decoder);
+	if (!start) {
+		const struct pt_config *config;
 
-	status = pt_qry_sync_backward(&decoder->query, &decoder->ip);
+		config = pt_blk_config(decoder);
+		if (!config)
+			return -pte_internal;
 
-	return pt_blk_start(decoder, status);
+		start = config->end;
+		if (!start)
+			return -pte_bad_config;
+	}
+
+	sync = start;
+	for (;;) {
+		errcode = pt_blk_sync_reset(decoder);
+		if (errcode < 0)
+			return errcode;
+
+		do {
+			errcode = pt_evt_sync_backward(&decoder->evdec);
+			if (errcode < 0)
+				return errcode;
+
+			pos = pt_blk_pos(decoder);
+		} while (sync <= pos);
+
+		sync = pos;
+
+		errcode = pt_blk_start(decoder);
+		if (errcode < 0) {
+			/* Ignore incomplete trace segments at the end.  We
+			 * need a full PSB+ to start decoding.
+			 */
+			if (errcode != -pte_eos)
+				return errcode;
+
+			continue;
+		}
+
+		/* When starting inside or right after PSB+, we may end up at
+		 * the same PSB again.  Skip it.
+		 */
+		pos = pt_blk_pos(decoder);
+		if (pos < start)
+			break;
+	}
+
+	return 0;
 }
 
 int pt_blk_sync_set(struct pt_block_decoder *decoder, uint64_t offset)
 {
-	int errcode, status;
+	int errcode;
 
 	if (!decoder)
 		return -pte_invalid;
@@ -379,9 +488,11 @@ int pt_blk_sync_set(struct pt_block_decoder *decoder, uint64_t offset)
 	if (errcode < 0)
 		return errcode;
 
-	status = pt_qry_sync_set(&decoder->query, &decoder->ip, offset);
+	errcode = pt_evt_sync_set(&decoder->evdec, offset);
+	if (errcode < 0)
+		return errcode;
 
-	return pt_blk_start(decoder, status);
+	return pt_blk_start(decoder);
 }
 
 int pt_blk_get_offset(const struct pt_block_decoder *decoder, uint64_t *offset)
@@ -389,7 +500,7 @@ int pt_blk_get_offset(const struct pt_block_decoder *decoder, uint64_t *offset)
 	if (!decoder)
 		return -pte_invalid;
 
-	return pt_qry_get_offset(&decoder->query, offset);
+	return pt_evt_get_offset(&decoder->evdec, offset);
 }
 
 int pt_blk_get_sync_offset(const struct pt_block_decoder *decoder,
@@ -398,7 +509,7 @@ int pt_blk_get_sync_offset(const struct pt_block_decoder *decoder,
 	if (!decoder)
 		return -pte_invalid;
 
-	return pt_qry_get_sync_offset(&decoder->query, offset);
+	return pt_evt_get_sync_offset(&decoder->evdec, offset);
 }
 
 struct pt_image *pt_blk_get_image(struct pt_block_decoder *decoder)
@@ -427,16 +538,20 @@ pt_blk_get_config(const struct pt_block_decoder *decoder)
 	if (!decoder)
 		return NULL;
 
-	return pt_qry_get_config(&decoder->query);
+	return pt_evt_get_config(&decoder->evdec);
 }
 
 int pt_blk_time(struct pt_block_decoder *decoder, uint64_t *time,
 		uint32_t *lost_mtc, uint32_t *lost_cyc)
 {
-	if (!decoder || !time)
+	if (!decoder || !time || !lost_mtc || !lost_cyc)
 		return -pte_invalid;
 
-	return pt_qry_time(&decoder->query, time, lost_mtc, lost_cyc);
+	*time = decoder->tsc;
+	*lost_mtc = decoder->lost_mtc;
+	*lost_cyc = decoder->lost_cyc;
+
+	return 0;
 }
 
 int pt_blk_core_bus_ratio(struct pt_block_decoder *decoder, uint32_t *cbr)
@@ -444,7 +559,9 @@ int pt_blk_core_bus_ratio(struct pt_block_decoder *decoder, uint32_t *cbr)
 	if (!decoder || !cbr)
 		return -pte_invalid;
 
-	return pt_qry_core_bus_ratio(&decoder->query, cbr);
+	*cbr = decoder->cbr;
+
+	return 0;
 }
 
 int pt_blk_asid(const struct pt_block_decoder *decoder, struct pt_asid *asid,
@@ -454,39 +571,6 @@ int pt_blk_asid(const struct pt_block_decoder *decoder, struct pt_asid *asid,
 		return -pte_invalid;
 
 	return pt_asid_to_user(asid, &decoder->asid, size);
-}
-
-/* Fetch the next pending event.
- *
- * Checks for pending events.  If an event is pending, fetches it (if not
- * already in process).
- *
- * Returns zero if no event is pending.
- * Returns a positive integer if an event is pending or in process.
- * Returns a negative error code otherwise.
- */
-static inline int pt_blk_fetch_event(struct pt_block_decoder *decoder)
-{
-	int status;
-
-	if (!decoder)
-		return -pte_internal;
-
-	if (decoder->process_event)
-		return 1;
-
-	if (!(decoder->status & pts_event_pending))
-		return 0;
-
-	status = pt_qry_event(&decoder->query, &decoder->event,
-			      sizeof(decoder->event));
-	if (status < 0)
-		return status;
-
-	decoder->process_event = 1;
-	decoder->status = status;
-
-	return 1;
 }
 
 static inline int pt_blk_block_is_empty(const struct pt_block *block)
@@ -527,31 +611,24 @@ static int pt_insn_false(const struct pt_insn *insn,
 	return 0;
 }
 
-/* Determine the next IP using trace.
+/* Proceed to the next IP using trace.
  *
- * Tries to determine the IP of the next instruction using trace and provides it
- * in @pip.
- *
- * Not requiring trace to determine the IP is treated as an internal error.
+ * We failed to proceed without trace.  This ends the current block.  Now use
+ * trace to do one final step to determine the start IP of the next block.
  *
  * Does not update the return compression stack for indirect calls.  This is
  * expected to have been done, already, when trying to determine the next IP
  * without using trace.
  *
- * Does not update @decoder->status.  The caller is expected to do that.
- *
- * Returns a non-negative pt_status_flag bit-vector on success, a negative error
- * code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  * Returns -pte_internal if @pip, @decoder, @insn, or @iext are NULL.
  * Returns -pte_internal if no trace is required.
  */
-static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
-			  const struct pt_insn *insn,
-			  const struct pt_insn_ext *iext)
+static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
+				     const struct pt_insn *insn,
+				     const struct pt_insn_ext *iext)
 {
-	int status, errcode;
-
-	if (!pip || !decoder || !insn || !iext)
+	if (!decoder || !insn || !iext)
 		return -pte_internal;
 
 	/* We handle non-taken conditional branches, and compressed returns
@@ -562,44 +639,43 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	switch (insn->iclass) {
 	case ptic_cond_jump: {
 		uint64_t ip;
-		int taken;
-
-		status = pt_blk_cond_branch(decoder, &taken);
-		if (status < 0)
-			return status;
+		int tnt;
 
 		ip = insn->ip + insn->size;
-		if (taken)
+
+		tnt = pt_blk_cond_branch(decoder);
+		if (tnt != 0) {
+			if (tnt < 0)
+				return tnt;
+
 			ip += (uint64_t) (int64_t)
 				iext->variant.branch.displacement;
+		}
 
-		*pip = ip;
-		return status;
+		decoder->ip = ip;
+
+		return 0;
 	}
 
 	case ptic_return: {
-		int taken;
+		int tnt;
 
-		/* Check for a compressed return. */
-		status = pt_blk_cond_branch(decoder, &taken);
-		if (status < 0) {
-			if (status != -pte_bad_query)
-				return status;
+		/* Check for a compressed return.
+		 *
+		 * It is indicated by a taken conditional branch.
+		 */
+		tnt = pt_blk_cond_branch(decoder);
+		if (tnt <= 0) {
+			if (tnt == -pte_bad_query)
+				break;
 
-			break;
+			if (!tnt)
+				tnt = -pte_bad_retcomp;
+
+			return tnt;
 		}
 
-		/* A compressed return is indicated by a taken conditional
-		 * branch.
-		 */
-		if (!taken)
-			return -pte_bad_retcomp;
-
-		errcode = pt_retstack_pop(&decoder->retstack, pip);
-		if (errcode < 0)
-			return errcode;
-
-		return status;
+		return pt_retstack_pop(&decoder->retstack, &decoder->ip);
 	}
 
 	case ptic_jump:
@@ -629,39 +705,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	 * This covers indirect jumps and calls, non-compressed returns, and all
 	 * flavors of far transfers.
 	 */
-	return pt_blk_indirect_branch(decoder, pip);
-}
-
-/* Proceed to the next IP using trace.
- *
- * We failed to proceed without trace.  This ends the current block.  Now use
- * trace to do one final step to determine the start IP of the next block.
- *
- * Returns zero on success, a negative error code otherwise.
- */
-static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
-				     const struct pt_insn *insn,
-				     const struct pt_insn_ext *iext)
-{
-	int status;
-
-	if (!decoder)
-		return -pte_internal;
-
-	status = pt_blk_next_ip(&decoder->ip, decoder, insn, iext);
-	if (status < 0)
-		return status;
-
-	/* Preserve the query decoder's response which indicates upcoming
-	 * events.
-	 */
-	decoder->status = status;
-
-	/* We do need an IP in order to proceed. */
-	if (status & pts_ip_suppressed)
-		return -pte_noip;
-
-	return 0;
+	return pt_blk_proceed_indirect(decoder);
 }
 
 /* Decode one instruction in a known section.
@@ -927,45 +971,6 @@ static int pt_blk_proceed_to_ip(struct pt_block_decoder *decoder,
 	}
 }
 
-/* Proceed to a particular IP with trace, if necessary.
- *
- * Proceed until we reach @ip or until:
- *
- *   - @block is full:               return zero
- *   - @block would switch sections: return zero
- *   - we need trace:                return zero
- *
- * Update @decoder->ip to point to the last IP that was reached.
- *
- * A return of zero ends @block.
- *
- * Returns a positive integer if @ip was reached.
- * Returns zero if no such instruction was reached.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_proceed_to_ip_with_trace(struct pt_block_decoder *decoder,
-					   struct pt_block *block,
-					   uint64_t ip)
-{
-	struct pt_insn_ext iext;
-	struct pt_insn insn;
-	int status;
-
-	/* Try to reach @ip without trace.
-	 *
-	 * We're also OK if @block overflowed or we switched sections and we
-	 * have to try again in the next iteration.
-	 */
-	status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext, ip);
-	if (status != -pte_bad_query)
-		return status;
-
-	/* Needing trace is not an error.  We use trace to determine the next
-	 * start IP and end the block.
-	 */
-	return pt_blk_proceed_with_trace(decoder, &insn, &iext);
-}
-
 static int pt_insn_skl014(const struct pt_insn *insn,
 			  const struct pt_insn_ext *iext)
 {
@@ -1152,102 +1157,6 @@ static int pt_blk_set_disable_resume_ip(struct pt_block_decoder *decoder,
 	}
 
 	return 0;
-}
-
-/* Proceed to the event location for an async paging event.
- *
- * We have an async paging event pending.  Proceed to the event location and
- * indicate whether we were able to reach it.  Needing trace in order to proceed
- * is not an error in this case but ends the block.
- *
- * Returns a positive integer if the event location was reached.
- * Returns zero if the event location was not reached.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_proceed_to_async_paging(struct pt_block_decoder *decoder,
-					  struct pt_block *block,
-					  const struct pt_event *ev)
-{
-	int status;
-
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* Apply the event immediately if we don't have an IP. */
-	if (ev->ip_suppressed)
-		return 1;
-
-	status = pt_blk_proceed_to_ip_with_trace(decoder, block,
-						 ev->variant.async_paging.ip);
-	if (status < 0)
-		return status;
-
-	/* We may have reached the IP. */
-	return (decoder->ip == ev->variant.async_paging.ip ? 1 : 0);
-}
-
-/* Proceed to the event location for an async vmcs event.
- *
- * We have an async vmcs event pending.  Proceed to the event location and
- * indicate whether we were able to reach it.  Needing trace in order to proceed
- * is not an error in this case but ends the block.
- *
- * Returns a positive integer if the event location was reached.
- * Returns zero if the event location was not reached.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_proceed_to_async_vmcs(struct pt_block_decoder *decoder,
-					struct pt_block *block,
-					const struct pt_event *ev)
-{
-	int status;
-
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* Apply the event immediately if we don't have an IP. */
-	if (ev->ip_suppressed)
-		return 1;
-
-	status = pt_blk_proceed_to_ip_with_trace(decoder, block,
-						 ev->variant.async_vmcs.ip);
-	if (status < 0)
-		return status;
-
-	/* We may have reached the IP. */
-	return (decoder->ip == ev->variant.async_vmcs.ip ? 1 : 0);
-}
-
-/* Proceed to the event location for an exec mode event.
- *
- * We have an exec mode event pending.  Proceed to the event location and
- * indicate whether we were able to reach it.  Needing trace in order to proceed
- * is not an error in this case but ends the block.
- *
- * Returns a positive integer if the event location was reached.
- * Returns zero if the event location was not reached.
- * Returns a negative error code otherwise.
- */
-static int pt_blk_proceed_to_exec_mode(struct pt_block_decoder *decoder,
-				       struct pt_block *block,
-				       const struct pt_event *ev)
-{
-	int status;
-
-	if (!decoder || !ev)
-		return -pte_internal;
-
-	/* Apply the event immediately if we don't have an IP. */
-	if (ev->ip_suppressed)
-		return 1;
-
-	status = pt_blk_proceed_to_ip_with_trace(decoder, block,
-						 ev->variant.exec_mode.ip);
-	if (status < 0)
-		return status;
-
-	/* We may have reached the IP. */
-	return (decoder->ip == ev->variant.exec_mode.ip ? 1 : 0);
 }
 
 /* Proceed to the event location for a ptwrite event.
@@ -1472,7 +1381,7 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 	struct pt_event *ev;
 	int status;
 
-	if (!decoder || !decoder->process_event || !block)
+	if (!decoder || !block)
 		return -pte_internal;
 
 	ev = &decoder->event;
@@ -1554,7 +1463,11 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		return pt_blk_postpone_insn(decoder, &insn, &iext);
 
 	case ptev_async_paging:
-		status = pt_blk_proceed_to_async_paging(decoder, block, ev);
+		if (ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.async_paging.ip);
 		if (status <= 0)
 			return status;
 
@@ -1577,7 +1490,11 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		return pt_blk_postpone_insn(decoder, &insn, &iext);
 
 	case ptev_async_vmcs:
-		status = pt_blk_proceed_to_async_vmcs(decoder, block, ev);
+		if (ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.async_vmcs.ip);
 		if (status <= 0)
 			return status;
 
@@ -1587,7 +1504,11 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		break;
 
 	case ptev_exec_mode:
-		status = pt_blk_proceed_to_exec_mode(decoder, block, ev);
+		if (ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.exec_mode.ip);
 		if (status <= 0)
 			return status;
 
@@ -2258,7 +2179,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		 */
 		if (bce.isize) {
 			uint64_t ip;
-			int taken;
+			int tnt;
 
 			/* If the branch is not taken, we don't need to decode
 			 * the instruction at @decoder->ip.
@@ -2267,19 +2188,14 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			 * We can't use the normal decode and proceed-with-trace
 			 * flow since we already consumed the TNT bit.
 			 */
-			status = pt_blk_cond_branch(decoder, &taken);
-			if (status < 0)
-				return status;
-
-			/* Preserve the query decoder's response which indicates
-			 * upcoming events.
-			 */
-			decoder->status = status;
-
 			ip = decoder->ip;
-			if (taken) {
+			tnt = pt_blk_cond_branch(decoder);
+			if (tnt != 0) {
 				struct pt_insn_ext iext;
 				struct pt_insn insn;
+
+				if (tnt < 0)
+					return tnt;
 
 				memset(&iext, 0, sizeof(iext));
 				memset(&insn, 0, sizeof(insn));
@@ -2297,7 +2213,8 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 			}
 
 			decoder->ip = ip + bce.isize;
-			break;
+
+			return 0;
 		}
 
 		fallthrough;
@@ -2360,7 +2277,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		     (insn.iclass == ptic_call)) ||
 		    (decoder->flags.variant.block.end_on_jump &&
 		     (insn.iclass == ptic_jump)))
-			break;
+			return 0;
 
 		/* If we can proceed without trace and we stay in @msec we may
 		 * proceed further.
@@ -2368,7 +2285,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		 * We're done if we switch sections, though.
 		 */
 		if (!pt_blk_is_in_section(msec, decoder->ip))
-			break;
+			return 0;
 
 		return pt_blk_proceed_no_event_cached(decoder, block, bcache,
 						      msec);
@@ -2411,53 +2328,34 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		if (status < 0)
 			return status;
 
-		status = pt_blk_indirect_branch(decoder, &decoder->ip);
-		if (status < 0)
-			return status;
-
-		/* Preserve the query decoder's response which indicates
-		 * upcoming events.
-		 */
-		decoder->status = status;
-		break;
+		return pt_blk_proceed_indirect(decoder);
 	}
 
 	case ptbq_return: {
-		int taken;
+		int tnt;
 
 		/* We're at a near return. */
 		block->iclass = ptic_return;
 
-		/* Check for a compressed return. */
-		status = pt_blk_cond_branch(decoder, &taken);
-		if (status < 0) {
-			if (status != -pte_bad_query)
-				return status;
-
-			/* The return is not compressed.  We need another query
-			 * to determine the destination IP.
+		/* Check for a compressed return.
+		 *
+		 * It is indicated by a taken conditional branch.
+		 */
+		tnt = pt_blk_cond_branch(decoder);
+		if (tnt <= 0) {
+			/* If we do not have a TNT bit, the return is not
+			 * compressed.
+			 *
+			 * We need another query to determine the destination.
 			 */
-			status = pt_blk_indirect_branch(decoder, &decoder->ip);
-			if (status < 0)
-				return status;
+			if (tnt == -pte_bad_query)
+				return pt_blk_proceed_indirect(decoder);
 
-			/* Preserve the query decoder's response which indicates
-			 * upcoming events.
-			 */
-			decoder->status = status;
-			break;
+			if (!tnt)
+				tnt = -pte_bad_retcomp;
+
+			return tnt;
 		}
-
-		/* Preserve the query decoder's response which indicates
-		 * upcoming events.
-		 */
-		decoder->status = status;
-
-		/* A compressed return is indicated by a taken conditional
-		 * branch.
-		 */
-		if (!taken)
-			return -pte_bad_retcomp;
 
 		return pt_retstack_pop(&decoder->retstack, &decoder->ip);
 	}
@@ -2477,18 +2375,10 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		 *
 		 * Just query the destination IP.
 		 */
-		status = pt_blk_indirect_branch(decoder, &decoder->ip);
-		if (status < 0)
-			return status;
-
-		/* Preserve the query decoder's response which indicates
-		 * upcoming events.
-		 */
-		decoder->status = status;
-		break;
+		return pt_blk_proceed_indirect(decoder);
 	}
 
-	return 0;
+	return -pte_internal;
 }
 
 static int pt_blk_msec_fill(struct pt_block_decoder *decoder,
@@ -2601,31 +2491,68 @@ static int pt_blk_proceed_no_event(struct pt_block_decoder *decoder,
 static int pt_blk_proceed(struct pt_block_decoder *decoder,
 			  struct pt_block *block)
 {
+	const struct pt_event *ev;
 	int status;
 
-	status = pt_blk_fetch_event(decoder);
-	if (status != 0) {
+	if (!decoder)
+		return -pte_internal;
+
+	/* Report deferred event decode errors. */
+	status = decoder->status;
+	if (status < 0) {
+		if (status != -pte_eos)
+			return status;
+
+		/* If we ran out of trace, we still allow the user to proceed
+		 * until we actually need trace.  We indicate the upcoming end
+		 * of the trace on each pt_blk_next() or pt_blk_event() call.
+		 *
+		 * This allows the user to stitch traces from adjacent PSB
+		 * segments together.
+		 *
+		 * We do need tracing to be enabled, though.
+		 */
+		if (!decoder->enabled)
+			return -pte_eos;
+
+		status = pt_blk_proceed_no_event(decoder, block);
 		if (status < 0)
 			return status;
 
-		return pt_blk_proceed_event(decoder, block);
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0)
+			return status;
+
+		return pts_eos;
 	}
 
-	/* If tracing is disabled we should either be out of trace or we should
-	 * have taken the event flow above.
-	 */
-	if (!decoder->enabled) {
-		if (decoder->status & pts_eos)
-			return -pte_eos;
+	ev = &decoder->event;
+	switch (ev->type) {
+	default:
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status != 0) {
+			if (status < 0)
+				return status;
 
-		return -pte_no_enable;
+			return pt_blk_proceed_event(decoder, block);
+		}
+
+		fallthrough;
+	case ptev_tnt:
+	case ptev_tip:
+		/* Tracing must be enabled.
+		 *
+		 * If we ran out of trace we should have taken the above route.
+		 */
+		if (!decoder->enabled)
+			return -pte_no_enable;
+
+		status = pt_blk_proceed_no_event(decoder, block);
+		if (status < 0)
+			return status;
+
+		return pt_blk_proceed_trailing_event(decoder, block);
 	}
-
-	status = pt_blk_proceed_no_event(decoder, block);
-	if (status < 0)
-		return status;
-
-	return pt_blk_proceed_trailing_event(decoder, block);
 }
 
 enum {
@@ -2763,11 +2690,10 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 	if (!decoder)
 		return -pte_internal;
 
-	status = pt_blk_fetch_event(decoder);
-	if (status <= 0) {
-		if (status < 0)
-			return status;
-
+	/* Check if there is an event to process. */
+	status = decoder->status;
+	if (status < 0) {
+		/* Proceed past any postponed instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
 			return status;
@@ -2777,12 +2703,33 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	ev = &decoder->event;
 	switch (ev->type) {
+	case ptev_tnt:
+	case ptev_tip:
+		break;
+
+	case ptev_tick:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
 	case ptev_disabled:
 		/* Synchronous disable events are normally indicated on the
 		 * event flow.
 		 */
 		if (!decoder->process_insn)
 			break;
+
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
 
 		/* A sync disable may bind to a CR3 changing instruction. */
 		if (ev->ip_suppressed &&
@@ -2822,6 +2769,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		break;
 
 	case ptev_enabled:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2831,6 +2787,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	case ptev_async_disabled: {
 		const struct pt_config *config;
+
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
 
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
@@ -2863,6 +2828,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 	}
 
 	case ptev_async_branch:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2874,6 +2848,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_paging:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* We apply the event immediately if we're not tracing. */
 		if (!decoder->enabled)
 			return pt_blk_status(decoder, pts_event_pending);
@@ -2902,6 +2885,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_paging:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2914,6 +2906,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_vmcs:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* We apply the event immediately if we're not tracing. */
 		if (!decoder->enabled)
 			return pt_blk_status(decoder, pts_event_pending);
@@ -2942,6 +2943,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_vmcs:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2954,6 +2964,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_overflow:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2962,6 +2981,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_exec_mode:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2974,6 +3002,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_tsx:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2990,6 +3027,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_stop:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2998,6 +3044,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_exstop:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3010,6 +3065,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_mwait:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3023,6 +3087,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	case ptev_pwre:
 	case ptev_pwrx:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3031,6 +3104,15 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_ptwrite:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* We apply the event immediately if we're not tracing. */
 		if (!decoder->enabled)
 			return pt_blk_status(decoder, pts_event_pending);
@@ -3058,19 +3140,23 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 		return pt_blk_status(decoder, pts_event_pending);
 
-	case ptev_tick:
 	case ptev_cbr:
 	case ptev_mnt:
+		/* Defer the event until we consumed all TNT bits. */
+		status = pt_tnt_cache_is_empty(&decoder->tnt);
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
 			return status;
 
 		return pt_blk_status(decoder, pts_event_pending);
-
-	case ptev_tip:
-	case ptev_tnt:
-		return -pte_internal;
 	}
 
 	/* No further events.  Proceed past any postponed instruction. */
@@ -3133,7 +3219,6 @@ static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
 		if (!decoder->enabled)
 			return -pte_bad_status_update;
 
-		decoder->process_event = 0;
 		return 0;
 	}
 
@@ -3147,7 +3232,6 @@ static int pt_blk_process_enabled(struct pt_block_decoder *decoder,
 
 	decoder->ip = ev->variant.enabled.ip;
 	decoder->enabled = 1;
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3167,7 +3251,6 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 		if (decoder->enabled)
 			return -pte_bad_status_update;
 
-		decoder->process_event = 0;
 		return 0;
 	}
 
@@ -3180,7 +3263,6 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 	 * actually does resume from there.
 	 */
 	decoder->enabled = 0;
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3207,7 +3289,6 @@ static int pt_blk_process_async_branch(struct pt_block_decoder *decoder,
 	 * next iteration.
 	 */
 	decoder->ip = ev->variant.async_branch.to;
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3234,8 +3315,6 @@ static int pt_blk_process_paging(struct pt_block_decoder *decoder,
 		decoder->asid.cr3 = cr3;
 	}
 
-	decoder->process_event = 0;
-
 	return 0;
 }
 
@@ -3260,8 +3339,6 @@ static int pt_blk_process_vmcs(struct pt_block_decoder *decoder,
 
 		decoder->asid.vmcs = vmcs;
 	}
-
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3306,7 +3383,6 @@ static int pt_blk_process_overflow(struct pt_block_decoder *decoder,
 	 * instruction.
 	 */
 	decoder->speculative = 0;
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3330,7 +3406,6 @@ static int pt_blk_process_exec_mode(struct pt_block_decoder *decoder,
 		return -pte_bad_status_update;
 
 	decoder->mode = mode;
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3346,7 +3421,6 @@ static int pt_blk_process_tsx(struct pt_block_decoder *decoder,
 		return -pte_internal;
 
 	decoder->speculative = ev->variant.tsx.speculative;
-	decoder->process_event = 0;
 
 	return 0;
 }
@@ -3369,7 +3443,20 @@ static int pt_blk_process_stop(struct pt_block_decoder *decoder,
 	if (decoder->enabled)
 		return -pte_bad_context;
 
-	decoder->process_event = 0;
+	return 0;
+}
+
+/* Process a cbr event.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_process_cbr(struct pt_block_decoder *decoder,
+			      const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	decoder->cbr = ev->variant.cbr.ratio;
 
 	return 0;
 }
@@ -3378,14 +3465,15 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		 size_t size)
 {
 	struct pt_event *ev;
-	int status;
+	int errcode;
 
 	if (!decoder || !uevent)
 		return -pte_invalid;
 
-	/* We must currently process an event. */
-	if (!decoder->process_event)
-		return -pte_bad_query;
+	/* Report any deferred event decode errors. */
+	errcode = decoder->status;
+	if (errcode < 0)
+		return errcode;
 
 	ev = &decoder->event;
 	switch (ev->type) {
@@ -3397,9 +3485,9 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (ev->variant.enabled.ip == decoder->ip)
 			ev->variant.enabled.resumed = 1;
 
-		status = pt_blk_process_enabled(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_enabled(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3410,9 +3498,9 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		fallthrough;
 	case ptev_disabled:
 
-		status = pt_blk_process_disabled(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_disabled(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3420,9 +3508,9 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (decoder->ip != ev->variant.async_branch.from)
 			return -pte_bad_query;
 
-		status = pt_blk_process_async_branch(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_async_branch(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3433,9 +3521,9 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 		fallthrough;
 	case ptev_paging:
-		status = pt_blk_process_paging(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_paging(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3446,16 +3534,16 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 		fallthrough;
 	case ptev_vmcs:
-		status = pt_blk_process_vmcs(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_vmcs(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
 	case ptev_overflow:
-		status = pt_blk_process_overflow(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_overflow(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3464,9 +3552,9 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.exec_mode.ip)
 			return -pte_bad_query;
 
-		status = pt_blk_process_exec_mode(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_exec_mode(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3474,16 +3562,16 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		if (!ev->ip_suppressed && decoder->ip != ev->variant.tsx.ip)
 			return -pte_bad_query;
 
-		status = pt_blk_process_tsx(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_tsx(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
 	case ptev_stop:
-		status = pt_blk_process_stop(decoder, ev);
-		if (status < 0)
-			return status;
+		errcode = pt_blk_process_stop(decoder, ev);
+		if (errcode < 0)
+			return errcode;
 
 		break;
 
@@ -3492,7 +3580,6 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.exstop.ip)
 			return -pte_bad_query;
 
-		decoder->process_event = 0;
 		break;
 
 	case ptev_mwait:
@@ -3500,21 +3587,25 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.mwait.ip)
 			return -pte_bad_query;
 
-		decoder->process_event = 0;
 		break;
 
 	case ptev_pwre:
 	case ptev_pwrx:
 	case ptev_ptwrite:
 	case ptev_tick:
-	case ptev_cbr:
 	case ptev_mnt:
-		decoder->process_event = 0;
+		break;
+
+	case ptev_cbr:
+		errcode = pt_blk_process_cbr(decoder, ev);
+		if (errcode < 0)
+			return errcode;
+
 		break;
 
 	case ptev_tip:
 	case ptev_tnt:
-		return -pte_internal;
+		return -pte_bad_query;
 	}
 
 	/* Copy the event to the user.  Make sure we're not writing beyond the
@@ -3527,6 +3618,11 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		size = sizeof(*ev);
 
 	memcpy(uevent, ev, size);
+
+	/* Fetch the next event. */
+	errcode = pt_blk_fetch_event(decoder);
+	if (errcode < 0)
+		return errcode;
 
 	/* Indicate further events. */
 	return pt_blk_proceed_trailing_event(decoder, NULL);
