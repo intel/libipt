@@ -29,6 +29,8 @@ Optional Contents and Samples
 
   ptxed         Example implementation of a trace disassembler
 
+  ptseg         A simple tool to find surrounding PSB packets
+
   pttc          A trace test generator
 
   ptunit        A simple unit test system
