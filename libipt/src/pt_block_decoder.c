@@ -69,23 +69,14 @@ static int pt_blk_fetch_event(struct pt_block_decoder *decoder)
 
 static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
 {
-	int status;
-
 	if (!decoder)
 		return -pte_internal;
 
 	if (!decoder->enabled)
 		flags |= pts_ip_suppressed;
 
-	if (decoder->status == -pte_eos) {
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status != 0) {
-			if (status < 0)
-				return status;
-
-			flags |= pts_eos;
-		}
-	}
+	if (decoder->status == -pte_eos)
+		flags |= pts_eos;
 
 	return flags;
 }
@@ -111,7 +102,6 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->bound_ptwrite = 0;
 
 	memset(&decoder->event, 0xff, sizeof(decoder->event));
-	pt_tnt_cache_init(&decoder->tnt);
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
 }
@@ -240,43 +230,61 @@ static int pt_blk_tick(struct pt_block_decoder *decoder, uint64_t ip)
 static int pt_blk_proceed_indirect(struct pt_block_decoder *decoder)
 {
 	struct pt_event *ev;
-	uint64_t ip;
-	int errcode;
 
 	if (!decoder)
 		return -pte_internal;
 
 	ev = &decoder->event;
-	if (ev->type != ptev_tip) {
-		/* Fill our TNT cache if we have a TNT event. */
-		if (ev->type != ptev_tnt)
-			return -pte_bad_query;
+	switch (ev->type) {
+	case ptev_tip: {
+		uint64_t ip;
 
-		errcode = pt_tnt_cache_add(&decoder->tnt,
-					   ev->variant.tnt.bits,
-					   ev->variant.tnt.size);
-		if (errcode < 0)
-			return errcode;
+		if (ev->ip_suppressed)
+			return -pte_bad_packet;
 
-		errcode = pt_evt_next(&decoder->evdec, ev, sizeof(*ev));
-		if (errcode < 0) {
-			decoder->status = errcode;
-			memset(ev, 0xff, sizeof(*ev));
+		ip = decoder->ip;
+		decoder->ip = ev->variant.tip.ip;
 
-			return errcode;
-		}
-
-		if (ev->type != ptev_tip)
-			return -pte_bad_query;
+		return pt_blk_tick(decoder, ip);
 	}
 
-	if (ev->ip_suppressed)
-		return -pte_bad_packet;
+	case ptev_tnt: {
+		struct pt_event_decoder evdec;
+		struct pt_event tnt;
+		int errcode;
 
-	ip = decoder->ip;
-	decoder->ip = ev->variant.tip.ip;
+		/* Deferred TIP may hide a TIP behind an in-progress TNT.
+		 *
+		 * We read ahead to get to the TIP and then re-install the
+		 * in-progress TNT again.
+		 *
+		 * Back up the event decode state in case this isn't a deferred
+		 * TIP after all.
+		 */
+		evdec = decoder->evdec;
+		tnt = *ev;
 
-	return pt_blk_tick(decoder, ip);
+		errcode = pt_evt_next(&decoder->evdec, ev, sizeof(*ev));
+		if ((errcode < 0) || (ev->type != ptev_tip)) {
+			decoder->evdec = evdec;
+			*ev = tnt;
+
+			return -pte_bad_query;
+		}
+
+		decoder->ip = ev->variant.tip.ip;
+
+		/* We can't generate tick events for this TIP since we have to
+		 * restore the in-progress TNT.
+		 */
+		*ev = tnt;
+
+		return 0;
+	}
+
+	default:
+		return -pte_bad_query;
+	}
 }
 
 /* Handle a conditional branch.
@@ -287,44 +295,27 @@ static int pt_blk_proceed_indirect(struct pt_block_decoder *decoder)
  */
 static int pt_blk_cond_branch(struct pt_block_decoder *decoder)
 {
-	const struct pt_event *ev;
-	int errcode, tnt;
+	struct pt_event *ev;
+	uint8_t size;
 
 	if (!decoder)
 		return -pte_internal;
 
-	tnt = pt_tnt_cache_query(&decoder->tnt);
-	if (tnt < 0) {
-		if (tnt != -pte_bad_query)
-			return tnt;
+	ev = &decoder->event;
+	if (ev->type != ptev_tnt)
+		return -pte_bad_query;
 
-		/* Report any deferred event decode errors.
-		 *
-		 * We deferred them until we consumed the last TNT bit in our
-		 * cache.
-		 */
-		errcode = decoder->status;
-		if (errcode < 0)
-			return errcode;
+	size = ev->variant.tnt.size;
+	if (!size)
+		return -pte_internal;
 
-		ev = &decoder->event;
-		if (ev->type != ptev_tnt)
-			return -pte_bad_query;
+	size -= 1;
+	ev->variant.tnt.size = size;
 
-		errcode = pt_tnt_cache_add(&decoder->tnt,
-					   ev->variant.tnt.bits,
-					   ev->variant.tnt.size);
-		if (errcode < 0)
-			return errcode;
-
-		errcode = pt_blk_tick(decoder, decoder->ip);
-		if (errcode < 0)
-			return errcode;
-
-		return pt_tnt_cache_query(&decoder->tnt);
-	}
-
-	return tnt;
+	/* We postpone fetching the next event when size becomes zero to
+	 * support tick events on one-bit TNT events.
+	 */
+	return (int) ((ev->variant.tnt.bits >> size) & 1);
 }
 
 static int pt_blk_start(struct pt_block_decoder *decoder)
@@ -2519,25 +2510,11 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 		if (status < 0)
 			return status;
 
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0)
-			return status;
-
 		return pts_eos;
 	}
 
 	ev = &decoder->event;
 	switch (ev->type) {
-	default:
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status != 0) {
-			if (status < 0)
-				return status;
-
-			return pt_blk_proceed_event(decoder, block);
-		}
-
-		fallthrough;
 	case ptev_tnt:
 	case ptev_tip:
 		/* Tracing must be enabled.
@@ -2552,6 +2529,9 @@ static int pt_blk_proceed(struct pt_block_decoder *decoder,
 			return status;
 
 		return pt_blk_proceed_trailing_event(decoder, block);
+
+	default:
+		return pt_blk_proceed_event(decoder, block);
 	}
 }
 
@@ -2704,6 +2684,48 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 	ev = &decoder->event;
 	switch (ev->type) {
 	case ptev_tnt:
+		/* Synthesize a tick event on the first used TNT bit.
+		 *
+		 * We do not actually need to track whether this is the first
+		 * or any other bit in the current TNT event.  On the second
+		 * bit, the decoder's TSC will already match the event's.
+		 *
+		 * This also covers TNT events that did not get their own
+		 * timestamp, e.g. due to non-zero CYC threshold.  They will
+		 * not receive a separate tick event.
+		 */
+
+		/* We only generate tick events on request, during normal
+		 * processing, and only once.
+		 */
+		if (!decoder->flags.variant.block.enable_tick_events ||
+		    !block ||
+		    (!ev->has_tsc || (ev->tsc == decoder->tsc))) {
+			/* We're done if this TNT event is still in use. */
+			if (ev->variant.tnt.size)
+				break;
+
+			/* We postponed fetching the next event when we used up
+			 * all the TNT bits to also cover 1-bit TNT events.
+			 *
+			 * Fetch it now that we decided to not generate a tick
+			 * event.
+			 */
+			status = pt_blk_fetch_event(decoder);
+			if (status < 0)
+				return status;
+
+			/* This may expose new trailing events. */
+			return pt_blk_proceed_trailing_event(decoder, block);
+		}
+
+		/* Postpone the tick event if we had to break the block. */
+		if ((block->iclass != ptic_cond_jump) &&
+		    (block->iclass != ptic_return))
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
 	case ptev_tip:
 		break;
 
@@ -2721,15 +2743,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		 */
 		if (!decoder->process_insn)
 			break;
-
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
 
 		/* A sync disable may bind to a CR3 changing instruction. */
 		if (ev->ip_suppressed &&
@@ -2769,15 +2782,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		break;
 
 	case ptev_enabled:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2787,15 +2791,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	case ptev_async_disabled: {
 		const struct pt_config *config;
-
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
 
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
@@ -2828,15 +2823,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 	}
 
 	case ptev_async_branch:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2848,15 +2834,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_paging:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* We apply the event immediately if we're not tracing. */
 		if (!decoder->enabled)
 			return pt_blk_status(decoder, pts_event_pending);
@@ -2885,15 +2862,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_paging:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2906,15 +2874,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_vmcs:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* We apply the event immediately if we're not tracing. */
 		if (!decoder->enabled)
 			return pt_blk_status(decoder, pts_event_pending);
@@ -2943,15 +2902,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_async_vmcs:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2964,15 +2914,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_overflow:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -2981,15 +2922,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_exec_mode:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3002,15 +2934,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_tsx:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3027,15 +2950,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_stop:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3044,15 +2958,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_exstop:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3065,15 +2970,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_mwait:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3087,15 +2983,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	case ptev_pwre:
 	case ptev_pwrx:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3104,15 +2991,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		return pt_blk_status(decoder, pts_event_pending);
 
 	case ptev_ptwrite:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* We apply the event immediately if we're not tracing. */
 		if (!decoder->enabled)
 			return pt_blk_status(decoder, pts_event_pending);
@@ -3142,15 +3020,6 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 
 	case ptev_cbr:
 	case ptev_mnt:
-		/* Defer the event until we consumed all TNT bits. */
-		status = pt_tnt_cache_is_empty(&decoder->tnt);
-		if (status <= 0) {
-			if (status < 0)
-				return status;
-
-			break;
-		}
-
 		/* This event does not bind to an instruction. */
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
@@ -3475,8 +3344,58 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	if (errcode < 0)
 		return errcode;
 
+	/* Make sure we're not writing beyond the memory provided by the user.
+	 *
+	 * We might truncate details of an event but only for those events the
+	 * user can't know about, anyway.
+	 */
+	if (sizeof(*ev) < size)
+		size = sizeof(*ev);
+
 	ev = &decoder->event;
 	switch (ev->type) {
+	case ptev_tnt: {
+		/* Synthesize a tick event on the first used TNT bit. */
+		struct pt_event tick;
+
+		if (!decoder->flags.variant.block.enable_tick_events)
+			return -pte_bad_query;
+
+		if (!ev->has_tsc || (ev->tsc == decoder->tsc))
+			return -pte_bad_query;
+
+		memset(&tick, 0, sizeof(tick));
+		tick.type = ptev_tick;
+		tick.has_tsc = 1;
+		tick.tsc = ev->tsc;
+		tick.lost_mtc = ev->lost_mtc;
+		tick.lost_cyc = ev->lost_cyc;
+		tick.variant.tick.ip = decoder->ip;
+
+		/* We normally update the decoder's TSC when fetching the next
+		 * event.  In this case, however, we use the timestamp to
+		 * ensure we send at most one tick event per TNT.  Unlike other
+		 * events, the TNT event remains active.
+		 */
+		decoder->has_tsc = 1;
+		decoder->tsc = tick.tsc;
+		decoder->lost_mtc = tick.lost_mtc;
+		decoder->lost_cyc = tick.lost_cyc;
+
+		/* Copy the event to the user. */
+		memcpy(uevent, &tick, size);
+
+		/* Only fetch the  next event if we used up all TNT bits. */
+		if (!ev->variant.tnt.size) {
+			errcode = pt_blk_fetch_event(decoder);
+			if (errcode < 0)
+				return errcode;
+		}
+
+		/* Indicate further events. */
+		return pt_blk_proceed_trailing_event(decoder, NULL);
+	}
+
 	case ptev_enabled:
 		/* Indicate that tracing resumes from the IP at which tracing
 		 * had been disabled before (with some special treatment for
@@ -3604,19 +3523,10 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_tip:
-	case ptev_tnt:
 		return -pte_bad_query;
 	}
 
-	/* Copy the event to the user.  Make sure we're not writing beyond the
-	 * memory provided by the user.
-	 *
-	 * We might truncate details of an event but only for those events the
-	 * user can't know about, anyway.
-	 */
-	if (sizeof(*ev) < size)
-		size = sizeof(*ev);
-
+	/* Copy the event to the user. */
 	memcpy(uevent, ev, size);
 
 	/* Fetch the next event. */

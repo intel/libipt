@@ -30,7 +30,6 @@
 #define PT_BLOCK_DECODER_H
 
 #include "pt_event_decoder.h"
-#include "pt_tnt_cache.h"
 #include "pt_image.h"
 #include "pt_retstack.h"
 #include "pt_ild.h"
@@ -53,9 +52,6 @@ struct pt_block_decoder {
 	 * the flags we need for the query decoder.
 	 */
 	struct pt_conf_flags flags;
-
-	/* The cached tnt indicators. */
-	struct pt_tnt_cache tnt;
 
 	/* The default image. */
 	struct pt_image default_image;
