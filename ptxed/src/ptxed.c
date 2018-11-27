@@ -660,7 +660,6 @@ static void check_insn_iclass(const xed_inst_t *inst,
 		case XED_CATEGORY_CALL:
 		case XED_CATEGORY_RET:
 		case XED_CATEGORY_UNCOND_BR:
-		case XED_CATEGORY_INTERRUPT:
 		case XED_CATEGORY_SYSCALL:
 		case XED_CATEGORY_SYSRET:
 			break;
@@ -669,6 +668,16 @@ static void check_insn_iclass(const xed_inst_t *inst,
 			switch (iclass) {
 			case XED_ICLASS_XBEGIN:
 			case XED_ICLASS_XEND:
+				return;
+
+			default:
+				break;
+			}
+			break;
+
+		case XED_CATEGORY_INTERRUPT:
+			switch (iclass) {
+			case XED_ICLASS_BOUND:
 				return;
 
 			default:
