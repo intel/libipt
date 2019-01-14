@@ -43,12 +43,16 @@ static char *dupstr(const char *str)
 	if (!str)
 		return NULL;
 
-	len = strlen(str);
+	/* Silently truncate the name if it gets too big. */
+	len = strnlen(str, 4096ul);
+
 	dup = malloc(len + 1);
 	if (!dup)
 		return NULL;
 
-	return strcpy(dup, str);
+	dup[len] = 0;
+
+	return memcpy(dup, str, len);
 }
 
 static struct pt_section_list *pt_mk_section_list(struct pt_section *section,

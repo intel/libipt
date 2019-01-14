@@ -42,12 +42,16 @@ static char *dupstr(const char *str)
 	if (!str)
 		return NULL;
 
-	len = strlen(str);
+	/* Silently truncate the name if it gets too big. */
+	len = strnlen(str, 4096ul);
+
 	dup = malloc(len + 1);
 	if (!dup)
 		return NULL;
 
-	return strcpy(dup, str);
+	dup[len] = 0;
+
+	return memcpy(dup, str, len);
 }
 
 int pt_iscache_init(struct pt_image_section_cache *iscache, const char *name)
