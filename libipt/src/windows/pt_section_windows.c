@@ -47,14 +47,14 @@ static int pt_sec_windows_fstat(const char *filename, struct _stat *stat)
 
 	fd = _open(filename, _O_RDONLY);
 	if (fd == -1)
-		return -pte_bad_image;
+		return -pte_bad_file;
 
 	errcode = _fstat(fd, stat);
 
 	_close(fd);
 
 	if (errcode)
-		return -pte_bad_image;
+		return -pte_bad_file;
 
 	return 0;
 }
@@ -98,7 +98,7 @@ static int check_file_status(struct pt_section *section, int fd)
 
 	errcode = _fstat(fd, &stat);
 	if (errcode)
-		return -pte_bad_image;
+		return -pte_bad_file;
 
 	status = section->status;
 	if (!status)
@@ -269,22 +269,20 @@ int pt_section_map(struct pt_section *section)
 				 NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
 				 NULL);
 		if (fh == INVALID_HANDLE_VALUE) {
-			errcode = -pte_bad_image;
+			errcode = -pte_bad_file;
 			goto out_unlock;
 		}
 	}
 
 	fd = _open_osfhandle((intptr_t) fh, _O_RDONLY);
 	if (fd == -1) {
-		errcode = -pte_bad_image;
+		errcode = -pte_bad_file;
 		goto out_fh;
 	}
 
 	errcode = check_file_status(section, fd);
-	if (errcode < 0) {
-		errcode = -pte_bad_image;
+	if (errcode < 0)
 		goto out_fd;
-	}
 
 	/* We leave the file open on success.  It will be closed when the
 	 * section is unmapped.
@@ -298,7 +296,7 @@ int pt_section_map(struct pt_section *section)
 	 */
 	file = _fdopen(fd, "rb");
 	if (!file) {
-		errcode = -pte_bad_image;
+		errcode = -pte_bad_file;
 		goto out_fd;
 	}
 
