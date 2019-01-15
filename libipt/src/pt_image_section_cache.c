@@ -979,9 +979,10 @@ int pt_iscache_add_file(struct pt_image_section_cache *iscache,
 		if (errcode < 0)
 			return errcode;
 
-		section = pt_mk_section(filename, offset, size);
-		if (!section)
-			return -pte_invalid;
+		section = NULL;
+		errcode = pt_mk_section(&section, filename, offset, size);
+		if (errcode < 0)
+			return errcode;
 	}
 
 	/* We unlocked @iscache and hold a reference to @section. */

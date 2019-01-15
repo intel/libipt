@@ -53,21 +53,26 @@ static char *dupstr(const char *str)
 	return strcpy(dup, str);
 }
 
-struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
-				 uint64_t size)
+int pt_mk_section(struct pt_section **psection, const char *filename,
+		  uint64_t offset, uint64_t size)
 {
 	struct pt_section *section;
 	uint64_t fsize;
 	void *status;
 	int errcode;
 
+	if (!psection)
+		return -pte_internal;
+
 	errcode = pt_section_mk_status(&status, &fsize, filename);
 	if (errcode < 0)
-		return NULL;
+		return errcode;
 
 	/* Fail if the requested @offset lies beyond the end of @file. */
-	if (fsize <= offset)
+	if (fsize <= offset) {
+		errcode = -pte_invalid;
 		goto out_status;
+	}
 
 	/* Truncate @size so the entire range lies within @file. */
 	fsize -= offset;
@@ -75,8 +80,10 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 		size = fsize;
 
 	section = malloc(sizeof(*section));
-	if (!section)
+	if (!section) {
+		errcode = -pte_nomem;
 		goto out_status;
+	}
 
 	memset(section, 0, sizeof(*section));
 
@@ -92,6 +99,8 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 	if (errcode != thrd_success) {
 		free(section->filename);
 		free(section);
+
+		errcode = -pte_bad_lock;
 		goto out_status;
 	}
 
@@ -100,16 +109,19 @@ struct pt_section *pt_mk_section(const char *filename, uint64_t offset,
 		mtx_destroy(&section->lock);
 		free(section->filename);
 		free(section);
+
+		errcode = -pte_bad_lock;
 		goto out_status;
 	}
 
 #endif /* defined(FEATURE_THREADS) */
 
-	return section;
+	*psection = section;
+	return 0;
 
 out_status:
 	free(status);
-	return NULL;
+	return errcode;
 }
 
 int pt_section_lock(struct pt_section *section)

@@ -162,10 +162,14 @@ struct pt_section {
  * The returned section is not mapped and starts with a user count of one and
  * instruction caching enabled.
  *
- * Returns a new section on success, NULL otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
+ * Returns -pte_internal if @psection is NULL.
+ * Returns -pte_nomem when running out of memory.
+ * Returns -pte_bad_file if @filename cannot be opened.
+ * Returns -pte_invalid if @offset lies beyond @file.
  */
-extern struct pt_section *pt_mk_section(const char *file, uint64_t offset,
-					uint64_t size);
+extern int pt_mk_section(struct pt_section **psection, const char *filename,
+			 uint64_t offset, uint64_t size);
 
 /* Lock a section.
  *

@@ -319,9 +319,10 @@ int pt_image_add_file(struct pt_image *image, const char *filename,
 	if (errcode < 0)
 		return errcode;
 
-	section = pt_mk_section(filename, offset, size);
-	if (!section)
-		return -pte_invalid;
+	section = NULL;
+	errcode = pt_mk_section(&section, filename, offset, size);
+	if (errcode < 0)
+		return errcode;
 
 	errcode = pt_image_add(image, section, &asid, vaddr, 0);
 	if (errcode < 0) {
