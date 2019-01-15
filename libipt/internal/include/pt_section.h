@@ -167,6 +167,7 @@ struct pt_section {
  * Returns -pte_nomem when running out of memory.
  * Returns -pte_bad_file if @filename cannot be opened.
  * Returns -pte_invalid if @offset lies beyond @file.
+ * Returns -pte_invalid if @filename is too long.
  */
 extern int pt_mk_section(struct pt_section **psection, const char *filename,
 			 uint64_t offset, uint64_t size);

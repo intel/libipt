@@ -37,36 +37,34 @@
 #include <string.h>
 
 
-static char *dupstr(const char *str)
-{
-	char *dup;
-	size_t len;
-
-	if (!str)
-		return NULL;
-
-	len = strlen(str);
-	dup = malloc(len + 1);
-	if (!dup)
-		return NULL;
-
-	return strcpy(dup, str);
-}
-
 int pt_mk_section(struct pt_section **psection, const char *filename,
 		  uint64_t offset, uint64_t size)
 {
 	struct pt_section *section;
 	uint64_t fsize;
+	size_t flen;
 	void *status;
+	char *fname;
 	int errcode;
 
 	if (!psection)
 		return -pte_internal;
 
-	errcode = pt_section_mk_status(&status, &fsize, filename);
+	flen = strnlen(filename, FILENAME_MAX);
+	if (FILENAME_MAX <= flen)
+		return -pte_invalid;
+
+	flen += 1;
+
+	fname = malloc(flen);
+	if (!fname)
+		return -pte_nomem;
+
+	memcpy(fname, filename, flen);
+
+	errcode = pt_section_mk_status(&status, &fsize, fname);
 	if (errcode < 0)
-		return errcode;
+		goto out_fname;
 
 	/* Fail if the requested @offset lies beyond the end of @file. */
 	if (fsize <= offset) {
@@ -87,7 +85,7 @@ int pt_mk_section(struct pt_section **psection, const char *filename,
 
 	memset(section, 0, sizeof(*section));
 
-	section->filename = dupstr(filename);
+	section->filename = fname;
 	section->status = status;
 	section->offset = offset;
 	section->size = size;
@@ -97,7 +95,6 @@ int pt_mk_section(struct pt_section **psection, const char *filename,
 
 	errcode = mtx_init(&section->lock, mtx_plain);
 	if (errcode != thrd_success) {
-		free(section->filename);
 		free(section);
 
 		errcode = -pte_bad_lock;
@@ -107,7 +104,6 @@ int pt_mk_section(struct pt_section **psection, const char *filename,
 	errcode = mtx_init(&section->alock, mtx_plain);
 	if (errcode != thrd_success) {
 		mtx_destroy(&section->lock);
-		free(section->filename);
 		free(section);
 
 		errcode = -pte_bad_lock;
@@ -121,6 +117,9 @@ int pt_mk_section(struct pt_section **psection, const char *filename,
 
 out_status:
 	free(status);
+
+out_fname:
+	free(fname);
 	return errcode;
 }
 
