@@ -478,7 +478,11 @@ int pev_write(const struct pev_event *event, uint8_t *begin, uint8_t *end,
 	case PERF_RECORD_MMAP: {
 		size_t slen, gap;
 
-		slen = strlen(event->record.mmap->filename) + 1;
+		slen = strnlen(event->record.mmap->filename, UINT16_MAX);
+		if (UINT16_MAX <= slen)
+			return -pte_eos;
+
+		slen += 1;
 		gap = ((slen + 7u) & ~7u) - slen;
 
 		size += sizeof(*event->record.mmap) + slen + gap;
@@ -512,7 +516,11 @@ int pev_write(const struct pev_event *event, uint8_t *begin, uint8_t *end,
 	case PERF_RECORD_COMM: {
 		size_t slen, gap;
 
-		slen = strlen(event->record.comm->comm) + 1;
+		slen = strnlen(event->record.comm->comm, UINT16_MAX);
+		if (UINT16_MAX <= slen)
+			return -pte_eos;
+
+		slen += 1;
 		gap = ((slen + 7u) & ~7u) - slen;
 
 		size += sizeof(*event->record.comm) + slen + gap;
@@ -574,7 +582,11 @@ int pev_write(const struct pev_event *event, uint8_t *begin, uint8_t *end,
 	case PERF_RECORD_MMAP2: {
 		size_t slen, gap;
 
-		slen = strlen(event->record.mmap2->filename) + 1;
+		slen = strnlen(event->record.mmap2->filename, UINT16_MAX);
+		if (UINT16_MAX <= slen)
+			return -pte_eos;
+
+		slen += 1;
 		gap = ((slen + 7u) & ~7u) - slen;
 
 		size += sizeof(*event->record.mmap2) + slen + gap;
