@@ -258,7 +258,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 		return -err_no_org_directive;
 
 	for (i = 0; i < t->n; i++) {
-		char *tmp, *name;
+		char *tmp;
 		uint64_t addr;
 
 		errcode = text_line(t, line, linelen, i);
@@ -325,11 +325,6 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 				goto error;
 			continue;
 		}
-		name = duplicate_str(tmp);
-		if (!name) {
-			errcode = -err_no_mem;
-			goto error;
-		}
 
 		/* there was a label so now an address needs to
 		 * be found.
@@ -353,13 +348,13 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 					break;
 				}
 
-				errcode = l_append(l, name, laddr);
+				errcode = l_append(l, tmp, laddr);
 				break;
 			}
 		}
 		if (errcode == -err_label_addr)
-			fprintf(stderr, "label '%s' has no address\n", name);
-		free(name);
+			fprintf(stderr, "label '%s' has no address\n", tmp);
+
 		if (errcode < 0)
 			goto error;
 	}
