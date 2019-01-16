@@ -41,7 +41,7 @@ int run(const char *file, char *const argv[])
 	int errcode;
 
 	int i;
-	size_t size;
+	size_t size, len;
 	char *args;
 
 	STARTUPINFO si;
@@ -69,11 +69,18 @@ int run(const char *file, char *const argv[])
 	 * all arguments, plus two quotation marks (to make it quoted strings
 	 * and allow for spaces in file/path names), plus a space after each
 	 * arguments as delimiter (after the last arguments it's a terminating
-	 * zero-byte instead of the space).	 *
+	 * zero-byte instead of the space).
 	 */
 	size = 0;
-	for (i = 0; argv[i]; ++i)
-		size += strlen(argv[i]) + 3;
+	for (i = 0; argv[i]; ++i) {
+		len = strnlen(argv[i], FILENAME_MAX);
+		if (FILENAME_MAX <= len) {
+			errcode = -err_internal;
+			goto out;
+		}
+
+		size += len + 3;
+	}
 
 	/* allocate command line string */
 	args = calloc(size, 1);
@@ -85,9 +92,15 @@ int run(const char *file, char *const argv[])
 	 */
 	size = 0;
 	for (i = 0; argv[i]; ++i) {
+		len = strnlen(argv[i], FILENAME_MAX);
+		if (FILENAME_MAX <= len) {
+			errcode = -err_internal;
+			goto out;
+		}
+
 		args[size++] = '"';
-		strcpy(args + size, argv[i]);
-		size += strlen(argv[i]);
+		memcpy(args + size, argv[i], len);
+		size += len;
 		args[size++] = '"';
 		args[size++] = ' ';
 	}
