@@ -442,7 +442,7 @@ static int p_gen_expfile(struct parser *p)
 			for (i = 0; islabelchar(line[i]); i++)
 				;
 
-			if (i > 255) {
+			if (l_max <= i) {
 				errcode = -err_label_name;
 				goto error;
 			}
@@ -1158,6 +1158,7 @@ static int sb_open(struct parser *p, const char *fmt, const char *src,
 	const char *root;
 	char name[FILENAME_MAX];
 	FILE *file;
+	int errcode;
 
 	if (bug_on(!p) || bug_on(!p->y) || bug_on(!prio))
 		return -err_internal;
@@ -1196,12 +1197,13 @@ static int sb_open(struct parser *p, const char *fmt, const char *src,
 
 		memset(&sbfiles->sbfile, 0, sizeof(sbfiles->sbfile));
 
-		sbfiles->sbfile.name = duplicate_str(name);
-		if (!sbfiles->sbfile.name) {
-			yasm_print_err(p->y, "open", -err_no_mem);
+		errcode = duplicate_name(&sbfiles->sbfile.name, name,
+					 FILENAME_MAX);
+		if (errcode < 0) {
+			yasm_print_err(p->y, "open", errcode);
 			fclose(file);
 			free(sbfiles);
-			return -err_no_mem;
+			return errcode;
 		}
 
 		sbfiles->sbfile.file = file;

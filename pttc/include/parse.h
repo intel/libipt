@@ -96,6 +96,11 @@ struct sb_filelist {
 
 #endif /* defined(FEATURE_SIDEBAND) */
 
+enum {
+	/* The maximal size of a label in characters. */
+	l_max	= 256
+};
+
 /* Represents the parser.  */
 struct parser {
 	/* File pointer to the trace output file.  */

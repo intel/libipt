@@ -77,6 +77,8 @@ const char *errstr[] = {
 
 	"out of memory",
 
+	"name too long",
+
 	"internal error",
 
 	"processing stopped",

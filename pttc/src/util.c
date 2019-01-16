@@ -28,6 +28,7 @@
 
 #include "errcode.h"
 #include "util.h"
+#include "parse.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -35,17 +36,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-char *duplicate_str(const char *s)
+int duplicate_name(char **d, const char *s, size_t n)
 {
 	char *dup;
+	size_t len;
 
-	if (!s)
-		return NULL;
+	if (!d || !s)
+		return -err_internal;
 
-	dup = malloc(strlen(s)+1);
+	len = strnlen(s, n);
+	if (n <= len)
+		return -err_name_too_long;
+
+	dup = malloc(len + 1);
 	if (!dup)
-		return NULL;
-	return strcpy(dup, s);
+		return -err_no_mem;
+
+	*d = memcpy(dup, s, len);
+	dup[len] = 0;
+
+	return 0;
 }
 
 int str_to_uint64(const char *str, uint64_t *val, int base)
@@ -155,12 +165,17 @@ void l_free(struct label *l)
 int l_append(struct label *l, const char *name, uint64_t addr)
 {
 	int errcode;
+	size_t nlen;
 
 	if (bug_on(!l))
 		return -err_internal;
 
 	if (bug_on(!name))
 		return -err_internal;
+
+	nlen = strnlen(name, (size_t) l_max);
+	if ((size_t) l_max <= nlen)
+		return -err_label_name;
 
 	/* skip to the last label.  */
 	while (l->next) {
@@ -177,11 +192,9 @@ int l_append(struct label *l, const char *name, uint64_t addr)
 		return -err_no_mem;
 
 	/* save the name.  */
-	l->next->name = duplicate_str(name);
-	if (!l->next->name) {
-		errcode = -err_no_mem;
+	errcode = duplicate_name(&l->next->name, name, nlen+1);
+	if (errcode < 0)
 		goto error;
-	}
 
 	/* save the address.  */
 	l->next->addr = addr;

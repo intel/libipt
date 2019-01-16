@@ -199,11 +199,9 @@ static int fl_append(struct file_list *fl, struct text **t,
 		goto error;
 	}
 
-	fl->next->filename = duplicate_str(filename);
-	if (!fl->next->filename) {
-		errcode = -err_no_mem;
+	errcode = duplicate_name(&fl->next->filename, filename, FILENAME_MAX);
+	if (errcode < 0)
 		goto error;
-	}
 
 	errno = 0;
 	f = fopen(filename, "rb");

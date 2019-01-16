@@ -79,6 +79,8 @@ enum errcode {
 
 	err_no_mem,
 
+	err_name_too_long,
+
 	/* Used for all invalid function arguments.  */
 	err_internal,
 

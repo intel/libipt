@@ -425,6 +425,8 @@ int st_print_err(const struct state *st, const char *s, int errcode)
  */
 static int st_set_file(struct state *st, const char *filename, int inc, int n)
 {
+	int errcode;
+
 	if (bug_on(!st))
 		return -err_internal;
 
@@ -432,9 +434,10 @@ static int st_set_file(struct state *st, const char *filename, int inc, int n)
 		return -err_internal;
 
 	free(st->filename);
-	st->filename = duplicate_str(filename);
-	if (!st->filename)
-		return -err_no_mem;
+	errcode = duplicate_name(&st->filename, filename, FILENAME_MAX);
+	if (errcode < 0)
+		return errcode;
+
 	st->inc = inc;
 	st->n = n;
 	return 0;
@@ -446,10 +449,14 @@ static int st_set_file(struct state *st, const char *filename, int inc, int n)
  */
 static int st_update(struct state *st, const char *s)
 {
+	int errcode;
+
 	free(st->line);
-	st->line = duplicate_str(s);
-	if (!st->line)
-		return -err_no_mem;
+	st->line = NULL;
+
+	errcode = duplicate_name(&st->line, s, FILENAME_MAX);
+	if (errcode < 0)
+		return errcode;
 
 	st->n += st->inc;
 	return 0;
@@ -535,9 +542,9 @@ int pd_parse(struct pt_directive *pd, struct state *st)
 		return -err_internal;
 
 
-	line = duplicate_str(st->line);
-	if (!line)
-		return -err_no_mem;
+	errcode = duplicate_name(&line, st->line, FILENAME_MAX);
+	if (errcode < 0)
+		return errcode;
 
 	/* make line lower case.  */
 	for (c = line; *c; ++c)
@@ -627,6 +634,7 @@ struct yasm *yasm_alloc(const char *pttfile)
 	char *tmp;
 	size_t n;
 	struct yasm *y;
+	int errcode;
 
 	if (bug_on(!pttfile))
 		return NULL;
@@ -643,12 +651,12 @@ struct yasm *yasm_alloc(const char *pttfile)
 	if (!y->st_asm)
 		goto error;
 
-	y->fileroot = duplicate_str(pttfile);
-	if (!y->fileroot)
+	errcode = duplicate_name(&y->fileroot, pttfile, FILENAME_MAX);
+	if (errcode < 0)
 		goto error;
 
-	y->pttfile = duplicate_str(pttfile);
-	if (!y->pttfile)
+	errcode = duplicate_name(&y->pttfile, pttfile, FILENAME_MAX);
+	if (errcode < 0)
 		goto error;
 
 	tmp = strrchr(y->fileroot, '.');
