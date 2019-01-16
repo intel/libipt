@@ -44,7 +44,7 @@ struct text {
 	char **line;
 };
 
-/* Turns @s into a new text.
+/* Turns @s into a new text; @n is the length of @s excluding termination.
  *
  * On success, the returned text owns @s and @s will be freed by text_free();
  * otherwise @s will be freed by text_alloc() and NULL will be returned.
@@ -53,7 +53,7 @@ struct text {
  *
  * Returns a non-NULL text object on success; NULL otherwise.
  */
-extern struct text *text_alloc(char *s);
+extern struct text *text_alloc(char *s, size_t n);
 
 /* Deallocates @t.
  * If @t is the NULL pointer, nothing happens.

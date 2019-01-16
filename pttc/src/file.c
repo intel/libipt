@@ -35,9 +35,9 @@
 #include <string.h>
 #include <errno.h>
 
-struct text *text_alloc(char *s)
+struct text *text_alloc(char *s, size_t n)
 {
-	size_t n, i;
+	size_t i;
 	char **line;
 	struct text *t;
 
@@ -62,11 +62,8 @@ struct text *text_alloc(char *s)
 	}
 
 	t->line[0] = s;
-	if (!t->line[0])
-		goto error;
 
 	/* iterate through all chars and make \r?\n to \0.  */
-	n = strlen(t->line[0]);
 	for (i = 0; i < n; i++) {
 		if (t->line[0][i] == '\r') {
 			if (i+1 >= n) {
@@ -75,16 +72,22 @@ struct text *text_alloc(char *s)
 				break;
 			}
 			/* terminate the line string if it's a line end. */
-			if (t->line[0][i+1] == '\n')
+			if (t->line[0][i+1] == '\n') {
 				t->line[0][i] = '\0';
+				continue;
+			}
+		}
 
-		} else if (t->line[0][i] == '\n') {
+		if (t->line[0][i] == '\n') {
 			/* set newline character always to \0.  */
 			t->line[0][i] = '\0';
 			if (i+1 >= n) {
 				/* the file ends with \n.  */
 				break;
 			}
+		}
+
+		if (t->line[0][i] == '\0') {
 			/* increase line pointer buffer.  */
 			line = realloc(t->line, (t->n+1) * sizeof(*t->line));
 			if (!line)
@@ -250,7 +253,7 @@ static int fl_append(struct file_list *fl, struct text **t,
 		goto error;
 	}
 
-	*t = text_alloc(s);
+	*t = text_alloc(s, fsize);
 	if (!*t) {
 		errcode = -err_no_mem;
 		goto error;
