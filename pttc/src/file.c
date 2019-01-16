@@ -35,27 +35,33 @@
 #include <string.h>
 #include <errno.h>
 
-struct text *text_alloc(const char *s)
+struct text *text_alloc(char *s)
 {
 	size_t n, i;
 	char **line;
 	struct text *t;
 
 	t = calloc(1, sizeof(struct text));
-	if (!t)
+	if (!t) {
+		free(s);
 		return NULL;
+	}
 
 	/* If s is NULL or empty, there is nothing to do.  */
-	if (!s || *s == '\0')
+	if (!s || *s == '\0') {
+		free(s);
 		return t;
+	}
 
 	/* beginning of s is the first line.  */
 	t->n = 1;
 	t->line = calloc(1, sizeof(*t->line));
-	if (!t->line)
+	if (!t->line) {
+		free(s);
 		goto error;
+	}
 
-	t->line[0] = duplicate_str(s);
+	t->line[0] = s;
 	if (!t->line[0])
 		goto error;
 
@@ -250,7 +256,6 @@ static int fl_append(struct file_list *fl, struct text **t,
 		goto error;
 	}
 
-	free(s);
 	fl->next->text = *t;
 
 	return 0;
@@ -261,7 +266,6 @@ error:
 	/* filename is closed after reading before handling error.  */
 	fl_free(fl->next);
 	fl->next = NULL;
-	free(s);
 	text_free(*t);
 	*t = NULL;
 	return errcode;
