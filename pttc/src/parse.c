@@ -192,9 +192,11 @@ static struct parser *p_alloc(const char *pttfile, const struct pt_config *conf)
 	if (!p->y)
 		goto error;
 
-	n = strlen(p->y->fileroot) + 1;
+	n = strnlen(p->y->fileroot, FILENAME_MAX - sizeof(pt_suffix));
+	if ((FILENAME_MAX - sizeof(pt_suffix)) <= n)
+		goto error;
 
-	p->ptfilename = malloc(n + sizeof(pt_suffix) - 1);
+	p->ptfilename = malloc(n + sizeof(pt_suffix));
 	if (!p->ptfilename)
 		goto error;
 
