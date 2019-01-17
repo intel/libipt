@@ -226,68 +226,50 @@ error:
 }
 
 /* Generates an .exp filename following the scheme:
- *	<fileroot>[-<extra>].exp
+ *	<fileroot>[-<extra>][-cpu_<f>_<m>[_<s>]].exp
  */
 static char *expfilename(struct parser *p, const char *extra)
 {
-	char *filename;
-	/* reserve enough space to hold the string
-	 *   "-cpu_fffff_mmm_sss" + 1 for the trailing null character.
-	 */
-	char cpu_suffix[19];
-	size_t n;
+	char filename[FILENAME_MAX], cpuext[64], *pfname;
+	int len;
 
-	if (!extra)
-		extra = "";
-	*cpu_suffix = '\0';
-
-	/* determine length of resulting filename, which looks like:
-	 *   <fileroot>[-<extra>][-cpu_<f>_<m>_<s>].exp
-	 */
-	n = strlen(p->y->fileroot);
-
-	if (*extra != '\0')
-		/* the extra string is prepended with a -.  */
-		n += 1 + strlen(extra);
+	memset(filename, 0, sizeof(filename));
+	memset(cpuext, 0, sizeof(cpuext));
 
 	if (p->conf->cpu.vendor != pcv_unknown) {
 		struct pt_cpu cpu;
-		int len;
 
 		cpu = p->conf->cpu;
 		if (cpu.stepping)
-			len = sprintf(cpu_suffix,
-				      "-cpu_%" PRIu16 "_%" PRIu8 "_%" PRIu8 "",
-				      cpu.family, cpu.model, cpu.stepping);
+			len = snprintf(cpuext, sizeof(cpuext),
+				       "-cpu_%" PRIu16 "_%" PRIu8 "_%" PRIu8,
+				       cpu.family, cpu.model, cpu.stepping);
 		else
-			len = sprintf(cpu_suffix,
-				      "-cpu_%" PRIu16 "_%" PRIu8 "", cpu.family,
-				      cpu.model);
+			len = snprintf(cpuext, sizeof(cpuext),
+				       "-cpu_%" PRIu16 "_%" PRIu8, cpu.family,
+				       cpu.model);
 
-		if (len < 0)
+		if ((len < 0) || (sizeof(cpuext) <= (size_t) len))
 			return NULL;
-
-		n += (size_t) len;
 	}
 
-	n += sizeof(exp_suffix) - 1;
+	if (extra && *extra)
+		len = snprintf(filename, sizeof(filename), "%s-%s%s%s",
+			       p->y->fileroot, extra, cpuext, exp_suffix);
+	else
+		len = snprintf(filename, sizeof(filename), "%s-%s%s",
+			       p->y->fileroot, cpuext, exp_suffix);
 
-	/* trailing null character.  */
-	n += 1;
-
-	filename = malloc(n);
-	if (!filename)
+	if ((len < 0) || (sizeof(filename) <= (size_t) len))
 		return NULL;
 
-	strcpy(filename, p->y->fileroot);
-	if (*extra != '\0') {
-		strcat(filename, "-");
-		strcat(filename, extra);
-	}
-	strcat(filename, cpu_suffix);
-	strcat(filename, exp_suffix);
+	pfname = malloc((size_t) len + 1);
+	if (!pfname)
+		return NULL;
 
-	return filename;
+	pfname[len] = 0;
+
+	return memcpy(pfname, filename, len);
 }
 
 /* Returns true if @c is part of a label; false otherwise.  */
