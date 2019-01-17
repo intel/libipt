@@ -622,8 +622,8 @@ cleanup:
 	return errcode;
 }
 
-static const char *bin_suffix = ".bin";
-static const char *lst_suffix = ".lst";
+static const char bin_suffix[] = ".bin";
+static const char lst_suffix[] = ".lst";
 static const char path_separator = '/';
 enum {
 	max_filename_len = 1024
@@ -669,11 +669,11 @@ struct yasm *yasm_alloc(const char *pttfile)
 		memmove(y->fileroot, tmp, strlen(tmp)+1);
 	}
 
-	y->binfile = malloc(strlen(y->fileroot)+strlen(bin_suffix)+1);
+	y->binfile = malloc(strlen(y->fileroot) + sizeof(bin_suffix));
 	if (!y->binfile)
 		goto error;
 
-	y->lstfile = malloc(strlen(y->fileroot)+strlen(lst_suffix)+1);
+	y->lstfile = malloc(strlen(y->fileroot) + sizeof(lst_suffix));
 	if (!y->lstfile)
 		goto error;
 

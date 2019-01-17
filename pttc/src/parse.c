@@ -42,11 +42,11 @@
 #endif
 
 
-static const char *pt_suffix = ".pt";
-static const char *exp_suffix = ".exp";
+static const char pt_suffix[] = ".pt";
+static const char exp_suffix[] = ".exp";
 
 #if defined(FEATURE_SIDEBAND)
-static const char *sb_suffix = ".sb";
+static const char sb_suffix[] = ".sb";
 #endif
 
 enum {
@@ -89,7 +89,7 @@ static void sb_rename_file(struct sb_file *sb)
 
 		ext_len = (size_t) printed;
 
-		suffix_len = strnlen(sb_suffix, sizeof(filename));
+		suffix_len = sizeof(sb_suffix) - 1;
 		base_len = strnlen(sb->name, sizeof(filename));
 		if (base_len < suffix_len) {
 			fprintf(stderr, "error renaming %s.\n", sb->name);
@@ -194,7 +194,7 @@ static struct parser *p_alloc(const char *pttfile, const struct pt_config *conf)
 
 	n = strlen(p->y->fileroot) + 1;
 
-	p->ptfilename = malloc(n+strlen(pt_suffix));
+	p->ptfilename = malloc(n + sizeof(pt_suffix) - 1);
 	if (!p->ptfilename)
 		goto error;
 
@@ -268,7 +268,7 @@ static char *expfilename(struct parser *p, const char *extra)
 		n += (size_t) len;
 	}
 
-	n += strlen(exp_suffix);
+	n += sizeof(exp_suffix) - 1;
 
 	/* trailing null character.  */
 	n += 1;
