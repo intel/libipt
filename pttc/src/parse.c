@@ -300,6 +300,7 @@ static int p_gen_expfile(struct parser *p)
 	struct pt_directive *pd;
 	char *filename;
 	FILE *f;
+	size_t slen;
 
 	if (bug_on(!p))
 		return -err_internal;
@@ -325,11 +326,18 @@ static int p_gen_expfile(struct parser *p)
 
 	for (;;) {
 		int i;
-		char *line, *comment;
+		char *line, *comment, *end;
 
 		errcode = yasm_next_line(p->y, s, sizeof(s));
 		if (errcode < 0)
 			break;
+
+		slen = strnlen(s, sizeof(s));
+		if (sizeof(s) <= slen) {
+			errcode = -err_internal;
+			break;
+		}
+		end = &s[slen];
 
 		errcode = yasm_pd_parse(p->y, pd);
 		if (errcode < 0 && errcode != -err_no_directive)
@@ -357,12 +365,13 @@ static int p_gen_expfile(struct parser *p)
 		line += 1;
 
 		comment = strchr(line, '#');
-		if (comment)
+		if (comment) {
+			end = comment;
 			*comment = '\0';
-
+		}
 		/* remove trailing spaces.  */
-		for (i = (int) strlen(line)-1; i >= 0 && isspace(line[i]); i--)
-			line[i] = '\0';
+		for (end -= 1; line <= end && isspace(*end); --end)
+			*end = '\0';
 
 		for (;;) {
 			char *tmp, label[256];
