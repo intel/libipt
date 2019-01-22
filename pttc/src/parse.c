@@ -296,8 +296,7 @@ static int islabelchar(int c)
 static int p_gen_expfile(struct parser *p)
 {
 	int errcode;
-	enum { slen = 1024 };
-	char s[slen];
+	char s[1024];
 	struct pt_directive *pd;
 	char *filename;
 	FILE *f;
@@ -328,7 +327,7 @@ static int p_gen_expfile(struct parser *p)
 		int i;
 		char *line, *comment;
 
-		errcode = yasm_next_line(p->y, s, slen);
+		errcode = yasm_next_line(p->y, s, sizeof(s));
 		if (errcode < 0)
 			break;
 
