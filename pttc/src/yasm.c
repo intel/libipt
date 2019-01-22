@@ -153,6 +153,9 @@ static int lookup_section_vstart(struct label *l, char *line,
 	return lookup_section_label(l, name, "vstart", vstart);
 }
 
+static const char key_section[] = "[section";
+static const char key_org[] = "[org";
+
 int parse_yasm_labels(struct label *l, const struct text *t)
 {
 	int errcode, no_org_directive;
@@ -178,20 +181,20 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 		if (errcode < 0)
 			return errcode;
 
-		tmp = strstr(line, "[section");
+		tmp = strstr(line, key_section);
 		if (tmp) {
-			tmp += strlen("[section");
+			tmp += sizeof(key_section) - 1;
 			errcode = parse_section(tmp, l, &length);
 			if (errcode < 0)
 				return errcode;
 			continue;
 		}
 
-		tmp = strstr(line, "[org");
+		tmp = strstr(line, key_org);
 		if (tmp) {
 			char *org;
 
-			org = tmp + strlen("[org");
+			org = tmp + sizeof(key_org) - 1;
 			tmp = strstr(org, "]");
 			if (!tmp)
 				return -err_no_org_directive;
@@ -265,9 +268,9 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 			goto error;
 
 		/* Change the base on section switches. */
-		tmp = strstr(line, "[section");
+		tmp = strstr(line, key_section);
 		if (tmp) {
-			tmp += strlen("[section");
+			tmp += sizeof(key_section) - 1;
 			errcode = lookup_section_vstart(l, tmp, &base_addr);
 			if (errcode < 0)
 				return errcode;
@@ -521,10 +524,10 @@ int pd_set(struct pt_directive *pd, enum pt_directive_kind kind,
 }
 
 /* Magic annotation markers.  */
-static const char *pt_marker = "@pt ";
+static const char pt_marker[] = "@pt ";
 
 #if defined(FEATURE_SIDEBAND)
-static const char *sb_marker = "@sb ";
+static const char sb_marker[] = "@sb ";
 #endif
 
 int pd_parse(struct pt_directive *pd, struct state *st)
@@ -566,14 +569,14 @@ int pd_parse(struct pt_directive *pd, struct state *st)
 	/* search for @pt marker.  */
 	directive = strstr(comment+1, pt_marker);
 	if (directive) {
-		directive += strlen(pt_marker);
+		directive += sizeof(pt_marker) - 1;
 		kind = pdk_pt;
 	} else {
 #if defined(FEATURE_SIDEBAND)
 		/* search for @sb marker. */
 		directive = strstr(comment+1, sb_marker);
 		if (directive) {
-			directive += strlen(sb_marker);
+			directive += sizeof(sb_marker) - 1;
 			kind = pdk_sb;
 		} else
 #endif
