@@ -158,8 +158,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 	int errcode, no_org_directive;
 	size_t i;
 	uint64_t base_addr;
-	enum { linelen = 1024 };
-	char line[linelen];
+	char line[1024];
 	struct label *length;
 
 	if (bug_on(!t))
@@ -175,7 +174,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 	for (i = 0; i < t->n; i++) {
 		char *tmp;
 
-		errcode = text_line(t, line, linelen, i);
+		errcode = text_line(t, line, sizeof(line), i);
 		if (errcode < 0)
 			return errcode;
 
@@ -261,7 +260,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 		char *tmp;
 		uint64_t addr;
 
-		errcode = text_line(t, line, linelen, i);
+		errcode = text_line(t, line, sizeof(line), i);
 		if (errcode < 0)
 			goto error;
 
@@ -333,7 +332,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 		for (i += 1; i < t->n; i++) {
 			int errcode_text;
 
-			errcode_text = text_line(t, line, linelen, i);
+			errcode_text = text_line(t, line, sizeof(line), i);
 			if (errcode_text < 0) {
 				errcode = errcode_text;
 				break;
