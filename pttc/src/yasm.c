@@ -767,8 +767,7 @@ int yasm_lookup_label(const struct yasm *y, uint64_t *addr,
 
 static int yasm_advance_next_line(struct yasm *y)
 {
-	enum { slen = 1024 };
-	char s[slen];
+	char s[1024];
 	char filename[max_filename_len];
 	int errcode;
 	int asm_line, asm_inc;
@@ -778,7 +777,7 @@ static int yasm_advance_next_line(struct yasm *y)
 
 
 	for (;;) {
-		errcode = fl_getline(y->fl, s, (size_t) slen, y->lstfile,
+		errcode = fl_getline(y->fl, s, sizeof(s), y->lstfile,
 				     (size_t) y->lst_curr_line);
 		/* always advance in lst file.  */
 		y->lst_curr_line += 1;
@@ -807,7 +806,7 @@ static int yasm_advance_next_line(struct yasm *y)
 		 * correlated to the source file, so we retrieve the
 		 * line from it and update the state.
 		 */
-		errcode = fl_getline(y->fl, s, (size_t) slen,
+		errcode = fl_getline(y->fl, s, (size_t) sizeof(s),
 				     y->st_asm->filename,
 				     (size_t) y->st_asm->n - 1u);
 		st_update(y->st_asm, s);
