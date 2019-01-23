@@ -627,9 +627,6 @@ cleanup:
 static const char bin_suffix[] = ".bin";
 static const char lst_suffix[] = ".lst";
 static const char path_separator = '/';
-enum {
-	max_filename_len = 1024
-};
 
 struct yasm *yasm_alloc(const char *pttfile)
 {
@@ -768,7 +765,7 @@ int yasm_lookup_label(const struct yasm *y, uint64_t *addr,
 static int yasm_advance_next_line(struct yasm *y)
 {
 	char s[1024];
-	char filename[max_filename_len];
+	char filename[FILENAME_MAX];
 	int errcode;
 	int asm_line, asm_inc;
 
