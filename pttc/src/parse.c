@@ -2463,8 +2463,9 @@ static int p_process_sb(struct parser *p)
  */
 static int p_process(struct parser *p, struct pt_encoder *e)
 {
-	char *directive, *tmp;
+	char *directive, *tmp, *end;
 	struct pt_directive *pd;
+	size_t nlen;
 
 	if (bug_on(!p))
 		return -err_internal;
@@ -2474,6 +2475,13 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		return -err_internal;
 
 	directive = pd->name;
+
+	nlen = strnlen(directive, pd_len);
+	if (pd_len <= nlen)
+		return -err_internal;
+
+	/* Plus 1 for termination. */
+	end = directive + nlen + 1;
 
 	/* We must have a directive. */
 	if (!directive || (strcmp(directive, "") == 0))
@@ -2501,7 +2509,7 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 		char *pt_label_name;
 		uint64_t x;
 		int errcode, bytes_written;
-		size_t len;
+		size_t limit, len;
 
 		pt_label_name = directive;
 		directive = tmp+1;
@@ -2566,8 +2574,16 @@ static int p_process(struct parser *p, struct pt_encoder *e)
 			return errcode;
 
 		/* Update the directive name in the parser. */
-		len = strlen(directive) + 1;
+		if (end <= directive)
+			return -err_internal;
+
+		limit = (size_t) ((uintptr_t) end - (uintptr_t) directive);
+		len = strnlen(directive, limit);
+		if (limit <= len)
+			return -err_internal;
+
 		memmove(pd->name, directive, len);
+		pd->name[len] = '\0';
 	}
 
 	switch (pd->kind) {
