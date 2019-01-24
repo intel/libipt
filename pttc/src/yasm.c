@@ -676,7 +676,10 @@ struct yasm *yasm_alloc(const char *pttfile)
 		memmove(y->fileroot, tmp, strlen(tmp)+1);
 	}
 
-	flen = strlen(y->fileroot);
+	flen = strnlen(y->fileroot, FILENAME_MAX);
+	if (FILENAME_MAX <= flen)
+		goto error;
+
 	binsize = flen + sizeof(bin_suffix);
 	lstsize = flen + sizeof(lst_suffix);
 
