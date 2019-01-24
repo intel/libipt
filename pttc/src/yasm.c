@@ -161,7 +161,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 	int errcode, no_org_directive;
 	size_t i;
 	uint64_t base_addr;
-	char line[1024];
+	char line[1024], *end;
 	struct label *length;
 
 	if (bug_on(!t))
@@ -170,6 +170,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 	base_addr = 0;
 	no_org_directive = 1;
 	length = NULL;
+	end = line + sizeof(line);
 
 	/* determine base address from org directive and insert special
 	 * section labels.
@@ -299,7 +300,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 		if (!tmp)
 			continue;
 
-		if (!make_label(tmp)) {
+		if (!make_label(tmp, end)) {
 			uint64_t laddr;
 
 			/* get address in case we find a label later.  */
@@ -313,7 +314,7 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 
 			/* this might be a label now.  */
 			tmp = strtok(NULL, " ");
-			if (!make_label(tmp))
+			if (!make_label(tmp, end))
 				continue;
 
 			laddr = addr + base_addr;
@@ -371,14 +372,21 @@ error:
 	return errcode;
 }
 
-int make_label(char *s)
+int make_label(char *s, const char *end)
 {
-	size_t n;
+	size_t n, size;
 
 	if (bug_on(!s))
 		return 0;
 
-	n = strlen(s);
+	if (bug_on(end <= s))
+		return 0;
+
+	size = (size_t) ((uintptr_t) end - (uintptr_t) s);
+	n = strnlen(s, size);
+	if (size <= n)
+		return 0;
+
 	if (n == 0 || s[n-1] != ':')
 		return 0;
 

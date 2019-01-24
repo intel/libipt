@@ -47,9 +47,11 @@ extern int parse_yasm_labels(struct label *l, const struct text *t);
 /* Modifies @s, so it can be used as a label, if @s actually looks like
  * a label.
  *
+ * @end points one byte beyond the end of the string buffer containing @s.
+ *
  * Returns non-zero if @s looks like a label; zero otherwise.
  */
-extern int make_label(char *s);
+extern int make_label(char *s, const char *end);
 
 /* Represents the state of the pt directive parser.  The parser uses the
  * canonical yasm lst file syntax to follow all asm source files that
