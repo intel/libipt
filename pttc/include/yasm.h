@@ -47,8 +47,7 @@ extern int parse_yasm_labels(struct label *l, const struct text *t);
 /* Modifies @s, so it can be used as a label, if @s actually looks like
  * a label.
  *
- * Returns true if @s looks like a label; false otherwise.
- * Returns -err_internal if @l or @name is the NULL pointer.
+ * Returns non-zero if @s looks like a label; zero otherwise.
  */
 extern int make_label(char *s);
 

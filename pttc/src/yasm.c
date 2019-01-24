@@ -376,7 +376,7 @@ int make_label(char *s)
 	size_t n;
 
 	if (bug_on(!s))
-		return -err_internal;
+		return 0;
 
 	n = strlen(s);
 	if (n == 0 || s[n-1] != ':')
