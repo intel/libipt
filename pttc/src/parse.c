@@ -175,8 +175,9 @@ static void p_free(struct parser *p)
  */
 static struct parser *p_alloc(const char *pttfile, const struct pt_config *conf)
 {
-	size_t n;
+	size_t n, size;
 	struct parser *p;
+	int len;
 
 	if (!conf)
 		return NULL;
@@ -196,12 +197,15 @@ static struct parser *p_alloc(const char *pttfile, const struct pt_config *conf)
 	if ((FILENAME_MAX - sizeof(pt_suffix)) <= n)
 		goto error;
 
-	p->ptfilename = malloc(n + sizeof(pt_suffix));
+	size = n + sizeof(pt_suffix);
+
+	p->ptfilename = malloc(size);
 	if (!p->ptfilename)
 		goto error;
 
-	strcpy(p->ptfilename, p->y->fileroot);
-	strcat(p->ptfilename, pt_suffix);
+	len = snprintf(p->ptfilename, size, "%s%s", p->y->fileroot, pt_suffix);
+	if ((len < 0) || ((size_t) len != (size - 1)))
+		goto error;
 
 	p->pd = pd_alloc(pd_len);
 	if (!p->pd)
