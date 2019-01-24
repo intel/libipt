@@ -639,9 +639,9 @@ static const char path_separator = '/';
 struct yasm *yasm_alloc(const char *pttfile)
 {
 	char *tmp;
-	size_t flen;
+	size_t flen, binsize, lstsize;
 	struct yasm *y;
-	int errcode;
+	int errcode, len;
 
 	if (bug_on(!pttfile))
 		return NULL;
@@ -677,19 +677,24 @@ struct yasm *yasm_alloc(const char *pttfile)
 	}
 
 	flen = strlen(y->fileroot);
+	binsize = flen + sizeof(bin_suffix);
+	lstsize = flen + sizeof(lst_suffix);
 
-	y->binfile = malloc(flen + sizeof(bin_suffix));
+	y->binfile = malloc(binsize);
 	if (!y->binfile)
 		goto error;
 
-	y->lstfile = malloc(flen + sizeof(lst_suffix));
+	len = snprintf(y->binfile, binsize, "%s%s", y->fileroot, bin_suffix);
+	if ((len < 0) || ((size_t) len != (binsize - 1)))
+		goto error;
+
+	y->lstfile = malloc(lstsize);
 	if (!y->lstfile)
 		goto error;
 
-	strcpy(y->binfile, y->fileroot);
-	strcpy(y->binfile + flen, bin_suffix);
-	strcpy(y->lstfile, y->fileroot);
-	strcpy(y->lstfile + flen, lst_suffix);
+	len = snprintf(y->lstfile, lstsize, "%s%s", y->fileroot, lst_suffix);
+	if ((len < 0) || ((size_t) len != (lstsize - 1)))
+		goto error;
 
 	y->l = l_alloc();
 	if (!y->l)
