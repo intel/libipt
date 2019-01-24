@@ -673,7 +673,13 @@ struct yasm *yasm_alloc(const char *pttfile)
 	tmp = strrchr(y->fileroot, path_separator);
 	if (tmp) {
 		tmp += 1;
-		memmove(y->fileroot, tmp, strlen(tmp)+1);
+
+		flen = strnlen(tmp, FILENAME_MAX);
+		if (FILENAME_MAX <= flen)
+			goto error;
+
+		memmove(y->fileroot, tmp, flen);
+		y->fileroot[flen] = '\0';
 	}
 
 	flen = strnlen(y->fileroot, FILENAME_MAX);
