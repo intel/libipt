@@ -1743,7 +1743,8 @@ static int pevent_comm(struct parser *p, const char *pid, const char *tid,
 		uint8_t buffer[FILENAME_MAX];
 	} record;
 	struct pev_event event;
-	int errcode;
+	size_t limit;
+	int errcode, len;
 
 	if (bug_on(!p) || bug_on(!p->y))
 		return -err_internal;
@@ -1763,7 +1764,12 @@ static int pevent_comm(struct parser *p, const char *pid, const char *tid,
 		return errcode;
 	}
 
-	strcpy(record.comm.comm, comm);
+	limit = sizeof(record.buffer) - sizeof(record.comm);
+	len = snprintf(record.comm.comm, limit, "%s", comm);
+	if (len < 0)
+		return -err_parse;
+	if (limit <= (size_t) len)
+		return -err_name_too_long;
 
 	event.type = PERF_RECORD_COMM;
 	event.misc = misc;
