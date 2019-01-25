@@ -585,6 +585,7 @@ static int print_raw(struct ptdump_buffer *buffer, uint64_t offset,
 {
 	const uint8_t *begin, *end;
 	char *bbegin, *bend;
+	int len;
 
 	if (!buffer || !packet)
 		return diag("error printing packet", offset, -pte_internal);
@@ -598,16 +599,10 @@ static int print_raw(struct ptdump_buffer *buffer, uint64_t offset,
 	bbegin = buffer->raw;
 	bend = bbegin + sizeof(buffer->raw);
 
-	for (; begin < end; ++begin) {
-		char *pos;
-
-		pos = bbegin;
-		bbegin += 2;
-
-		if (bend <= bbegin)
+	for (; begin < end; ++begin, bbegin += len) {
+		len = snprintf(bbegin, bend - bbegin, "%02x", *begin);
+		if (len != 2)
 			return diag("truncating raw packet", offset, 0);
-
-		sprintf(pos, "%02x", *begin);
 	}
 
 	return 0;
