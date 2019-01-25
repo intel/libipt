@@ -30,6 +30,12 @@
 
 #include "pevent.h"
 
+#include <stdio.h>
+
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#  define snprintf _snprintf_c
+#endif
+
 
 /* A test fixture. */
 struct pev_fixture {
@@ -391,12 +397,15 @@ static struct ptunit_result mmap(struct pev_fixture *pfix)
 		char buffer[1024];
 	} mmap;
 
+	memset(&mmap, 0, sizeof(mmap));
+
 	mmap.record.pid = 0xa;
 	mmap.record.tid = 0xb;
 	mmap.record.addr = 0xa00100ull;
 	mmap.record.len = 0x110ull;
 	mmap.record.pgoff = 0xb0000ull;
-	strcpy(mmap.record.filename, "foo.so");
+	snprintf(mmap.record.filename,
+		 sizeof(mmap.buffer) - sizeof(mmap.record), "%s", "foo.so");
 
 	pfix->event[0].record.mmap = &mmap.record;
 	pfix->event[0].type = PERF_RECORD_MMAP;
@@ -444,9 +453,12 @@ static struct ptunit_result comm(struct pev_fixture *pfix)
 		char buffer[1024];
 	} comm;
 
+	memset(&comm, 0, sizeof(comm));
+
 	comm.record.pid = 0xa;
 	comm.record.tid = 0xb;
-	strcpy(comm.record.comm, "foo -b ar");
+	snprintf(comm.record.comm, sizeof(comm.buffer) - sizeof(comm.record),
+		 "%s", "foo -b ar");
 
 	pfix->event[0].record.comm = &comm.record;
 	pfix->event[0].type = PERF_RECORD_COMM;
@@ -572,6 +584,8 @@ static struct ptunit_result mmap2(struct pev_fixture *pfix)
 		char buffer[1024];
 	} mmap2;
 
+	memset(&mmap2, 0, sizeof(mmap2));
+
 	mmap2.record.pid = 0xa;
 	mmap2.record.tid = 0xb;
 	mmap2.record.addr = 0xa00100ull;
@@ -583,7 +597,8 @@ static struct ptunit_result mmap2(struct pev_fixture *pfix)
 	mmap2.record.ino_generation = 0x4ull;
 	mmap2.record.prot = 0x755;
 	mmap2.record.flags = 0;
-	strcpy(mmap2.record.filename, "foo.so");
+	snprintf(mmap2.record.filename,
+		 sizeof(mmap2.buffer) - sizeof(mmap2.record), "%s", "foo.so");
 
 	pfix->event[0].record.mmap2 = &mmap2.record;
 	pfix->event[0].type = PERF_RECORD_MMAP2;
