@@ -828,7 +828,10 @@ static int yasm_advance_next_line(struct yasm *y)
 		errcode = fl_getline(y->fl, s, (size_t) sizeof(s),
 				     y->st_asm->filename,
 				     (size_t) y->st_asm->n - 1u);
-		st_update(y->st_asm, s);
+		if (errcode < 0)
+			break;
+
+		errcode = st_update(y->st_asm, s);
 		break;
 	}
 
