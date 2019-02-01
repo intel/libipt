@@ -58,14 +58,16 @@ enum {
 static void sb_rename_file(struct sb_file *sb)
 {
 	char filename[FILENAME_MAX];
+	int len;
 
 	/* We encode the configuration in the sideband filename. */
 	switch (sb->format) {
 	case sbf_raw:
-		strncpy(filename, sb->name, sizeof(filename) - 1);
-
-		/* Make sure @filename is terminated. */
-		filename[sizeof(filename) - 1] = 0;
+		len = snprintf(filename, sizeof(filename), "%s", sb->name);
+		if ((len < 0) || (sizeof(filename) <= (size_t) len)) {
+			fprintf(stderr, "error renaming %s.\n", sb->name);
+			return;
+		}
 		break;
 
 #if defined(FEATURE_PEVENT)
