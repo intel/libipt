@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
 #  define snprintf _snprintf_c
@@ -107,12 +108,15 @@ static void sb_rename_file(struct sb_file *sb)
 			return;
 		}
 
-		strncpy(filename, sb->name, base_len);
+		if (INT_MAX < base_len) {
+			fprintf(stderr, "error renaming %s.\n", sb->name);
+			return;
+		}
 
-		printed = snprintf(filename + base_len,
-				   sizeof(filename) - base_len, "%s%s",
-				   extension, sb_suffix);
-		if (printed < 0) {
+		printed = snprintf(filename, sizeof(filename), "%.*s%s%s",
+				   (int) base_len, sb->name, extension,
+				   sb_suffix);
+		if ((printed < 0) || (sizeof(filename) <= (size_t) printed)) {
 			fprintf(stderr, "error renaming %s.\n", sb->name);
 			return;
 		}
