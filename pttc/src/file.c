@@ -247,6 +247,7 @@ static int fl_append(struct file_list *fl, struct text **t,
 	fclose(f);
 	if (read != fsize) {
 		fprintf(stderr, "read %s failed\n", filename);
+		free(s);
 		errcode = -err_file_read;
 		goto error;
 	}
