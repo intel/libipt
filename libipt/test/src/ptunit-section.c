@@ -1341,7 +1341,9 @@ static struct ptunit_result sfix_init(struct section_fixture *sfix)
 
 static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 {
-	int thrd;
+	char *filename;
+	FILE *file;
+	int thrd, errcode;
 
 	ptu_test(ptunit_thrd_fini, &sfix->thrd);
 
@@ -1350,17 +1352,39 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 		sfix->section = NULL;
 	}
 
-	if (sfix->file) {
-		fclose(sfix->file);
-		sfix->file = NULL;
+	filename = sfix->name;
+	file = sfix->file;
+	sfix->name = NULL;
+	sfix->file = NULL;
 
-		if (sfix->name)
-			remove(sfix->name);
+	/* Try removing the file while we still have it open to avoid races
+	 * with others re-using the temporary filename.
+	 *
+	 * On some systems that may not be possible and we can choose between:
+	 *
+	 *   - guaranteed leaking files or
+	 *   - running the risk of removing someone elses file
+	 *
+	 * We choose the latter.  Assuming those systems behave consistently,
+	 * removing someone elses file should only succeed if it isn't open at
+	 * the moment we try removing it.  Given that this is a temporary file,
+	 * we should be able to rule out accidental name clashes with
+	 * non-termporary files.
+	 */
+	if (filename && file) {
+		errcode = remove(filename);
+		if (!errcode) {
+			free(filename);
+			filename = NULL;
+		}
 	}
 
-	if (sfix->name) {
-		free(sfix->name);
-		sfix->name = NULL;
+	if (file)
+		fclose(file);
+
+	if (filename) {
+		(void) remove(filename);
+		free(filename);
 	}
 
 	for (thrd = 0; thrd < sfix->thrd.nthreads; ++thrd)
