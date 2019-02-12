@@ -325,39 +325,35 @@ static int ptseg_split_ptarg(const char **ptfile, uint64_t *ptoffset,
 extern int main(int argc, char *argv[])
 {
 	const char *ptseg, *ptfile;
-	char *ptarg;
+	char *arg, *ptarg;
 	uint64_t ptoffset;
-	int argp, errcode;
+	int errcode;
 
-	if (!argc)
+	(void) argc;
+	if (!argv)
 		return usage("");
 
-	ptseg = argv[0];
+	ptseg = *argv++;
+	if (!ptseg)
+		return usage("");
 
-	for (argp = 1; argp < argc; ++argp) {
-		char *arg;
-
-		arg = argv[argp];
-
-		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)
-			return help(ptseg);
-
-		if (strcmp(arg, "--version") == 0)
-			return version(ptseg);
-
-		if (arg[0] != '-')
-			break;
-
-		return bad_option(ptseg, arg);
-	}
-
-	if (argc <= argp)
+	arg = *argv++;
+	if (!arg)
 		return no_ptfile(ptseg);
 
-	ptarg = argv[argp++];
+	if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0)
+		return help(ptseg);
 
-	if (argp < argc)
-		return trailing_junk(ptseg, argv[argp]);
+	if (strcmp(arg, "--version") == 0)
+		return version(ptseg);
+
+	if (arg[0] == '-')
+		return bad_option(ptseg, arg);
+
+	ptarg = arg;
+	arg = *argv++;
+	if (arg)
+		return trailing_junk(ptseg, arg);
 
 	ptfile = NULL;
 	ptoffset = 0ull;
