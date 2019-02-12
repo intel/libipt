@@ -1345,9 +1345,6 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 
 	ptu_test(ptunit_thrd_fini, &sfix->thrd);
 
-	for (thrd = 0; thrd < sfix->thrd.nthreads; ++thrd)
-		ptu_int_eq(sfix->thrd.result[thrd], 0);
-
 	if (sfix->section) {
 		pt_section_put(sfix->section);
 		sfix->section = NULL;
@@ -1365,6 +1362,9 @@ static struct ptunit_result sfix_fini(struct section_fixture *sfix)
 		free(sfix->name);
 		sfix->name = NULL;
 	}
+
+	for (thrd = 0; thrd < sfix->thrd.nthreads; ++thrd)
+		ptu_int_eq(sfix->thrd.result[thrd], 0);
 
 	return ptu_passed();
 }
