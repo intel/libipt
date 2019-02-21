@@ -165,6 +165,10 @@ add_ptunit_c_test(fetch
   src/pt_encoder.c
   src/pt_config.c
 )
+add_ptunit_c_test(encoder
+  src/pt_encoder.c
+  src/pt_config.c
+)
 
 add_ptunit_cpp_test(cpp)
 add_ptunit_libraries(cpp libipt)
