@@ -182,6 +182,7 @@ add_ptunit_c_test(packet_decoder
   src/pt_time.c
 )
 add_ptunit_c_test(insn_decoder ${LIBIPT_FILES})
+add_ptunit_c_test(block_decoder ${LIBIPT_FILES})
 
 add_ptunit_cpp_test(cpp)
 add_ptunit_libraries(cpp libipt)
