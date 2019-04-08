@@ -29,12 +29,14 @@ Getting Started {#start}
  ! POSSIBILITY OF SUCH DAMAGE.
  !-->
 
-This chapter gives a brief introduction into the sample tools using one of the
-tests as example.  It assumes that you are already familiar with Intel(R)
-Processor Trace (Intel PT) and that you already built the decoder library and
-the sample tools.  For detailed information about Intel PT, please refer to
-chapter 11 of the Intel Architecture Instruction Set Extensions Programming
-Reference at http://www.intel.com/products/processor/manuals/.
+This chapter gives a brief introduction into the sample tools using one of
+the tests as example.  It assumes that you are already familiar with
+Intel(R) Processor Trace (Intel PT) and that you already built the decoder
+library and the sample tools.
+
+For detailed information about Intel PT, please refer to the respective
+chapter in Volume 3 of the Intel Software Developer's Manual at
+https://www.intel.com/sdm.
 
 Start by compiling the loop-tnt test.  It consists of a small assembly program
 with interleaved Intel PT directives:
