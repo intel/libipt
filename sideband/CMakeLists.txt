@@ -43,7 +43,7 @@ if (CMAKE_HOST_WIN32)
   )
 endif (CMAKE_HOST_WIN32)
 
-add_library(libipt-sb SHARED ${LIBSB_FILES})
+add_library(libipt-sb ${LIBSB_FILES})
 
 # put the version into the header
 #

@@ -79,6 +79,7 @@ option(PTSEG  "Enable ptseg, a PSB segment finder")
 option(PTUNIT "Enable ptunit, a unit test system and libipt unit tests")
 option(MAN "Enable man pages (requires pandoc)." OFF)
 option(SIDEBAND "Enable libipt-sb, a sideband correlation library")
+option(BUILD_SHARED_LIBS "Build the shared library" ON)
 
 if (SIDEBAND)
   option(PEVENT "Enable perf_event sideband support." OFF)
