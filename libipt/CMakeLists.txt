@@ -85,7 +85,7 @@ endif (CMAKE_HOST_WIN32)
 
 set(LIBIPT_FILES ${LIBIPT_FILES} ${LIBIPT_SECTION_FILES})
 
-add_library(libipt SHARED
+add_library(libipt
   ${LIBIPT_FILES}
 )
 
