@@ -36,11 +36,13 @@ set(LIBSB_FILES
 )
 
 if (CMAKE_HOST_WIN32)
-  add_definitions(
-    # export libipt-sb symbols
-    #
-    /Dpt_sb_export=__declspec\(dllexport\)
-  )
+  if (BUILD_SHARED_LIBS)
+    add_definitions(
+      # export libipt-sb symbols
+      #
+      /Dpt_sb_export=__declspec\(dllexport\)
+    )
+  endif (BUILD_SHARED_LIBS)
 endif (CMAKE_HOST_WIN32)
 
 add_library(libipt-sb ${LIBSB_FILES})
