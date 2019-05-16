@@ -69,11 +69,13 @@ if (CMAKE_HOST_UNIX)
 endif (CMAKE_HOST_UNIX)
 
 if (CMAKE_HOST_WIN32)
-  add_definitions(
-    # export libipt symbols
-    #
-    /Dpt_export=__declspec\(dllexport\)
-  )
+  if (BUILD_SHARED_LIBS)
+    add_definitions(
+      # export libipt symbols
+      #
+      /Dpt_export=__declspec\(dllexport\)
+    )
+  endif (BUILD_SHARED_LIBS)
 
   include_directories(
     internal/include/windows

@@ -138,6 +138,17 @@ if (PEVENT)
   )
 endif (PEVENT)
 
+if (NOT BUILD_SHARED_LIBS)
+  add_definitions(
+    # suppress libipt symbols import/export
+    #
+    -Dpt_export=
+
+    # suppress libipt-sb symbols import/export
+    #
+    -Dpt_sb_export=
+  )
+endif (NOT BUILD_SHARED_LIBS)
 
 function(add_cflag_if_available option guard)
 
