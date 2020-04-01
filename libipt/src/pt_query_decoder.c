@@ -3507,6 +3507,47 @@ int pt_qry_decode_exstop(struct pt_query_decoder *decoder)
 	if (size < 0)
 		return size;
 
+	/* Process any pending events binding to EXSTOP. */
+	event = pt_evq_dequeue(&decoder->evq, evb_exstop);
+	if (event) {
+		switch (event->type) {
+		case ptev_mwait:
+			/* If we have an IP, both MWAIT and EXSTOP bind to the
+			 * same IP.
+			 *
+			 * Let's enqueue MWAIT; we'll enqueue EXSTOP below, as
+			 * well, unless we have further events pending.  In
+			 * that case, enqueing EXSTOP will have to wait.
+			 */
+			if (packet.ip) {
+				struct pt_event *ev;
+
+				ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+				if (!ev)
+					return -pte_internal;
+
+				*ev = *event;
+				break;
+			}
+
+			/* If we do not have an IP, both MWAIT and EXSTOP are
+			 * standalone.
+			 *
+			 * Let's publish the MWAIT; on the next call, we'll
+			 * publish the EXSTOP.
+			 */
+			decoder->event = event;
+			return 0;
+
+		default:
+			return -pte_internal;
+		}
+
+		/* Process further pending events. */
+		if (pt_evq_pending(&decoder->evq, evb_exstop))
+			return 0;
+	}
+
 	if (packet.ip) {
 		event = pt_evq_enqueue(&decoder->evq, evb_fup);
 		if (!event)
@@ -3543,7 +3584,7 @@ int pt_qry_decode_mwait(struct pt_query_decoder *decoder)
 	if (size < 0)
 		return size;
 
-	event = pt_evq_enqueue(&decoder->evq, evb_fup);
+	event = pt_evq_enqueue(&decoder->evq, evb_exstop);
 	if (!event)
 		return -pte_internal;
 

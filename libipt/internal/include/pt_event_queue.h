@@ -39,6 +39,7 @@ enum pt_event_binding {
 	evb_psbend,
 	evb_tip,
 	evb_fup,
+	evb_exstop,
 
 	evb_max
 };
