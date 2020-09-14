@@ -620,7 +620,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	case ptic_other:
 		return -pte_internal;
 
-	case ptic_error:
+	case ptic_unknown:
 		return -pte_bad_insn;
 	}
 
@@ -1820,7 +1820,7 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 
 		switch (insn.iclass) {
 		case ptic_ptwrite:
-		case ptic_error:
+		case ptic_unknown:
 		case ptic_other:
 			return -pte_internal;
 
@@ -2197,8 +2197,8 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	decoder->ip = nip;
 
 	/* We don't know the instruction class so we should be setting it to
-	 * ptic_error.  Since we will be able to fill it back in later in most
-	 * cases, we move the clearing to the switch cases that don't.
+	 * ptic_unknown.  Since we will be able to fill it back in later in
+	 * most cases, we move the clearing to the switch cases that don't.
 	 */
 	block->end_ip = nip;
 	block->ninsn = ninsn;
@@ -2215,7 +2215,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		 * clear any previously stored instruction class which has
 		 * become invalid when we updated @block->ninsn.
 		 */
-		block->iclass = ptic_error;
+		block->iclass = ptic_unknown;
 
 		return pt_blk_proceed_no_event_cached(decoder, block, bcache,
 						      msec);

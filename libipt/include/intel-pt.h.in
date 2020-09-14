@@ -1925,8 +1925,8 @@ extern pt_export int pt_image_set_callback(struct pt_image *image,
  * the execution flow.
  */
 enum pt_insn_class {
-	/* The instruction could not be classified. */
-	ptic_error,
+	/* The instruction has not been classified. */
+	ptic_unknown,
 
 	/* The instruction is something not listed below. */
 	ptic_other,
@@ -2251,9 +2251,10 @@ struct pt_block {
 
 	/** The instruction class for the last instruction in this block.
 	 *
-	 * This field may be set to ptic_error to indicate that the instruction
-	 * class is not available.  The block decoder may choose to not provide
-	 * the instruction class in some cases for performance reasons.
+	 * This field may be set to ptic_unknown to indicate that the
+	 * instruction class is not available.  The block decoder may choose to
+	 * not provide the instruction class in some cases for performance
+	 * reasons.
 	 */
 	enum pt_insn_class iclass;
 

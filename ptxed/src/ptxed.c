@@ -617,8 +617,8 @@ static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 static const char *visualize_iclass(enum pt_insn_class iclass)
 {
 	switch (iclass) {
-	case ptic_error:
-		return "unknown/error";
+	case ptic_unknown:
+		return "unknown";
 
 	case ptic_other:
 		return "other";
@@ -669,7 +669,7 @@ static void check_insn_iclass(const xed_inst_t *inst,
 	iclass = xed_inst_iclass(inst);
 
 	switch (insn->iclass) {
-	case ptic_error:
+	case ptic_unknown:
 		break;
 
 	case ptic_ptwrite:
@@ -1371,7 +1371,7 @@ static void decode_insn(struct ptxed_decoder *decoder,
 				/* Even in case of errors, we may have succeeded
 				 * in decoding the current instruction.
 				 */
-				if (insn.iclass != ptic_error) {
+				if (insn.iclass != ptic_unknown) {
 					if (!options->quiet)
 						print_insn(&insn, &xed, options,
 							   offset, time);

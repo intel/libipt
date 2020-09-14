@@ -94,9 +94,10 @@ struct pt_block {
 
     /** The instruction class for the last instruction in this block.
      *
-     * This field may be set to ptic_error to indicate that the instruction
-     * class is not available.  The block decoder may choose to not provide
-     * the instruction class in some cases for performance reasons.
+     * This field may be set to ptic_unknown to indicate that the
+     * instruction class is not available.  The block decoder may choose to
+     * not provide the instruction class in some cases for performance
+     * reasons.
      */
     enum pt_insn_class iclass;
 
@@ -174,7 +175,7 @@ enum pt_exec_mode {
 
 iclass
 :   A coarse classification of the last instruction in the block.  This may be
-    *ptic_error* to indicate that the classification is not available.
+    *ptic_unknown* to indicate that the classification is not available.
 
     The block decoder knows the instruction class of the instruction that ended
     the block most of the time.  If it does, it provides this information to

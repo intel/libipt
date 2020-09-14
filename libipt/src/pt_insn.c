@@ -197,7 +197,7 @@ int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 	default:
 		return -pte_bad_query;
 
-	case ptic_error:
+	case ptic_unknown:
 		return -pte_bad_insn;
 	}
 

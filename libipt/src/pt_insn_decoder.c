@@ -591,7 +591,7 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	case ptic_indirect:
 		break;
 
-	case ptic_error:
+	case ptic_unknown:
 		return -pte_bad_insn;
 	}
 
@@ -718,7 +718,7 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 		case ptic_cond_jump:
 			return 1;
 
-		case ptic_error:
+		case ptic_unknown:
 			return -pte_bad_insn;
 		}
 	}

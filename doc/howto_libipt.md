@@ -786,7 +786,7 @@ example:
 
         status = pt_insn_next(decoder, &insn, sizeof(insn));
 
-        if (insn.iclass != ptic_error)
+        if (insn.iclass != ptic_unknown)
             <process instruction>(&insn);
 
         if (status < 0)
@@ -890,7 +890,7 @@ shown below:
 
                 status = pt_insn_next(decoder, &insn, sizeof(insn));
 
-                if (insn.iclass != ptic_error)
+                if (insn.iclass != ptic_unknown)
                     <process instruction>(&insn);
 
                 if (status < 0)
