@@ -646,6 +646,9 @@ static const char *visualize_iclass(enum pt_insn_class iclass)
 
 	case ptic_ptwrite:
 		return "ptwrite";
+
+	case ptic_indirect:
+		return "indirect";
 	}
 
 	return "undefined";
@@ -770,6 +773,36 @@ static void check_insn_iclass(const xed_inst_t *inst,
 			return;
 
 		break;
+
+	case ptic_indirect:
+		switch (iclass) {
+		default:
+			break;
+
+		case XED_ICLASS_CALL_FAR:
+		case XED_ICLASS_INT:
+		case XED_ICLASS_INT1:
+		case XED_ICLASS_INT3:
+		case XED_ICLASS_INTO:
+		case XED_ICLASS_SYSCALL:
+		case XED_ICLASS_SYSCALL_AMD:
+		case XED_ICLASS_SYSENTER:
+		case XED_ICLASS_VMCALL:
+		case XED_ICLASS_RET_FAR:
+		case XED_ICLASS_IRET:
+		case XED_ICLASS_IRETD:
+		case XED_ICLASS_IRETQ:
+		case XED_ICLASS_SYSRET:
+		case XED_ICLASS_SYSRET_AMD:
+		case XED_ICLASS_SYSEXIT:
+		case XED_ICLASS_VMLAUNCH:
+		case XED_ICLASS_VMRESUME:
+		case XED_ICLASS_JMP_FAR:
+		case XED_ICLASS_JMP:
+			return;
+		}
+		break;
+
 	}
 
 	/* If we get here, @insn->iclass doesn't match XED's classification. */

@@ -588,6 +588,7 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	case ptic_far_call:
 	case ptic_far_return:
 	case ptic_far_jump:
+	case ptic_indirect:
 		break;
 
 	case ptic_error:
@@ -713,6 +714,7 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 		case ptic_far_call:
 		case ptic_far_return:
 		case ptic_far_jump:
+		case ptic_indirect:
 		case ptic_cond_jump:
 			return 1;
 

@@ -95,6 +95,7 @@ int pt_insn_is_branch(const struct pt_insn *insn,
 	case ptic_far_call:
 	case ptic_far_return:
 	case ptic_far_jump:
+	case ptic_indirect:
 		return 1;
 	}
 }

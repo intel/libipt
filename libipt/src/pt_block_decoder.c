@@ -613,6 +613,7 @@ static int pt_blk_next_ip(uint64_t *pip, struct pt_block_decoder *decoder,
 	case ptic_far_call:
 	case ptic_far_return:
 	case ptic_far_jump:
+	case ptic_indirect:
 		break;
 
 	case ptic_ptwrite:
@@ -1850,6 +1851,7 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 		case ptic_far_call:
 		case ptic_far_return:
 		case ptic_far_jump:
+		case ptic_indirect:
 			bce.qualifier = ptbq_indirect;
 			break;
 		}
@@ -2441,10 +2443,9 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 		 * We don't know the exact instruction class and there's no
 		 * reason to decode the instruction for any other purpose.
 		 *
-		 * Indicate that we don't know the instruction class and leave
-		 * it to our caller to decode the instruction if needed.
+		 * Leave it to our caller to decode the instruction if needed.
 		 */
-		block->iclass = ptic_error;
+		block->iclass = ptic_indirect;
 
 		/* This is neither a near call nor return so we don't need to
 		 * touch the return-address stack.
