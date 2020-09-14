@@ -174,7 +174,10 @@ enum pt_insn_class {
 	/* The instruction is a jump-like far transfer.
 	 * E.g. FAR JMP.
 	 */
-	ptic_far_jump
+	ptic_far_jump,
+
+	/* The instruction is a PTWRITE. */
+	ptic_ptwrite
 };
 ~~~
 
