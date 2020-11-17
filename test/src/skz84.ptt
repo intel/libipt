@@ -38,6 +38,8 @@
 ;        followed by a bogus data byte.
 ;
 ;   cpu 6/85
+;   cpu 6/106
+;   cpu 6/108
 ;
 
 org 0x100000
