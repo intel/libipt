@@ -71,6 +71,8 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			break;
 
 		case 0x55:
+		case 0x6a:
+		case 0x6c:
 		case 0x66:
 		case 0x7d:
 		case 0x7e:
