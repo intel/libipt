@@ -1265,7 +1265,19 @@ shown in the following example:
 
 ## Threading
 
-The decoder library API is not thread-safe.  Different threads may allocate and
-use different decoder objects at the same time.  Different decoders must not use
-the same image object.  Use `pt_image_copy()` to give each decoder its own copy
-of a shared master image.
+The decoder library API is *partly* thread-safe.  Specifically:
+
+ * It's OK for different threads to allocate and use *different* decoder
+   objects at the same time, but no single decoder object can be used
+   concurrently by different threads.  A decoder allocated in one thread may be
+   passed to, and used from, another thread, as long as the decoder is not used
+   concurrently.
+
+ * Different decoder objects must not use the same image object, even if the
+   decoders are owned by the same thread.  You can, however, use
+   `pt_image_copy()` to give each decoder its own copy of a shared master
+   image.  Copying an image is lightweight and does not copy large amounts of
+   data.
+
+ * Image section cache objects *can* be shared across threads and be used
+   concurrently, but only if you build libipt with `FEATURE_THREADS=ON`.
