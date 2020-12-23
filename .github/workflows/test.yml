@@ -1,18 +1,18 @@
 # Based on GitHub Actions CMake template
-name: CMake
+name: PR Checks
 
 on: [pull_request]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     defaults:
       run:
         shell: bash
-
-    env:
-      BUILD_TYPE: Release
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
 
     steps:
     - uses: actions/checkout@v2
@@ -23,7 +23,7 @@ jobs:
       run: mkdir -p build
 
     - name: Configure CMake
-      run: cmake -B build -S source -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DPTUNIT=ON
+      run: cmake -B build -S source -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPTUNIT=ON
 
     - name: Build
       run: make -C build -j$(nproc)
