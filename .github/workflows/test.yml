@@ -1,0 +1,32 @@
+# Based on GitHub Actions CMake template
+name: CMake
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      BUILD_TYPE: Release
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        path: source
+
+    - name: Create working directory
+      run: mkdir -p build
+
+    - name: Configure CMake
+      run: cmake -B build -S source -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DPTUNIT=ON
+
+    - name: Build
+      run: make -C build -j$(nproc)
+
+    - name: Test
+      run: make -C build test
