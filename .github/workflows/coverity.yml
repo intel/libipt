@@ -1,0 +1,46 @@
+# Based on https://github.com/ruby/actions-coverity-scan/blob/master/.github/workflows/coverity-scan.yml
+name: coverity
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: source
+
+      - name: Download Coverity
+        run: |
+          wget -q https://scan.coverity.com/download/cxx/linux64 --post-data "token=$TOKEN&project=cxx" -O coverity.tar.gz
+          mkdir -p coverity
+          tar xzf coverity.tar.gz -C cov-analysis-linux64
+        env:
+          TOKEN: ${{secrets.COVERITY_SCAN_TOKEN}}
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build
+          cmake -B build -S source -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build with cov-build
+        run: |
+          export PATH=$GITHUB_WORKSPACE/coverity/bin:$PATH
+          cov-build --dir cov-int make
+
+      - name: Submit the scan result
+        run: |
+          tar czvf result.tar.gz cov-int
+          curl \
+            --form project=$GITHUB_REPOSITORY \
+            --form token=$TOKEN \
+            --form email=$MAIL \
+            --form file=@result.tar.gz \
+            --form version=$GITHUB_SHA \
+            --form description="$GITHUB_REF" \
+            https://scan.coverity.com/builds?project=cxx
+        env:
+          TOKEN: ${{secrets.COVERITY_SCAN_TOKEN}}
+
