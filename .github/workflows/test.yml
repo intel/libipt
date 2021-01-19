@@ -28,7 +28,7 @@ jobs:
       run: cmake -B build -S source -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPTUNIT=ON
 
     - name: Build
-      run: make -C build -j$(nproc)
+      run: cmake --build build -j
 
     - name: Test
-      run: make -C build test
+      run: cd build && ctest
