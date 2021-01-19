@@ -3,16 +3,18 @@ name: PR Checks
 
 on: [pull_request]
 
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{matrix.runner}}
+    strategy:
+      matrix:
+        build_type: [Release, Debug]
+        runner: [ubuntu-latest, windows-latest, macos-latest]
 
     defaults:
       run:
         shell: bash
-    strategy:
-      matrix:
-        build_type: [Release, Debug]
 
     steps:
     - uses: actions/checkout@v2
