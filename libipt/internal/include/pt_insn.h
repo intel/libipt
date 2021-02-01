@@ -81,6 +81,8 @@ typedef enum {
 
 	PTI_INST_PTWRITE,
 
+	PTI_INST_UIRET,
+
 	PTI_INST_LAST
 } pti_inst_enum_t;
 
