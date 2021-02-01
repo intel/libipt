@@ -1380,6 +1380,11 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 				iext->iclass = PTI_INST_VMRESUME;
 				break;
 
+			case 0xec:
+				insn->iclass = ptic_far_return;
+				iext->iclass = PTI_INST_UIRET;
+				break;
+
 			default:
 				break;
 			}
