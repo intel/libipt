@@ -48,6 +48,8 @@
 ;   cpu 6/106
 ;   cpu 6/108
 ;   cpu 6/143
+;   cpu 6/140
+;   cpu 6/141
 ;
 ; Variant: sync at an earlier PSB.
 ;
