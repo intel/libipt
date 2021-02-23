@@ -286,8 +286,8 @@ static void help(const char *name)
 	printf("  --nom-freq <n>                       set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n");
 	printf("  --cpuid-0x15.eax                     set the value of cpuid[0x15].eax.\n");
 	printf("  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n");
-	printf("  --insn-decoder                       use the instruction flow decoder (default).\n");
-	printf("  --block-decoder                      use the block decoder.\n");
+	printf("  --insn-decoder                       use the instruction flow decoder.\n");
+	printf("  --block-decoder                      use the block decoder (default).\n");
 	printf("  --block:show-blocks                  show blocks in the output.\n");
 	printf("  --block:end-on-call                  set the end-on-call block decoder flag.\n");
 	printf("  --block:end-on-jump                  set the end-on-jump block decoder flag.\n");
