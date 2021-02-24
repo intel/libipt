@@ -36,14 +36,6 @@ set(PTDUMP_FILES
   ../libipt/src/pt_time.c
 )
 
-if (CMAKE_HOST_UNIX)
-  set(PTDUMP_FILES ${PTDUMP_FILES} ../libipt/src/posix/pt_cpuid.c)
-endif (CMAKE_HOST_UNIX)
-
-if (CMAKE_HOST_WIN32)
-  set(PTDUMP_FILES ${PTDUMP_FILES} ../libipt/src/windows/pt_cpuid.c)
-endif (CMAKE_HOST_WIN32)
-
 add_executable(ptdump
   ${PTDUMP_FILES}
 )

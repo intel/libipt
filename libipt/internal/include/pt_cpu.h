@@ -41,14 +41,4 @@ struct pt_cpu;
  */
 extern int pt_cpu_parse(struct pt_cpu *cpu, const char *s);
 
-/* Get the cpu we're running on.
- *
- * Reads the family/model/stepping of the processor on which this function
- * is executed and stores the value in @cpu.
- *
- * Returns zero on success, a negative error code otherwise.
- * Returns -pte_invalid if @cpu is NULL.
- */
-extern int pt_cpu_read(struct pt_cpu *cpu);
-
 #endif /* PT_CPU_H */

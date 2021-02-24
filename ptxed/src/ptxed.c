@@ -294,9 +294,8 @@ static void help(const char *name)
 #endif /* defined(FEATURE_ELF) */
 	printf("  --raw <file>[:<from>[-<to>]]:<base>  load a raw binary from <file> at address <base>.\n");
 	printf("                                       an optional offset or range can be given.\n");
-	printf("  --cpu none|auto|f/m[/s]              set cpu to the given value and decode according to:\n");
+	printf("  --cpu none|f/m[/s]                   set cpu to the given value and decode according to:\n");
 	printf("                                         none     spec (default)\n");
-	printf("                                         auto     current cpu\n");
 	printf("                                         f/m[/s]  family/model[/stepping]\n");
 	printf("  --mtc-freq <n>                       set the MTC frequency (IA32_RTIT_CTL[17:14]) to <n>.\n");
 	printf("  --nom-freq <n>                       set the nominal frequency (MSR_PLATFORM_INFO[15:8]) to <n>.\n");
@@ -2744,18 +2743,6 @@ extern int main(int argc, char *argv[])
 				goto out;
 			}
 			arg = argv[i++];
-
-			if (strcmp(arg, "auto") == 0) {
-				errcode = pt_cpu_read(&config.cpu);
-				if (errcode < 0) {
-					fprintf(stderr,
-						"%s: error reading cpu: %s.\n",
-						prog,
-						pt_errstr(pt_errcode(errcode)));
-					return 1;
-				}
-				continue;
-			}
 
 			if (strcmp(arg, "none") == 0) {
 				memset(&config.cpu, 0, sizeof(config.cpu));

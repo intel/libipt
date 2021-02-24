@@ -45,14 +45,6 @@ set(PTXED_FILES
   ../libipt/src/pt_cpu.c
 )
 
-if (CMAKE_HOST_UNIX)
-  set(PTXED_FILES ${PTXED_FILES} ../libipt/src/posix/pt_cpuid.c)
-endif (CMAKE_HOST_UNIX)
-
-if (CMAKE_HOST_WIN32)
-  set(PTXED_FILES ${PTXED_FILES} ../libipt/src/windows/pt_cpuid.c)
-endif (CMAKE_HOST_WIN32)
-
 if (FEATURE_ELF)
   set(PTXED_FILES ${PTXED_FILES} src/load_elf.c)
 endif (FEATURE_ELF)
