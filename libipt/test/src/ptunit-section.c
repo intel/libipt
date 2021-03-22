@@ -702,6 +702,8 @@ static struct ptunit_result attach_map_overflow(struct section_fixture *sfix)
 	errcode = pt_section_map(sfix->section);
 	ptu_int_eq(errcode, -pte_overflow);
 
+	sfix->section->mcount = 0;
+
 	errcode = pt_section_detach(sfix->section, &iscache);
 	ptu_int_eq(errcode, 0);
 
