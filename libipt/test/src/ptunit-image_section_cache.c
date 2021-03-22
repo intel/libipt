@@ -1879,6 +1879,10 @@ static int worker_add_file_map(void *arg)
 		errcode = pt_section_unmap(section);
 		if (errcode < 0)
 			return errcode;
+
+		errcode = pt_section_put(section);
+		if (errcode < 0)
+			return errcode;
 	}
 
 	return 0;
