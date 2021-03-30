@@ -243,7 +243,7 @@ split into three sub-layers: opcodes, encoding, and decoding.
 The opcodes layer provides enumerations for all the bits necessary for Intel PT
 encoding and decoding.  The enumeration constants can be used without linking to
 the decoder library.  There is no encoder or decoder struct associated with this
-layer.  See the intel-pt.h header file for details.
+layer.  See the pt_opcodes.h internal header file for details.
 
 
 ### Packet Encoding
