@@ -279,7 +279,7 @@ static char *expfilename(struct parser *p, const char *extra)
 
 	pfname[len] = 0;
 
-	return memcpy(pfname, filename, len);
+	return memcpy(pfname, filename, (size_t) len);
 }
 
 /* Returns true if @c is part of a label; false otherwise.  */
