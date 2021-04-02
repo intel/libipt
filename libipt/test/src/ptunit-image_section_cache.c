@@ -990,7 +990,7 @@ static int worker_add(void *arg)
 		uint64_t laddr;
 		int sec;
 
-		laddr = 0x1000ull * (it % 23);
+		laddr = 0x1000ull * ((uint64_t)it % 23);
 
 		for (sec = 0; sec < num_sections; ++sec) {
 			struct pt_section *section;
