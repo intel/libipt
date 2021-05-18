@@ -2075,6 +2075,9 @@ enum pt_insn_class {
 	/* The instruction has not been classified. */
 	ptic_unknown,
 
+	/* For backwards compatibility. */
+	ptic_error = ptic_unknown,
+
 	/* The instruction is something not listed below. */
 	ptic_other,
 
