@@ -92,6 +92,8 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 
 		case 0x7a:
 		case 0x86:
+		case 0x96:
+		case 0x9c:
 			errata->apl11 = 1;
 			break;
 		}
