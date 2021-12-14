@@ -76,6 +76,8 @@ static struct ptunit_result decoder_init_null(void)
 	struct pt_config config;
 	int errcode;
 
+	memset(&config, 0, sizeof(config));
+
 	errcode = pt_pkt_decoder_init(NULL, &config);
 	ptu_int_eq(errcode, -pte_invalid);
 

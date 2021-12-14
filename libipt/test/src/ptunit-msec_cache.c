@@ -229,6 +229,7 @@ static struct ptunit_result fill_null(void)
 	int status;
 
 	memset(&mcache, 0, sizeof(mcache));
+	memset(&asid, 0, sizeof(asid));
 
 	status = pt_msec_cache_fill(NULL, &msec, &image, &asid, 0ull);
 	ptu_int_eq(status, -pte_internal);
@@ -301,6 +302,7 @@ static struct ptunit_result fill_nomap(struct test_fixture *tfix)
 	int status;
 
 	msec = NULL;
+	memset(&asid, 0, sizeof(asid));
 
 	status = pt_msec_cache_fill(&tfix->mcache, &msec, &tfix->image, &asid,
 				    0ull);
@@ -322,6 +324,8 @@ static struct ptunit_result fill(struct test_fixture *tfix)
 	struct pt_section *section;
 	struct pt_asid asid;
 	int status;
+
+	memset(&asid, 0, sizeof(asid));
 
 	status = pt_msec_cache_fill(&tfix->mcache, &msec, &tfix->image, &asid,
 				    0ull);

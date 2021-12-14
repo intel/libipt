@@ -76,6 +76,8 @@ static struct ptunit_result encoder_init_null(void)
 	struct pt_config config;
 	int errcode;
 
+	memset(&config, 0, sizeof(config));
+
 	errcode = pt_encoder_init(NULL, &config);
 	ptu_int_eq(errcode, -pte_invalid);
 
@@ -196,6 +198,8 @@ static struct ptunit_result next_null(void)
 	struct pt_encoder encoder;
 	struct pt_packet packet;
 	int errcode;
+
+	memset(&packet, 0, sizeof(packet));
 
 	errcode = pt_enc_next(NULL, &packet);
 	ptu_int_eq(errcode, -pte_invalid);

@@ -214,6 +214,8 @@ static struct ptunit_result time_to_tsc_null(void)
 	uint64_t tsc;
 	int errcode;
 
+	memset(&config, 0, sizeof(config));
+
 	errcode = pev_time_to_tsc(NULL, 0x0ull, &config);
 	ptu_int_eq(errcode, -pte_internal);
 
@@ -228,6 +230,8 @@ static struct ptunit_result time_from_tsc_null(void)
 	struct pev_config config;
 	uint64_t time;
 	int errcode;
+
+	memset(&config, 0, sizeof(config));
 
 	errcode = pev_time_from_tsc(NULL, 0x0ull, &config);
 	ptu_int_eq(errcode, -pte_internal);
