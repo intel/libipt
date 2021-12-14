@@ -72,6 +72,8 @@ static struct ptunit_result tsc_null(struct time_fixture *tfix)
 	struct pt_packet_tsc packet;
 	int errcode;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_time_update_tsc(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);
 
@@ -86,6 +88,8 @@ static struct ptunit_result cbr_null(struct time_fixture *tfix)
 	struct pt_packet_cbr packet;
 	int errcode;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_time_update_cbr(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);
 
@@ -99,6 +103,8 @@ static struct ptunit_result tma_null(struct time_fixture *tfix)
 {
 	struct pt_packet_tma packet;
 	int errcode;
+
+	memset(&packet, 0, sizeof(packet));
 
 	errcode = pt_time_update_tma(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);
@@ -117,6 +123,8 @@ static struct ptunit_result mtc_null(struct time_fixture *tfix)
 	struct pt_packet_mtc packet;
 	int errcode;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_time_update_mtc(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);
 
@@ -133,6 +141,8 @@ static struct ptunit_result cyc_null(struct time_fixture *tfix)
 {
 	struct pt_packet_cyc packet;
 	int errcode;
+
+	memset(&packet, 0, sizeof(packet));
 
 	errcode = pt_time_update_cyc(NULL, &packet, &tfix->config, 0ull);
 	ptu_int_eq(errcode, -pte_internal);
@@ -201,6 +211,8 @@ static struct ptunit_result tcal_cbr_null(struct time_fixture *tfix)
 	struct pt_packet_cbr packet;
 	int errcode;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_tcal_update_cbr(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);
 
@@ -228,6 +240,8 @@ static struct ptunit_result tcal_mtc_null(struct time_fixture *tfix)
 	struct pt_packet_mtc packet;
 	int errcode;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_tcal_update_mtc(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);
 
@@ -244,6 +258,8 @@ static struct ptunit_result tcal_cyc_null(struct time_fixture *tfix)
 {
 	struct pt_packet_cyc packet;
 	int errcode;
+
+	memset(&packet, 0, sizeof(packet));
 
 	errcode = pt_tcal_update_cyc(NULL, &packet, &tfix->config);
 	ptu_int_eq(errcode, -pte_internal);

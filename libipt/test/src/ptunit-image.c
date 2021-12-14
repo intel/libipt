@@ -1992,6 +1992,8 @@ static struct ptunit_result validate_null(struct image_fixture *ifix)
 	struct pt_mapped_section msec;
 	int status;
 
+	memset(&msec, 0, sizeof(msec));
+
 	status = pt_image_validate(NULL, &msec, 0x1004ull, 10);
 	ptu_int_eq(status, -pte_internal);
 
