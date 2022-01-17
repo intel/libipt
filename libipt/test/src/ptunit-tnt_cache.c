@@ -186,6 +186,8 @@ static struct ptunit_result update_tnt_not_empty(void)
 	tnt_cache.tnt = 42ull;
 	tnt_cache.index = 12ull;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_tnt_cache_update_tnt(&tnt_cache, &packet, NULL);
 	ptu_int_eq(errcode, -pte_bad_context);
 	ptu_uint_eq(tnt_cache.tnt, 42ull);
@@ -198,6 +200,8 @@ static struct ptunit_result update_tnt_null_tnt(void)
 {
 	struct pt_packet_tnt packet;
 	int errcode;
+
+	memset(&packet, 0, sizeof(packet));
 
 	errcode = pt_tnt_cache_update_tnt(NULL, &packet, NULL);
 	ptu_int_eq(errcode, -pte_invalid);

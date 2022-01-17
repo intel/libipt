@@ -43,6 +43,8 @@ static struct ptunit_result from_user_null(void)
 	struct pt_config config;
 	int errcode;
 
+	memset(&config, 0, sizeof(config));
+
 	errcode = pt_config_from_user(NULL, &config);
 	ptu_int_eq(errcode, -pte_internal);
 

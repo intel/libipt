@@ -314,6 +314,8 @@ static struct ptunit_result update_ip_null_ip(void)
 	struct pt_packet_ip packet;
 	int errcode;
 
+	memset(&packet, 0, sizeof(packet));
+
 	errcode = pt_last_ip_update_ip(NULL, &packet, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
 
