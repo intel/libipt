@@ -43,6 +43,15 @@ int pev_time_to_tsc(uint64_t *tsc, uint64_t time,
 	if (!tsc || !config)
 		return -pte_internal;
 
+	/* "time 0" is for synthesized events, and is not a real time. Using
+	 * the normal conversion for a synthesized time causes problems, so
+	 * just translate it as TSC time 0 ("beginning of time").
+	 */
+	if (!time) {
+		*tsc = 0;
+		return 0;
+	}
+
 	if (!pev_config_has(config, time_zero))
 		return -pte_bad_config;
 
