@@ -287,13 +287,13 @@ static struct ptunit_result time_to_tsc_bad_config(void)
 	memset(&config, 0, sizeof(config));
 	config.time_mult = 1;
 
-	errcode = pev_time_to_tsc(&tsc, 0x0ull, &config);
+	errcode = pev_time_to_tsc(&tsc, 0x1ull, &config);
 	ptu_int_eq(errcode, -pte_bad_config);
 
 	config.size = sizeof(config);
 	config.time_mult = 0;
 
-	errcode = pev_time_to_tsc(&tsc, 0x0ull, &config);
+	errcode = pev_time_to_tsc(&tsc, 0x1ull, &config);
 	ptu_int_eq(errcode, -pte_bad_config);
 
 	return ptu_passed();
