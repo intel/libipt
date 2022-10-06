@@ -452,9 +452,6 @@ int pt_section_alloc_bcache(struct pt_section *section)
 	if (!section)
 		return -pte_internal;
 
-	if (!section->mcount)
-		return -pte_internal;
-
 	ssize = pt_section_size(section);
 	csize = (uint32_t) ssize;
 
@@ -478,6 +475,11 @@ int pt_section_alloc_bcache(struct pt_section *section)
 	errcode = pt_section_lock(section);
 	if (errcode < 0)
 		goto out_alock;
+
+	if (!section->mcount) {
+		errcode = -pte_internal;
+		goto out_lock;
+	}
 
 	bcache = pt_section_bcache(section);
 	if (bcache) {
