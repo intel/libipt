@@ -406,7 +406,7 @@ uint64_t pt_section_size(const struct pt_section *section)
 	return section->size;
 }
 
-static int pt_section_bcache_memsize(const struct pt_section *section,
+static int pt_section_bcache_memsize(struct pt_section *section,
 				     uint64_t *psize)
 {
 	struct pt_block_cache *bcache;
@@ -414,7 +414,7 @@ static int pt_section_bcache_memsize(const struct pt_section *section,
 	if (!section || !psize)
 		return -pte_internal;
 
-	bcache = section->bcache;
+	bcache = pt_section_bcache(section);
 	if (!bcache) {
 		*psize = 0ull;
 		return 0;
@@ -426,7 +426,7 @@ static int pt_section_bcache_memsize(const struct pt_section *section,
 	return 0;
 }
 
-static int pt_section_memsize_locked(const struct pt_section *section,
+static int pt_section_memsize_locked(struct pt_section *section,
 				     uint64_t *psize)
 {
 	uint64_t msize, bcsize;
@@ -481,6 +481,27 @@ uint64_t pt_section_offset(const struct pt_section *section)
 		return 0ull;
 
 	return section->offset;
+}
+
+static struct pt_block_cache *
+pt_exchange_bcache(struct pt_section *section, struct pt_block_cache *bcache)
+{
+	if (!section)
+		return NULL;
+
+#if !defined(__STDC_NO_ATOMICS__)
+	return atomic_exchange(&section->bcache, bcache);
+#else
+	/* The section has been locked by the caller.  */
+	{
+		struct pt_block_cache *orig;
+
+		orig = section->bcache;
+		section->bcache = bcache;
+
+		return orig;
+	}
+#endif
 }
 
 int pt_section_alloc_bcache(struct pt_section *section)
@@ -541,7 +562,11 @@ int pt_section_alloc_bcache(struct pt_section *section)
 	 * If we fail later on, we leave the block cache and report the error to
 	 * the allocating decoder thread.
 	 */
-	section->bcache = bcache;
+	bcache = pt_exchange_bcache(section, bcache);
+	if (bcache) {
+		errcode = -pte_bad_lock;
+		goto out_lock;
+	}
 
 	errcode = pt_section_memsize_locked(section, &memsize);
 	if (errcode < 0)
@@ -635,6 +660,7 @@ int pt_section_map_share(struct pt_section *section)
 
 int pt_section_unmap(struct pt_section *section)
 {
+	struct pt_block_cache *bcache;
 	uint16_t mcount;
 	int errcode, status;
 
@@ -661,8 +687,8 @@ int pt_section_unmap(struct pt_section *section)
 
 	status = section->unmap(section);
 
-	pt_bcache_free(section->bcache);
-	section->bcache = NULL;
+	bcache = pt_exchange_bcache(section, NULL);
+	pt_bcache_free(bcache);
 
 	errcode = pt_section_unlock(section);
 	if (errcode < 0)

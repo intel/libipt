@@ -33,6 +33,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#if !defined(__STDC_NO_ATOMICS__)
+#  include <stdatomic.h>
+#  define PT_ATOMIC _Atomic
+#else
+#  define PT_ATOMIC /* nothing */
+#endif
+
 #if defined(FEATURE_THREADS)
 #  if !defined(__STDC_NO_THREADS__)
 #    include <threads.h>
@@ -83,11 +90,11 @@ struct pt_section {
 	 * We read this field without locking and only lock the section in order
 	 * to install the block cache.
 	 *
-	 * We rely on guaranteed atomic operations as specified in section 8.1.1
-	 * in Volume 3A of the Intel(R) Software Developer's Manual at
-	 * http://www.intel.com/sdm.
+	 * We use atomic operations, if supported, and rely on guaranteed
+	 * atomic operations, otherwise.  See section 8.1.1 in Volume 3A of the
+	 * Intel(R) Software Developer's Manual at http://www.intel.com/sdm.
 	 */
-	struct pt_block_cache *bcache;
+	struct pt_block_cache * PT_ATOMIC bcache;
 
 	/* A pointer to the iscache attached to this section.
 	 *
@@ -275,21 +282,6 @@ extern int pt_section_memsize(struct pt_section *section, uint64_t *size);
  */
 extern int pt_section_alloc_bcache(struct pt_section *section);
 
-/* Request block caching.
- *
- * The caller must ensure that @section is mapped.
- */
-static inline int pt_section_request_bcache(struct pt_section *section)
-{
-	if (!section)
-		return -pte_internal;
-
-	if (section->bcache)
-		return 0;
-
-	return pt_section_alloc_bcache(section);
-}
-
 /* Return @section's block cache, if available.
  *
  * The caller must ensure that @section is mapped.
@@ -298,12 +290,31 @@ static inline int pt_section_request_bcache(struct pt_section *section)
  * @section mapped.
  */
 static inline struct pt_block_cache *
-pt_section_bcache(const struct pt_section *section)
+pt_section_bcache(struct pt_section *section)
 {
 	if (!section)
 		return NULL;
 
+#if !defined(__STDC_NO_ATOMICS__)
+	return atomic_load(&section->bcache);
+#else
 	return section->bcache;
+#endif
+}
+
+/* Request block caching.
+ *
+ * The caller must ensure that @section is mapped.
+ */
+static inline int pt_section_request_bcache(struct pt_section *section)
+{
+	struct pt_block_cache *bcache;
+
+	bcache = pt_section_bcache(section);
+	if (bcache)
+		return 0;
+
+	return pt_section_alloc_bcache(section);
 }
 
 /* Create the OS-specific file status.
