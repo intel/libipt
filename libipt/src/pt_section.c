@@ -269,7 +269,7 @@ static int pt_section_unlock_attach(struct pt_section *section)
 int pt_section_attach(struct pt_section *section,
 		      struct pt_image_section_cache *iscache)
 {
-	uint16_t acount, ucount;
+	uint16_t acount;
 	int errcode;
 
 	if (!section || !iscache)
@@ -279,10 +279,25 @@ int pt_section_attach(struct pt_section *section,
 	if (errcode < 0)
 		return errcode;
 
-	ucount = section->ucount;
 	acount = section->acount;
 	if (!acount) {
-		if (section->iscache || !ucount)
+		if (section->iscache) {
+			errcode = -pte_internal;
+			goto out_unlock;
+		}
+
+		errcode = pt_section_lock(section);
+		if (errcode < 0)
+			goto out_unlock;
+
+		if (!section->ucount) {
+			(void) pt_section_unlock(section);
+			errcode = -pte_internal;
+			goto out_unlock;
+		}
+
+		errcode = pt_section_unlock(section);
+		if (errcode < 0)
 			goto out_unlock;
 
 		section->iscache = iscache;
@@ -293,14 +308,27 @@ int pt_section_attach(struct pt_section *section,
 
 	acount += 1;
 	if (!acount) {
-		(void) pt_section_unlock_attach(section);
-		return -pte_overflow;
+		errcode = -pte_overflow;
+		goto out_unlock;
 	}
 
-	if (ucount < acount)
+	if (section->iscache != iscache) {
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
 		goto out_unlock;
 
-	if (section->iscache != iscache)
+	if (section->ucount < acount) {
+		(void) pt_section_unlock(section);
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
 		goto out_unlock;
 
 	section->acount = acount;
@@ -309,13 +337,13 @@ int pt_section_attach(struct pt_section *section,
 
  out_unlock:
 	(void) pt_section_unlock_attach(section);
-	return -pte_internal;
+	return errcode;
 }
 
 int pt_section_detach(struct pt_section *section,
 		      struct pt_image_section_cache *iscache)
 {
-	uint16_t acount, ucount;
+	uint16_t acount;
 	int errcode;
 
 	if (!section || !iscache)
@@ -325,16 +353,30 @@ int pt_section_detach(struct pt_section *section,
 	if (errcode < 0)
 		return errcode;
 
-	if (section->iscache != iscache)
+	if (section->iscache != iscache) {
+		errcode = -pte_internal;
 		goto out_unlock;
+	}
 
 	acount = section->acount;
-	if (!acount)
+	if (!acount) {
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
+	acount -= 1;
+
+	errcode = pt_section_lock(section);
+	if (errcode < 0)
 		goto out_unlock;
 
-	acount -= 1;
-	ucount = section->ucount;
-	if (ucount < acount)
+	if (section->ucount < acount) {
+		(void) pt_section_unlock(section);
+		errcode = -pte_internal;
+		goto out_unlock;
+	}
+
+	errcode = pt_section_unlock(section);
+	if (errcode < 0)
 		goto out_unlock;
 
 	section->acount = acount;
@@ -345,7 +387,7 @@ int pt_section_detach(struct pt_section *section,
 
  out_unlock:
 	(void) pt_section_unlock_attach(section);
-	return -pte_internal;
+	return errcode;
 }
 
 const char *pt_section_filename(const struct pt_section *section)
