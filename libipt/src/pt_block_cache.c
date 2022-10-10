@@ -69,17 +69,16 @@ int pt_bcache_add(struct pt_block_cache *bcache, uint64_t index,
 	if (bcache->nentries <= index)
 		return -pte_internal;
 
-	/* We rely on guaranteed atomic operations as specified in section 8.1.1
-	 * in Volume 3A of the Intel(R) Software Developer's Manual at
-	 * http://www.intel.com/sdm.
-	 */
+#if !defined(__STDC_NO_ATOMICS__)
+	atomic_store(&bcache->entry[(uint32_t) index], bce);
+#else
 	bcache->entry[(uint32_t) index] = bce;
-
+#endif
 	return 0;
 }
 
 int pt_bcache_lookup(struct pt_bcache_entry *bce,
-		     const struct pt_block_cache *bcache, uint64_t index)
+		     struct pt_block_cache *bcache, uint64_t index)
 {
 	if (!bce || !bcache)
 		return -pte_internal;
@@ -87,11 +86,10 @@ int pt_bcache_lookup(struct pt_bcache_entry *bce,
 	if (bcache->nentries <= index)
 		return -pte_internal;
 
-	/* We rely on guaranteed atomic operations as specified in section 8.1.1
-	 * in Volume 3A of the Intel(R) Software Developer's Manual at
-	 * http://www.intel.com/sdm.
-	 */
+#if !defined(__STDC_NO_ATOMICS__)
+	*bce = atomic_load(&bcache->entry[(uint32_t) index]);
+#else
 	*bce = bcache->entry[(uint32_t) index];
-
+#endif
 	return 0;
 }

@@ -34,6 +34,13 @@
 
 #include <stdint.h>
 
+#if !defined(__STDC_NO_ATOMICS__)
+#  include <stdatomic.h>
+#  define PT_ATOMIC _Atomic
+#else
+#  define PT_ATOMIC /* nothing */
+#endif
+
 
 /* A block cache entry qualifier.
  *
@@ -185,8 +192,15 @@ struct pt_block_cache {
 	/* The number of cache entries. */
 	uint32_t nentries;
 
-	/* A variable-length array of @nentries entries. */
-	struct pt_bcache_entry entry[];
+	/* A variable-length array of @nentries entries.
+	 *
+	 * We access entries without locking.
+	 *
+	 * We use atomic operations, if supported, and rely on guaranteed
+	 * atomic operations, otherwise.  See section 8.1.1 in Volume 3A of the
+	 * Intel(R) Software Developer's Manual at http://www.intel.com/sdm.
+	 */
+	struct pt_bcache_entry PT_ATOMIC entry[];
 };
 
 /* Create a block cache.
@@ -220,7 +234,6 @@ extern int pt_bcache_add(struct pt_block_cache *bcache, uint64_t index,
  * Returns -pte_internal if @index is outside of @bcache.
  */
 extern int pt_bcache_lookup(struct pt_bcache_entry *bce,
-			    const struct pt_block_cache *bcache,
-			    uint64_t index);
+			    struct pt_block_cache *bcache, uint64_t index);
 
 #endif /* PT_BLOCK_CACHE_H */
