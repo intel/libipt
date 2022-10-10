@@ -131,7 +131,7 @@ add_ptunit_std_test(event_queue)
 add_ptunit_std_test(image src/pt_asid.c)
 add_ptunit_std_test(sync src/pt_packet.c)
 add_ptunit_std_test(config)
-add_ptunit_std_test(image_section_cache)
+add_ptunit_std_test(image_section_cache ${LIBIPT_SECTION_FILES})
 add_ptunit_std_test(block_cache)
 add_ptunit_std_test(msec_cache)
 
