@@ -1638,7 +1638,7 @@ static int pt_sb_pevent_apply(struct pt_sb_session *session,
 		}
 
 		break;
-	};
+	}
 
 	return 0;
 }
