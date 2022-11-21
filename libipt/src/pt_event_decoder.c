@@ -1214,9 +1214,7 @@ static int pt_evt_decode_psb(struct pt_event_decoder *decoder)
 		return -pte_internal;
 
 	/* We must not carry partial events across PSB. */
-	if (!pt_evq_empty(&decoder->evq, evb_psbend) ||
-	    !pt_evq_empty(&decoder->evq, evb_tip) ||
-	    !pt_evq_empty(&decoder->evq, evb_fup))
+	if (pt_evq_pending(&decoder->evq, UINT32_MAX))
 		return -pte_bad_context;
 
 	pt_last_ip_init(&decoder->ip);
