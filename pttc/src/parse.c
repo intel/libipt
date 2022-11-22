@@ -599,6 +599,68 @@ static int report_lib_error(struct parser *p, const char *message, int errcode)
 	return -err_pt_lib;
 }
 
+/* Parse any amount of whitespace from @pinput, including none.
+ *
+ * We want to stay within one source line so we only parse spaces and
+ * horizontal tabs.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a negative integer on error.
+ */
+static int parse_whitespace(const char **pinput)
+{
+	const char *input;
+
+	if (!pinput)
+		return -err_internal;
+
+	input = *pinput;
+	if (!input)
+		return -err_internal;
+
+	while ((*input == ' ') || (*input == '\t'))
+		input += 1;
+
+	*pinput = input;
+	return 0;
+}
+
+/* Parse @size bytes of a literal @token in @input.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer on failure.
+ * Returns a negative integer on error.
+ */
+static int parse_token_aux(const char **pinput, const char *token, size_t size)
+{
+	const char *input;
+	int status;
+
+	if (!pinput)
+		return -err_internal;
+
+	input = *pinput;
+	if (!input)
+		return -err_internal;
+
+	if (!token || !size)
+		return -err_internal;
+
+	status = parse_whitespace(&input);
+	if (status < 0)
+		return status;
+
+	if (strncmp(input, token, size) != 0)
+		return 1;
+
+	input += size;
+	*pinput = input;
+	return 0;
+}
+
+#define parse_token(input, token) \
+	parse_token_aux(input, token, strnlen(token, 1024))
+
 static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
 {
 	int errcode;
@@ -669,6 +731,87 @@ static int parse_c_state(uint8_t *state, uint8_t *sub_state, const char *input)
 	*state = (uint8_t) ((maj - 1) & 0xf);
 	if (sub_state)
 		*sub_state = (uint8_t) ((min - 1) & 0xf);
+
+	return 0;
+}
+
+/* Parse a mode.exec execution mode in @input into @packet.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer on failure.
+ * Returns a negative integer on error.
+ */
+static int parse_exec_mode(const char **input,
+			   struct pt_packet_mode_exec *packet)
+{
+	int status;
+
+	if (!packet)
+		return -err_internal;
+
+	status = parse_token(input, "64bit");
+	if (status <= 0) {
+		if (status < 0)
+			return status;
+
+		packet->csl = 1;
+		packet->csd = 0;
+
+		return status;
+	}
+
+	status = parse_token(input, "32bit");
+	if (status <= 0) {
+		if (status < 0)
+			return status;
+
+		packet->csl = 0;
+		packet->csd = 1;
+
+		return status;
+	}
+
+	status = parse_token(input, "16bit");
+	if (status <= 0) {
+		if (status < 0)
+			return status;
+
+		packet->csl = 0;
+		packet->csd = 0;
+
+		return status;
+	}
+
+	return 1;
+}
+
+/* Parse mode.exec arguments in @input into @packet.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer on failure.
+ * Returns a negative integer on error.
+ */
+static int parse_mode_exec(const char **input, const struct parser *p,
+			   struct pt_packet_mode_exec *packet)
+{
+	int status;
+
+	if (!p)
+		return -err_internal;
+
+	status = parse_exec_mode(input, packet);
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "mode.exec: bad argument, "
+					"expected \"16bit\", \"64bit\" or "
+					"\"32bit\"", -err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
 
 	return 0;
 }
@@ -853,21 +996,22 @@ static int p_process_pt(struct parser *p, struct pt_encoder *e)
 		}
 		packet.type = ppt_fup;
 	} else if (strcmp(directive, "mode.exec") == 0) {
-		if (strcmp(payload, "16bit") == 0) {
-			packet.payload.mode.bits.exec.csl = 0;
-			packet.payload.mode.bits.exec.csd = 0;
-		} else if (strcmp(payload, "64bit") == 0) {
-			packet.payload.mode.bits.exec.csl = 1;
-			packet.payload.mode.bits.exec.csd = 0;
-		} else if (strcmp(payload, "32bit") == 0) {
-			packet.payload.mode.bits.exec.csl = 0;
-			packet.payload.mode.bits.exec.csd = 1;
-		} else {
-			errcode = yasm_print_err(p->y,
-						 "mode.exec: argument must be one of \"16bit\", \"64bit\" or \"32bit\"",
-						 -err_parse);
+		const char *cpl;
+
+		cpl = (const char *) payload;
+		errcode = parse_mode_exec(&cpl, p,
+					  &packet.payload.mode.bits.exec);
+		if (errcode != 0) {
+			if (errcode < 0)
+				yasm_print_err(p->y,
+					       "mode.exec: parsing failed",
+					       errcode);
+			else
+				errcode = -err_parse;
+
 			return errcode;
 		}
+
 		packet.payload.mode.leaf = pt_mol_exec;
 		packet.type = ppt_mode;
 	} else if (strcmp(directive, "mode.tsx") == 0) {
