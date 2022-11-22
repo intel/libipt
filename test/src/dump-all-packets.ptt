@@ -86,6 +86,9 @@ bits 64
 ; @pt p52: pwrx(hw: c1, c6)
 ; @pt p53: ptw(0: 0x90abcdef, ip)
 ; @pt p54: ptw(1: 0x1234567890abcdef)
+; @pt p55: mode.exec(16bit, if)
+; @pt p56: mode.exec(32bit, if)
+; @pt p57: mode.exec(64bit, if)
 
 ; @pt .exp(ptdump)
 ;%0p01  psbend
@@ -142,3 +145,6 @@ bits 64
 ;%0p52  pwrx       hw: c1, c6
 ;%0p53  ptw        0: 90abcdef, ip
 ;%0p54  ptw        1: 1234567890abcdef
+;%0p55  mode.exec  if
+;%0p56  mode.exec  cs.d, if
+;%0p57  mode.exec  cs.l, if

@@ -273,7 +273,7 @@ static struct ptunit_result ip(struct packet_fixture *pfix,
 }
 
 static struct ptunit_result mode_exec(struct packet_fixture *pfix,
-				      enum pt_exec_mode mode)
+				      enum pt_exec_mode mode, int iflag)
 {
 	struct pt_packet_mode_exec packet;
 
@@ -283,6 +283,7 @@ static struct ptunit_result mode_exec(struct packet_fixture *pfix,
 	pfix->packet[0].payload.mode.leaf = pt_mol_exec;
 	pfix->packet[0].payload.mode.bits.exec.csl = packet.csl;
 	pfix->packet[0].payload.mode.bits.exec.csd = packet.csd;
+	pfix->packet[0].payload.mode.bits.exec.iflag = iflag ? 1u : 0u;
 
 	ptu_test(pfix_test, pfix);
 
@@ -604,9 +605,9 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_sext_48, 0x42ull);
 	ptu_run_fp(suite, ip, pfix, ppt_fup, pt_ipc_full, 0x42ull);
 
-	ptu_run_fp(suite, mode_exec, pfix, ptem_16bit);
-	ptu_run_fp(suite, mode_exec, pfix, ptem_32bit);
-	ptu_run_fp(suite, mode_exec, pfix, ptem_64bit);
+	ptu_run_fp(suite, mode_exec, pfix, ptem_16bit, 1);
+	ptu_run_fp(suite, mode_exec, pfix, ptem_32bit, 0);
+	ptu_run_fp(suite, mode_exec, pfix, ptem_64bit, 1);
 	ptu_run_f(suite, mode_tsx, pfix);
 
 	ptu_run_f(suite, pip, pfix);

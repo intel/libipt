@@ -796,7 +796,7 @@ static int parse_mode_exec(const char **input, const struct parser *p,
 {
 	int status;
 
-	if (!p)
+	if (!p || !packet)
 		return -err_internal;
 
 	status = parse_exec_mode(input, packet);
@@ -813,6 +813,29 @@ static int parse_mode_exec(const char **input, const struct parser *p,
 		return 1;
 	}
 
+	status = parse_token(input, ",");
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		packet->iflag = 0;
+		return 0;
+	}
+
+	status = parse_token(input, "if");
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "mode.exec: bad argument, "
+					"expected \"if\"", -err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	packet->iflag = 1;
 	return 0;
 }
 

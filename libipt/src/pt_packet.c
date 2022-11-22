@@ -269,6 +269,7 @@ static int pt_pkt_read_mode_exec(struct pt_packet_mode_exec *packet,
 
 	packet->csl = (mode & pt_mob_exec_csl) != 0;
 	packet->csd = (mode & pt_mob_exec_csd) != 0;
+	packet->iflag = (mode & pt_mob_exec_iflag) != 0;
 
 	return ptps_mode;
 }

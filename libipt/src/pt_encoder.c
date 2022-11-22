@@ -385,6 +385,9 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 
 			if (packet->payload.mode.bits.exec.csd)
 				mode |= pt_mob_exec_csd;
+
+			if (packet->payload.mode.bits.exec.iflag)
+				mode |= pt_mob_exec_iflag;
 			break;
 
 		case pt_mol_tsx:

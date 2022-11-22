@@ -707,7 +707,7 @@ static int pt_evt_decode_mode_exec(struct pt_event_decoder *decoder,
 	if (!decoder || !packet)
 		return -pte_internal;
 
-	ev = pt_evq_enqueue(&decoder->evq, evb_tip);
+	ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
 	if (!ev)
 		return -pte_nomem;
 
@@ -1642,6 +1642,13 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		decoder->bound = 1;
 		break;
+
+	case ptev_exec_mode:
+		decoder->bound = 1;
+
+		/* Ignore the event for now. */
+		decoder->event = NULL;
+		return pt_evt_decode_fup(decoder, packet);
 
 	default:
 		errcode = -pte_bad_context;

@@ -1202,9 +1202,16 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 			sep = csd[0] && csl[0] ? ", " : "";
 
 			print_field(buffer->opcode, "mode.exec");
+#if (LIBIPT_VERSION < 0x201)
 			print_field(buffer->payload.standard, "%s%s%s",
 				    csd, sep, csl);
-
+#else
+			print_field(buffer->payload.standard, "%s%s%s%s%s",
+				    csd, sep, csl,
+				    mode->bits.exec.iflag &&
+				    (csd[0] || csl[0]) ? ", " : "",
+				    mode->bits.exec.iflag ? "if" : "");
+#endif
 			if (options->show_exec_mode) {
 				const char *em;
 

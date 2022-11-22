@@ -648,6 +648,14 @@ struct pt_packet_mode_exec {
 
 	/** The mode.exec csd bit. */
 	uint32_t csd:1;
+
+#if (LIBIPT_VERSION >= 0x201)
+	/** The mode.exec if bit.
+	 *
+	 * Enable Event Tracing to get updates when IF changes.
+	 */
+	uint32_t iflag:1;
+#endif
 };
 
 static inline enum pt_exec_mode
@@ -664,6 +672,7 @@ pt_set_exec_mode(enum pt_exec_mode mode)
 {
 	struct pt_packet_mode_exec packet;
 
+	memset(&packet, 0, sizeof(packet));
 	switch (mode) {
 	default:
 		packet.csl = 1;
@@ -672,17 +681,13 @@ pt_set_exec_mode(enum pt_exec_mode mode)
 
 	case ptem_64bit:
 		packet.csl = 1;
-		packet.csd = 0;
 		break;
 
 	case ptem_32bit:
-		packet.csl = 0;
 		packet.csd = 1;
 		break;
 
 	case ptem_16bit:
-		packet.csl = 0;
-		packet.csd = 0;
 		break;
 	}
 

@@ -333,6 +333,7 @@ enum pt_mode_bit {
 	/* mode.exec */
 	pt_mob_exec_csl		= 0x01,
 	pt_mob_exec_csd		= 0x02,
+	pt_mob_exec_iflag	= 0x04,
 
 	/* mode.tsx */
 	pt_mob_tsx_intx		= 0x01,
