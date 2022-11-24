@@ -378,8 +378,10 @@ struct pt_conf_flags {
 			/** End a block after a jump instruction. */
 			uint32_t end_on_jump:1;
 
+#if (LIBIPT_VERSION >= 0x201)
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
+#endif
 		} block;
 
 		/** Flags for the instruction flow decoder. */
@@ -387,10 +389,13 @@ struct pt_conf_flags {
 			/** Enable tick events for timing updates. */
 			uint32_t enable_tick_events:1;
 
+#if (LIBIPT_VERSION >= 0x201)
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
+#endif
 		} insn;
 
+#if (LIBIPT_VERSION >= 0x201)
 		/** Flags for the query decoder. */
 		struct {
 			/** Preserve timing calibration on overflow. */
@@ -402,6 +407,7 @@ struct pt_conf_flags {
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
 		} event;
+#endif /* (LIBIPT_VERSION >= 0x201) */
 
 		/* Reserve a few bytes for future extensions. */
 		uint32_t reserved[4];
@@ -1168,11 +1174,13 @@ enum pt_event_type {
 	/* A maintenance event. */
 	ptev_mnt,
 
+#if (LIBIPT_VERSION >= 0x201)
 	/* An indirect branch event. */
 	ptev_tip,
 
 	/* A conditional branch indicator event. */
-	ptev_tnt
+	ptev_tnt,
+#endif
 };
 
 /** An event. */
@@ -1475,6 +1483,7 @@ struct pt_event {
 			uint64_t payload;
 		} mnt;
 
+#if (LIBIPT_VERSION >= 0x201)
 		/** Event: tip. */
 		struct {
 			/** The target instruction address. */
@@ -1496,10 +1505,12 @@ struct pt_event {
 			/** The number of valid bits in @bits. */
 			uint8_t size;
 		} tnt;
+#endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };
 
 
+#if (LIBIPT_VERSION >= 0x201)
 /** Allocate an Intel PT event decoder.
  *
  * The decoder will work on the buffer defined in \@config, it shall contain
@@ -1604,6 +1615,7 @@ pt_evt_get_config(const struct pt_event_decoder *decoder);
  */
 extern pt_export int pt_evt_next(struct pt_event_decoder *decoder,
 				 struct pt_event *event, size_t size);
+#endif /* (LIBIPT_VERSION >= 0x201) */
 
 
 
@@ -2074,11 +2086,16 @@ extern pt_export int pt_image_set_callback(struct pt_image *image,
  * the execution flow.
  */
 enum pt_insn_class {
+#if (LIBIPT_VERSION >= 0x201)
 	/* The instruction has not been classified. */
 	ptic_unknown,
 
 	/* For backwards compatibility. */
 	ptic_error = ptic_unknown,
+#else
+	/* The instruction has not been classified. */
+	ptic_error,
+#endif
 
 	/* The instruction is something not listed below. */
 	ptic_other,
@@ -2113,8 +2130,10 @@ enum pt_insn_class {
 	/* The instruction is a PTWRITE. */
 	ptic_ptwrite,
 
+#if (LIBIPT_VERSION >= 0x201)
 	/* The instruction is an indirect jump or a far transfer. */
-	ptic_indirect
+	ptic_indirect,
+#endif
 };
 
 /** The maximal size of an instruction. */
@@ -2403,10 +2422,10 @@ struct pt_block {
 
 	/** The instruction class for the last instruction in this block.
 	 *
-	 * This field may be set to ptic_unknown to indicate that the
-	 * instruction class is not available.  The block decoder may choose to
-	 * not provide the instruction class in some cases for performance
-	 * reasons.
+	 * This field may be set to ptic_unknown (ptic_error prior to v2.1) to
+	 * indicate that the instruction class is not available.  The block
+	 * decoder may choose to not provide the instruction class in some
+	 * cases for performance reasons.
 	 */
 	enum pt_insn_class iclass;
 

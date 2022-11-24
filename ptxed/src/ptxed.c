@@ -303,12 +303,16 @@ static void help(const char *name)
 	printf("  --cpuid-0x15.eax                     set the value of cpuid[0x15].eax.\n");
 	printf("  --cpuid-0x15.ebx                     set the value of cpuid[0x15].ebx.\n");
 	printf("  --insn-decoder                       use the instruction flow decoder.\n");
+#if (LIBIPT_VERSION >= 0x201)
 	printf("  --insn:keep-tcal-on-ovf              preserve timing calibration on overflow.\n");
+#endif
 	printf("  --block-decoder                      use the block decoder (default).\n");
 	printf("  --block:show-blocks                  show blocks in the output.\n");
 	printf("  --block:end-on-call                  set the end-on-call block decoder flag.\n");
 	printf("  --block:end-on-jump                  set the end-on-jump block decoder flag.\n");
+#if (LIBIPT_VERSION >= 0x201)
 	printf("  --block:keep-tcal-on-ovf             preserve timing calibration on overflow.\n");
+#endif
 	printf("\n");
 #if defined(FEATURE_ELF)
 	printf("You must specify at least one binary or ELF file (--raw|--elf).\n");
@@ -617,9 +621,13 @@ static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 static const char *visualize_iclass(enum pt_insn_class iclass)
 {
 	switch (iclass) {
+#if (LIBIPT_VERSION >= 0x201)
 	case ptic_unknown:
 		return "unknown";
-
+#else
+	case ptic_error:
+		return "error";
+#endif
 	case ptic_other:
 		return "other";
 
@@ -647,8 +655,10 @@ static const char *visualize_iclass(enum pt_insn_class iclass)
 	case ptic_ptwrite:
 		return "ptwrite";
 
+#if (LIBIPT_VERSION >= 0x201)
 	case ptic_indirect:
 		return "indirect";
+#endif
 	}
 
 	return "undefined";
@@ -669,9 +679,13 @@ static void check_insn_iclass(const xed_inst_t *inst,
 	iclass = xed_inst_iclass(inst);
 
 	switch (insn->iclass) {
+#if (LIBIPT_VERSION >= 0x201)
 	case ptic_unknown:
 		break;
-
+#else
+	case ptic_error:
+		break;
+#endif
 	case ptic_ptwrite:
 	case ptic_other:
 		switch (category) {
@@ -775,6 +789,7 @@ static void check_insn_iclass(const xed_inst_t *inst,
 
 		break;
 
+#if (LIBIPT_VERSION >= 0x201)
 	case ptic_indirect:
 		switch (iclass) {
 		default:
@@ -804,7 +819,7 @@ static void check_insn_iclass(const xed_inst_t *inst,
 			return;
 		}
 		break;
-
+#endif /* (LIBIPT_VERSION >= 0x201) */
 	}
 
 	/* If we get here, @insn->iclass doesn't match XED's classification. */
@@ -1187,6 +1202,7 @@ static void print_event(const struct pt_event *event,
 		printf("mnt: %" PRIx64, event->variant.mnt.payload);
 		break;
 
+#if (LIBIPT_VERSION >= 0x201)
 	case ptev_tip:
 		printf("tip: %" PRIx64, event->variant.tip.ip);
 		break;
@@ -1200,6 +1216,7 @@ static void print_event(const struct pt_event *event,
 			       (event->variant.tnt.bits & index) ? "!" : ".");
 	}
 		break;
+#endif
 	}
 
 	printf("]\n");
@@ -1387,7 +1404,12 @@ static void decode_insn(struct ptxed_decoder *decoder,
 				/* Even in case of errors, we may have succeeded
 				 * in decoding the current instruction.
 				 */
-				if (insn.iclass != ptic_unknown) {
+#if (LIBIPT_VERSION >= 0x201)
+				if (insn.iclass != ptic_unknown)
+#else
+				if (insn.iclass != ptic_error)
+#endif
+				{
 					if (!options->quiet)
 						print_insn(&insn, &xed, options,
 							   offset, time);
@@ -2822,11 +2844,12 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 
+#if (LIBIPT_VERSION >= 0x201)
 		if (strcmp(arg, "--insn:keep-tcal-on-ovf") == 0) {
 			decoder.insn.flags.variant.insn.keep_tcal_on_ovf = 1;
 			continue;
 		}
-
+#endif
 
 		if (strcmp(arg, "--block-decoder") == 0) {
 			if (ptxed_have_decoder(&decoder)) {
@@ -2855,11 +2878,12 @@ extern int main(int argc, char *argv[])
 			continue;
 		}
 
+#if (LIBIPT_VERSION >= 0x201)
 		if (strcmp(arg, "--block:keep-tcal-on-ovf") == 0) {
 			decoder.block.flags.variant.block.keep_tcal_on_ovf = 1;
 			continue;
 		}
-
+#endif
 		fprintf(stderr, "%s: unknown option: %s.\n", prog, arg);
 		goto err;
 	}

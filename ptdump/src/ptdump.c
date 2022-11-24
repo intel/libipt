@@ -81,8 +81,10 @@ struct ptdump_options {
 	/* Show timing information as delta to the previous value. */
 	uint32_t show_time_as_delta:1;
 
+#if (LIBIPT_VERSION >= 0x201)
 	/* Preserve timing calibration on overflow. */
 	uint32_t keep_tcal_on_ovf:1;
+#endif
 
 	/* Quiet mode: Don't print anything but errors. */
 	uint32_t quiet:1;
@@ -218,7 +220,9 @@ static int help(const char *name)
 	printf("  --no-tcal                 skip timing calibration.\n");
 	printf("                            this will result in errors when CYC packets are encountered.\n");
 	printf("  --no-wall-clock           suppress the no-time error and print relative time.\n");
+#if (LIBIPT_VERSION >= 0x201)
 	printf("  --keep-tcal-on-ovf        preserve timing calibration on overflow.\n");
+#endif
 #if defined(FEATURE_SIDEBAND)
 	printf("  --sb:compact | --sb       show sideband records in compact format.\n");
 	printf("  --sb:verbose              show sideband records in verbose format.\n");
@@ -1099,6 +1103,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->opcode, "ovf");
 
 		if (options->track_time) {
+#if (LIBIPT_VERSION >= 0x201)
 			if (options->keep_tcal_on_ovf) {
 				int errcode;
 
@@ -1108,6 +1113,7 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 					diag("error calibrating time",
 					     offset, errcode);
 			} else
+#endif
 				pt_tcal_init(&tracking->tcal);
 		}
 
@@ -1737,8 +1743,10 @@ static int process_args(int argc, char *argv[],
 			options->no_tcal = 1;
 		else if (strcmp(argv[idx], "--no-wall-clock") == 0)
 			options->no_wall_clock = 1;
+#if (LIBIPT_VERSION >= 0x201)
 		else if (strcmp(argv[idx], "--keep-tcal-on-ovf") == 0)
 			options->keep_tcal_on_ovf = 1;
+#endif
 #if defined(FEATURE_SIDEBAND)
 		else if ((strcmp(argv[idx], "--sb:compact") == 0) ||
 			 (strcmp(argv[idx], "--sb") == 0)) {
