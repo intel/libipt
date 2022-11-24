@@ -82,10 +82,10 @@ static int pt_blk_status(const struct pt_block_decoder *decoder, int flags)
 	return flags;
 }
 
-static void pt_blk_reset(struct pt_block_decoder *decoder)
+static int pt_blk_reset(struct pt_block_decoder *decoder)
 {
 	if (!decoder)
-		return;
+		return -pte_internal;
 
 	decoder->tsc = 0ull;
 	decoder->lost_mtc = 0u;
@@ -105,6 +105,8 @@ static void pt_blk_reset(struct pt_block_decoder *decoder)
 	memset(&decoder->event, 0xff, sizeof(decoder->event));
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
+
+	return 0;
 }
 
 /* Initialize the event decoder flags based on our flags. */
@@ -154,9 +156,7 @@ int pt_blk_decoder_init(struct pt_block_decoder *decoder,
 	if (errcode < 0)
 		return errcode;
 
-	pt_blk_reset(decoder);
-
-	return 0;
+	return pt_blk_reset(decoder);
 }
 
 void pt_blk_decoder_fini(struct pt_block_decoder *decoder)
@@ -382,16 +382,6 @@ static int pt_blk_start(struct pt_block_decoder *decoder)
 	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
 
-static int pt_blk_sync_reset(struct pt_block_decoder *decoder)
-{
-	if (!decoder)
-		return -pte_internal;
-
-	pt_blk_reset(decoder);
-
-	return 0;
-}
-
 int pt_blk_sync_forward(struct pt_block_decoder *decoder)
 {
 	int errcode;
@@ -399,7 +389,7 @@ int pt_blk_sync_forward(struct pt_block_decoder *decoder)
 	if (!decoder)
 		return -pte_invalid;
 
-	errcode = pt_blk_sync_reset(decoder);
+	errcode = pt_blk_reset(decoder);
 	if (errcode < 0)
 		return errcode;
 
@@ -433,7 +423,7 @@ int pt_blk_sync_backward(struct pt_block_decoder *decoder)
 
 	sync = start;
 	for (;;) {
-		errcode = pt_blk_sync_reset(decoder);
+		errcode = pt_blk_reset(decoder);
 		if (errcode < 0)
 			return errcode;
 
@@ -476,7 +466,7 @@ int pt_blk_sync_set(struct pt_block_decoder *decoder, uint64_t offset)
 	if (!decoder)
 		return -pte_invalid;
 
-	errcode = pt_blk_sync_reset(decoder);
+	errcode = pt_blk_reset(decoder);
 	if (errcode < 0)
 		return errcode;
 
