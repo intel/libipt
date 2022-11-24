@@ -1373,14 +1373,6 @@ static int pt_evt_start(struct pt_event_decoder *decoder)
 	}
 }
 
-static int pt_evt_sync_reset(struct pt_event_decoder *decoder)
-{
-	if (!decoder)
-		return -pte_internal;
-
-	return pt_evt_reset(decoder);
-}
-
 int pt_evt_sync_forward(struct pt_event_decoder *decoder)
 {
 	int errcode;
@@ -1388,7 +1380,7 @@ int pt_evt_sync_forward(struct pt_event_decoder *decoder)
 	if (!decoder)
 		return -pte_invalid;
 
-	errcode = pt_evt_sync_reset(decoder);
+	errcode = pt_evt_reset(decoder);
 	if (errcode < 0)
 		return errcode;
 
@@ -1416,7 +1408,7 @@ int pt_evt_sync_backward(struct pt_event_decoder *decoder)
 
 	sync = start;
 	for (;;) {
-		errcode = pt_evt_sync_reset(decoder);
+		errcode = pt_evt_reset(decoder);
 		if (errcode < 0)
 			return errcode;
 
@@ -1445,7 +1437,7 @@ int pt_evt_sync_set(struct pt_event_decoder *decoder, uint64_t offset)
 	if (!decoder)
 		return -pte_invalid;
 
-	errcode = pt_evt_sync_reset(decoder);
+	errcode = pt_evt_reset(decoder);
 	if (errcode < 0)
 		return errcode;
 
