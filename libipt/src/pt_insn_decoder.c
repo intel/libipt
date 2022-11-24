@@ -102,6 +102,8 @@ static int pt_insn_init_qry_flags(struct pt_conf_flags *qflags,
 	memset(qflags, 0, sizeof(*qflags));
 	qflags->variant.query.keep_tcal_on_ovf =
 		flags->variant.insn.keep_tcal_on_ovf;
+	qflags->variant.query.enable_iflags_events =
+		flags->variant.insn.enable_iflags_events;
 
 	return 0;
 }
@@ -841,6 +843,7 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 	case ptev_tick:
 	case ptev_cbr:
 	case ptev_mnt:
+	case ptev_iflags:
 		/* We're only interested in events that bind to instructions. */
 		return 0;
 
@@ -1136,7 +1139,7 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 		return pt_insn_status(decoder, pts_event_pending);
 
 	case ptev_exec_mode:
-		if (!ev->ip_suppressed &&
+		if (decoder->enabled && !ev->ip_suppressed &&
 		    ev->variant.exec_mode.ip != decoder->ip)
 			break;
 
@@ -1213,6 +1216,13 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 	case ptev_tip:
 	case ptev_tnt:
 		return -pte_internal;
+
+	case ptev_iflags:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    ev->variant.iflags.ip != decoder->ip)
+			break;
+
+		return pt_insn_status(decoder, pts_event_pending);
 	}
 
 	return pt_insn_status(decoder, 0);
@@ -1765,6 +1775,13 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	case ptev_tip:
 	case ptev_tnt:
 		return -pte_internal;
+
+	case ptev_iflags:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.iflags.ip)
+			return -pte_bad_query;
+
+		break;
 	}
 
 	/* Copy the event to the user.  Make sure we're not writing beyond the

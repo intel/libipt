@@ -252,6 +252,7 @@ static void help(const char *name)
 	printf("  --event:time                         print the tsc for events if available.\n");
 	printf("  --event:ip                           print the ip of events if available.\n");
 	printf("  --event:tick                         request tick events.\n");
+	printf("  --event:iflags                       request iflags events.\n");
 	printf("  --filter:addr<n>_cfg <cfg>           set IA32_RTIT_CTL.ADDRn_CFG to <cfg>.\n");
 	printf("  --filter:addr<n>_a <base>            set IA32_RTIT_ADDRn_A to <base>.\n");
 	printf("  --filter:addr<n>_b <limit>           set IA32_RTIT_ADDRn_B to <limit>.\n");
@@ -1215,6 +1216,15 @@ static void print_event(const struct pt_event *event,
 			printf("%s",
 			       (event->variant.tnt.bits & index) ? "!" : ".");
 	}
+		break;
+
+	case ptev_iflags:
+		printf("interrupts %s",
+		       event->variant.iflags.iflag ? "enabled" : "disabled");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.iflags.ip);
 		break;
 #endif
 	}
@@ -2380,6 +2390,14 @@ extern int main(int argc, char *argv[])
 			decoder.block.flags.variant.block.
 				enable_tick_events = 1;
 			decoder.insn.flags.variant.insn.enable_tick_events = 1;
+
+			continue;
+		}
+		if (strcmp(arg, "--event:iflags") == 0) {
+			decoder.block.flags.variant.block.
+				enable_iflags_events = 1;
+			decoder.insn.flags.variant.insn.
+				enable_iflags_events = 1;
 
 			continue;
 		}

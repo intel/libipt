@@ -1543,6 +1543,15 @@ static int ploc_from_event(enum pt_sb_pevent_loc *loc,
 
 	case ptev_tip:
 		return ploc_from_ip(loc, priv, event->variant.tip.ip);
+
+#if (LIBIPT_VERSION >= 0x201)
+	case ptev_iflags:
+		if (!event->ip_suppressed)
+			return ploc_from_ip(loc, priv,
+					    event->variant.iflags.ip);
+
+		break;
+#endif
 	}
 
 	*loc = ploc_unknown;

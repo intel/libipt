@@ -51,6 +51,8 @@ static int pt_qry_init_evt_flags(struct pt_conf_flags *eflags,
 	memset(eflags, 0, sizeof(*eflags));
 	eflags->variant.event.keep_tcal_on_ovf =
 		flags->variant.query.keep_tcal_on_ovf;
+	eflags->variant.event.enable_iflags_events =
+		flags->variant.query.enable_iflags_events;
 
 	return 0;
 }

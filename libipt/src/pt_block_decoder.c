@@ -120,7 +120,8 @@ static int pt_blk_init_evt_flags(struct pt_conf_flags *qflags,
 	memset(qflags, 0, sizeof(*qflags));
 	qflags->variant.event.keep_tcal_on_ovf =
 		flags->variant.block.keep_tcal_on_ovf;
-
+	qflags->variant.event.enable_iflags_events =
+		flags->variant.block.enable_iflags_events;
 	return 0;
 }
 
@@ -1561,6 +1562,17 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 	case ptev_tip:
 	case ptev_tnt:
 		return -pte_internal;
+
+	case ptev_iflags:
+		if (ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.iflags.ip);
+		if (status <= 0)
+			return status;
+
+		break;
 	}
 
 	return pt_blk_status(decoder, pts_event_pending);
@@ -2919,6 +2931,22 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		if (status < 0)
 			return status;
 
+		/* With Event Tracing, we may get exec_mode events with an IP
+		 * while tracing is disabled.
+		 *
+		 * One scenario would be BranchEn=0; another scenario would be
+		 * IP filtering, which affects PacketEn, but not ContextEn, so
+		 * we may still see MODE.EXEC due to IF changes while tracing
+		 * is disabled as long as we are in context.
+		 *
+		 * The event decoder re-orders exec_mode and enabled events
+		 * originating from MODE.EXEC + TIP.PGE sequences such that the
+		 * enabled event comes first and events that bind to the enable
+		 * IP follow, such as paging, vmcs, or mode.
+		 */
+		if (!decoder->enabled)
+			return pt_blk_status(decoder, pts_event_pending);
+
 		if (!ev->ip_suppressed &&
 		    decoder->ip != ev->variant.exec_mode.ip)
 			break;
@@ -3016,6 +3044,18 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		status = pt_blk_proceed_postponed_insn(decoder);
 		if (status < 0)
 			return status;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_iflags:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.iflags.ip)
+			break;
 
 		return pt_blk_status(decoder, pts_event_pending);
 	}
@@ -3459,7 +3499,7 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_exec_mode:
-		if (!ev->ip_suppressed &&
+		if (decoder->enabled && !ev->ip_suppressed &&
 		    decoder->ip != ev->variant.exec_mode.ip)
 			return -pte_bad_query;
 
@@ -3516,6 +3556,13 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 
 	case ptev_tip:
 		return -pte_bad_query;
+
+	case ptev_iflags:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.iflags.ip)
+			return -pte_bad_query;
+
+		break;
 	}
 
 	/* Copy the event to the user. */

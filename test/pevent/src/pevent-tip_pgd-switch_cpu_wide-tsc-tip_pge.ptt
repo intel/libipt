@@ -31,7 +31,7 @@
 ;          timing is off - delay the event application
 ;
 ; opt:ptdump --sb:compact --sb:offset
-; opt:ptxed --event:tick --sb:compact --sb:offset --sb:switch
+; opt:ptxed --event:tick --event:iflags --sb:compact --sb:offset --sb:switch
 ;
 
 org 0x1000

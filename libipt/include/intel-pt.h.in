@@ -381,6 +381,13 @@ struct pt_conf_flags {
 #if (LIBIPT_VERSION >= 0x201)
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
+
+			/** Enable iflags events.
+			 *
+			 * Use this only when Event Tracing was enabled via
+			 * IA32_RTIT_CTL[31].
+			 */
+			uint32_t enable_iflags_events:1;
 #endif
 		} block;
 
@@ -392,6 +399,13 @@ struct pt_conf_flags {
 #if (LIBIPT_VERSION >= 0x201)
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
+
+			/** Enable iflags events.
+			 *
+			 * Use this only when Event Tracing was enabled via
+			 * IA32_RTIT_CTL[31].
+			 */
+			uint32_t enable_iflags_events:1;
 #endif
 		} insn;
 
@@ -400,12 +414,26 @@ struct pt_conf_flags {
 		struct {
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
+
+			/** Enable iflags events.
+			 *
+			 * Use this only when Event Tracing was enabled via
+			 * IA32_RTIT_CTL[31].
+			 */
+			uint32_t enable_iflags_events:1;
 		} query;
 
 		/** Flags for the event decoder. */
 		struct {
 			/** Preserve timing calibration on overflow. */
 			uint32_t keep_tcal_on_ovf:1;
+
+			/** Enable iflags events.
+			 *
+			 * Use this only when Event Tracing was enabled via
+			 * IA32_RTIT_CTL[31].
+			 */
+			uint32_t enable_iflags_events:1;
 		} event;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 
@@ -1185,6 +1213,9 @@ enum pt_event_type {
 
 	/* A conditional branch indicator event. */
 	ptev_tnt,
+
+	/* An interrupt status event. */
+	ptev_iflags,
 #endif
 };
 
@@ -1510,6 +1541,19 @@ struct pt_event {
 			/** The number of valid bits in @bits. */
 			uint8_t size;
 		} tnt;
+
+		/** Event: iflags. */
+		struct {
+			/** The EFLAGS.IF status. */
+			uint32_t iflag:1;
+
+			/** The address of the instruction at which the new
+			 * status applies.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} iflags;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };

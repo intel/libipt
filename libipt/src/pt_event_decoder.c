@@ -60,6 +60,7 @@ static int pt_evt_reset(struct pt_event_decoder *decoder)
 	decoder->event = NULL;
 	decoder->enabled = 0;
 	decoder->bound = 0;
+	decoder->mode_exec_valid = 0;
 
 	pt_last_ip_init(&decoder->ip);
 	pt_time_init(&decoder->time);
@@ -677,19 +678,59 @@ static int pt_evt_header_mode(struct pt_event_decoder *decoder,
 	if (!decoder || !packet)
 		return -pte_internal;
 
-	ev = pt_evq_enqueue(&decoder->evq, evb_psbend);
-	if (!ev)
-		return -pte_nomem;
-
-	ev->status_update = 1;
 	switch (packet->leaf) {
 	case pt_mol_exec:
+		/* If our mode.exec state is already initialized, we can use
+		 * the status update packet to diagnose inconsistencies.
+		 *
+		 * Use it to initialize our state, otherwise.
+		 */
+		if (decoder->mode_exec_valid) {
+			/* The iflag status may be inconsistent unless Event
+			 * Tracing is enabled as we would not get all updates.
+			 */
+			if (decoder->flags.variant.event.enable_iflags_events &&
+			    (decoder->iflag != packet->bits.exec.iflag))
+				return -pte_bad_status_update;
+
+			if (decoder->csd != packet->bits.exec.csd)
+				return -pte_bad_status_update;
+
+			if (decoder->csl != packet->bits.exec.csl)
+				return -pte_bad_status_update;
+		} else {
+			decoder->mode_exec_valid = 1;
+			decoder->iflag = packet->bits.exec.iflag;
+			decoder->csd = packet->bits.exec.csd;
+			decoder->csl = packet->bits.exec.csl;
+		}
+
+		ev = pt_evq_enqueue(&decoder->evq, evb_psbend);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->status_update = 1;
 		ev->type = ptev_exec_mode;
 		ev->variant.exec_mode.mode =
 			pt_get_exec_mode(&packet->bits.exec);
+
+		if (decoder->flags.variant.event.enable_iflags_events) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_psbend);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->status_update = 1;
+			ev->type = ptev_iflags;
+			ev->variant.iflags.iflag = packet->bits.exec.iflag;
+		}
 		break;
 
 	case pt_mol_tsx:
+		ev = pt_evq_enqueue(&decoder->evq, evb_psbend);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->status_update = 1;
 		ev->type = ptev_tsx;
 		ev->variant.tsx.speculative = packet->bits.tsx.intx;
 		ev->variant.tsx.aborted = packet->bits.tsx.abrt;
@@ -703,17 +744,64 @@ static int pt_evt_decode_mode_exec(struct pt_event_decoder *decoder,
 				   const struct pt_packet_mode_exec *packet)
 {
 	struct pt_event *ev;
+	int nevents;
 
 	if (!decoder || !packet)
 		return -pte_internal;
 
-	ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
-	if (!ev)
-		return -pte_nomem;
+	/* Mode.exec contains two pieces of information:
+	 *
+	 * - the execution mode
+	 * - the interrupt flag
+	 *
+	 * Split this into exec_mode or iflags events depending on which of the
+	 * pieces was changed.
+	 *
+	 * If nothing changed, e.g. because the h/w did not suppress a
+	 * mode.exec after a tracing pause, we may end up without an event.
+	 * Since we still need to bind the mode.exec packet, add an
+	 * internal-only ignore event that will be dropped at the binding
+	 * packet.
+	 */
+	nevents = 0;
+	if (!decoder->mode_exec_valid ||
+	    (decoder->csl != packet->csl) || (decoder->csd != packet->csd)) {
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
+		if (!ev)
+			return -pte_nomem;
 
-	ev->type = ptev_exec_mode;
-	ev->variant.exec_mode.mode = pt_get_exec_mode(packet);
+		ev->type = ptev_exec_mode;
+		ev->variant.exec_mode.mode = pt_get_exec_mode(packet);
 
+		decoder->csl = packet->csl;
+		decoder->csd = packet->csd;
+
+		nevents += 1;
+	}
+
+	if (decoder->flags.variant.event.enable_iflags_events &&
+	    (!decoder->mode_exec_valid || (decoder->iflag != packet->iflag))) {
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->type = ptev_iflags;
+		ev->variant.iflags.iflag = packet->iflag;
+
+		decoder->iflag = packet->iflag;
+
+		nevents += 1;
+	}
+
+	if (!nevents) {
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->type = ptev_ignore;
+	}
+
+	decoder->mode_exec_valid = 1;
 	return 1;
 }
 
@@ -1506,6 +1594,11 @@ static int pt_evt_decode_psbend(struct pt_event_decoder *decoder)
 					  &decoder->ip);
 		break;
 
+	case ptev_iflags:
+		errcode = pt_evt_event_ip(&ev->variant.iflags.ip, ev,
+					  &decoder->ip);
+		break;
+
 	case ptev_tsx:
 		errcode = pt_evt_event_ip(&ev->variant.tsx.ip, ev,
 					  &decoder->ip);
@@ -1644,10 +1737,31 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 		break;
 
 	case ptev_exec_mode:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.exec_mode.ip, ev,
+					  &decoder->ip);
+
+		decoder->bound = 1;
+		break;
+
+	case ptev_iflags:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.iflags.ip, ev,
+					  &decoder->ip);
+
+		decoder->bound = 1;
+		break;
+
+	case ptev_ignore:
+		decoder->event = NULL;
 		decoder->bound = 1;
 
-		/* Ignore the event for now. */
-		decoder->event = NULL;
 		return pt_evt_decode_fup(decoder, packet);
 
 	default:
@@ -2734,6 +2848,16 @@ static int pt_evt_decode_tip(struct pt_event_decoder *decoder,
 					  &decoder->ip);
 		break;
 
+	case ptev_iflags:
+		errcode = pt_evt_event_ip(&ev->variant.iflags.ip, ev,
+					  &decoder->ip);
+		break;
+
+	case ptev_ignore:
+		decoder->event = NULL;
+
+		return pt_evt_decode_tip(decoder, packet);
+
 	default:
 		errcode = -pte_bad_context;
 		break;
@@ -2794,6 +2918,16 @@ static int pt_evt_decode_tip_pge(struct pt_event_decoder *decoder,
 		errcode = pt_evt_event_ip(&ev->variant.exec_mode.ip, ev,
 					  &decoder->ip);
 		break;
+
+	case ptev_iflags:
+		errcode = pt_evt_event_ip(&ev->variant.iflags.ip, ev,
+					  &decoder->ip);
+		break;
+
+	case ptev_ignore:
+		decoder->event = NULL;
+
+		return pt_evt_decode_tip_pge(decoder, packet);
 
 	default:
 		errcode = -pte_bad_context;
