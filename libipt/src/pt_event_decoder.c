@@ -1833,6 +1833,7 @@ static int pt_evt_find_ovf_fup(const struct pt_packet_decoder *pacdec)
 		case ppt_pwre:
 		case ppt_pwrx:
 		case ppt_ptw:
+		case ppt_cfe:
 			return 0;
 
 		case ppt_psbend:
@@ -2356,6 +2357,16 @@ static int pt_evt_handle_skd010(struct pt_event_decoder *decoder)
 
 			break;
 
+		case ppt_cfe:
+			/* We may skip a stand-alone CFE. */
+			if (!packet.payload.cfe.ip)
+				break;
+
+			/* To skip this packet, we'd need to take care of the
+			 * FUP it binds to.  This is getting complicated.
+			 */
+			return 1;
+
 		case ppt_unknown:
 		case ppt_invalid:
 			/* We can't skip this packet. */
@@ -2486,6 +2497,7 @@ static int pt_evt_handle_apl11(struct pt_event_decoder *decoder)
 
 		case ppt_pad:
 		case ppt_mnt:
+		case ppt_cfe:
 			/* Skip those packets. */
 			break;
 
@@ -2604,6 +2616,7 @@ static int pt_evt_handle_apl12(struct pt_event_decoder *decoder,
 		case ppt_pip:
 		case ppt_vmcs:
 		case ppt_mode:
+		case ppt_cfe:
 			/* Skip those packets. */
 			break;
 
@@ -3167,6 +3180,10 @@ static int pt_evt_decode_packet(struct pt_event_decoder *decoder)
 
 	case ppt_mnt:
 		return pt_evt_decode_mnt(decoder, &packet->payload.mnt);
+
+	case ppt_cfe:
+		/* Ignore for now. */
+		return 1;
 
 	case ppt_invalid:
 		if (decoder->status < 0)

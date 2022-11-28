@@ -769,6 +769,25 @@ static int pt_pkt_decode_ptw(struct pt_packet_decoder *decoder,
 	return size;
 }
 
+static int pt_pkt_decode_cfe(struct pt_packet_decoder *decoder,
+			     struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_cfe(&packet->payload.cfe, decoder->pos,
+			       &decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_cfe;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
 static int pt_pkt_decode(struct pt_packet_decoder *decoder,
 			 struct pt_packet *packet)
 {
@@ -877,6 +896,9 @@ static int pt_pkt_decode(struct pt_packet_decoder *decoder,
 
 		case pt_ext_tnt_64:
 			return pt_pkt_decode_tnt_64(decoder, packet);
+
+		case pt_ext_cfe:
+			return pt_pkt_decode_cfe(decoder, packet);
 
 		case pt_ext_ext2:
 			if (end <= pos)

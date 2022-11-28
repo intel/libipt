@@ -466,6 +466,18 @@ static struct ptunit_result ptw(struct packet_fixture *pfix, uint8_t plc,
 	return ptu_passed();
 }
 
+static struct ptunit_result cfe(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_cfe;
+	pfix->packet[0].payload.cfe.type = pt_cfe_vmexit_intr;
+	pfix->packet[0].payload.cfe.vector = pt_cfe_intr_pf;
+	pfix->packet[0].payload.cfe.ip = 1;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -626,6 +638,7 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, pwrx, pfix);
 	ptu_run_fp(suite, ptw, pfix, 0, 1);
 	ptu_run_fp(suite, ptw, pfix, 1, 0);
+	ptu_run_f(suite, cfe, pfix);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -649,6 +662,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff, pfix, ppt_pwre);
 	ptu_run_fp(suite, cutoff, pfix, ppt_pwrx);
 	ptu_run_fp(suite, cutoff, pfix, ppt_ptw);
+	ptu_run_fp(suite, cutoff, pfix, ppt_cfe);
 
 	return ptunit_report(&suite);
 }

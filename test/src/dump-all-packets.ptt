@@ -89,6 +89,10 @@ bits 64
 ; @pt p55: mode.exec(16bit, if)
 ; @pt p56: mode.exec(32bit, if)
 ; @pt p57: mode.exec(64bit, if)
+; @pt p58: cfe(2)
+; @pt p59: cfe(3, ip)
+; @pt p60: cfe(3: 0xf0, ip)
+; @pt p61: cfe(1: 14)
 
 ; @pt .exp(ptdump)
 ;%0p01  psbend
@@ -148,3 +152,7 @@ bits 64
 ;%0p55  mode.exec  if
 ;%0p56  mode.exec  cs.d, if
 ;%0p57  mode.exec  cs.l, if
+;%0p58  cfe        2
+;%0p59  cfe        3, ip
+;%0p60  cfe        3, ip
+;%0p61  cfe        1: 14

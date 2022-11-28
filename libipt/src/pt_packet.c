@@ -576,3 +576,21 @@ int pt_pkt_read_ptw(struct pt_packet_ptw *packet, const uint8_t *pos,
 
 	return pt_opcs_ptw + size;
 }
+
+int pt_pkt_read_cfe(struct pt_packet_cfe *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_cfe)
+		return -pte_eos;
+
+	pos += pt_opcs_cfe;
+
+	packet->type = pos[0] & pt_pl_cfe_type;
+	packet->vector = pos[1];
+	packet->ip = pos[0] & pt_pl_cfe_ip ? 1 : 0;
+
+	return ptps_cfe;
+}

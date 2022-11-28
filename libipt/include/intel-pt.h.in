@@ -610,7 +610,10 @@ enum pt_packet_type {
 	ppt_mwait,
 	ppt_pwre,
 	ppt_pwrx,
-	ppt_ptw
+	ppt_ptw,
+#if (LIBIPT_VERSION >= 0x201)
+	ppt_cfe,
+#endif
 };
 
 /** The IP compression. */
@@ -883,6 +886,71 @@ static inline int pt_ptw_size(uint8_t plc)
 	return -pte_internal;
 }
 
+#if (LIBIPT_VERSION >= 0x201)
+/* Control-flow event types. */
+enum pt_cfe_type {
+	pt_cfe_intr		= 0x01,
+	pt_cfe_iret		= 0x02,
+	pt_cfe_smi		= 0x03,
+	pt_cfe_rsm		= 0x04,
+	pt_cfe_sipi		= 0x05,
+	pt_cfe_init		= 0x06,
+	pt_cfe_vmentry		= 0x07,
+	pt_cfe_vmexit		= 0x08,
+	pt_cfe_vmexit_intr	= 0x09,
+	pt_cfe_shutdown		= 0x0a,
+	pt_cfe_uintr		= 0x0c,
+	pt_cfe_uiret		= 0x0d,
+};
+
+/* Interrupt vectors defined in Table 6-1 in §6.5 of Vol.1 of the SDM. */
+enum pt_cfe_intr {
+	pt_cfe_intr_de		= 0,	/* Divide Error. */
+	pt_cfe_intr_db		= 1,	/* Debug. */
+	pt_cfe_intr_nmi		= 2,	/* Non Maskable Interrupt. */
+	pt_cfe_intr_bp		= 3,	/* Breakpoint. */
+	pt_cfe_intr_of		= 4,	/* Overflow. */
+	pt_cfe_intr_br		= 5,	/* Bound Range Exceeded. */
+	pt_cfe_intr_ud		= 6,	/* Undefined Opcode. */
+	pt_cfe_intr_nm		= 7,	/* Device Not Available. */
+	pt_cfe_intr_df		= 8,	/* Double Fault. */
+	pt_cfe_intr_ts		= 10,	/* Invalid TSS. */
+	pt_cfe_intr_np		= 11,	/* Segment Not Present. */
+	pt_cfe_intr_ss		= 12,	/* Stack Segment Fault. */
+	pt_cfe_intr_gp		= 13,	/* General Protection Fault. */
+	pt_cfe_intr_pf		= 14,	/* Page Fault. */
+	pt_cfe_intr_mf		= 16,	/* Math Fault. */
+	pt_cfe_intr_ac		= 17,	/* Alignment Check. */
+	pt_cfe_intr_mc		= 18,	/* Machine Check. */
+	pt_cfe_intr_xm		= 19,	/* SIMD Floating Point Exception. */
+	pt_cfe_intr_ve		= 20,	/* Virtualization Exception. */
+	pt_cfe_intr_cp		= 21,	/* Control Protection Exception. */
+};
+
+/** A CFE packet. */
+struct pt_packet_cfe {
+	/** The type of control-flow event. */
+	enum pt_cfe_type type;
+
+	/** The vector depending on the type:
+	 *
+	 *  pt_cfe_intr:	the event vector.
+	 *  pt_cfe_vmexit_intr:	the event vector.
+	 *  pt_cfe_sipi:	the SIPI vector.
+	 *  pt_cfe_uintr:	the user interrupt vector.
+	 */
+	uint8_t vector;
+
+	/** A flag specifying the binding of the packet:
+	 *
+	 *   set:    binds to the next FUP.
+	 *   clear:  binds to the next FUP + TIP, if tracing enabled.
+	 *   clear:  standalone, if tracing disabled.
+	 */
+	uint32_t ip:1;
+};
+#endif /* (LIBIPT_VERSION >= 0x201) */
+
 /** An unknown packet decodable by the optional decoder callback. */
 struct pt_packet_unknown {
 	/** Pointer to the raw packet bytes. */
@@ -955,6 +1023,10 @@ struct pt_packet {
 		/** Packet: ptw. */
 		struct pt_packet_ptw ptw;
 
+#if (LIBIPT_VERSION >= 0x201)
+		/** Packet: cfe. */
+		struct pt_packet_cfe cfe;
+#endif
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;
 	} payload;

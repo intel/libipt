@@ -661,6 +661,67 @@ static int parse_token_aux(const char **pinput, const char *token, size_t size)
 #define parse_token(input, token) \
 	parse_token_aux(input, token, strnlen(token, 1024))
 
+/* Parse an @size-bit base-@base unsigned integer in @input.
+ *
+ * If an integer number can be parsed from @input, diagnoses exceeding the
+ * expected range with an error code return.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer if @input does not start with an integer.
+ * Returns a negative integer on error.
+ */
+static int parse_uint(const char **pinput, unsigned long long *puint,
+		      uint8_t size, int base)
+{
+	unsigned long long uint;
+	const char *input;
+	char *end;
+
+	if (!pinput)
+		return -err_internal;
+
+	input = *pinput;
+	if (!input)
+		return -err_internal;
+
+	if (!puint || !size)
+		return -err_internal;
+
+	if (size > 64)
+		return -err_internal;
+
+	errno = 0;
+	uint = strtoull(input, &end, base);
+	if (input == end)
+		return 1;
+
+	if (errno == EINVAL)
+		return -err_internal;
+
+	if (errno == ERANGE)
+		return -err_parse_int_too_big;
+
+	if ((size < 64) && ((uint >> size) != 0))
+		return -err_parse_int_too_big;
+
+	*puint = uint;
+	*pinput = end;
+	return 0;
+}
+
+static int parse_uint_8(const char **pinput, uint8_t *uint)
+{
+	unsigned long long tmp;
+	int status;
+
+	status = parse_uint(pinput, &tmp, 8, 0);
+	if (status != 0)
+		return status;
+
+	*uint = (uint8_t) tmp;
+	return 0;
+}
+
 static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
 {
 	int errcode;
@@ -836,6 +897,108 @@ static int parse_mode_exec(const char **input, const struct parser *p,
 	}
 
 	packet->iflag = 1;
+	return 0;
+}
+
+/* Parse cfe arguments in @input into @packet.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer on failure.
+ * Returns a negative integer on error.
+ */
+static int parse_cfe(const char **input, const struct parser *p,
+		     struct pt_packet_cfe *packet)
+{
+	uint8_t type;
+	int status;
+
+	if (!p || !packet)
+		return -err_internal;
+
+	status = parse_uint_8(input, &type);
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "cfe: bad argument, expected "
+					"8-bit unsigned integer 'type'",
+					-err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	packet->type = (enum pt_cfe_type) type;
+
+	status = parse_token(input, ":");
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		switch (packet->type) {
+		case pt_cfe_intr:
+		case pt_cfe_sipi:
+		case pt_cfe_vmexit_intr:
+		case pt_cfe_uintr:
+			status = yasm_print_err(p->y, "cfe: type needs "
+						"'vector' argument",
+						-err_parse);
+			if (status < 0)
+				return status;
+
+			return 1;
+
+		case pt_cfe_iret:
+		case pt_cfe_smi:
+		case pt_cfe_rsm:
+		case pt_cfe_init:
+		case pt_cfe_vmentry:
+		case pt_cfe_vmexit:
+		case pt_cfe_shutdown:
+		case pt_cfe_uiret:
+			packet->vector = 0;
+			break;
+		}
+	} else {
+		status = parse_uint_8(input, &packet->vector);
+		if (status != 0) {
+			if (status < 0)
+				return status;
+
+			status = yasm_print_err(p->y, "cfe: bad argument, "
+						"expected  8-bit unsigned "
+						"integer 'vector'", -err_parse);
+			if (status < 0)
+				return status;
+
+			return 1;
+		}
+	}
+
+	status = parse_token(input, ",");
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		packet->ip = 0;
+		return 0;
+	}
+
+	status = parse_token(input, "ip");
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "cfe: bad argument, expected"
+					"'ip' keyword", -err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	packet->ip = 1;
 	return 0;
 }
 
@@ -1257,6 +1420,22 @@ static int p_process_pt(struct parser *p, struct pt_encoder *e)
 
 			packet.payload.ptw.ip = 1;
 		}
+	} else if (strcmp(directive, "cfe") == 0) {
+		const char *cpl;
+
+		cpl = (const char *) payload;
+		errcode = parse_cfe(&cpl, p, &packet.payload.cfe);
+		if (errcode != 0) {
+			if (errcode < 0)
+				yasm_print_err(p->y, "cfe: parsing failed",
+					       errcode);
+			else
+				errcode = -err_parse;
+
+			return errcode;
+		}
+
+		packet.type = ppt_cfe;
 	} else if (strcmp(directive, "raw-8") == 0) {
 		uint8_t value;
 

@@ -1362,6 +1362,44 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 			    packet->payload.ptw.ip ? ", ip" : "");
 
 		return 0;
+
+#if (LIBIPT_VERSION >= 0x201)
+	case ppt_cfe:
+		print_field(buffer->opcode, "cfe");
+
+		switch (packet->payload.cfe.type) {
+		case pt_cfe_intr:
+		case pt_cfe_vmexit_intr:
+		case pt_cfe_uintr:
+			print_field(buffer->payload.standard, "%u: %u%s",
+				    packet->payload.cfe.type,
+				    packet->payload.cfe.vector,
+				    packet->payload.cfe.ip ? ", ip" : "");
+			return 0;
+
+		case pt_cfe_sipi:
+			print_field(buffer->payload.standard, "%u: %x%s",
+				    packet->payload.cfe.type,
+				    packet->payload.cfe.vector,
+				    packet->payload.cfe.ip ? ", ip" : "");
+			return 0;
+
+		case pt_cfe_iret:
+		case pt_cfe_smi:
+		case pt_cfe_rsm:
+		case pt_cfe_init:
+		case pt_cfe_vmentry:
+		case pt_cfe_vmexit:
+		case pt_cfe_shutdown:
+		case pt_cfe_uiret:
+			print_field(buffer->payload.standard, "%u%s",
+				    packet->payload.cfe.type,
+				    packet->payload.cfe.ip ? ", ip" : "");
+			return 0;
+		}
+
+		return diag("unknown cfe type", offset, -pte_bad_packet);
+#endif /* (LIBIPT_VERSION >= 0x201) */
 	}
 
 	return diag("unknown packet", offset, -pte_bad_opc);

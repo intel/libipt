@@ -685,6 +685,27 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		return (int) (pos - begin);
 	}
 
+	case ppt_cfe: {
+		uint8_t type;
+
+		errcode = pt_reserve(encoder, ptps_cfe);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_cfe;
+
+		type = packet->payload.cfe.type & pt_pl_cfe_type;
+		if (packet->payload.cfe.ip)
+			type |= pt_pl_cfe_ip;
+
+		*pos++ = type;
+		*pos++ = packet->payload.cfe.vector;
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+	}
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;
