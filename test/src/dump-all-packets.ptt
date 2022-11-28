@@ -93,6 +93,7 @@ bits 64
 ; @pt p59: cfe(3, ip)
 ; @pt p60: cfe(3: 0xf0, ip)
 ; @pt p61: cfe(1: 14)
+; @pt p62: evd(2: 0xf00baa)
 
 ; @pt .exp(ptdump)
 ;%0p01  psbend
@@ -156,3 +157,4 @@ bits 64
 ;%0p59  cfe        3, ip
 ;%0p60  cfe        3, ip
 ;%0p61  cfe        1: 14
+;%0p62  evd        2: f00baa

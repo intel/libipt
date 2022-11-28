@@ -706,6 +706,21 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		return (int) (pos - begin);
 	}
 
+	case ppt_evd:
+		errcode = pt_reserve(encoder, ptps_evd);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_ext;
+		*pos++ = pt_ext_evd;
+
+		*pos++ = packet->payload.evd.type & pt_pl_evd_type;
+		pos = pt_encode_int(pos, packet->payload.evd.payload,
+				    pt_pl_evd_pl_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;

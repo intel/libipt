@@ -69,6 +69,7 @@ enum pt_ext_code {
 	pt_ext_pwrx		= 0xa2,
 	pt_ext_ptw		= 0x12,
 	pt_ext_cfe		= 0x13,
+	pt_ext_evd		= 0x53,
 
 	pt_ext_bad		= 0x04
 };
@@ -149,6 +150,7 @@ enum pt_opcode_size {
 	pt_opcs_pwrx		= 2,
 	pt_opcs_ptw		= 2,
 	pt_opcs_cfe		= 2,
+	pt_opcs_evd		= 2,
 };
 
 /* The psb magic payload.
@@ -330,6 +332,15 @@ enum pt_payload {
 
 	/* The bit mask for the IP bit in the CFE payload. */
 	pt_pl_cfe_ip		= 0x80,
+
+	/* The size in bytes of the EVD payload field. */
+	pt_pl_evd_pl_size	= 8,
+
+	/* The size in bytes of the EVD payload. */
+	pt_pl_evd_size		= 9,
+
+	/* The bit mask for the type field in the EVD payload. */
+	pt_pl_evd_type		= 0x1f,
 };
 
 /* Mode packet masks. */
@@ -399,6 +410,7 @@ enum pt_packet_size {
 	ptps_ptw_32		= pt_opcs_ptw + 4,
 	ptps_ptw_64		= pt_opcs_ptw + 8,
 	ptps_cfe		= pt_opcs_cfe + pt_pl_cfe_size,
+	ptps_evd		= pt_opcs_evd + pt_pl_evd_size,
 };
 
 /* Supported address range configurations. */

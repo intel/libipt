@@ -594,3 +594,20 @@ int pt_pkt_read_cfe(struct pt_packet_cfe *packet, const uint8_t *pos,
 
 	return ptps_cfe;
 }
+
+int pt_pkt_read_evd(struct pt_packet_evd *packet, const uint8_t *pos,
+		    const struct pt_config *config)
+{
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_evd)
+		return -pte_eos;
+
+	pos += pt_opcs_evd;
+
+	packet->type = pos[0] & pt_pl_evd_type;
+	packet->payload = pt_pkt_read_value(&pos[1], pt_pl_evd_pl_size);
+
+	return ptps_evd;
+}

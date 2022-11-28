@@ -478,6 +478,17 @@ static struct ptunit_result cfe(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result evd(struct packet_fixture *pfix)
+{
+	pfix->packet[0].type = ppt_evd;
+	pfix->packet[0].payload.evd.type = pt_evd_vmxq;
+	pfix->packet[0].payload.evd.payload = 0xf000baaa;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -639,6 +650,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, ptw, pfix, 0, 1);
 	ptu_run_fp(suite, ptw, pfix, 1, 0);
 	ptu_run_f(suite, cfe, pfix);
+	ptu_run_f(suite, evd, pfix);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -663,6 +675,7 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff, pfix, ppt_pwrx);
 	ptu_run_fp(suite, cutoff, pfix, ppt_ptw);
 	ptu_run_fp(suite, cutoff, pfix, ppt_cfe);
+	ptu_run_fp(suite, cutoff, pfix, ppt_evd);
 
 	return ptunit_report(&suite);
 }

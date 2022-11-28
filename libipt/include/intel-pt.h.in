@@ -613,6 +613,7 @@ enum pt_packet_type {
 	ppt_ptw,
 #if (LIBIPT_VERSION >= 0x201)
 	ppt_cfe,
+	ppt_evd,
 #endif
 };
 
@@ -949,6 +950,27 @@ struct pt_packet_cfe {
 	 */
 	uint32_t ip:1;
 };
+
+/* Event data types. */
+enum pt_evd_type {
+	pt_evd_cr2		= 0x00, /* Page fault linear address (cr2). */
+	pt_evd_vmxq		= 0x01, /* VMX exit qualification. */
+	pt_evd_vmxr		= 0x02, /* VMX exit reason. */
+};
+
+/** A EVD packet. */
+struct pt_packet_evd {
+	/** The type of control-flow event. */
+	enum pt_evd_type type;
+
+	/** The payload depending on the type:
+	 *
+	 *  0x00: page fault linear address (cr2).
+	 *  0x01: vmx exit qualification.
+	 *  0x02: vmx exit reason.
+	 */
+	uint64_t payload;
+};
 #endif /* (LIBIPT_VERSION >= 0x201) */
 
 /** An unknown packet decodable by the optional decoder callback. */
@@ -1026,6 +1048,9 @@ struct pt_packet {
 #if (LIBIPT_VERSION >= 0x201)
 		/** Packet: cfe. */
 		struct pt_packet_cfe cfe;
+
+		/** Packet: evd. */
+		struct pt_packet_evd evd;
 #endif
 		/** Packet: unknown. */
 		struct pt_packet_unknown unknown;

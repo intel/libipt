@@ -722,6 +722,19 @@ static int parse_uint_8(const char **pinput, uint8_t *uint)
 	return 0;
 }
 
+static int parse_uint_64(const char **pinput, uint64_t *uint)
+{
+	unsigned long long tmp;
+	int status;
+
+	status = parse_uint(pinput, &tmp, 64, 0);
+	if (status != 0)
+		return status;
+
+	*uint = (uint64_t) tmp;
+	return 0;
+}
+
 static int parse_mwait(uint32_t *hints, uint32_t *ext, char *payload)
 {
 	int errcode;
@@ -999,6 +1012,67 @@ static int parse_cfe(const char **input, const struct parser *p,
 	}
 
 	packet->ip = 1;
+	return 0;
+}
+
+/* Parse evd arguments in @input into @packet.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer on failure.
+ * Returns a negative integer on error.
+ */
+static int parse_evd(const char **input, const struct parser *p,
+		     struct pt_packet_evd *packet)
+{
+	uint8_t type;
+	int status;
+
+	if (!p || !packet)
+		return -err_internal;
+
+	status = parse_uint_8(input, &type);
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "evd: bad argument, expected "
+					"8-bit unsigned integer 'type'",
+					-err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	packet->type = (enum pt_evd_type) type;
+
+	status = parse_token(input, ":");
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "evd: bad argument, expected "
+					"':' separator", -err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	status = parse_uint_64(input, &packet->payload);
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "evd: bad argument, expected "
+					"64-bit unsigned integer 'payload'",
+					-err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -1436,6 +1510,22 @@ static int p_process_pt(struct parser *p, struct pt_encoder *e)
 		}
 
 		packet.type = ppt_cfe;
+	} else if (strcmp(directive, "evd") == 0) {
+		const char *cpl;
+
+		cpl = (const char *) payload;
+		errcode = parse_evd(&cpl, p, &packet.payload.evd);
+		if (errcode != 0) {
+			if (errcode < 0)
+				yasm_print_err(p->y, "evd: parsing failed",
+					       errcode);
+			else
+				errcode = -err_parse;
+
+			return errcode;
+		}
+
+		packet.type = ppt_evd;
 	} else if (strcmp(directive, "raw-8") == 0) {
 		uint8_t value;
 

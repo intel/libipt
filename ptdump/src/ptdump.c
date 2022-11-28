@@ -1399,6 +1399,22 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		}
 
 		return diag("unknown cfe type", offset, -pte_bad_packet);
+
+	case ppt_evd:
+		print_field(buffer->opcode, "evd");
+		print_field(buffer->payload.standard, "%u: %" PRIx64,
+			    packet->payload.evd.type,
+			    packet->payload.evd.payload);
+
+		switch (packet->payload.evd.type) {
+		case pt_evd_cr2:
+		case pt_evd_vmxq:
+		case pt_evd_vmxr:
+			return 0;
+		}
+
+		return diag("unknown evd type", offset, -pte_bad_packet);
+
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	}
 
