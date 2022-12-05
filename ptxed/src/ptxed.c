@@ -1238,6 +1238,14 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.interrupt.ip);
 		break;
+
+	case ptev_iret:
+		printf("iret");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.iret.ip);
+		break;
 #endif
 	}
 

@@ -49,7 +49,11 @@ l1: nop
 ; @pt p8:   cfe(1: 14, ip)
 ; @pt p9:   fup(1: %l2)
 l2: nop
+; @pt p10:  cfe(2)
 ; @pt p11:  cfe(1: 0x80)
+; @pt p12:  cfe(2, ip)
+; @pt p13:  fup(1: %l3)
+l3: nop
 
 
 ; @pt .exp(ptdump)
@@ -63,7 +67,10 @@ l2: nop
 ;%0p7   evd        0: f00baa
 ;%0p8   cfe        1: 14, ip
 ;%0p9   fup        1: %?l2.2
+;%0p10  cfe        2
 ;%0p11  cfe        1: 128
+;%0p12  cfe        2, ip
+;%0p13  fup        1: %?l3.2
 
 
 ; @pt .exp(ptxed)
@@ -72,4 +79,6 @@ l2: nop
 ;[exec mode: 64-bit, ip: %0l1]
 ;[interrupts enabled, ip: %0l1]
 ;[interrupt 14, cr2: 0000000000f00baa, ip: %0l2]
+;[iret]
 ;[interrupt 128]
+;[iret, ip: %0l3]

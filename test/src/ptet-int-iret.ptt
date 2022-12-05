@@ -28,6 +28,7 @@
 ; Test that an INT followed by an IRET are decoded correctly.
 ;
 ; Variant: event tracing enabled
+;          test that CVE.IRET could be bound to the IRET instruction (artificial)
 ;
 
 org 0x100000
@@ -44,6 +45,7 @@ l0: nop
 ; @pt p6: fup(1: %l1)
 ; @pt p7: tip(3: %l5)
 ; ...
+; @pt p8: cfe(2)
 ; @pt p9: tip(3: %l1)
 l1: mov rax, [rbx]
 
@@ -51,6 +53,7 @@ l1: mov rax, [rbx]
 ; @pt p11: fup(1: %l2)
 ; @pt p12: tip(3: %l7)
 ; ...
+; @pt p13: cfe(2)
 ; @pt p14: tip(3: %l3)
 l2: int 0x80
 l3: nop
@@ -75,10 +78,12 @@ l8: hlt
 ;%0p5  cfe        1: 14
 ;%0p6  fup        1: %?l1.2
 ;%0p7  tip        3: %?l5
+;%0p8  cfe        2
 ;%0p9  tip        3: %?l1
 ;%0p10 cfe        1: 128
 ;%0p11 fup        1: %?l2.2
 ;%0p12 tip        3: %?l7
+;%0p13 cfe        2
 ;%0p14 tip        3: %?l3
 ;%0p15 fup        1: %?l4.2
 ;%0p16 tip.pgd    0: %?l4.0
@@ -89,9 +94,11 @@ l8: hlt
 ;[interrupt 14, cr2: 0000000000f00baa]  # mov rax, [rbx]
 ;[interrupt]
 ;%0l5
+;[iret]
 ;%0l1                                   # mov rax, [rbx]
 ;[interrupt 128]                        # int 0x80
 ;[interrupt]
 ;%0l7
+;[iret]
 ;%0l3                                   # nop
 ;[disabled]

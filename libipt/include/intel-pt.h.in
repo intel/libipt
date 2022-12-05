@@ -1320,6 +1320,9 @@ enum pt_event_type {
 	 * control-flow change; it does not replace that event.
 	 */
 	ptev_interrupt,
+
+	/* A return from interrupt event. */
+	ptev_iret,
 #endif
 };
 
@@ -1683,6 +1686,15 @@ struct pt_event {
 			 */
 			uint64_t ip;
 		} interrupt;
+
+		/** Event: iret. */
+		struct {
+			/** The address of the instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} iret;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };

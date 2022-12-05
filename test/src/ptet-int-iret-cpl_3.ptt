@@ -43,6 +43,7 @@ l0: nop
 ; @pt p6: fup(1: %l1)
 ; @pt p7: tip.pgd(0: %l1)
 ; ...
+; @pt p8: cfe(2)
 ; @pt p9: tip.pge(3: %l1)
 l1: mov rax, [rbx]
 
@@ -50,6 +51,7 @@ l1: mov rax, [rbx]
 ; @pt p11: fup(1: %l2)
 ; @pt p12: tip.pgd(0: %l2)
 ; ...
+; @pt p13: cfe(2)
 ; @pt p14: tip.pge(3: %l3)
 l2: int 0x80
 l3: nop
@@ -68,10 +70,12 @@ l4: hlt
 ;%0p5  cfe        1: 14
 ;%0p6  fup        1: %?l1.2
 ;%0p7  tip.pgd    0: %?l1.0
+;%0p8  cfe        2
 ;%0p9  tip.pge    3: %?l1
 ;%0p10 cfe        1: 128
 ;%0p11 fup        1: %?l2.2
 ;%0p12 tip.pgd    0: %?l2.0
+;%0p13 cfe        2
 ;%0p14 tip.pge    3: %?l3
 ;%0p15 fup        1: %?l4.2
 ;%0p16 tip.pgd    0: %?l4.0
@@ -81,10 +85,12 @@ l4: hlt
 ;%0l0                                   # nop
 ;[interrupt 14, cr2: 0000000000f00baa]  # mov rax, [rbx]
 ;[disabled]
+;[iret]
 ;[resumed]
 ;%0l1                                   # mov rax, [rbx]
 ;[interrupt 128]                        # int 0x80
 ;[disabled]
+;[iret]
 ;[enabled]
 ;%0l3                                   # nop
 ;[disabled]

@@ -1764,6 +1764,15 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 					  &decoder->ip);
 		break;
 
+	case ptev_iret:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.iret.ip, ev,
+					  &decoder->ip);
+		break;
+
 	case ptev_ignore:
 		decoder->event = NULL;
 
@@ -3147,6 +3156,29 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_iret:
+		if (packet->ip) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_iret;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_iret;
+		ev->ip_suppressed = 1;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
 	case pt_cfe_smi:
 	case pt_cfe_rsm:
 	case pt_cfe_sipi:

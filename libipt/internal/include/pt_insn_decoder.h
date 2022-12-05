@@ -122,6 +122,9 @@ struct pt_insn_decoder {
 
 	/* - a ptwrite event has already been bound to @insn/@iext. */
 	uint32_t bound_ptwrite:1;
+
+	/* - an iret event has already been bound to @insn/@iext. */
+	uint32_t bound_iret:1;
 };
 
 
