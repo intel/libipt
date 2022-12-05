@@ -173,6 +173,22 @@ struct pt_event *pt_evq_dequeue(struct pt_event_queue *evq, uint32_t evb)
 	return &pentry->event;
 }
 
+struct pt_event *pt_evq_requeue(struct pt_event_queue *evq,
+				struct pt_event *ev, uint32_t evb)
+{
+	struct pt_event *rev;
+
+	if (!ev)
+		return NULL;
+
+	rev = pt_evq_enqueue(evq, evb);
+	if (!rev)
+		return NULL;
+
+	*rev = *ev;
+	return rev;
+}
+
 int pt_evq_clear(struct pt_event_queue *evq)
 {
 	if (!evq)

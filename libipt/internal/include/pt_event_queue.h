@@ -104,6 +104,19 @@ extern struct pt_event *pt_evq_enqueue(struct pt_event_queue *evq,
 extern struct pt_event *pt_evq_dequeue(struct pt_event_queue *evq,
 				       uint32_t evb);
 
+/* Requeue an event.
+ *
+ * Adds @ev to @evq for binding @evb, where @ev must be a recently dequeued or
+ * standalone event of @evq.
+ *
+ * Returns a pointer to the event on success.
+ * Returns NULL if @evq or @ev is NULL or @evb is invalid.
+ * Returns NULL if @evq is full.
+ */
+extern struct pt_event *pt_evq_requeue(struct pt_event_queue *evq,
+				       struct pt_event *ev,
+				       uint32_t evb);
+
 /* Clear a queue and discard events.
  *
  * Removes all events from @evq.
