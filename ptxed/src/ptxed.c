@@ -1226,6 +1226,18 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.iflags.ip);
 		break;
+
+	case ptev_interrupt:
+		printf("interrupt %u", event->variant.interrupt.vector);
+
+		if (event->variant.interrupt.has_cr2)
+			printf(", cr2: %016" PRIx64,
+			       event->variant.interrupt.cr2);
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.interrupt.ip);
+		break;
 #endif
 	}
 

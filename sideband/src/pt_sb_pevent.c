@@ -1551,6 +1551,13 @@ static int ploc_from_event(enum pt_sb_pevent_loc *loc,
 					    event->variant.iflags.ip);
 
 		break;
+
+	case ptev_interrupt:
+		if (!event->ip_suppressed)
+			return ploc_from_ip(loc, priv,
+					    event->variant.interrupt.ip);
+
+		break;
 #endif
 	}
 
