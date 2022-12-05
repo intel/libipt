@@ -40,7 +40,8 @@ enum pt_event_binding {
 	evb_psbend	= 1 << 0,
 	evb_tip		= 1 << 1,
 	evb_fup		= 1 << 2,
-	evb_exstop	= 1 << 3,
+	evb_fup_bound	= 1 << 3,
+	evb_exstop	= 1 << 4,
 };
 
 enum {

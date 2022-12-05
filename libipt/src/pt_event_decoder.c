@@ -766,7 +766,7 @@ static int pt_evt_decode_mode_exec(struct pt_event_decoder *decoder,
 	nevents = 0;
 	if (!decoder->mode_exec_valid ||
 	    (decoder->csl != packet->csl) || (decoder->csd != packet->csd)) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup_bound);
 		if (!ev)
 			return -pte_nomem;
 
@@ -781,7 +781,7 @@ static int pt_evt_decode_mode_exec(struct pt_event_decoder *decoder,
 
 	if (decoder->flags.variant.event.enable_iflags_events &&
 	    (!decoder->mode_exec_valid || (decoder->iflag != packet->iflag))) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup_bound);
 		if (!ev)
 			return -pte_nomem;
 
@@ -794,7 +794,7 @@ static int pt_evt_decode_mode_exec(struct pt_event_decoder *decoder,
 	}
 
 	if (!nevents) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup);
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip | evb_fup_bound);
 		if (!ev)
 			return -pte_nomem;
 
@@ -815,7 +815,10 @@ static int pt_evt_decode_mode_tsx(struct pt_event_decoder *decoder,
 		return -pte_internal;
 
 	if (decoder->enabled) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+		uint32_t evb;
+
+		evb = packet->abrt ? evb_fup : evb_fup_bound;
+		ev = pt_evq_enqueue(&decoder->evq, evb);
 		if (!ev)
 			return -pte_nomem;
 
@@ -1095,7 +1098,8 @@ static int pt_evt_decode_exstop(struct pt_event_decoder *decoder,
 			if (packet->ip) {
 				struct pt_event *mwait;
 
-				mwait = pt_evq_enqueue(&decoder->evq, evb_fup);
+				mwait = pt_evq_enqueue(&decoder->evq,
+						       evb_fup_bound);
 				if (!mwait)
 					return -pte_nomem;
 
@@ -1123,7 +1127,7 @@ static int pt_evt_decode_exstop(struct pt_event_decoder *decoder,
 
 	/* If EXSTOP.IP is set, it binds to a subsequent FUP. */
 	if (packet->ip) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+		ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 		if (!ev)
 			return -pte_nomem;
 
@@ -1240,7 +1244,7 @@ static int pt_evt_decode_ptw(struct pt_event_decoder *decoder,
 
 	/* If PTW.IP is set, it binds to a subsequent FUP. */
 	if (packet->ip) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+		ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 		if (!ev)
 			return -pte_nomem;
 
@@ -1635,7 +1639,7 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 			     const struct pt_packet_ip *packet)
 {
 	struct pt_event *ev;
-	int errcode;
+	int errcode, status;
 
 	if (!decoder || !packet)
 		return -pte_internal;
@@ -1645,7 +1649,15 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 	if (errcode < 0)
 		return errcode;
 
-	ev = pt_evq_dequeue(&decoder->evq, evb_fup);
+	status = pt_evq_pending(&decoder->evq, evb_fup_bound);
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		decoder->bound = 1;
+	}
+
+	ev = pt_evq_dequeue(&decoder->evq, evb_fup | evb_fup_bound);
 	if (!ev) {
 		uint64_t from;
 
@@ -1687,7 +1699,6 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 					  &decoder->ip);
 
 		decoder->enabled = 1;
-		decoder->bound = 1;
 		break;
 
 	case ptev_tsx:
@@ -1697,10 +1708,6 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		errcode = pt_evt_event_ip(&ev->variant.tsx.ip, ev,
 					  &decoder->ip);
-
-		if (!(ev->variant.tsx.aborted))
-			decoder->bound = 1;
-
 		break;
 
 	case ptev_exstop:
@@ -1710,8 +1717,6 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		errcode = pt_evt_event_ip(&ev->variant.exstop.ip, ev,
 					  &decoder->ip);
-
-		decoder->bound = 1;
 		break;
 
 	case ptev_mwait:
@@ -1721,8 +1726,6 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		errcode = pt_evt_event_ip(&ev->variant.mwait.ip, ev,
 					  &decoder->ip);
-
-		decoder->bound = 1;
 		break;
 
 	case ptev_ptwrite:
@@ -1732,8 +1735,6 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		errcode = pt_evt_event_ip(&ev->variant.ptwrite.ip, ev,
 					  &decoder->ip);
-
-		decoder->bound = 1;
 		break;
 
 	case ptev_exec_mode:
@@ -1743,8 +1744,6 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		errcode = pt_evt_event_ip(&ev->variant.exec_mode.ip, ev,
 					  &decoder->ip);
-
-		decoder->bound = 1;
 		break;
 
 	case ptev_iflags:
@@ -1754,13 +1753,10 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		errcode = pt_evt_event_ip(&ev->variant.iflags.ip, ev,
 					  &decoder->ip);
-
-		decoder->bound = 1;
 		break;
 
 	case ptev_ignore:
 		decoder->event = NULL;
-		decoder->bound = 1;
 
 		return pt_evt_decode_fup(decoder, packet);
 
@@ -2207,7 +2203,8 @@ static int pt_evt_handle_skd010(struct pt_event_decoder *decoder)
 			 * the next iteration.
 			 */
 			if (mode_tsx.found) {
-				ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+				ev = pt_evq_enqueue(&decoder->evq,
+						    evb_fup_bound);
 				if (!ev)
 					return -pte_nomem;
 
@@ -2750,7 +2747,7 @@ static int pt_evt_decode_ovf(struct pt_event_decoder *decoder)
 			return errcode;
 	}
 
-	ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+	ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 	if (!ev)
 		return -pte_nomem;
 
