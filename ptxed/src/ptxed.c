@@ -1246,6 +1246,22 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.iret.ip);
 		break;
+
+	case ptev_smi:
+		printf("smi");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.smi.ip);
+		break;
+
+	case ptev_rsm:
+		printf("rsm");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.rsm.ip);
+		break;
 #endif
 	}
 

@@ -1323,6 +1323,12 @@ enum pt_event_type {
 
 	/* A return from interrupt event. */
 	ptev_iret,
+
+	/* A system management interrupt. */
+	ptev_smi,
+
+	/* A return from system management mode. */
+	ptev_rsm,
 #endif
 };
 
@@ -1695,6 +1701,25 @@ struct pt_event {
 			 */
 			uint64_t ip;
 		} iret;
+
+		/** Event: smi. */
+		struct {
+			/** The address of the instruction at/before which the
+			 * system management interrupt occurred.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} smi;
+
+		/** Event: rsm. */
+		struct {
+			/** The address of the instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} rsm;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };
