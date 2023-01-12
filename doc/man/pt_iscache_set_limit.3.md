@@ -1,7 +1,7 @@
 % PT_ISCACHE_SET_LIMIT(3)
 
 <!---
- ! Copyright (c) 2017-2022, Intel Corporation
+ ! Copyright (c) 2017-2023, Intel Corporation
  ! SPDX-License-Identifier: BSD-3-Clause
  !
  ! Redistribution and use in source and binary forms, with or without
