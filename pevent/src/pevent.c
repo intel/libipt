@@ -207,6 +207,9 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 	header = (const struct perf_event_header *) pos;
 	pos += sizeof(*header);
 
+	if (header->size < sizeof(*header))
+		return -pte_nosync;
+
 	if (!header->type || (end < (begin + header->size)))
 		return -pte_eos;
 

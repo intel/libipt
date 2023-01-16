@@ -370,6 +370,30 @@ static struct ptunit_result write_bad_config(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result nosync(uint16_t type)
+{
+	union {
+		struct perf_event_header header;
+		uint8_t buffer[128];
+	} input;
+	struct pev_config config;
+	struct pev_event event;
+	int errcode;
+
+	pev_config_init(&config);
+
+	memset(input.buffer, 0xcc, sizeof(input.buffer));
+	input.header.type = type;
+	input.header.misc = 0;
+	input.header.size = sizeof(input.header.type);
+
+	errcode = pev_read(&event, input.buffer,
+			   input.buffer + sizeof(input.buffer), &config);
+	ptu_int_eq(errcode, -pte_nosync);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result bad_string(uint16_t type)
 {
 	union {
@@ -766,6 +790,10 @@ int main(int argc, char **argv)
 	ptu_run_p(suite, bad_string, PERF_RECORD_MMAP);
 	ptu_run_p(suite, bad_string, PERF_RECORD_COMM);
 	ptu_run_p(suite, bad_string, PERF_RECORD_MMAP2);
+
+	ptu_run_p(suite, nosync, PERF_RECORD_MMAP);
+	ptu_run_p(suite, nosync, PERF_RECORD_COMM);
+	ptu_run_p(suite, nosync, 0);
 
 	ptu_run_f(suite, record_mmap, pfix);
 	ptu_run_f(suite, record_lost, pfix);
