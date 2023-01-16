@@ -1335,6 +1335,12 @@ enum pt_event_type {
 
 	/* An INIT reset. */
 	ptev_init,
+
+	/* A Virtual Machine entry. */
+	ptev_vmentry,
+
+	/* A Virtual Machine exit. */
+	ptev_vmexit,
 #endif
 };
 
@@ -1741,6 +1747,59 @@ struct pt_event {
 			 */
 			uint64_t ip;
 		} init;
+
+		/** Event: vmentry. */
+		struct {
+			/** The address of the instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} vmentry;
+
+		/** Event: vmexit. */
+		struct {
+			/** A flag saying whether the \@vector field is valid.
+			 *
+			 * When set, the vmexit occurred due to an interrupt or
+			 * exception.
+			 */
+			uint32_t has_vector:1;
+
+			/** A flag saying whether the \@vmxr field is valid. */
+			uint32_t has_vmxr:1;
+
+			/** A flag saying whether the \@vmxq field is valid. */
+			uint32_t has_vmxq:1;
+
+			/** The interrupt/exception vector.
+			 *
+			 * This field is only valid if \@has_vector is set.
+			 */
+			uint8_t vector;
+
+			/** The vmexit reason.
+			 *
+			 * This field is only valid if \@has_vmxr is set.
+			 */
+			uint64_t vmxr;
+
+			/** The vmexit qualification.
+			 *
+			 * This field is only valid if \@has_vmxq is set.
+			 */
+			uint64_t vmxq;
+
+			/** The address of the instruction at which the
+			 * interrupt or exception occurred.
+			 *
+			 * For faults, this will be the faulting instruction.
+			 * For traps, this will be the next instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} vmexit;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };

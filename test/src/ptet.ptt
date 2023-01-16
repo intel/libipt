@@ -62,6 +62,20 @@ l4: nop
 ; @pt p18:  fup(1: %l5)
 l5: nop
 ; @pt p19:  cfe(5: 0xce)
+; @pt p20:  evd(1: 0xf00baa)
+; @pt p21:  evd(2: 0)
+; @pt p22:  cfe(9: 14, ip)
+; @pt p23:  fup(1: %l6)
+l6: nop
+; @pt p24:  cfe(7, ip)
+; @pt p25:  fup(1: %l6)
+; @pt p26:  evd(2: 10)
+; @pt p27:  cfe(8, ip)
+; @pt p28:  fup(1: %l7)
+l7: nop
+; @pt p29:  cfe(7, ip)
+; @pt p30:  fup(1: %l8)
+l8: nop
 
 
 ; @pt .exp(ptdump)
@@ -85,6 +99,17 @@ l5: nop
 ;%0p17  cfe        6, ip
 ;%0p18  fup        1: %?l5.2
 ;%0p19  cfe        5: ce
+;%0p20  evd        1: f00baa
+;%0p21  evd        2: 0
+;%0p22  cfe        9: 14, ip
+;%0p23  fup        1: %?l6.2
+;%0p24  cfe        7, ip
+;%0p25  fup        1: %?l6.2
+;%0p26  evd        2: a
+;%0p27  cfe        8, ip
+;%0p28  fup        1: %?l7.2
+;%0p29  cfe        7, ip
+;%0p30  fup        1: %?l8.2
 
 
 ; @pt .exp(ptxed)
@@ -100,3 +125,7 @@ l5: nop
 ;[rsm]
 ;[init, ip: %0l5]
 ;[sipi: ce]
+;[vmexit, intr: 14, vmxr: 0000000000000000, vmxq: 0000000000f00baa, ip: %0l6]
+;[vmentry, ip: %0l6]
+;[vmexit, vmxr: 000000000000000a, ip: %0l7]
+;[vmentry, ip: %0l8]

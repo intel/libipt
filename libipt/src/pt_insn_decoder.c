@@ -60,6 +60,7 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->bound_vmcs = 0;
 	decoder->bound_ptwrite = 0;
 	decoder->bound_iret = 0;
+	decoder->bound_vmentry = 0;
 
 	pt_retstack_init(&decoder->retstack);
 	pt_asid_init(&decoder->asid);
@@ -765,6 +766,7 @@ static int pt_insn_clear_postponed(struct pt_insn_decoder *decoder)
 	decoder->bound_vmcs = 0;
 	decoder->bound_ptwrite = 0;
 	decoder->bound_iret = 0;
+	decoder->bound_vmentry = 0;
 
 	return 0;
 }
@@ -851,6 +853,7 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 	case ptev_rsm:
 	case ptev_sipi:
 	case ptev_init:
+	case ptev_vmexit:
 		/* We're only interested in events that bind to instructions. */
 		return 0;
 
@@ -987,6 +990,37 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		 * iret events to this instruction.
 		 */
 		decoder->bound_iret = 1;
+
+		return pt_insn_postpone(decoder, insn, iext);
+
+	case ptev_vmentry:
+		/* We bind at most one vmentry event to an instruction. */
+		if (decoder->bound_vmentry)
+			return 0;
+
+		if (ev->ip_suppressed) {
+			if (!pt_insn_is_vmentry(insn, iext))
+				return 0;
+
+			/* Fill in the event IP. */
+			ev->variant.vmentry.ip = decoder->ip;
+			ev->ip_suppressed = 0;
+		} else {
+			/* The vmentry event contains the IP of the vmentry
+			 * instruction (CLIP) unlike most events that contain
+			 * the IP of the first instruction that did not
+			 * complete (NLIP).
+			 *
+			 * It's easier to handle this case here, as well.
+			 */
+			if (decoder->ip != ev->variant.vmentry.ip)
+				return 0;
+		}
+
+		/* We bound a vmentry event.  Make sure we do not bind further
+		 * vmentry events to this instruction.
+		 */
+		decoder->bound_vmentry = 1;
 
 		return pt_insn_postpone(decoder, insn, iext);
 	}
@@ -1308,6 +1342,29 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 	case ptev_sipi:
 		if (!ev->ip_suppressed)
 			return -pte_internal;
+
+		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_vmentry:
+		/* Any event binding to the current vmentry instruction is
+		 * handled in pt_insn_check_insn_event().
+		 *
+		 * Any subsequent vmentry event binds to a different
+		 * instruction and must wait until the next iteration - as long
+		 * as tracing is enabled.
+		 *
+		 * When tracing is disabled, we forward all vmentry events
+		 * immediately to the user.
+		 */
+		if (decoder->enabled)
+			break;
+
+		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_vmexit:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    ev->variant.vmexit.ip != decoder->ip)
+			break;
 
 		return pt_insn_status(decoder, pts_event_pending);
 	}
@@ -1858,6 +1915,7 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	case ptev_cbr:
 	case ptev_mnt:
 	case ptev_iret:
+	case ptev_vmentry:
 		break;
 
 	case ptev_tip:
@@ -1900,6 +1958,13 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	case ptev_init:
 		if (!ev->ip_suppressed && decoder->enabled &&
 		    decoder->ip != ev->variant.init.ip)
+			return -pte_bad_query;
+
+		break;
+
+	case ptev_vmexit:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.vmexit.ip)
 			return -pte_bad_query;
 
 		break;

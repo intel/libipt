@@ -1274,6 +1274,33 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.init.ip);
 		break;
+
+	case ptev_vmentry:
+		printf("vmentry");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.vmentry.ip);
+		break;
+
+	case ptev_vmexit:
+		printf("vmexit");
+
+		if (event->variant.vmexit.has_vector)
+			printf(", intr: %u", event->variant.vmexit.vector);
+
+		if (event->variant.vmexit.has_vmxr)
+			printf(", vmxr: %016" PRIx64,
+			       event->variant.vmexit.vmxr);
+
+		if (event->variant.vmexit.has_vmxq)
+			printf(", vmxq: %016" PRIx64,
+			       event->variant.vmexit.vmxq);
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.vmexit.ip);
+		break;
 #endif
 	}
 

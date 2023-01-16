@@ -1811,6 +1811,24 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 					  &decoder->ip);
 		break;
 
+	case ptev_vmentry:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.vmentry.ip, ev,
+					  &decoder->ip);
+		break;
+
+	case ptev_vmexit:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.vmexit.ip, ev,
+					  &decoder->ip);
+		break;
+
 	case ptev_ignore:
 		decoder->event = NULL;
 
@@ -3342,8 +3360,74 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_vmentry:
+		if (packet->ip) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_vmentry;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_vmentry;
+		ev->ip_suppressed = 1;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
 	case pt_cfe_vmexit:
 	case pt_cfe_vmexit_intr:
+		/* Let's see if we already got a vmexit-related EVD. */
+		ev = pt_evq_dequeue(&decoder->evq, evb_cfe);
+		if (!ev) {
+			ev = pt_evq_standalone(&decoder->evq);
+			if (!ev)
+				return -pte_internal;
+
+			ev->type = ptev_vmexit;
+		}
+
+		if (ev->type != ptev_vmexit)
+			return -pte_bad_context;
+
+		if (packet->type == pt_cfe_vmexit_intr) {
+			ev->variant.vmexit.has_vector = 1;
+			ev->variant.vmexit.vector = packet->vector;
+		}
+
+		if (packet->ip) {
+			ev = pt_evq_requeue(&decoder->evq, ev, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			return 1;
+		}
+
+		if (decoder->enabled) {
+			ev = pt_evq_requeue(&decoder->evq, ev, evb_fup);
+			if (!ev)
+				return -pte_nomem;
+
+			return 1;
+		}
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		ev->ip_suppressed = 1;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
 	case pt_cfe_shutdown:
 	case pt_cfe_uintr:
 	case pt_cfe_uiret:
@@ -3375,9 +3459,42 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 		return 1;
 
 	case pt_evd_vmxq:
+		/* Let's see if we already got a vmexit-related EVD. */
+		ev = pt_evq_find(&decoder->evq, evb_cfe, ptev_vmexit);
+		if (!ev) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_cfe);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_vmexit;
+		}
+
+		if (ev->variant.vmexit.has_vmxq)
+			return -pte_bad_context;
+
+		ev->variant.vmexit.has_vmxq = 1;
+		ev->variant.vmexit.vmxq = packet->payload;
+
+		return 1;
+
 	case pt_evd_vmxr:
-		/* Not supported, yet. */
-		return -pte_bad_packet;
+		/* Let's see if we already got a vmexit-related EVD. */
+		ev = pt_evq_find(&decoder->evq, evb_cfe, ptev_vmexit);
+		if (!ev) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_cfe);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_vmexit;
+		}
+
+		if (ev->variant.vmexit.has_vmxr)
+			return -pte_bad_context;
+
+		ev->variant.vmexit.has_vmxr = 1;
+		ev->variant.vmexit.vmxr = packet->payload;
+
+		return 1;
 	}
 
 	return -pte_bad_packet;
