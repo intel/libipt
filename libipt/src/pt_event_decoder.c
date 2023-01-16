@@ -1792,6 +1792,25 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		break;
 
+	case ptev_sipi:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		if (!ev->ip_suppressed)
+			return -pte_internal;
+
+		break;
+
+	case ptev_init:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.init.ip, ev,
+					  &decoder->ip);
+		break;
+
 	case ptev_ignore:
 		decoder->event = NULL;
 
@@ -3260,7 +3279,68 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_sipi:
+		if (packet->ip)
+			return -pte_bad_packet;
+
+		if (decoder->enabled) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->ip_suppressed = 1;
+			ev->type = ptev_sipi;
+			ev->variant.sipi.vector = packet->vector;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->ip_suppressed = 1;
+		ev->type = ptev_sipi;
+		ev->variant.sipi.vector = packet->vector;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
 	case pt_cfe_init:
+		if (packet->ip) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_init;
+			return 1;
+		}
+
+		if (decoder->enabled) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_init;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_init;
+		ev->ip_suppressed = 1;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
 	case pt_cfe_vmentry:
 	case pt_cfe_vmexit:
 	case pt_cfe_vmexit_intr:

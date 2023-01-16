@@ -1262,6 +1262,18 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.rsm.ip);
 		break;
+
+	case ptev_sipi:
+		printf("sipi: %x", event->variant.sipi.vector);
+		break;
+
+	case ptev_init:
+		printf("init");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.init.ip);
+		break;
 #endif
 	}
 

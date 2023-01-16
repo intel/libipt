@@ -1688,6 +1688,20 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 
 	case ptev_rsm:
 		break;
+
+	case ptev_sipi:
+		break;
+
+	case ptev_init:
+		if (ev->ip_suppressed)
+			break;
+
+		status = pt_blk_proceed_to_ip(decoder, block, &insn, &iext,
+					      ev->variant.init.ip);
+		if (status <= 0)
+			return status;
+
+		break;
 	}
 
 	return pt_blk_status(decoder, pts_event_pending);
@@ -3236,6 +3250,29 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 			return -pte_internal;
 
 		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_sipi:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
+		if (!ev->ip_suppressed)
+			return -pte_internal;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_init:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.init.ip)
+			break;
+
+		return pt_blk_status(decoder, pts_event_pending);
 	}
 
 	/* No further events.  Proceed past any postponed instruction. */
@@ -3760,6 +3797,19 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	case ptev_rsm:
 		if (!ev->ip_suppressed)
 			return -pte_internal;
+
+		break;
+
+	case ptev_sipi:
+		if (!ev->ip_suppressed)
+			return -pte_internal;
+
+		break;
+
+	case ptev_init:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.init.ip)
+			return -pte_bad_query;
 
 		break;
 	}

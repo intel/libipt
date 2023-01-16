@@ -1329,6 +1329,12 @@ enum pt_event_type {
 
 	/* A return from system management mode. */
 	ptev_rsm,
+
+	/* A SIPI message. */
+	ptev_sipi,
+
+	/* An INIT reset. */
+	ptev_init,
 #endif
 };
 
@@ -1720,6 +1726,21 @@ struct pt_event {
 			 */
 			uint64_t ip;
 		} rsm;
+
+		/** Event: sipi. */
+		struct {
+			/** The SIPI vector. */
+			uint8_t vector;
+		} sipi;
+
+		/** Event: init. */
+		struct {
+			/** The address of the instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} init;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };
