@@ -507,7 +507,8 @@ static inline int block_to_user(struct pt_block *ublock, size_t size,
 
 	/* Zero out any unknown bytes. */
 	if (sizeof(*block) < size) {
-		memset(ublock + sizeof(*block), 0, size - sizeof(*block));
+		memset(((uint8_t *) ublock) + sizeof(*block), 0,
+		       size - sizeof(*block));
 
 		size = sizeof(*block);
 	}

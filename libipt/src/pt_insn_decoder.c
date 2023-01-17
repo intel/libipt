@@ -1200,7 +1200,8 @@ static inline int insn_to_user(struct pt_insn *uinsn, size_t size,
 
 	/* Zero out any unknown bytes. */
 	if (sizeof(*insn) < size) {
-		memset(uinsn + sizeof(*insn), 0, size - sizeof(*insn));
+		memset(((uint8_t *) uinsn) + sizeof(*insn), 0,
+		       size - sizeof(*insn));
 
 		size = sizeof(*insn);
 	}
