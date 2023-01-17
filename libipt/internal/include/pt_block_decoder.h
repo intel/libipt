@@ -151,6 +151,9 @@ struct pt_block_decoder {
 
 	/* - a vmentry event has already been bound to @insn/@iext. */
 	uint32_t bound_vmentry:1;
+
+	/* - an uiret event has already been bound to @insn/@iext. */
+	uint32_t bound_uiret:1;
 };
 
 

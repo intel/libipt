@@ -1310,6 +1310,22 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.shutdown.ip);
 		break;
+
+	case ptev_uintr:
+		printf("uintr %u", event->variant.uintr.vector);
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.uintr.ip);
+		break;
+
+	case ptev_uiret:
+		printf("uiret");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.uiret.ip);
+		break;
 #endif
 	}
 

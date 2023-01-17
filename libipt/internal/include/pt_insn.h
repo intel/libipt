@@ -185,6 +185,14 @@ extern int pt_insn_is_iret(const struct pt_insn *insn,
 extern int pt_insn_is_vmentry(const struct pt_insn *insn,
 			      const struct pt_insn_ext *iext);
 
+/* Check if the instruction @insn/@iext is a return-from-user-interrupt
+ * instruction.
+ *
+ * Returns non-zero if it is, zero if it isn't (or @insn/@iext is NULL).
+ */
+extern int pt_insn_is_uiret(const struct pt_insn *insn,
+			    const struct pt_insn_ext *iext);
+
 /* Determine the IP of the next instruction.
  *
  * Tries to determine the IP of the next instruction without using trace and

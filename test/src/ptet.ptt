@@ -79,6 +79,12 @@ l8: nop
 ; @pt p31:  cfe(10, ip)
 ; @pt p32:  fup(1: %l9)
 l9: nop
+; @pt p33:  cfe(12: 4, ip)
+; @pt p34:  fup(1: %l10)
+l10: nop
+; @pt p35:  cfe(13, ip)
+; @pt p36:  fup(1: %l11)
+l11: nop
 
 
 ; @pt .exp(ptdump)
@@ -115,6 +121,10 @@ l9: nop
 ;%0p30  fup        1: %?l8.2
 ;%0p31  cfe        10, ip
 ;%0p32  fup        1: %?l9.2
+;%0p33  cfe        12: 4, ip
+;%0p34  fup        1: %?l10.2
+;%0p35  cfe        13, ip
+;%0p36  fup        1: %?l11.2
 
 
 ; @pt .exp(ptxed)
@@ -135,3 +145,5 @@ l9: nop
 ;[vmexit, vmxr: 000000000000000a, ip: %0l7]
 ;[vmentry, ip: %0l8]
 ;[shutdown, ip: %0l9]
+;[uintr 4, ip: %0l10]
+;[uiret, ip: %0l11]

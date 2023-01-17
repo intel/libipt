@@ -1838,6 +1838,24 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 					  &decoder->ip);
 		break;
 
+	case ptev_uintr:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.uintr.ip, ev,
+					  &decoder->ip);
+		break;
+
+	case ptev_uiret:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.uiret.ip, ev,
+					  &decoder->ip);
+		break;
+
 	case ptev_ignore:
 		decoder->event = NULL;
 
@@ -3462,9 +3480,64 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_uintr:
+		if (packet->ip) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_uintr;
+			ev->variant.uintr.vector = packet->vector;
+			return 1;
+		}
+
+		if (decoder->enabled) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_uintr;
+			ev->variant.uintr.vector = packet->vector;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_uintr;
+		ev->variant.uintr.vector = packet->vector;
+		ev->ip_suppressed = 1;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
 	case pt_cfe_uiret:
-		/* Not supported, yet. */
-		return -pte_bad_packet;
+		if (packet->ip) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_uiret;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_uiret;
+		ev->ip_suppressed = 1;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
 	}
 
 	return -pte_bad_packet;
