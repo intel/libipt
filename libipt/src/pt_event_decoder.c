@@ -3117,7 +3117,7 @@ static inline int pt_evt_to_user(struct pt_event *uev, size_t size,
 
 	/* Zero out any unknown bytes. */
 	if (sizeof(*ev) < size) {
-		memset(uev + sizeof(*ev), 0, size - sizeof(*ev));
+		memset(((uint8_t *) uev) + sizeof(*ev), 0, size - sizeof(*ev));
 
 		size = sizeof(*ev);
 	}
