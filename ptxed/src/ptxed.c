@@ -780,6 +780,7 @@ static void check_insn_iclass(const xed_inst_t *inst,
 		case XED_ICLASS_SYSEXIT:
 		case XED_ICLASS_VMLAUNCH:
 		case XED_ICLASS_VMRESUME:
+		case XED_ICLASS_UIRET:
 			return;
 		}
 		break;
