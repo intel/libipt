@@ -209,6 +209,8 @@ static struct ptunit_result read_null(void)
 	struct pt_image image;
 	int status;
 
+	memset(&mcache, 0, sizeof(mcache));
+
 	status = pt_msec_cache_read(NULL, &msec, &image, 0ull);
 	ptu_int_eq(status, -pte_internal);
 
