@@ -1301,6 +1301,14 @@ static void print_event(const struct pt_event *event,
 			printf(", ip: %016" PRIx64,
 			       event->variant.vmexit.ip);
 		break;
+
+	case ptev_shutdown:
+		printf("shutdown");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.shutdown.ip);
+		break;
 #endif
 	}
 

@@ -1341,6 +1341,9 @@ enum pt_event_type {
 
 	/* A Virtual Machine exit. */
 	ptev_vmexit,
+
+	/* A shutdown event. */
+	ptev_shutdown,
 #endif
 };
 
@@ -1800,6 +1803,16 @@ struct pt_event {
 			 */
 			uint64_t ip;
 		} vmexit;
+
+		/** Event: shutdown. */
+		struct {
+			/** The address of the first instruction that did not
+			 * complete due to the shutdown.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} shutdown;
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	} variant;
 };

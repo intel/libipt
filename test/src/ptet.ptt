@@ -76,6 +76,9 @@ l7: nop
 ; @pt p29:  cfe(7, ip)
 ; @pt p30:  fup(1: %l8)
 l8: nop
+; @pt p31:  cfe(10, ip)
+; @pt p32:  fup(1: %l9)
+l9: nop
 
 
 ; @pt .exp(ptdump)
@@ -110,6 +113,8 @@ l8: nop
 ;%0p28  fup        1: %?l7.2
 ;%0p29  cfe        7, ip
 ;%0p30  fup        1: %?l8.2
+;%0p31  cfe        10, ip
+;%0p32  fup        1: %?l9.2
 
 
 ; @pt .exp(ptxed)
@@ -129,3 +134,4 @@ l8: nop
 ;[vmentry, ip: %0l6]
 ;[vmexit, vmxr: 000000000000000a, ip: %0l7]
 ;[vmentry, ip: %0l8]
+;[shutdown, ip: %0l9]

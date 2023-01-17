@@ -854,6 +854,7 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 	case ptev_sipi:
 	case ptev_init:
 	case ptev_vmexit:
+	case ptev_shutdown:
 		/* We're only interested in events that bind to instructions. */
 		return 0;
 
@@ -1364,6 +1365,13 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 	case ptev_vmexit:
 		if (decoder->enabled && !ev->ip_suppressed &&
 		    ev->variant.vmexit.ip != decoder->ip)
+			break;
+
+		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_shutdown:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    ev->variant.shutdown.ip != decoder->ip)
 			break;
 
 		return pt_insn_status(decoder, pts_event_pending);
@@ -1965,6 +1973,13 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 	case ptev_vmexit:
 		if (!ev->ip_suppressed && decoder->enabled &&
 		    decoder->ip != ev->variant.vmexit.ip)
+			return -pte_bad_query;
+
+		break;
+
+	case ptev_shutdown:
+		if (!ev->ip_suppressed && decoder->enabled &&
+		    decoder->ip != ev->variant.shutdown.ip)
 			return -pte_bad_query;
 
 		break;
