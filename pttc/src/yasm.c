@@ -617,7 +617,7 @@ int pd_parse(struct pt_directive *pd, struct state *st)
 		goto cleanup;
 	}
 
-	/* make "multiple" strings by artifically terminating them with
+	/* make "multiple" strings by artificially terminating them with
 	 * '\0' then get directive and payload substrings, which will
 	 * have leading and trailing whitespace "removed".
 	 */

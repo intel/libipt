@@ -80,8 +80,8 @@ extern void pt_image_fini(struct pt_image *image);
  *
  * Add @section identified by @isid to @image at @vaddr in @asid.  If @section
  * overlaps with existing sections, the existing sections are shrunk, split, or
- * removed to accomodate @section.  Absence of a section identifier is indicated
- * by an @isid of zero.
+ * removed to accommodate @section.  Absence of a section identifier is
+ * indicated by an @isid of zero.
  *
  * Returns zero on success.
  * Returns -pte_internal if @image, @section, or @asid is NULL.

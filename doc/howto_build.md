@@ -47,7 +47,7 @@ components, or optional build variants.
 By default, only the decoder library is built.  Other components can be enabled
 by setting the respective cmake variable to ON.
 
-The following optional components are availble:
+The following optional components are available:
 
     PTUNIT             A simple unit test framework.
                        A collection of unit tests for libipt.
@@ -92,8 +92,8 @@ available on all supported platforms.
 
     GCOV                Support for code coverage using libgcov.
 
-                        This build variant requires libgcov and is not availble
-                        on Windows.
+                        This build variant requires libgcov and is not 
+                        available on Windows.
 
 
     DEVBUILD            Enable compiler warnings and turn them into errors.
