@@ -105,15 +105,12 @@ static inline int thrd_create(thrd_t *thrd, thrd_start_t fun, void *arg)
 	return thrd_success;
 }
 
-static inline int thrd_join(thrd_t *thrd, int *res)
+static inline int thrd_join(thrd_t thrd, int *res)
 {
 	void *result;
 	int errcode;
 
-	if (!thrd)
-		return thrd_error;
-
-	errcode = pthread_join(thrd->thread, &result);
+	errcode = pthread_join(thrd.thread, &result);
 	if (errcode)
 		return thrd_error;
 
