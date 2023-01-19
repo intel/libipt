@@ -101,31 +101,28 @@ static inline int thrd_create(thrd_t *thrd, thrd_start_t fun, void *arg)
 	return thrd_success;
 }
 
-static inline int thrd_join(thrd_t *thrd, int *res)
+static inline int thrd_join(thrd_t thrd, int *res)
 {
 	DWORD status;
 	BOOL success;
 
-	if (!thrd)
-		return thrd_error;
-
-	status = WaitForSingleObject(thrd->handle, INFINITE);
+	status = WaitForSingleObject(thrd.handle, INFINITE);
 	if (status)
 		return thrd_error;
 
 	if (res) {
 		DWORD result;
 
-		success = GetExitCodeThread(thrd->handle, &result);
+		success = GetExitCodeThread(thrd.handle, &result);
 		if (!success) {
-			(void) CloseHandle(thrd->handle);
+			(void) CloseHandle(thrd.handle);
 			return thrd_error;
 		}
 
 		*res = (int) result;
 	}
 
-	success = CloseHandle(thrd->handle);
+	success = CloseHandle(thrd.handle);
 	if (!success)
 		return thrd_error;
 
