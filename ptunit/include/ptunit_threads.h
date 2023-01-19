@@ -91,7 +91,7 @@ ptunit_thrd_fini(struct ptunit_thrd_fixture *tfix)
 		int thrd, errcode[ptu_thrd_max];
 
 		for (thrd = 0; thrd < tfix->nthreads; ++thrd)
-			errcode[thrd] = thrd_join(&tfix->threads[thrd],
+			errcode[thrd] = thrd_join(tfix->threads[thrd],
 						  &tfix->result[thrd]);
 
 		mtx_destroy(&tfix->lock);
