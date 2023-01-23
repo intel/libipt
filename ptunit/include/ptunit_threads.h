@@ -33,7 +33,11 @@
 #include "ptunit.h"
 
 #if defined(FEATURE_THREADS)
-#  include <threads.h>
+#  if !defined(__STDC_NO_THREADS__)
+#    include <threads.h>
+#  else
+#    include "pt_threads.h"
+#  endif
 #endif /* defined(FEATURE_THREADS) */
 
 

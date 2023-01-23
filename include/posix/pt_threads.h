@@ -33,8 +33,8 @@
  * soon go away.
  */
 
-#ifndef THREADS_H
-#define THREADS_H
+#ifndef PT_THREADS_H
+#define PT_THREADS_H
 
 #include <pthread.h>
 
@@ -254,4 +254,4 @@ static inline int cnd_wait(cnd_t *cnd, mtx_t *mtx)
 	return thrd_success;
 }
 
-#endif /* THREADS_H */
+#endif /* PT_THREADS_H */
