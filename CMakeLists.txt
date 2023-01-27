@@ -262,6 +262,9 @@ if (CMAKE_HOST_UNIX)
         HAVE_C_Wno_format_truncation)
     endif (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
 
+    add_cflag_if_available("-Wno-debug-disables-optimization"
+      HAVE_C_Wno_debug_disables_optimization)
+
     # warnings are errors
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
