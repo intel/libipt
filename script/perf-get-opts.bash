@@ -114,16 +114,36 @@ perf script --no-itrace -i $file -D | \
 
 gawk_sample_type() {
   echo $1 | gawk -- '
-  BEGIN         { RS = "[|\n]" }
-  /^TID$/        { config += 0x00002 }
-  /^TIME$/       { config += 0x00004 }
-  /^ID$/         { config += 0x00040 }
-  /^CPU$/        { config += 0x00080 }
-  /^STREAM$/     { config += 0x00200 }
-  /^IDENTIFIER$/ { config += 0x10000 }
+  BEGIN               { RS = "[|\n]" }
+  /^IP$/              { config += 0x0000001 }
+  /^TID$/             { config += 0x0000002 }
+  /^TIME$/            { config += 0x0000004 }
+  /^ADDR$/            { config += 0x0000008 }
+  /^READ$/            { config += 0x0000010 }
+  /^CALLCHAIN$/       { config += 0x0000020 }
+  /^ID$/              { config += 0x0000040 }
+  /^CPU$/             { config += 0x0000080 }
+  /^PERIOD$/          { config += 0x0000100 }
+  /^STREAM$/          { config += 0x0000200 }
+  /^STREAM_ID$/       { config += 0x0000200 }
+  /^RAW$/             { config += 0x0000400 }
+  /^BRANCH_STACK$/    { config += 0x0000800 }
+  /^REGS_USER$/       { config += 0x0001000 }
+  /^STACK_USER$/      { config += 0x0002000 }
+  /^WEIGHT$/          { config += 0x0004000 }
+  /^DATA_SRC$/        { config += 0x0008000 }
+  /^IDENTIFIER$/      { config += 0x0010000 }
+  /^TRANSACTION$/     { config += 0x0020000 }
+  /^REGS_INTR$/       { config += 0x0040000 }
+  /^PHYS_ADDR$/       { config += 0x0080000 }
+  /^AUX$/             { config += 0x0100000 }
+  /^CGROUP$/          { config += 0x0200000 }
+  /^DATA_PAGE_SIZE$/  { config += 0x0400000 }
+  /^CODE_PAGE_SIZE$/  { config += 0x0800000 }
+  /^WEIGHT_STRUCT$/   { config += 0x1000000 }
   END           {
     if (config != 0) {
-      printf(" --pevent:sample-type 0x%x", config)
+      printf(" --pevent:sample-type 0x%lx", config)
     }
   }
 '
