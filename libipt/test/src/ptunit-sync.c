@@ -37,15 +37,18 @@
 
 /* A test fixture for sync tests. */
 struct sync_fixture {
-	/* The trace buffer. */
-	uint8_t buffer[1024];
-
 	/* A trace configuration. */
 	struct pt_config config;
 
 	/* The test fixture initialization and finalization functions. */
 	struct ptunit_result (*init)(struct sync_fixture *);
 	struct ptunit_result (*fini)(struct sync_fixture *);
+
+	/* The trace buffer.
+	 *
+	 * We need it at the end for overread sanitizer checks.
+	 */
+	uint8_t buffer[1024];
 };
 
 static struct ptunit_result sfix_init(struct sync_fixture *sfix)
@@ -240,15 +243,16 @@ static struct ptunit_result sync_bwd_past(struct sync_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result sync_fwd_cutoff(struct sync_fixture *sfix)
+static struct ptunit_result sync_fwd_cutoff(struct sync_fixture *sfix,
+					    size_t head, size_t tail)
 {
 	const uint8_t *sync;
 	int errcode;
 
 	sfix_encode_psb(sfix->config.begin);
 	sfix_encode_psb(sfix->config.end - ptps_psb);
-	sfix->config.begin += 1;
-	sfix->config.end -= 1;
+	sfix->config.begin += head;
+	sfix->config.end -= tail;
 
 	errcode = pt_sync_forward(&sync, sfix->config.begin, &sfix->config);
 	ptu_int_eq(errcode, -pte_eos);
@@ -256,15 +260,16 @@ static struct ptunit_result sync_fwd_cutoff(struct sync_fixture *sfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result sync_bwd_cutoff(struct sync_fixture *sfix)
+static struct ptunit_result sync_bwd_cutoff(struct sync_fixture *sfix,
+					    size_t head, size_t tail)
 {
 	const uint8_t *sync;
 	int errcode;
 
 	sfix_encode_psb(sfix->config.begin);
 	sfix_encode_psb(sfix->config.end - ptps_psb);
-	sfix->config.begin += 1;
-	sfix->config.end -= 1;
+	sfix->config.begin += head;
+	sfix->config.end -= tail;
 
 	errcode = pt_sync_backward(&sync, sfix->config.end, &sfix->config);
 	ptu_int_eq(errcode, -pte_eos);
@@ -300,8 +305,10 @@ int main(int argc, char **argv)
 	ptu_run_f(suite, sync_fwd_past, sfix);
 	ptu_run_f(suite, sync_bwd_past, sfix);
 
-	ptu_run_f(suite, sync_fwd_cutoff, sfix);
-	ptu_run_f(suite, sync_bwd_cutoff, sfix);
+	ptu_run_fp(suite, sync_fwd_cutoff, sfix, 1, 1);
+	ptu_run_fp(suite, sync_fwd_cutoff, sfix, sizeof(sfix.buffer) - 8, 0);
+	ptu_run_fp(suite, sync_bwd_cutoff, sfix, 1, 1);
+	ptu_run_fp(suite, sync_bwd_cutoff, sfix, sizeof(sfix.buffer) - 8, 0);
 
 	return ptunit_report(&suite);
 }

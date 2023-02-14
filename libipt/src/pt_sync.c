@@ -192,7 +192,7 @@ int pt_sync_forward(const uint8_t **sync, const uint8_t *pos,
 			continue;
 
 		/* We found a 64bit word's worth of psb payload pattern. */
-		current = pt_find_psb(pos, config);
+		current = pt_find_psb(current, config);
 		if (!current)
 			continue;
 
@@ -239,7 +239,7 @@ int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
 			continue;
 
 		/* We found a 64bit word's worth of psb payload pattern. */
-		next = pt_find_psb(next, config);
+		next = pt_find_psb(pos, config);
 		if (!next)
 			continue;
 
