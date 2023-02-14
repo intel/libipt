@@ -740,6 +740,7 @@ static void check_insn_iclass(const xed_inst_t *inst,
 		case XED_ICLASS_IRETD:
 		case XED_ICLASS_IRETQ:
 		case XED_ICLASS_SYSRET:
+		case XED_ICLASS_SYSRET64:
 		case XED_ICLASS_SYSRET_AMD:
 		case XED_ICLASS_SYSEXIT:
 		case XED_ICLASS_VMLAUNCH:
