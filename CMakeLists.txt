@@ -184,9 +184,11 @@ if (CMAKE_HOST_WIN32)
     /D_CRT_SECURE_NO_WARNINGS
   )
 
-  # enable parallel build
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+  if (CMAKE_GENERATOR MATCHES "Visual Studio")
+    # enable parallel build
+    #
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+  endif ()
 
   if (DEVBUILD)
     # compiler warnings
