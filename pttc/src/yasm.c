@@ -788,7 +788,7 @@ int yasm_lookup_label(const struct yasm *y, uint64_t *addr,
 static int yasm_advance_next_line(struct yasm *y)
 {
 	char s[1024];
-	char filename[FILENAME_MAX];
+	char filename[FILENAME_MAX+1];
 	int errcode;
 	int asm_line, asm_inc;
 
@@ -809,12 +809,19 @@ static int yasm_advance_next_line(struct yasm *y)
 		 * state information to this file, line and increment
 		 * and continue.
 		 */
-		if (sscanf(s, "%*d %%line %d+%d %1023[^\r\n]", &asm_line,
-			   &asm_inc, filename) == 3) {
+#define tostr(val) # val
+#define asstr(val) tostr(val)
+		if (sscanf(s, "%*d %%line %d+%d %" asstr(FILENAME_MAX)
+			   "[^\r\n]", &asm_line, &asm_inc, filename) == 3) {
+			/* We must not exceed FILENAME_MAX, so truncate the
+			 * filename, if necessary.
+			 */
+			filename[FILENAME_MAX-1] = 0;
 			st_set_file(y->st_asm, filename, asm_line, asm_inc);
 			continue;
 		}
-
+#undef asstr
+#undef tostr
 		/* if line number or increment in the previous line
 		 * directive is <= 0, the current lst line has no
 		 * corresponding line in the source file.
