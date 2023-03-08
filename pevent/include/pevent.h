@@ -32,7 +32,7 @@
 
 #include <linux/perf_event.h>
 
-#include "intel-pt.h"
+#include "libipt-sb.h"
 
 #include <stdint.h>
 #include <stddef.h>
