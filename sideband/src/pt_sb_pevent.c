@@ -879,12 +879,10 @@ static int pt_sb_pevent_print(struct pt_sb_pevent_priv *priv, FILE *stream,
 	if (errcode < 0)
 		return errcode;
 
-	/* Print samples if configured. */
-	if (priv->pev.sample_type) {
-		errcode = pt_sb_pevent_print_samples(event, stream, flags);
-		if (errcode < 0)
-			return errcode;
-	}
+	/* Print samples that were configured for the record. */
+	errcode = pt_sb_pevent_print_samples(event, stream, flags);
+	if (errcode < 0)
+		return errcode;
 
 	if (flags)
 		fprintf(stream, "\n");
