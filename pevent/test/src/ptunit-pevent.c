@@ -31,6 +31,7 @@
 
 #include "pevent.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
@@ -53,12 +54,16 @@ struct pev_fixture {
 	/* The perf event configuration. */
 	struct pev_config config;
 
+	/* The sample_type to be tested. */
+	uint64_t sample_type;
+
 	/* Test samples. */
 	struct {
 		uint32_t pid, tid;
 		uint64_t time;
 		uint64_t tsc;
 		uint32_t cpu;
+		uint64_t identifier;
 	} sample;
 
 	/* The test fixture initialization and finalization functions. */
@@ -76,6 +81,16 @@ static struct ptunit_result pfix_init(struct pev_fixture *pfix)
 
 	pev_config_init(&pfix->config);
 
+	pfix->sample_type = 0;
+
+	return ptu_passed();
+}
+
+static struct ptunit_result pfix_fini(struct pev_fixture *pfix)
+{
+#if (LIBIPT_SB_VERSION >= 0x201)
+	free(pfix->config.sample_config);
+#endif
 	return ptu_passed();
 }
 
@@ -88,6 +103,7 @@ static struct ptunit_result pfix_init_sample_time(struct pev_fixture *pfix)
 	pfix->config.time_shift = 4;
 	pfix->config.time_mult = 3;
 
+	pfix->sample_type = pfix->config.sample_type;
 	pfix->sample.time = 0xa0b00cdeull;
 	pfix->event[0].sample.time = &pfix->sample.time;
 
@@ -101,6 +117,7 @@ static struct ptunit_result pfix_init_sample_who(struct pev_fixture *pfix)
 	pfix->config.sample_type |= (uint64_t) PERF_SAMPLE_TID;
 	pfix->config.sample_type |= (uint64_t) PERF_SAMPLE_CPU;
 
+	pfix->sample_type = pfix->config.sample_type;
 	pfix->sample.pid = 0xa0;
 	pfix->sample.tid = 0xa1;
 	pfix->sample.cpu = 0xb;
@@ -111,6 +128,40 @@ static struct ptunit_result pfix_init_sample_who(struct pev_fixture *pfix)
 
 	return ptu_passed();
 }
+
+#if (LIBIPT_SB_VERSION >= 0x201)
+static struct ptunit_result pfix_init_sample_config(struct pev_fixture *pfix)
+{
+	struct pev_sample_config *sample_config;
+
+	ptu_test(pfix_init, pfix);
+
+	sample_config = malloc(sizeof(*pfix->config.sample_config) +
+			       (3 * sizeof(struct pev_sample_type)));
+	ptu_ptr(sample_config);
+
+	pfix->config.sample_config = sample_config;
+	sample_config->nstypes = 3;
+	sample_config->stypes[0].identifier = 1;
+	sample_config->stypes[0].sample_type = (uint64_t)
+		PERF_SAMPLE_TID | PERF_SAMPLE_IDENTIFIER;
+	sample_config->stypes[1].identifier = 2;
+	sample_config->stypes[1].sample_type = (uint64_t)
+		PERF_SAMPLE_CPU | PERF_SAMPLE_IDENTIFIER;
+	sample_config->stypes[2].identifier = 3;
+	sample_config->stypes[2].sample_type = (uint64_t)
+		PERF_SAMPLE_TIME | PERF_SAMPLE_IDENTIFIER;
+
+	pfix->sample_type = sample_config->stypes[1].sample_type;
+	pfix->sample.cpu = 0xb;
+	pfix->sample.identifier = sample_config->stypes[1].identifier;
+
+	pfix->event[0].sample.cpu = &pfix->sample.cpu;
+	pfix->event[0].sample.identifier = &pfix->sample.identifier;
+
+	return ptu_passed();
+}
+#endif
 
 static struct ptunit_result pfix_read_write(struct pev_fixture *pfix)
 {
@@ -189,19 +240,19 @@ static struct ptunit_result pfix_check_sample_cpu(struct pev_fixture *pfix)
 
 static struct ptunit_result pfix_check_sample(struct pev_fixture *pfix)
 {
-	if (pfix->config.sample_type & PERF_SAMPLE_TID)
+	if (pfix->sample_type & PERF_SAMPLE_TID)
 		ptu_test(pfix_check_sample_tid, pfix);
 	else {
 		ptu_null(pfix->event[1].sample.pid);
 		ptu_null(pfix->event[1].sample.tid);
 	}
 
-	if (pfix->config.sample_type & PERF_SAMPLE_TIME)
+	if (pfix->sample_type & PERF_SAMPLE_TIME)
 		ptu_test(pfix_check_sample_time, pfix);
 	else
 		ptu_null(pfix->event[1].sample.time);
 
-	if (pfix->config.sample_type & PERF_SAMPLE_CPU)
+	if (pfix->sample_type & PERF_SAMPLE_CPU)
 		ptu_test(pfix_check_sample_cpu, pfix);
 	else
 		ptu_null(pfix->event[1].sample.cpu);
@@ -763,6 +814,9 @@ static struct ptunit_result record_switch_cpu_wide(struct pev_fixture *pfix,
 int main(int argc, char **argv)
 {
 	struct pev_fixture pfix, pfix_time, pfix_who;
+#if (LIBIPT_SB_VERSION >= 0x201)
+	struct pev_fixture pfix_sconf;
+#endif
 	struct ptunit_suite suite;
 
 	pfix.init = pfix_init;
@@ -774,6 +828,10 @@ int main(int argc, char **argv)
 	pfix_who.init = pfix_init_sample_who;
 	pfix_who.fini = NULL;
 
+#if (LIBIPT_SB_VERSION >= 0x201)
+	pfix_sconf.init = pfix_init_sample_config;
+	pfix_sconf.fini = pfix_fini;
+#endif
 	suite = ptunit_mk_suite(argc, argv);
 
 	ptu_run(suite, time_to_tsc_null);
@@ -842,6 +900,24 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, record_switch_task, pfix_who, 1);
 	ptu_run_fp(suite, record_switch_cpu_wide, pfix_who, 0);
 	ptu_run_fp(suite, record_switch_cpu_wide, pfix_who, 1);
+
+#if (LIBIPT_SB_VERSION >= 0x201)
+	ptu_run_f(suite, record_mmap, pfix_sconf);
+	ptu_run_f(suite, record_lost, pfix_sconf);
+	ptu_run_f(suite, record_comm, pfix_sconf);
+	ptu_run_f(suite, record_exit, pfix_sconf);
+	ptu_run_f(suite, record_throttle, pfix_sconf);
+	ptu_run_f(suite, record_unthrottle, pfix_sconf);
+	ptu_run_f(suite, record_fork, pfix_sconf);
+	ptu_run_f(suite, record_mmap2, pfix_sconf);
+	ptu_run_f(suite, record_aux, pfix_sconf);
+	ptu_run_f(suite, record_itrace_start, pfix_sconf);
+	ptu_run_f(suite, record_lost_samples, pfix_sconf);
+	ptu_run_fp(suite, record_switch_task, pfix_sconf, 0);
+	ptu_run_fp(suite, record_switch_task, pfix_sconf, 1);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix_sconf, 0);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix_sconf, 1);
+#endif
 
 	return ptunit_report(&suite);
 }

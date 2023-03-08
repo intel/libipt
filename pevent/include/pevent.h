@@ -47,6 +47,8 @@ struct pev_config {
 	/* The respective field in struct perf_event_attr.
 	 *
 	 * We require sample_id_all in struct perf_event_attr to be set.
+	 *
+	 * This field is only valid if \@sample_config is NULL.
 	 */
 	uint64_t sample_type;
 
@@ -54,7 +56,16 @@ struct pev_config {
 	uint16_t time_shift;
 	uint32_t time_mult;
 	uint64_t time_zero;
+
+#if (LIBIPT_SB_VERSION >= 0x201)
+	/* The sample configuration. */
+	struct pev_sample_config *sample_config;
+#endif
 };
+
+#define pev_config_has(config, field) \
+	(config->size >= (offsetof(struct pev_config, field) + \
+			  sizeof(config->field)))
 
 static inline void pev_config_init(struct pev_config *config)
 {

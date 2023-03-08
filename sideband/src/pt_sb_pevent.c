@@ -351,6 +351,11 @@ int pt_sb_pevent_init(struct pt_sb_pevent_priv *priv,
 	priv->tsc_offset = config->tsc_offset;
 	priv->location = ploc_unknown;
 
+#if (LIBIPT_SB_VERSION >= 0x201)
+	if (pev_config_has(config, sample_config))
+		priv->pev.sample_config = config->sample_config;
+#endif
+
 	return 0;
 }
 

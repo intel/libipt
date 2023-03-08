@@ -30,10 +30,6 @@
 #include "pevent.h"
 
 
-#define pev_config_has(config, field) \
-	(config->size >= (offsetof(struct pev_config, field) + \
-			  sizeof(config->field)))
-
 int pev_time_to_tsc(uint64_t *tsc, uint64_t time,
 		    const struct pev_config *config)
 {
@@ -128,19 +124,72 @@ static int pev_strlen(const char *begin, const void *end_arg)
 	return -pte_bad_packet;
 }
 
-static int pev_read_samples(struct pev_event *event, const uint8_t *begin,
-			    const uint8_t *end, const struct pev_config *config)
+static int pev_sample_type(uint64_t *psample_type, const uint64_t *pidentifier,
+			   const struct pev_config *config)
 {
-	const uint8_t *pos;
-	uint64_t sample_type;
-
-	if (!event || !begin || !config)
+	if (!psample_type || !config)
 		return -pte_internal;
 
 	if (!pev_config_has(config, sample_type))
 		return -pte_bad_config;
 
-	sample_type = config->sample_type;
+#if (LIBIPT_SB_VERSION >= 0x201)
+	if (pev_config_has(config, sample_config)) {
+		const struct pev_sample_config *sconfig;
+		uint64_t identifier;
+		int sti, nstypes;
+
+		sconfig = config->sample_config;
+		if (!sconfig || !pidentifier) {
+			*psample_type = config->sample_type;
+			return 0;
+		}
+
+		identifier = *pidentifier;
+		nstypes = sconfig->nstypes;
+		for (sti = 0; sti < nstypes; ++sti) {
+			const struct pev_sample_type *stype;
+			uint64_t sample_type;
+
+			stype = &sconfig->stypes[sti];
+			if (stype->identifier != identifier)
+				continue;
+
+			sample_type = stype->sample_type;
+			if (!(sample_type & PERF_SAMPLE_IDENTIFIER))
+				return -pte_bad_config;
+
+			*psample_type = sample_type;
+			return 0;
+		}
+	}
+#endif
+
+	*psample_type = config->sample_type;
+	return 0;
+}
+
+static int pev_read_samples(struct pev_event *event, const uint8_t *begin,
+			    const uint8_t *end,
+			    const struct pev_config *config)
+{
+	const uint64_t *pidentifier;
+	const uint8_t *pos;
+	uint64_t sample_type;
+	int errcode;
+
+	if (!event || !begin || !end || !config)
+		return -pte_internal;
+
+	pidentifier = NULL;
+	pos = (end - sizeof(*pidentifier));
+	if (begin <= pos)
+		pidentifier = (const uint64_t *) pos;
+
+	errcode = pev_sample_type(&sample_type, pidentifier, config);
+	if (errcode < 0)
+		return errcode;
+
 	pos = begin;
 
 	if (sample_type & PERF_SAMPLE_TID) {
@@ -150,8 +199,6 @@ static int pev_read_samples(struct pev_event *event, const uint8_t *begin,
 	}
 
 	if (sample_type & PERF_SAMPLE_TIME) {
-		int errcode;
-
 		event->sample.time = (const uint64_t *) pos;
 		pos += 8;
 
@@ -342,38 +389,54 @@ int pev_read(struct pev_event *event, const uint8_t *begin, const uint8_t *end,
 	return size;
 }
 
-static size_t sample_size(const struct pev_event *event)
+static int pev_sample_config(size_t *psample_size, uint64_t *psample_type,
+			     const struct pev_event *event)
 {
-	size_t size;
+	uint64_t sample_type;
+	size_t sample_size;
 
-	if (!event)
-		return 0;
+	if (!psample_size || !psample_type || !event)
+		return -pte_internal;
 
-	size = 0;
+	sample_type = 0;
+	sample_size = 0;
 
 	if (event->sample.tid) {
-		size += sizeof(*event->sample.pid);
-		size += sizeof(*event->sample.tid);
+		sample_type |= PERF_SAMPLE_TID;
+		sample_size += sizeof(*event->sample.pid);
+		sample_size += sizeof(*event->sample.tid);
 	}
 
-	if (event->sample.time)
-		size += sizeof(*event->sample.time);
+	if (event->sample.time) {
+		sample_type |= PERF_SAMPLE_TIME;
+		sample_size += sizeof(*event->sample.time);
+	}
 
-	if (event->sample.id)
-		size += sizeof(*event->sample.id);
+	if (event->sample.id) {
+		sample_type |= PERF_SAMPLE_ID;
+		sample_size += sizeof(*event->sample.id);
+	}
 
-	if (event->sample.stream_id)
-		size += sizeof(*event->sample.stream_id);
+	if (event->sample.stream_id) {
+		sample_type |= PERF_SAMPLE_STREAM_ID;
+		sample_size += sizeof(*event->sample.stream_id);
+	}
 
 	if (event->sample.cpu) {
-		size += sizeof(*event->sample.cpu);
-		size += sizeof(uint32_t);
+		sample_type |= PERF_SAMPLE_CPU;
+		sample_size += sizeof(*event->sample.cpu);
+		sample_size += sizeof(uint32_t);
 	}
 
-	if (event->sample.identifier)
-		size += sizeof(*event->sample.identifier);
+	if (event->sample.identifier) {
+		sample_type |= PERF_SAMPLE_IDENTIFIER;
+		sample_size += sizeof(*event->sample.identifier);
+	}
 
-	return size;
+	*psample_type = sample_type;
+	*psample_size = sample_size;
+
+	return 0;
 }
 
 static void write(uint8_t **stream, const void *object, size_t size)
@@ -389,17 +452,20 @@ static void clear(uint8_t **stream, size_t size)
 }
 
 static int write_samples(uint8_t **stream, const struct pev_event *event,
-			 const struct pev_config *config)
+			 const struct pev_config *config, uint64_t sample_type)
 {
-	uint64_t sample_type;
+	uint64_t cstype;
+	int errcode;
 
 	if (!event || !config)
 		return -pte_internal;
 
-	if (!pev_config_has(config, sample_type))
-		return -pte_bad_config;
+	errcode = pev_sample_type(&cstype, event->sample.identifier, config);
+	if (errcode < 0)
+		return errcode;
 
-	sample_type = config->sample_type;
+	if (cstype != sample_type)
+		return -pte_bad_config;
 
 	if (sample_type & PERF_SAMPLE_TID) {
 		sample_type &= ~(uint64_t) PERF_SAMPLE_TID;
@@ -469,15 +535,20 @@ int pev_write(const struct pev_event *event, uint8_t *begin, uint8_t *end,
 	      const struct pev_config *config)
 {
 	struct perf_event_header header;
+	uint64_t sample_type;
 	uint8_t *pos;
-	size_t size;
+	size_t sample_size, size;
 	int errcode;
 
 	if (!event || !begin || end < begin)
 		return -pte_internal;
 
+	errcode = pev_sample_config(&sample_size, &sample_type, event);
+	if (errcode < 0)
+		return errcode;
+
 	pos = begin;
-	size = sizeof(header) + sample_size(event);
+	size = sizeof(header) + sample_size;
 	if (UINT16_MAX < size)
 		return -pte_internal;
 
@@ -681,7 +752,7 @@ int pev_write(const struct pev_event *event, uint8_t *begin, uint8_t *end,
 		break;
 	}
 
-	errcode = write_samples(&pos, event, config);
+	errcode = write_samples(&pos, event, config, sample_type);
 	if (errcode < 0)
 		return errcode;
 

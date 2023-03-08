@@ -442,6 +442,35 @@ pt_sb_alloc_decoder(struct pt_sb_session *session,
 		    const struct pt_sb_decoder_config *config);
 
 
+#if (LIBIPT_SB_VERSION >= 0x201)
+
+/* A perf event sample type. */
+struct pev_sample_type {
+	/* The sample identifier.
+	 *
+	 * This corresponds to the PERF_SAMPLE_IDENTIFIER sample that can be
+	 * found at the very end of the event record.
+	 */
+	uint64_t identifier;
+
+	/* The sample type.
+	 *
+	 * At least PERF_SAMPLE_IDENTIFIER must be set.
+	 */
+	uint64_t sample_type;
+};
+
+/* A perf event sample configuration. */
+struct pev_sample_config {
+	/* The number of sample types in this configuration. */
+	uint8_t nstypes;
+
+	/* An array of \@nstypes sample types. */
+	struct pev_sample_type stypes[];
+};
+
+#endif /* (LIBIPT_SB_VERSION >= 0x201) */
+
 /* The configuration for a Linux perf event sideband decoder. */
 struct pt_sb_pevent_config {
 	/* The size of the config structure in bytes. */
@@ -485,6 +514,8 @@ struct pt_sb_pevent_config {
 	/* The respective field in struct perf_event_attr.
 	 *
 	 * We require sample_id_all in struct perf_event_attr to be set.
+	 *
+	 * This field is only valid if \@sample_config is NULL.
 	 */
 	uint64_t sample_type;
 
@@ -509,6 +540,11 @@ struct pt_sb_pevent_config {
 	 * - whether this is a primary decoder (secondary if clear).
 	 */
 	uint32_t primary:1;
+
+#if (LIBIPT_SB_VERSION >= 0x201)
+	/* The sample configuration. */
+	struct pev_sample_config *sample_config;
+#endif
 };
 
 /* Allocate a Linux perf event sideband decoder.
