@@ -34,14 +34,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "intel-pt.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-struct pt_image_section_cache;
-struct pt_image;
-struct pt_event;
-
 
 /* A macro to mark functions as exported. */
 #ifndef pt_sb_export
@@ -186,7 +183,7 @@ pt_sb_notify_error(struct pt_sb_session *session,
  * Initialize decoders that have been added since pt_sb_alloc() or since the
  * last pt_sb_init_decoders() call by fetching their first sideband record.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int pt_sb_init_decoders(struct pt_sb_session *session);
 
@@ -205,7 +202,7 @@ extern pt_sb_export int pt_sb_init_decoders(struct pt_sb_session *session);
  * to @stream according to @flags.  Pass a NULL @stream to ask decoders to not
  * print anything.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int pt_sb_event(struct pt_sb_session *session,
 				    struct pt_image **image,
@@ -220,7 +217,7 @@ extern pt_sb_export int pt_sb_event(struct pt_sb_session *session,
  *
  * Decoders that return an error will be removed from @session and freed.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int pt_sb_dump(struct pt_sb_session *session, FILE *stream,
 				   uint32_t flags, uint64_t tsc);
@@ -266,7 +263,7 @@ pt_sb_ctx_image(const struct pt_sb_context *context);
  * Adds a section of @size bytes from @filename starting at @offset to @context's
  * image at @vaddr.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int pt_sb_ctx_mmap(struct pt_sb_session *session,
 				       struct pt_sb_context *context,
@@ -278,7 +275,7 @@ extern pt_sb_export int pt_sb_ctx_mmap(struct pt_sb_session *session,
  * Install @context->image in @image.  The caller is responsible for holding a
  * reference to @context as long as its image is in use.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int
 pt_sb_ctx_switch_to(struct pt_image **image, struct pt_sb_session *session,
@@ -311,7 +308,7 @@ pt_sb_notify_switch(struct pt_sb_session *session,
  * This does not provide a new reference to @context.  Use pt_sb_ctx_get() if
  * you need to keep the context.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int
 pt_sb_get_context_by_pid(struct pt_sb_context **context,
@@ -326,7 +323,7 @@ pt_sb_get_context_by_pid(struct pt_sb_context **context,
  * Provide a NULL process context in @context if a context for @pid does not
  * exist in @session.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int
 pt_sb_find_context_by_pid(struct pt_sb_context **context,
@@ -338,7 +335,7 @@ pt_sb_find_context_by_pid(struct pt_sb_context **context,
  * Future lookups won't find @context but it won't be freed until the last user
  * puts it.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int pt_sb_remove_context(struct pt_sb_session *session,
 					     struct pt_sb_context *context);
@@ -370,7 +367,7 @@ struct pt_sb_decoder_config {
 
 	/* Fetch the next sideband record and provide its timestamp.
 	 *
-	 * Return zero on success, a negative error code otherwise.
+	 * Return zero on success, a negative pt_error_code otherwise.
 	 */
 	int (*fetch)(struct pt_sb_session *session, uint64_t *tsc, void *priv);
 
@@ -401,7 +398,7 @@ struct pt_sb_decoder_config {
 	 * of their next record's timestamp.  This allows sideband decoders to
 	 * postpone actions until a suitable event.
 	 *
-	 * Return zero on success, a negative error code otherwise.
+	 * Return zero on success, a negative pt_error_code otherwise.
 	 */
 	int (*apply)(struct pt_sb_session *session, struct pt_image **image,
 		     const struct pt_event *event, void *priv);
@@ -412,7 +409,7 @@ struct pt_sb_decoder_config {
 	 * of enum pt_sb_print_flag.  A value of zero means that only errors
 	 * shall be printed.
 	 *
-	 * Return zero on success, a negative error code otherwise.
+	 * Return zero on success, a negative pt_error_code otherwise.
 	 */
 	int (*print)(struct pt_sb_session *session, FILE *stream,
 		     uint32_t flags, void *priv);
@@ -519,7 +516,7 @@ struct pt_sb_pevent_config {
  * Allocates a sideband decoder for the Linux perf event format based on @config
  * and adds it to @session.
  *
- * Returns zero on success, a negative error code otherwise.
+ * Returns zero on success, a negative pt_error_code otherwise.
  */
 extern pt_sb_export int
 pt_sb_alloc_pevent_decoder(struct pt_sb_session *session,

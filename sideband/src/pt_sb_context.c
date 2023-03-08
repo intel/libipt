@@ -31,7 +31,6 @@
 #include "pt_sb_session.h"
 
 #include "libipt-sb.h"
-#include "intel-pt.h"
 
 #include <stdlib.h>
 

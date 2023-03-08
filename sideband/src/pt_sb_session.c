@@ -32,7 +32,6 @@
 #include "pt_sb_decoder.h"
 
 #include "libipt-sb.h"
-#include "intel-pt.h"
 
 #include <string.h>
 #include <stdlib.h>

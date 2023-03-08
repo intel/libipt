@@ -29,8 +29,6 @@
 
 #include "libipt-sb.h"
 
-#include "intel-pt.h"
-
 
 #ifndef FEATURE_PEVENT
 
