@@ -142,27 +142,21 @@ gawk_sample_type() {
   /^CODE_PAGE_SIZE$/  { config += 0x0800000 }
   /^WEIGHT_STRUCT$/   { config += 0x1000000 }
   END           {
-    if (config != 0) {
-      printf(" --pevent:sample-type 0x%lx", config)
-    }
+    printf("0x%lx", config)
   }
 '
 }
 
-attr_sample_types=$(perf evlist -v -i $file |  gawk -F' ' -- '
-  BEGIN { RS = "," }
-  /sample_type/  { print $2 }
-' | sort | uniq)
+perf script --header-only -i $file | grep -e '^# *event *:' | \
+    sed 's/.*id = {\([^}]*\)}.*sample_type = \([^,]*\),.*/\1:\2/' | \
+    while read -r conf; do
+        ids=$(echo $conf | sed 's/\([^:]*\):.*/\1/' | sed 's/,//g')
+        sts=$(echo $conf | sed 's/.*:\(.*\)/\1/')
 
-for attr in $attr_sample_types; do
-    # We assume at most one attr with and at most one attr without CPU
-    #
-    if [[ $(echo $attr | grep -e CPU) ]]; then
-        gawk_sample_type $attr
-    else
-        gawk_sample_type $attr
-    fi
-done
+        for id in $ids; do
+            echo -n " --pevent:sample-config $id:$(gawk_sample_type $sts)"
+        done
+    done
 
 perf evlist -v -i $file | grep intel_pt | gawk -F' ' -- '
   BEGIN             { RS = "," }
