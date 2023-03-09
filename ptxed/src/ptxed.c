@@ -273,6 +273,8 @@ static void help(const char *name)
 	printf("                              load a perf_event sideband stream from <file>.\n");
 	printf("                              an optional offset or range can be given.\n");
 	printf("  --pevent:sample-type <val>  set perf_event_attr.sample_type to <val> (default: 0).\n");
+	printf("  --pevent:sample-config <id>:<val>\n");
+	printf("                              set perf_event_attr.sample_type to <val> for event <id>.\n");
 	printf("  --pevent:time-zero <val>    set perf_event_mmap_page.time_zero to <val> (default: 0).\n");
 	printf("  --pevent:time-shift <val>   set perf_event_mmap_page.time_shift to <val> (default: 0).\n");
 	printf("  --pevent:time-mult <val>    set perf_event_mmap_page.time_mult to <val> (default: 1).\n");
@@ -2201,6 +2203,58 @@ static int ptxed_sb_pevent(struct ptxed_decoder *decoder, char *filename,
 	return 0;
 }
 
+static int pt_parse_sample_config(struct pt_sb_pevent_config *pevent,
+				  const char *arg)
+{
+	struct pev_sample_config *sample_config;
+	uint64_t identifier, sample_type;
+	uint8_t nstypes;
+	char *rest;
+
+	if (!pevent || !arg)
+		return -pte_internal;
+
+	errno = 0;
+	identifier = strtoull(arg, &rest, 0);
+	if (errno || (rest == arg))
+		return -pte_invalid;
+
+	arg = rest;
+	if (arg[0] != ':')
+		return -pte_invalid;
+
+	arg += 1;
+	sample_type = strtoull(arg, &rest, 0);
+	if (errno || *rest)
+		return -pte_invalid;
+
+	sample_config = pevent->sample_config;
+	if (!sample_config) {
+		sample_config = malloc(sizeof(*sample_config));
+		if (!sample_config)
+			return -pte_nomem;
+
+		memset(sample_config, 0, sizeof(*sample_config));
+		pevent->sample_config = sample_config;
+	}
+
+	nstypes = sample_config->nstypes;
+	sample_config = realloc(sample_config,
+				sizeof(*sample_config) +
+				((nstypes + 1) *
+				 sizeof(struct pev_sample_type)));
+	if (!sample_config)
+		return -pte_nomem;
+
+	sample_config->stypes[nstypes].identifier = identifier;
+	sample_config->stypes[nstypes].sample_type = sample_type;
+	sample_config->nstypes = nstypes + 1;
+
+	pevent->sample_config = sample_config;
+
+	return 0;
+}
+
 #endif /* defined(FEATURE_PEVENT) */
 #endif /* defined(FEATURE_SIDEBAND) */
 
@@ -2768,6 +2822,20 @@ extern int main(int argc, char *argv[])
 					    "--pevent:sample-type",
 					    argv[i++], prog))
 				goto err;
+
+			continue;
+		}
+		if (strcmp(arg, "--pevent:sample-config") == 0) {
+			arg = argv[i++];
+
+			errcode = pt_parse_sample_config(&decoder.pevent, arg);
+			if (errcode < 0) {
+				fprintf(stderr,
+					"%s: bad sample config %s: %s.\n",
+					prog, arg,
+					pt_errstr(pt_errcode(errcode)));
+				goto err;
+			}
 
 			continue;
 		}
