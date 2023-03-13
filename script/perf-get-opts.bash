@@ -147,6 +147,7 @@ gawk_sample_type() {
 '
 }
 
+zero_config=1
 perf script --header-only -i $file | grep -e '^# *event *:' | \
     sed 's/.*id = {\([^}]*\)}.*sample_type = \([^,]*\),.*/\1:\2/' | \
     while read -r conf; do
@@ -154,6 +155,14 @@ perf script --header-only -i $file | grep -e '^# *event *:' | \
         sts=$(echo $conf | sed 's/.*:\(.*\)/\1/')
 
         for id in $ids; do
+            # The reserved zero identifier used for synthesized event
+            # records uses the same sample type as the first identifier in
+            # the first event.
+            #
+            if (( $zero_config )); then
+                echo -n " --pevent:sample-config 0:$(gawk_sample_type $sts)"
+                zero_config=0
+            fi
             echo -n " --pevent:sample-config $id:$(gawk_sample_type $sts)"
         done
     done
