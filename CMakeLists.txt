@@ -27,6 +27,12 @@
 
 cmake_minimum_required(VERSION 2.8.12)
 
+# Do not add /W3 to MSVC command-line
+#
+if (POLICY CMP0092)
+  cmake_policy(SET CMP0092 NEW)
+endif ()
+
 project(PT C)
 
 # versioning
