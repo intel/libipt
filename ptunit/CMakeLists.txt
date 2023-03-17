@@ -41,4 +41,9 @@ add_library(ptunit STATIC
   ${PTUNIT_FILES}
 )
 
+set_target_properties(ptunit PROPERTIES
+  C_STANDARD 99
+  C_STANDARD_REQUIRED ON
+)
+
 add_ptunit_c_test(selftest)

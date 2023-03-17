@@ -103,6 +103,8 @@ set_target_properties(libipt PROPERTIES
   PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/include/intel-pt.h
   VERSION   ${PT_VERSION}
   SOVERSION ${PT_VERSION_MAJOR}
+  C_STANDARD 99
+  C_STANDARD_REQUIRED ON
 )
 
 install(TARGETS libipt

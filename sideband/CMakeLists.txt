@@ -61,6 +61,8 @@ set_target_properties(libipt-sb PROPERTIES
   PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/include/libipt-sb.h
   VERSION   ${PT_VERSION}
   SOVERSION ${PT_VERSION_MAJOR}
+  C_STANDARD 99
+  C_STANDARD_REQUIRED ON
 )
 
 target_link_libraries(libipt-sb libipt)

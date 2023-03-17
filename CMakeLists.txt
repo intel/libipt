@@ -25,7 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1)
 
 # Do not add /W3 to MSVC command-line
 #
@@ -244,10 +244,6 @@ if (CMAKE_HOST_UNIX)
     link_libraries(pthread)
   endif (FEATURE_THREADS)
 
-  # set the language
-  #
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-
   # windows-like dll export model
   #
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
@@ -288,6 +284,10 @@ endif (CMAKE_HOST_UNIX)
 function(add_ptunit_test_base name)
   if (PTUNIT)
     add_executable(${name} ${ARGN})
+    set_target_properties(${name} PROPERTIES
+      C_STANDARD 99
+      C_STANDARD_REQUIRED ON
+    )
     target_link_libraries(${name} ptunit)
 
     add_test(NAME ${name} COMMAND ${name})
