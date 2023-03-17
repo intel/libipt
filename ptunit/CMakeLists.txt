@@ -42,7 +42,7 @@ add_library(ptunit STATIC
 )
 
 set_target_properties(ptunit PROPERTIES
-  C_STANDARD 99
+  C_STANDARD 11
   C_STANDARD_REQUIRED ON
 )
 
