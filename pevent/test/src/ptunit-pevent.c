@@ -395,7 +395,7 @@ static struct ptunit_result bad_string(uint16_t type)
 	return ptu_passed();
 }
 
-static struct ptunit_result mmap(struct pev_fixture *pfix)
+static struct ptunit_result record_mmap(struct pev_fixture *pfix)
 {
 	union {
 		struct pev_record_mmap record;
@@ -430,7 +430,7 @@ static struct ptunit_result mmap(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result lost(struct pev_fixture *pfix)
+static struct ptunit_result record_lost(struct pev_fixture *pfix)
 {
 	struct pev_record_lost lost;
 
@@ -451,7 +451,7 @@ static struct ptunit_result lost(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result comm(struct pev_fixture *pfix)
+static struct ptunit_result record_comm(struct pev_fixture *pfix)
 {
 	union {
 		struct pev_record_comm record;
@@ -507,7 +507,7 @@ static struct ptunit_result record_exit(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result throttle(struct pev_fixture *pfix)
+static struct ptunit_result record_throttle(struct pev_fixture *pfix)
 {
 	struct pev_record_throttle throttle;
 
@@ -531,7 +531,7 @@ static struct ptunit_result throttle(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result unthrottle(struct pev_fixture *pfix)
+static struct ptunit_result record_unthrottle(struct pev_fixture *pfix)
 {
 	struct pev_record_throttle throttle;
 
@@ -555,7 +555,7 @@ static struct ptunit_result unthrottle(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result fork(struct pev_fixture *pfix)
+static struct ptunit_result record_fork(struct pev_fixture *pfix)
 {
 	struct pev_record_fork fork;
 
@@ -582,7 +582,7 @@ static struct ptunit_result fork(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result mmap2(struct pev_fixture *pfix)
+static struct ptunit_result record_mmap2(struct pev_fixture *pfix)
 {
 	union {
 		struct pev_record_mmap2 record;
@@ -631,7 +631,7 @@ static struct ptunit_result mmap2(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result aux(struct pev_fixture *pfix)
+static struct ptunit_result record_aux(struct pev_fixture *pfix)
 {
 	struct pev_record_aux aux;
 
@@ -654,7 +654,7 @@ static struct ptunit_result aux(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result itrace_start(struct pev_fixture *pfix)
+static struct ptunit_result record_itrace_start(struct pev_fixture *pfix)
 {
 	struct pev_record_itrace_start itrace_start;
 
@@ -675,7 +675,7 @@ static struct ptunit_result itrace_start(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result lost_samples(struct pev_fixture *pfix)
+static struct ptunit_result record_lost_samples(struct pev_fixture *pfix)
 {
 	struct pev_record_lost_samples lost_samples;
 
@@ -695,8 +695,8 @@ static struct ptunit_result lost_samples(struct pev_fixture *pfix)
 	return ptu_passed();
 }
 
-static struct ptunit_result switch_task(struct pev_fixture *pfix,
-					int switch_out)
+static struct ptunit_result record_switch_task(struct pev_fixture *pfix,
+					       int switch_out)
 {
 	pfix->event[0].type = PERF_RECORD_SWITCH;
 	pfix->event[0].misc = switch_out ? PERF_RECORD_MISC_SWITCH_OUT : 0;
@@ -710,8 +710,8 @@ static struct ptunit_result switch_task(struct pev_fixture *pfix,
 	return ptu_passed();
 }
 
-static struct ptunit_result switch_cpu_wide(struct pev_fixture *pfix,
-					    int switch_out)
+static struct ptunit_result record_switch_cpu_wide(struct pev_fixture *pfix,
+						   int switch_out)
 {
 	struct pev_record_switch_cpu_wide switch_cpu_wide;
 
@@ -767,53 +767,53 @@ int main(int argc, char **argv)
 	ptu_run_p(suite, bad_string, PERF_RECORD_COMM);
 	ptu_run_p(suite, bad_string, PERF_RECORD_MMAP2);
 
-	ptu_run_f(suite, mmap, pfix);
-	ptu_run_f(suite, lost, pfix);
-	ptu_run_f(suite, comm, pfix);
+	ptu_run_f(suite, record_mmap, pfix);
+	ptu_run_f(suite, record_lost, pfix);
+	ptu_run_f(suite, record_comm, pfix);
 	ptu_run_f(suite, record_exit, pfix);
-	ptu_run_f(suite, throttle, pfix);
-	ptu_run_f(suite, unthrottle, pfix);
-	ptu_run_f(suite, fork, pfix);
-	ptu_run_f(suite, mmap2, pfix);
-	ptu_run_f(suite, aux, pfix);
-	ptu_run_f(suite, itrace_start, pfix);
-	ptu_run_f(suite, lost_samples, pfix);
-	ptu_run_fp(suite, switch_task, pfix, 0);
-	ptu_run_fp(suite, switch_task, pfix, 1);
-	ptu_run_fp(suite, switch_cpu_wide, pfix, 0);
-	ptu_run_fp(suite, switch_cpu_wide, pfix, 1);
+	ptu_run_f(suite, record_throttle, pfix);
+	ptu_run_f(suite, record_unthrottle, pfix);
+	ptu_run_f(suite, record_fork, pfix);
+	ptu_run_f(suite, record_mmap2, pfix);
+	ptu_run_f(suite, record_aux, pfix);
+	ptu_run_f(suite, record_itrace_start, pfix);
+	ptu_run_f(suite, record_lost_samples, pfix);
+	ptu_run_fp(suite, record_switch_task, pfix, 0);
+	ptu_run_fp(suite, record_switch_task, pfix, 1);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix, 0);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix, 1);
 
-	ptu_run_f(suite, mmap, pfix_time);
-	ptu_run_f(suite, lost, pfix_time);
-	ptu_run_f(suite, comm, pfix_time);
+	ptu_run_f(suite, record_mmap, pfix_time);
+	ptu_run_f(suite, record_lost, pfix_time);
+	ptu_run_f(suite, record_comm, pfix_time);
 	ptu_run_f(suite, record_exit, pfix_time);
-	ptu_run_f(suite, throttle, pfix_time);
-	ptu_run_f(suite, unthrottle, pfix_time);
-	ptu_run_f(suite, fork, pfix_time);
-	ptu_run_f(suite, mmap2, pfix_time);
-	ptu_run_f(suite, aux, pfix_time);
-	ptu_run_f(suite, itrace_start, pfix_time);
-	ptu_run_f(suite, lost_samples, pfix_time);
-	ptu_run_fp(suite, switch_task, pfix_time, 0);
-	ptu_run_fp(suite, switch_task, pfix_time, 1);
-	ptu_run_fp(suite, switch_cpu_wide, pfix_time, 0);
-	ptu_run_fp(suite, switch_cpu_wide, pfix_time, 1);
+	ptu_run_f(suite, record_throttle, pfix_time);
+	ptu_run_f(suite, record_unthrottle, pfix_time);
+	ptu_run_f(suite, record_fork, pfix_time);
+	ptu_run_f(suite, record_mmap2, pfix_time);
+	ptu_run_f(suite, record_aux, pfix_time);
+	ptu_run_f(suite, record_itrace_start, pfix_time);
+	ptu_run_f(suite, record_lost_samples, pfix_time);
+	ptu_run_fp(suite, record_switch_task, pfix_time, 0);
+	ptu_run_fp(suite, record_switch_task, pfix_time, 1);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix_time, 0);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix_time, 1);
 
-	ptu_run_f(suite, mmap, pfix_who);
-	ptu_run_f(suite, lost, pfix_who);
-	ptu_run_f(suite, comm, pfix_who);
+	ptu_run_f(suite, record_mmap, pfix_who);
+	ptu_run_f(suite, record_lost, pfix_who);
+	ptu_run_f(suite, record_comm, pfix_who);
 	ptu_run_f(suite, record_exit, pfix_who);
-	ptu_run_f(suite, throttle, pfix_who);
-	ptu_run_f(suite, unthrottle, pfix_who);
-	ptu_run_f(suite, fork, pfix_who);
-	ptu_run_f(suite, mmap2, pfix_who);
-	ptu_run_f(suite, aux, pfix_who);
-	ptu_run_f(suite, itrace_start, pfix_who);
-	ptu_run_f(suite, lost_samples, pfix_who);
-	ptu_run_fp(suite, switch_task, pfix_who, 0);
-	ptu_run_fp(suite, switch_task, pfix_who, 1);
-	ptu_run_fp(suite, switch_cpu_wide, pfix_who, 0);
-	ptu_run_fp(suite, switch_cpu_wide, pfix_who, 1);
+	ptu_run_f(suite, record_throttle, pfix_who);
+	ptu_run_f(suite, record_unthrottle, pfix_who);
+	ptu_run_f(suite, record_fork, pfix_who);
+	ptu_run_f(suite, record_mmap2, pfix_who);
+	ptu_run_f(suite, record_aux, pfix_who);
+	ptu_run_f(suite, record_itrace_start, pfix_who);
+	ptu_run_f(suite, record_lost_samples, pfix_who);
+	ptu_run_fp(suite, record_switch_task, pfix_who, 0);
+	ptu_run_fp(suite, record_switch_task, pfix_who, 1);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix_who, 0);
+	ptu_run_fp(suite, record_switch_cpu_wide, pfix_who, 1);
 
 	return ptunit_report(&suite);
 }
