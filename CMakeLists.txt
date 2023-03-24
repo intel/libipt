@@ -94,6 +94,11 @@ endif (SIDEBAND)
 
 if (PTXED OR PEVENT)
   option(FEATURE_ELF "Support ELF files." OFF)
+  if (FEATURE_ELF)
+    add_definitions(
+      -DFEATURE_ELF
+    )
+  endif (FEATURE_ELF)
 endif (PTXED OR PEVENT)
 
 if (PEVENT AND NOT SIDEBAND)
@@ -123,12 +128,6 @@ if (PTUNIT)
     ptunit/include
   )
 endif (PTUNIT)
-
-if (FEATURE_ELF)
-  add_definitions(
-    -DFEATURE_ELF
-  )
-endif (FEATURE_ELF)
 
 if (SIDEBAND)
   add_definitions(
