@@ -96,6 +96,10 @@ if (PTXED OR PEVENT)
   option(FEATURE_ELF "Support ELF files." OFF)
 endif (PTXED OR PEVENT)
 
+if (PEVENT AND NOT SIDEBAND)
+  message(FATAL_ERROR "PEVENT requires SIDEBAND")
+endif ()
+
 set(PTT OFF)
 if (BASH AND PTDUMP AND PTXED AND PTTC)
   set(PTT ON)
