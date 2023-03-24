@@ -127,7 +127,7 @@ static void sb_rename_file(struct sb_file *sb)
 	}
 
 	/* Print the name of the sideband file for test.bash. */
-	printf("%s\n", filename);
+	printf("%s ", filename);
 }
 
 #endif /* defined(FEATURE_SIDEBAND) */
@@ -355,7 +355,7 @@ static int p_gen_expfile(struct parser *p)
 
 		if (errcode == 0 && strcmp(pd->name, ".exp") == 0) {
 			fclose(f);
-			printf("%s\n", filename);
+			printf("%s ", filename);
 			free(filename);
 			filename = expfilename(p, pd->payload);
 			if (!filename)
@@ -550,7 +550,7 @@ error:
 		fprintf(stderr, "fatal: error generating %s:\n", filename);
 		yasm_print_err(p->y, "", errcode);
 	} else
-		printf("%s\n", filename);
+		printf("%s ", filename);
 	free(filename);
 
 	/* If there are no lines left, we are done.  */

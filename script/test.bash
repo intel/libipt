@@ -153,8 +153,8 @@ run-ptt-test() {
 	lst=$base.lst
 
 
-	# execute pttc - remove the extra \r in Windows line endings
-	files=`run "$pttc_cmd" $pttc_arg $cpu "$ptt" | sed 's/\r\n/\n/g'`
+	# execute pttc to produce input and expected output files
+	files=`run "$pttc_cmd" $pttc_arg $cpu "$ptt"`
 	ret=$?
 	if [[ $ret != 0 ]]; then
 		echo "$ptt: $pttc_cmd $pttc_arg failed with $ret" >&2
