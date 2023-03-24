@@ -239,7 +239,7 @@ static int p_gen_expfile(struct parser *p)
 
 		if (errcode == 0 && strcmp(pd->name, ".exp") == 0) {
 			fclose(f);
-			printf("%s\n", filename);
+			printf("%s ", filename);
 			free(filename);
 			filename = expfilename(p, pd->payload);
 			if (!filename)
@@ -435,7 +435,7 @@ error:
 		yasm_print_err(p->y, "", errcode);
 		remove(filename);
 	} else
-		printf("%s\n", filename);
+		printf("%s ", filename);
 	free(filename);
 
 	/* If there are no lines left, we are done.  */
