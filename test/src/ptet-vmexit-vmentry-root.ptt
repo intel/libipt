@@ -77,7 +77,6 @@ l8: hlt
 
 
 ; @pt .exp(ptxed)
-;%0l0
 ;[vmexit, intr: 14, vmxr: 0000000000000000, vmxq: 0000000000f00baa]
 ;[enabled]
 ;%0l5
