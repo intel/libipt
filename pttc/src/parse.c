@@ -658,8 +658,9 @@ static int parse_token_aux(const char **pinput, const char *token, size_t size)
 	return 0;
 }
 
-#define parse_token(input, token) \
-	parse_token_aux(input, token, strnlen(token, 1024))
+/* Parse a string literal @token in @input. */
+#define parse_token(input, token)				\
+	parse_token_aux(input, token, sizeof(token) - 1)
 
 /* Parse an @size-bit base-@base unsigned integer in @input.
  *
