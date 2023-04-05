@@ -266,9 +266,9 @@ int pt_section_map(struct pt_section *section)
 		 * We will detect changes to the file via fstat().
 		 */
 
-		fh = CreateFileA(filename, GENERIC_READ, FILE_SHARE_WRITE,
-				 NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-				 NULL);
+		fh = CreateFileA(filename, GENERIC_READ,
+				 FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+				 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (fh == INVALID_HANDLE_VALUE) {
 			errcode = -pte_bad_file;
 			goto out_unlock;
