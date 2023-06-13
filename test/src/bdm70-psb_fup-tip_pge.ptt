@@ -62,6 +62,7 @@
 ;   cpu 6/181
 ;   cpu 6/170
 ;   cpu 6/172
+;   cpu 6/207
 ;
 ; Variant: sync at the PSB directly preceding the TIP.PGE.
 ;
