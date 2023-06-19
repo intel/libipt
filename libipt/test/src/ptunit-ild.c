@@ -696,6 +696,16 @@ static struct ptunit_result uiret(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result into(void)
+{
+	uint8_t insn[] = { 0xce };
+
+	ptu_classify_s(insn, ptem_32bit, PTI_INST_INTO);
+	ptu_classify_s(insn, ptem_16bit, PTI_INST_INTO);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -763,6 +773,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, ptwrite_r64);
 	ptu_run(suite, ptwrite_m64);
 	ptu_run(suite, uiret);
+	ptu_run(suite, into);
 
 	return ptunit_report(&suite);
 }

@@ -1215,7 +1215,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xCE:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !mode_64b(ild)) {
 			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_INTO;
 		}
