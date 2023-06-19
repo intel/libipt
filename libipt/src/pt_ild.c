@@ -1247,7 +1247,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xEA:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !mode_64b(ild)) {
 			/* Far jumps are treated as indirect jumps. */
 			insn->iclass = ptic_far_jump;
 			iext->iclass = PTI_INST_JMP_EA;
