@@ -99,6 +99,7 @@ configure_file(
 
 set_target_properties(libipt PROPERTIES
   PREFIX ""
+  IMPORT_PREFIX ""
   PUBLIC_HEADER ${CMAKE_CURRENT_BINARY_DIR}/include/intel-pt.h
   VERSION   ${PT_VERSION}
   SOVERSION ${PT_VERSION_MAJOR}
