@@ -3577,8 +3577,14 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 	if (!decoder || !packet)
 		return -pte_internal;
 
+	/* Let's see if we already got an EVD and enqueued an expected CFE. */
+	ev = pt_evq_peek(&decoder->evq, evb_cfe);
+
 	switch (packet->type) {
 	case pt_evd_cr2:
+		if (ev)
+			return -pte_bad_context;
+
 		ev = pt_evq_enqueue(&decoder->evq, evb_cfe);
 		if (!ev)
 			return -pte_nomem;
@@ -3590,8 +3596,6 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 		return 1;
 
 	case pt_evd_vmxq:
-		/* Let's see if we already got a vmexit-related EVD. */
-		ev = pt_evq_find(&decoder->evq, evb_cfe, ptev_vmexit);
 		if (!ev) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_cfe);
 			if (!ev)
@@ -3599,6 +3603,9 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 
 			ev->type = ptev_vmexit;
 		}
+
+		if (ev->type != ptev_vmexit)
+			return -pte_bad_context;
 
 		if (ev->variant.vmexit.has_vmxq)
 			return -pte_bad_context;
@@ -3609,8 +3616,6 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 		return 1;
 
 	case pt_evd_vmxr:
-		/* Let's see if we already got a vmexit-related EVD. */
-		ev = pt_evq_find(&decoder->evq, evb_cfe, ptev_vmexit);
 		if (!ev) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_cfe);
 			if (!ev)
@@ -3618,6 +3623,9 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 
 			ev->type = ptev_vmexit;
 		}
+
+		if (ev->type != ptev_vmexit)
+			return -pte_bad_context;
 
 		if (ev->variant.vmexit.has_vmxr)
 			return -pte_bad_context;
