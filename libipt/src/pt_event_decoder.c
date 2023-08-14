@@ -3636,7 +3636,13 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 		return 1;
 	}
 
-	return -pte_bad_packet;
+	/* Ignore unknown EVD types.
+	 *
+	 * They provide additional information but they are not essential for
+	 * decoding the trace.  It is better to continue without that
+	 * information than to fail.
+	 */
+	return 1;
 }
 
 static int pt_evt_decode_unknown(struct pt_event_decoder *decoder,

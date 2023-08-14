@@ -1412,10 +1412,10 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		case pt_evd_cr2:
 		case pt_evd_vmxq:
 		case pt_evd_vmxr:
-			return 0;
+			break;
 		}
 
-		return diag("unknown evd type", offset, -pte_bad_packet);
+		return 0;
 
 #endif /* (LIBIPT_VERSION >= 0x201) */
 	}

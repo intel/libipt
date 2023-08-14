@@ -85,7 +85,18 @@ l10: nop
 ; @pt p35:  cfe(13, ip)
 ; @pt p36:  fup(1: %l11)
 l11: nop
-
+; @pt p37:  evd(31: 0)
+; @pt p38:  cfe(1: 128, ip)
+; @pt p39:  fup(1: %l12)
+l12: nop
+; @pt p40:  evd(31: 0)
+; @pt p41:  evd(1: 0xf00)
+; @pt p42:  evd(31: 0)
+; @pt p43:  evd(2: 0xbaa)
+; @pt p44:  evd(31: 0)
+; @pt p45:  cfe(9: 14, ip)
+; @pt p46:  fup(1: %l13)
+l13: nop
 
 ; @pt .exp(ptdump)
 ;%0p0   psb
@@ -125,6 +136,16 @@ l11: nop
 ;%0p34  fup        1: %?l10.2
 ;%0p35  cfe        13, ip
 ;%0p36  fup        1: %?l11.2
+;%0p37  evd        31: 0
+;%0p38  cfe        1: 128, ip
+;%0p39  fup        1: %?l12.2
+;%0p40  evd        31: 0
+;%0p41  evd        1: f00
+;%0p42  evd        31: 0
+;%0p43  evd        2: baa
+;%0p44  evd        31: 0
+;%0p45  cfe        9: 14, ip
+;%0p46  fup        1: %?l13.2
 
 
 ; @pt .exp(ptxed)
@@ -147,3 +168,5 @@ l11: nop
 ;[shutdown, ip: %0l9]
 ;[uintr 4, ip: %0l10]
 ;[uiret, ip: %0l11]
+;[interrupt 128, ip: %0l12]
+;[vmexit, intr: 14, vmxr: 0000000000000baa, vmxq: 0000000000000f00, ip: %0l13]
