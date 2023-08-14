@@ -267,3 +267,32 @@ struct pt_event *pt_evq_find(struct pt_event_queue *evq, uint32_t evb,
 
 	return NULL;
 }
+
+struct pt_event *pt_evq_peek(struct pt_event_queue *evq, uint32_t evb)
+{
+	uint8_t begin, end;
+
+	if (!evq)
+		return NULL;
+
+	begin = evq->begin;
+	end = evq->end;
+
+	if (evq_max <= begin)
+		return NULL;
+
+	if (evq_max <= end)
+		return NULL;
+
+	for (; begin != end; begin = pt_evq_inc(begin)) {
+		struct pt_evq_entry *pentry;
+
+		pentry = &evq->queue[begin];
+		if ((pentry->binding & evb) == 0)
+			continue;
+
+		return &pentry->event;
+	}
+
+	return NULL;
+}

@@ -160,4 +160,15 @@ extern int pt_evq_pending(const struct pt_event_queue *evq, uint32_t evb);
 extern struct pt_event *pt_evq_find(struct pt_event_queue *evq, uint32_t evb,
 				    enum pt_event_type evt);
 
+/* Find an event by binding.
+ *
+ * Searches @evq for an event with binding @evb.
+ *
+ * Returns a pointer to the first matching event on success.
+ * Returns NULL if there is no such event.
+ * Returns NULL if @evq is NULL.
+ * Returns NULL if @evb is invalid.
+ */
+extern struct pt_event *pt_evq_peek(struct pt_event_queue *evq, uint32_t evb);
+
 #endif /* PT_EVENT_QUEUE_H */

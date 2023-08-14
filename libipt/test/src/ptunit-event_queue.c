@@ -529,6 +529,59 @@ static struct ptunit_result find(struct evq_fixture *efix, uint32_t evb)
 	return ptu_passed();
 }
 
+static struct ptunit_result peek_null(uint32_t evb)
+{
+	struct pt_event *ev;
+
+	ev = pt_evq_peek(NULL, evb);
+	ptu_null(ev);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result peek_empty(struct evq_fixture *efix, uint32_t evb)
+{
+	struct pt_event *ev;
+
+	ev = pt_evq_peek(&efix->evq, evb);
+	ptu_null(ev);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result peek_none_evb(struct evq_fixture *efix,
+					  uint32_t enqb, uint32_t evb)
+{
+	struct pt_event *ev;
+
+	ev = pt_evq_enqueue(&efix->evq, enqb);
+	ptu_ptr(ev);
+
+	ev = pt_evq_peek(&efix->evq, evb);
+	ptu_null(ev);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result peek(struct evq_fixture *efix, uint32_t evb)
+{
+	struct pt_event *ev, *in, *out;
+
+	ev = pt_evq_enqueue(&efix->evq, ~evb);
+	ptu_ptr(ev);
+
+	in = pt_evq_enqueue(&efix->evq, evb);
+	ptu_ptr(in);
+
+	ev = pt_evq_enqueue(&efix->evq, evb);
+	ptu_ptr(ev);
+
+	out = pt_evq_peek(&efix->evq, evb);
+	ptu_ptr_eq(out, in);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct evq_fixture efix;
@@ -625,6 +678,19 @@ int main(int argc, char **argv)
 
 	ptu_run_fp(suite, find, efix, evb_psbend);
 	ptu_run_fp(suite, find, efix, evb_tip | evb_fup);
+
+	ptu_run_p(suite, peek_null, evb_psbend);
+	ptu_run_p(suite, peek_null, evb_tip | evb_fup);
+
+	ptu_run_fp(suite, peek_empty, efix, evb_psbend);
+	ptu_run_fp(suite, peek_empty, efix, evb_tip | evb_fup);
+
+	ptu_run_fp(suite, peek_none_evb, efix, evb_psbend, evb_tip | evb_fup);
+	ptu_run_fp(suite, peek_none_evb, efix, evb_tip | evb_fup, evb_exstop);
+	ptu_run_fp(suite, peek_none_evb, efix, evb_fup, evb_tip);
+
+	ptu_run_fp(suite, peek, efix, evb_psbend);
+	ptu_run_fp(suite, peek, efix, evb_tip | evb_fup);
 
 	return ptunit_report(&suite);
 }
