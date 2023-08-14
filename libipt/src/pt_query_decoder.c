@@ -169,10 +169,9 @@ static int pt_qry_status_flags(const struct pt_query_decoder *decoder)
 	 * not indicate the next event until the TNT cache is empty.
 	 */
 	if (pt_tnt_cache_is_empty(&decoder->tnt)) {
-		if (decoder->status < 0) {
-			if (decoder->status == -pte_eos)
-				flags |= pts_eos;
-		} else {
+		if (decoder->status == -pte_eos)
+			flags |= pts_eos;
+		else {
 			errcode = pt_qry_event_pending(&decoder->event);
 			if (errcode != 0) {
 				if (errcode < 0)
@@ -181,7 +180,6 @@ static int pt_qry_status_flags(const struct pt_query_decoder *decoder)
 				flags |= pts_event_pending;
 			}
 		}
-
 	}
 
 	return flags;
