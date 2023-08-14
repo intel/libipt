@@ -3019,12 +3019,22 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 	/* Check if there is an event to process. */
 	status = decoder->status;
 	if (status < 0) {
-		/* Proceed past any postponed instruction. */
-		status = pt_blk_proceed_postponed_insn(decoder);
-		if (status < 0)
-			return status;
+		int errcode, flags;
 
-		return pt_blk_status(decoder, 0);
+		/* Proceed past any postponed instruction. */
+		errcode = pt_blk_proceed_postponed_insn(decoder);
+		if (errcode < 0)
+			return errcode;
+
+		/* Indicate a pending event to have higher layers query the
+		 * event decode error, unless we just want to indicate the end
+		 * of the trace, which is handled by pt_blk_status().
+		 */
+		flags = 0;
+		if (status != -pte_eos)
+			flags |= pts_event_pending;
+
+		return pt_blk_status(decoder, flags);
 	}
 
 	ev = &decoder->event;
