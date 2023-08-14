@@ -3196,10 +3196,11 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 	if (!decoder || !packet)
 		return -pte_internal;
 
+	/* Let's see if we already got an EVD and enqueued an expected CFE. */
+	ev = pt_evq_dequeue(&decoder->evq, evb_cfe);
+
 	switch (packet->type) {
 	case pt_cfe_intr:
-		/* Let's see if we already got an interrupt-related EVD. */
-		ev = pt_evq_dequeue(&decoder->evq, evb_cfe);
 		if (!ev) {
 			ev = pt_evq_standalone(&decoder->evq);
 			if (!ev)
@@ -3239,6 +3240,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_iret:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
@@ -3263,6 +3267,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_smi:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
@@ -3296,6 +3303,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_rsm:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip)
 			return -pte_bad_packet;
 
@@ -3324,6 +3334,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_sipi:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip)
 			return -pte_bad_packet;
 
@@ -3354,6 +3367,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_init:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
@@ -3387,6 +3403,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_vmentry:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
@@ -3412,8 +3431,6 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 
 	case pt_cfe_vmexit:
 	case pt_cfe_vmexit_intr:
-		/* Let's see if we already got a vmexit-related EVD. */
-		ev = pt_evq_dequeue(&decoder->evq, evb_cfe);
 		if (!ev) {
 			ev = pt_evq_standalone(&decoder->evq);
 			if (!ev)
@@ -3456,6 +3473,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_shutdown:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
@@ -3480,6 +3500,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_uintr:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
@@ -3516,6 +3539,9 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 
 	case pt_cfe_uiret:
+		if (ev)
+			return -pte_bad_context;
+
 		if (packet->ip) {
 			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
 			if (!ev)
