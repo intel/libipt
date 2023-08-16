@@ -38,7 +38,7 @@
 
 #include <pthread.h>
 
-#ifndef PTHREAD_MUTEX_NORMAL
+#if !defined(PTHREAD_MUTEX_NORMAL) && defined(PTHREAD_MUTEX_TIMED_NP)
 #  define PTHREAD_MUTEX_NORMAL PTHREAD_MUTEX_TIMED_NP
 #endif
 
