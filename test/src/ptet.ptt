@@ -97,6 +97,10 @@ l12: nop
 ; @pt p45:  cfe(9: 14, ip)
 ; @pt p46:  fup(1: %l13)
 l13: nop
+; @pt p47:  cfe(31, ip)
+; @pt p48:  fup(1: %l14)
+l14: nop
+; @pt p49:  cfe(31)
 
 ; @pt .exp(ptdump)
 ;%0p0   psb
@@ -146,6 +150,9 @@ l13: nop
 ;%0p44  evd        31: 0
 ;%0p45  cfe        9: 14, ip
 ;%0p46  fup        1: %?l13.2
+;%0p47  cfe        31, ip
+;%0p48  fup        1: %?l14.2
+;%0p49  cfe        31
 
 
 ; @pt .exp(ptxed)

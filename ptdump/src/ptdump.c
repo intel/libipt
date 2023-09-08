@@ -1394,13 +1394,13 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		case pt_cfe_vmexit:
 		case pt_cfe_shutdown:
 		case pt_cfe_uiret:
-			print_field(buffer->payload.standard, "%u%s",
-				    packet->payload.cfe.type,
-				    packet->payload.cfe.ip ? ", ip" : "");
-			return 0;
+			break;
 		}
 
-		return diag("unknown cfe type", offset, -pte_bad_packet);
+		print_field(buffer->payload.standard, "%u%s",
+			    packet->payload.cfe.type,
+			    packet->payload.cfe.ip ? ", ip" : "");
+		return 0;
 
 	case ppt_evd:
 		print_field(buffer->opcode, "evd");

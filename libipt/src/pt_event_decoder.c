@@ -3566,7 +3566,27 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 		return pt_evt_fetch_packet(decoder);
 	}
 
-	return -pte_bad_packet;
+	/* Decoding EVD is supposed to only enqueue supported CFE types. */
+	if (ev)
+		return -pte_internal;
+
+	/* Ignore unknown CFE types.
+	 *
+	 * They provide additional information but they are not essential for
+	 * decoding the trace.  It is better to continue without that
+	 * information than to fail.
+	 *
+	 * Since CFE may consume a subsequent FUP, we need to ignore that, too.
+	 */
+	if (packet->ip) {
+		ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->type = ptev_ignore;
+	}
+
+	return 1;
 }
 
 static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
