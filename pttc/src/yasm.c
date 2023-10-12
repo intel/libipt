@@ -787,7 +787,7 @@ int yasm_lookup_label(const struct yasm *y, uint64_t *addr,
 
 static int yasm_advance_next_line(struct yasm *y)
 {
-	char s[1024];
+	char s[FILENAME_MAX+1];
 	char filename[FILENAME_MAX+1];
 	int errcode;
 	int asm_line, asm_inc;
