@@ -43,10 +43,10 @@ project(PT C)
 # a build number and a version extension can be optionally specified.
 #
 set(PT_VERSION_MAJOR 2)
-set(PT_VERSION_MINOR 1)
+set(PT_VERSION_MINOR 2)
 set(PT_VERSION_PATCH 0)
 set(PT_VERSION_BUILD "0" CACHE STRING "")
-set(PT_VERSION_EXT "" CACHE STRING "")
+set(PT_VERSION_EXT "devel" CACHE STRING "")
 
 set(PT_VERSION "${PT_VERSION_MAJOR}.${PT_VERSION_MINOR}.${PT_VERSION_PATCH}")
 
