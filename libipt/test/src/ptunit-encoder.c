@@ -138,6 +138,8 @@ static struct ptunit_result get_offset_null(void)
 	uint64_t offset;
 	int errcode;
 
+	memset(&encoder, 0, sizeof(encoder));
+
 	errcode = pt_enc_get_offset(NULL, &offset);
 	ptu_int_eq(errcode, -pte_invalid);
 

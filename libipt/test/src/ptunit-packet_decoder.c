@@ -158,6 +158,8 @@ static struct ptunit_result get_offset_null(void)
 	uint64_t offset;
 	int errcode;
 
+	memset(&decoder, 0, sizeof(decoder));
+
 	errcode = pt_pkt_get_offset(NULL, &offset);
 	ptu_int_eq(errcode, -pte_invalid);
 
@@ -198,6 +200,8 @@ static struct ptunit_result get_sync_offset_null(void)
 	struct pt_packet_decoder decoder;
 	uint64_t offset;
 	int errcode;
+
+	memset(&decoder, 0, sizeof(decoder));
 
 	errcode = pt_pkt_get_sync_offset(NULL, &offset);
 	ptu_int_eq(errcode, -pte_invalid);
