@@ -788,6 +788,12 @@ static void check_insn_iclass(const xed_inst_t *inst,
 		case XED_ICLASS_VMLAUNCH:
 		case XED_ICLASS_VMRESUME:
 		case XED_ICLASS_UIRET:
+#if defined(XED_ICLASS_ERETS_DEFINED) && XED_ICLASS_ERETS_DEFINED
+		case XED_ICLASS_ERETS:
+#endif
+#if defined(XED_ICLASS_ERETU_DEFINED) && XED_ICLASS_ERETU_DEFINED
+		case XED_ICLASS_ERETU:
+#endif
 			return;
 		}
 		break;
