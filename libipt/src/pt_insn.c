@@ -186,6 +186,8 @@ int pt_insn_is_iret(const struct pt_insn *insn,
 	case PTI_INST_IRET:
 	case PTI_INST_SYSRET:
 	case PTI_INST_SYSEXIT:
+	case PTI_INST_ERETS:
+	case PTI_INST_ERETU:
 		return 1;
 	}
 }
