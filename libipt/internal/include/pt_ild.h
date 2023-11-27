@@ -72,7 +72,6 @@ struct pt_ild {
 	uint8_t modrm_byte;
 	/* 5b but valid values=  0,1,2,3 could be in bit union */
 	uint8_t map;
-	uint8_t rex;	/* 0b0100wrxb */
 	uint8_t nominal_opcode;
 	uint8_t disp_pos;
 	/* imm_pos can be derived from disp_pos + disp_bytes. */
