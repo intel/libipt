@@ -59,7 +59,8 @@ struct pt_ild {
 	uint32_t f3:1;
 	uint32_t f2:1;
 	uint32_t last_f2f3:2;	/* 2 or 3 */
-	/* The R and W bits in REX, VEX, or EVEX. */
+	uint32_t rex2:1;
+	/* The R and W bits in REX, REX2, VEX, or EVEX. */
 	uint32_t rex_r:2;
 	uint32_t rex_w:1;
 	uint8_t imm1_bytes;	/* # of bytes in 1st immediate */

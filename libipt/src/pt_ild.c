@@ -539,6 +539,7 @@ static int prefix_rex(struct pt_ild *ild, uint8_t length, uint8_t rex);
 static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex);
 static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex);
 static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex);
+static int prefix_rex2(struct pt_ild *ild, uint8_t length, uint8_t rex);
 static int prefix_ignore(struct pt_ild *ild, uint8_t length, uint8_t rex);
 static int prefix_done(struct pt_ild *ild, uint8_t length, uint8_t rex);
 
@@ -769,7 +770,7 @@ static const prefix_decoder prefix_table[256] = {
 	/* d2 = */ prefix_done,
 	/* d3 = */ prefix_done,
 	/* d4 = */ prefix_done,
-	/* d5 = */ prefix_done,
+	/* d5 = */ prefix_rex2,
 	/* d6 = */ prefix_done,
 	/* d7 = */ prefix_done,
 	/* d8 = */ prefix_done,
@@ -1089,6 +1090,41 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	return prefix_vex_done(ild, length);
 }
 
+static int prefix_rex2(struct pt_ild *ild, uint8_t length, uint8_t rex)
+{
+	uint8_t max_bytes;
+	uint8_t payload;
+
+	(void) rex;
+
+	if (!ild)
+		return -pte_internal;
+
+	/* REX2 is only defined in 64b mode. */
+	if (!mode_64b(ild))
+		return opcode_dec(ild, length);
+
+	max_bytes = ild->max_bytes;
+
+	/* We need at least 2 bytes
+	 * - 1 for the prefix payload.
+	 * - 1 for the opcode.
+	 */
+	if (max_bytes < (length + 2))
+		return -pte_bad_insn;
+
+	payload = get_byte(ild, length + 1);
+	ild->rex_r = ((payload >> 5) & 0x02) | ((payload >> 2) & 0x01);
+	ild->rex_w = (payload >> 3) & 0x01;
+
+	ild->rex2 = 1;
+	ild->map = payload >> 7;
+
+	/* Eat the REX2. */
+	length += 2;
+	return prefix_vex_done(ild, length);
+}
+
 static int decode(struct pt_ild *ild)
 {
 	return prefix_decode(ild, 0, 0);
@@ -1146,7 +1182,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 	/* PTI_INST_JCC,   70...7F, 0F (0x80...0x8F) */
 	switch (opcode & 0xf0) {
 	case 0x70:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_JCC;
 
@@ -1155,7 +1191,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0x80:
-		if (map == PTI_MAP_1) {
+		if ((map == PTI_MAP_1) && !ild->rex2) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_JCC;
 
@@ -1193,7 +1229,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xE8:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_call;
 			iext->iclass = PTI_INST_CALL_E8;
 
@@ -1241,7 +1277,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xE9:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_jump;
 			iext->iclass = PTI_INST_JMP_E9;
 
@@ -1250,7 +1286,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xEA:
-		if ((map == PTI_MAP_0) && !mode_64b(ild)) {
+		if ((map == PTI_MAP_0) && !mode_64b(ild) && !ild->rex2) {
 			/* Far jumps are treated as indirect jumps. */
 			insn->iclass = ptic_far_jump;
 			iext->iclass = PTI_INST_JMP_EA;
@@ -1258,7 +1294,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xEB:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_jump;
 			iext->iclass = PTI_INST_JMP_EB;
 
@@ -1267,7 +1303,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xE3:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_JrCXZ;
 
@@ -1276,7 +1312,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xE0:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_LOOPNE;
 
@@ -1285,7 +1321,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xE1:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_LOOPE;
 
@@ -1294,7 +1330,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0xE2:
-		if (map == PTI_MAP_0) {
+		if ((map == PTI_MAP_0) && !ild->rex2) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_LOOP;
 
@@ -1346,14 +1382,14 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 
 	case 0x34:
-		if (map == PTI_MAP_1) {
+		if ((map == PTI_MAP_1) && !ild->rex2) {
 			insn->iclass = ptic_far_call;
 			iext->iclass = PTI_INST_SYSENTER;
 		}
 		return 0;
 
 	case 0x35:
-		if (map == PTI_MAP_1) {
+		if ((map == PTI_MAP_1) && !ild->rex2) {
 			insn->iclass = ptic_far_return;
 			iext->iclass = PTI_INST_SYSEXIT;
 		}
