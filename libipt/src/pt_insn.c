@@ -242,8 +242,13 @@ int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 	case ptic_other:
 		break;
 
-	case ptic_call:
 	case ptic_jump:
+		/* JMPABS is direct but receives a TIP. */
+		if (iext->iclass == PTI_INST_JMPABS)
+			return -pte_bad_query;
+
+		fallthrough;
+	case ptic_call:
 		if (iext->variant.branch.is_direct) {
 			ip += (uint64_t) iext->variant.branch.displacement;
 			break;

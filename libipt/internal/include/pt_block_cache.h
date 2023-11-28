@@ -90,7 +90,7 @@ enum pt_bcache_qualifier {
 	 */
 	ptbq_return,
 
-	/* The decision point is an indirect jump or far branch.
+	/* The decision point is an indirect jump, JMPABS, or far branch.
 	 *
 	 * This requires an indirect branch query.
 	 *

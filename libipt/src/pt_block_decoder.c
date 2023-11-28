@@ -665,6 +665,11 @@ static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
 	}
 
 	case ptic_jump:
+		/* JMPABS is direct but behaves like an indirect jump. */
+		if (iext->iclass == PTI_INST_JMPABS)
+			break;
+
+		fallthrough;
 	case ptic_call:
 		/* A direct jump or call wouldn't require trace. */
 		if (iext->variant.branch.is_direct)
@@ -967,8 +972,13 @@ static int pt_insn_skl014(const struct pt_insn *insn,
 	default:
 		return 0;
 
-	case ptic_call:
 	case ptic_jump:
+		/* JMPABS is direct but receives a TIP. */
+		if (iext->iclass == PTI_INST_JMPABS)
+			return 0;
+
+		fallthrough;
+	case ptic_call:
 		return iext->variant.branch.is_direct;
 
 	case ptic_other:
@@ -2107,8 +2117,12 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 			return -pte_internal;
 
 		case ptic_jump:
-			/* A direct jump doesn't require trace. */
-			if (iext.variant.branch.is_direct)
+			/* A direct jump doesn't require trace.
+			 *
+			 * JMPABS is direct but behaves like indirect.
+			 */
+			if (iext.variant.branch.is_direct &&
+			    (iext.iclass != PTI_INST_JMPABS))
 				return -pte_internal;
 
 			bce.qualifier = ptbq_indirect;
@@ -2219,10 +2233,11 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 		return pt_blk_add_decode(bcache, ioff, insn.mode);
 
 	case ptic_jump:
-		/* An indirect branch requires trace and should have been
-		 * handled above.
+		/* An indirect branch, including JMPABS, requires trace and
+		 * should have been handled above.
 		 */
-		if (!iext.variant.branch.is_direct)
+		if (!iext.variant.branch.is_direct ||
+		    (iext.iclass == PTI_INST_JMPABS))
 			return -pte_internal;
 
 		if (iext.variant.branch.displacement < 0 ||
@@ -2697,7 +2712,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	}
 
 	case ptbq_indirect:
-		/* We're at an indirect jump or far transfer.
+		/* We're at an indirect jump, JMPABS, or far transfer.
 		 *
 		 * We don't know the exact instruction class and there's no
 		 * reason to decode the instruction for any other purpose.

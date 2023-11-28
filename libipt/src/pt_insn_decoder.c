@@ -602,14 +602,16 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	 *
 	 * This combines calls, uncompressed returns, taken conditional jumps,
 	 * and all flavors of far transfers.
+	 *
+	 * JMPABS is direct but behaves like indirect.
 	 */
-	if (iext->variant.branch.is_direct)
+	if (iext->variant.branch.is_direct &&
+	    (iext->iclass != PTI_INST_JMPABS))
 		decoder->ip += (uint64_t) iext->variant.branch.displacement;
 	else {
 		int status;
 
 		status = pt_insn_indirect_branch(decoder, &decoder->ip);
-
 		if (status < 0)
 			return status;
 
@@ -640,8 +642,12 @@ static int pt_insn_at_skl014(const struct pt_event *ev,
 	switch (insn->iclass) {
 	case ptic_call:
 	case ptic_jump:
-		/* The erratum only applies to unconditional direct branches. */
-		if (!iext->variant.branch.is_direct)
+		/* The erratum only applies to unconditional direct branches.
+		 *
+		 * JMPABS is direct but behaves like indirect.
+		 */
+		if (!iext->variant.branch.is_direct ||
+		    (iext->iclass == PTI_INST_JMPABS))
 			break;
 
 		/* Check the filter against the branch target. */
@@ -698,8 +704,11 @@ static int pt_insn_at_disabled_event(const struct pt_event *ev,
 		case ptic_jump:
 			/* If we got an IP with the disabled event, we may
 			 * ignore direct branches that go to a different IP.
+			 *
+			 * JMPABS is direct but behaves like indirect.
 			 */
-			if (iext->variant.branch.is_direct) {
+			if (iext->variant.branch.is_direct &&
+			    (iext->iclass != PTI_INST_JMPABS)) {
 				uint64_t ip;
 
 				ip = insn->ip;
