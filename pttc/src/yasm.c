@@ -315,6 +315,9 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 
 			/* this might be a label now.  */
 			tmp = strtok(NULL, " ");
+			if (!tmp)
+				continue;
+
 			if (!make_label(tmp, end))
 				continue;
 
