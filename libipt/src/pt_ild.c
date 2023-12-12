@@ -1142,7 +1142,8 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;	/* uninteresting */
 
 	/* PTI_INST_JCC,   70...7F, 0F (0x80...0x8F) */
-	if (opcode >= 0x70 && opcode <= 0x7F) {
+	switch (opcode & 0xf0) {
+	case 0x70:
 		if (map == PTI_MAP_0) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_JCC;
@@ -1150,8 +1151,8 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 			return set_branch_target(iext, ild);
 		}
 		return 0;
-	}
-	if (opcode >= 0x80 && opcode <= 0x8F) {
+
+	case 0x80:
 		if (map == PTI_MAP_1) {
 			insn->iclass = ptic_cond_jump;
 			iext->iclass = PTI_INST_JCC;
@@ -1161,7 +1162,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		return 0;
 	}
 
-	switch (ild->nominal_opcode) {
+	switch (opcode) {
 	case 0x9A:
 		if ((map == PTI_MAP_0) && !mode_64b(ild)) {
 			insn->iclass = ptic_far_call;
