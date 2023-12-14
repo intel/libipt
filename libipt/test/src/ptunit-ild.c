@@ -755,6 +755,16 @@ static struct ptunit_result rex2_mov_cr3(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result jmpabs(void)
+{
+	uint8_t insn[] = { 0xd5, 0x00, 0xa1,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+	ptu_classify_s(insn, ptem_64bit, ptic_jump, PTI_INST_JMPABS);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -828,6 +838,7 @@ int main(int argc, char **argv)
 	ptu_run(suite, mov_cr3);
 	ptu_run(suite, rex_mov_cr3);
 	ptu_run(suite, rex2_mov_cr3);
+	ptu_run(suite, jmpabs);
 
 	return ptunit_report(&suite);
 }

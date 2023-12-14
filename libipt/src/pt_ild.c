@@ -1152,6 +1152,11 @@ static int set_branch_target(struct pt_insn_ext *iext, const struct pt_ild *ild)
 			get_byte_ptr(ild, ild->disp_pos);
 
 		iext->variant.branch.displacement = *d;
+	} else if (ild->disp_bytes == 8) {
+		const int64_t *d = (const int64_t *)
+			get_byte_ptr(ild, ild->disp_pos);
+
+		iext->variant.branch.displacement = *d;
 	} else
 		return -pte_bad_insn;
 
@@ -1454,6 +1459,16 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 		    pti_get_modrm_reg(ild) == 4) {
 			insn->iclass = ptic_ptwrite;
 			iext->iclass = PTI_INST_PTWRITE;
+		}
+		return 0;
+
+	case 0xa1:
+		if ((map == PTI_MAP_0) && mode_64b(ild) && ild->rex2 &&
+		    !ild->rex_w && !ild->asz && !ild->osz) {
+			insn->iclass = ptic_jump;
+			iext->iclass = PTI_INST_JMPABS;
+
+			return set_branch_target(iext, ild);
 		}
 		return 0;
 

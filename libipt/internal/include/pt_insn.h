@@ -87,6 +87,8 @@ typedef enum {
 	PTI_INST_ERETS,
 	PTI_INST_ERETU,
 
+	PTI_INST_JMPABS,
+
 	PTI_INST_LAST
 } pti_inst_enum_t;
 
