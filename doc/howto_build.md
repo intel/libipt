@@ -2,7 +2,7 @@ Building the Intel(R) Processor Trace (Intel PT) Decoder Library and Samples {#b
 ============================================================================
 
 <!---
- ! Copyright (c) 2013-2023, Intel Corporation
+ ! Copyright (c) 2013-2024, Intel Corporation
  ! SPDX-License-Identifier: BSD-3-Clause
  !
  ! Redistribution and use in source and binary forms, with or without
