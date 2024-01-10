@@ -763,6 +763,9 @@ static void check_insn_iclass(const xed_inst_t *inst,
 #if defined(XED_ICLASS_SYSCALL_AMD_DEFINED) && XED_ICLASS_SYSCALL_AMD_DEFINED
 		case XED_ICLASS_SYSCALL_AMD:
 #endif
+#if defined(XED_ICLASS_SYSCALL_32_DEFINED) && XED_ICLASS_SYSCALL_32_DEFINED
+		case XED_ICLASS_SYSCALL_32:
+#endif
 		case XED_ICLASS_SYSENTER:
 		case XED_ICLASS_VMCALL:
 			return;
@@ -809,6 +812,9 @@ static void check_insn_iclass(const xed_inst_t *inst,
 		case XED_ICLASS_SYSCALL:
 #if defined(XED_ICLASS_SYSCALL_AMD_DEFINED) && XED_ICLASS_SYSCALL_AMD_DEFINED
 		case XED_ICLASS_SYSCALL_AMD:
+#endif
+#if defined(XED_ICLASS_SYSCALL_32_DEFINED) && XED_ICLASS_SYSCALL_32_DEFINED
+		case XED_ICLASS_SYSCALL_32:
 #endif
 		case XED_ICLASS_SYSENTER:
 		case XED_ICLASS_VMCALL:
