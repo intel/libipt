@@ -100,26 +100,6 @@ struct ptunit_result ptunit_mk_failed_pointer(const char *expr,
 	return result;
 }
 
-static char *dupstr(const char *str)
-{
-	char *dup;
-	size_t len;
-
-	if (!str)
-		str = "(null)";
-
-	/* Silently truncate the expression string if it gets too big. */
-	len = strnlen(str, 4096ul);
-
-	dup = malloc(len + 1);
-	if (!dup)
-		return NULL;
-
-	dup[len] = 0;
-
-	return memcpy(dup, str, len);
-}
-
 struct ptunit_result ptunit_mk_failed_str(const char *expr,
 					  const char *cmp,
 					  struct ptunit_srcloc where,
@@ -128,12 +108,18 @@ struct ptunit_result ptunit_mk_failed_str(const char *expr,
 {
 	struct ptunit_result result;
 
+	if (!actual)
+		actual = "(null)";
+	if (!expected)
+		expected = "(null)";
+
+	memset(&result, 0, sizeof(result));
 	result.type = ptur_failed_str;
 	result.failed.where = where;
 	result.failed.variant.str.expr = expr;
 	result.failed.variant.str.cmp = cmp;
-	result.failed.variant.str.expected = dupstr(expected);
-	result.failed.variant.str.actual = dupstr(actual);
+	result.failed.variant.str.expected = strdup(expected);
+	result.failed.variant.str.actual = strdup(actual);
 
 	return result;
 }

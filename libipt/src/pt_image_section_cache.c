@@ -35,26 +35,6 @@
 #include <stdlib.h>
 
 
-static char *dupstr(const char *str)
-{
-	char *dup;
-	size_t len;
-
-	if (!str)
-		return NULL;
-
-	/* Silently truncate the name if it gets too big. */
-	len = strnlen(str, 4096ul);
-
-	dup = malloc(len + 1);
-	if (!dup)
-		return NULL;
-
-	dup[len] = 0;
-
-	return memcpy(dup, str, len);
-}
-
 int pt_iscache_init(struct pt_image_section_cache *iscache, const char *name)
 {
 	if (!iscache)
@@ -63,7 +43,7 @@ int pt_iscache_init(struct pt_image_section_cache *iscache, const char *name)
 	memset(iscache, 0, sizeof(*iscache));
 	iscache->limit = UINT64_MAX;
 	if (name) {
-		iscache->name = dupstr(name);
+		iscache->name = strdup(name);
 		if (!iscache->name)
 			return -pte_nomem;
 	}
