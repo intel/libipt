@@ -189,6 +189,10 @@ if (CMAKE_HOST_WIN32)
     #
     /Dstrtoull=_strtoui64
 
+    # cl spells strdup _strdup
+    #
+    /Dstrdup=_strdup
+
     # avoid annoying warnings about unsecure standard functions
     #
     /D_CRT_SECURE_NO_WARNINGS
