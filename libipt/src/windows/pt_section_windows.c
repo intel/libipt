@@ -315,7 +315,7 @@ int pt_section_map(struct pt_section *section)
 
 out_fd:
 	_close(fd);
-	return errcode;
+	goto out_unlock;
 
 out_fh:
 	CloseHandle(fh);
