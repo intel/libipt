@@ -726,6 +726,26 @@ static struct ptunit_result eretu(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result mov_cr3(void)
+{
+	uint8_t insn[] = { 0x0f, 0x22, 0x18 };
+
+	ptu_classify_s(insn, ptem_64bit, ptic_other, PTI_INST_MOV_CR3);
+	ptu_classify_s(insn, ptem_32bit, ptic_other, PTI_INST_MOV_CR3);
+	ptu_classify_s(insn, ptem_16bit, ptic_other, PTI_INST_MOV_CR3);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result rex_mov_cr3(void)
+{
+	uint8_t insn[] = { 0x40, 0x0f, 0x22, 0x18 };
+
+	ptu_classify_s(insn, ptem_64bit, ptic_other, PTI_INST_MOV_CR3);
+
+	return ptu_passed();
+}
+
 int main(int argc, char **argv)
 {
 	struct ptunit_suite suite;
@@ -796,6 +816,8 @@ int main(int argc, char **argv)
 	ptu_run(suite, into);
 	ptu_run(suite, erets);
 	ptu_run(suite, eretu);
+	ptu_run(suite, mov_cr3);
+	ptu_run(suite, rex_mov_cr3);
 
 	return ptunit_report(&suite);
 }
