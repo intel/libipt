@@ -929,6 +929,25 @@ static inline int prefix_vex_done(struct pt_ild *ild, uint8_t length)
 	return modrm_dec(ild, length + 1);
 }
 
+static void resolve_vex_pp(struct pt_ild *ild, uint8_t pp)
+{
+	switch (pp) {
+	case 0x01:
+		ild->u.s.osz = 1;
+		break;
+
+	case 0x02:
+		ild->u.s.f3 = 1;
+		ild->u.s.last_f2f3 = 3;
+		break;
+
+	case 0x03:
+		ild->u.s.f2 = 1;
+		ild->u.s.last_f2f3 = 2;
+		break;
+	}
+}
+
 static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes;
@@ -960,6 +979,8 @@ static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	ild->u.s.vex = 1;
 	ild->u.s.rex_r = (~p1 >> 7) & 0x01;
+
+	resolve_vex_pp(ild, p1 & 0x03);
 
 	ild->map = PTI_MAP_1;
 
@@ -1002,6 +1023,8 @@ static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	ild->u.s.vex = 1;
 	ild->u.s.rex_r = (~p1 >> 7) & 0x01;
 	ild->u.s.rex_w = (p2 >> 7) & 0x01;
+
+	resolve_vex_pp(ild, p2 & 0x03);
 
 	map = p1 & 0x1f;
 	if (PTI_MAP_INVALID <= map)
@@ -1050,6 +1073,8 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	ild->u.s.vex = 1;
 	ild->u.s.rex_r = ((~p1 >> 7) & 0x01) | ((~p1 >> 3) & 0x02);
 	ild->u.s.rex_w = (p2 >> 7) & 0x01;
+
+	resolve_vex_pp(ild, p2 & 0x03);
 
 	map = p1 & 0x03;
 	ild->map = map;
