@@ -900,10 +900,8 @@ static int prefix_done(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	if (!ild)
 		return -pte_internal;
 
-	if (rex & 0x04)
-		ild->u.s.rex_r = 1;
-	if (rex & 0x08)
-		ild->u.s.rex_w = 1;
+	ild->u.s.rex_r = (rex >> 2) & 0x01;
+	ild->u.s.rex_w = (rex >> 3) & 0x01;
 
 	return opcode_dec(ild, length);
 }
@@ -961,8 +959,7 @@ static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 		return -pte_bad_insn;
 
 	ild->u.s.vex = 1;
-	if (p1 & 0x80)
-		ild->u.s.rex_r = 1;
+	ild->u.s.rex_r = (~p1 >> 7) & 0x01;
 
 	ild->map = PTI_MAP_1;
 
@@ -1003,10 +1000,8 @@ static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	p2 = get_byte(ild, length + 2);
 
 	ild->u.s.vex = 1;
-	if (p1 & 0x80)
-		ild->u.s.rex_r = 1;
-	if (p2 & 0x80)
-		ild->u.s.rex_w = 1;
+	ild->u.s.rex_r = (~p1 >> 7) & 0x01;
+	ild->u.s.rex_w = (p2 >> 7) & 0x01;
 
 	map = p1 & 0x1f;
 	if (PTI_MAP_INVALID <= map)
@@ -1053,10 +1048,8 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	p2 = get_byte(ild, length + 2);
 
 	ild->u.s.vex = 1;
-	if (p1 & 0x80)
-		ild->u.s.rex_r = 1;
-	if (p2 & 0x80)
-		ild->u.s.rex_w = 1;
+	ild->u.s.rex_r = ((~p1 >> 7) & 0x01) | ((~p1 >> 3) & 0x02);
+	ild->u.s.rex_w = (p2 >> 7) & 0x01;
 
 	map = p1 & 0x03;
 	ild->map = map;
