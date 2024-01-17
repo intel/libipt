@@ -1076,7 +1076,7 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	resolve_vex_pp(ild, p2 & 0x03);
 
-	map = p1 & 0x03;
+	map = p1 & 0x07;
 	ild->map = map;
 
 	if (map == PTI_MAP_3)

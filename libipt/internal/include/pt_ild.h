@@ -40,8 +40,12 @@ typedef enum {
 	PTI_MAP_1,	/* 2-byte opcodes (0x0f).    may have modrm */
 	PTI_MAP_2,	/* 3-byte opcodes (0x0f38).  has modrm */
 	PTI_MAP_3,	/* 3-byte opcodes (0x0f3a).  has modrm */
-	PTI_MAP_AMD3DNOW,	/* 3d-now opcodes (0x0f0f).  has modrm */
-	PTI_MAP_INVALID
+	PTI_MAP_4,
+	PTI_MAP_5,
+	PTI_MAP_6,
+	PTI_MAP_7,
+	PTI_MAP_INVALID,
+	PTI_MAP_AMD3DNOW	/* 3d-now opcodes (0x0f0f).  has modrm */
 } pti_map_enum_t;
 
 struct pt_ild {
