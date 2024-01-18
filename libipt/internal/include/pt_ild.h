@@ -62,8 +62,8 @@ struct pt_ild {
 			uint32_t f3:1;
 			uint32_t f2:1;
 			uint32_t last_f2f3:2;	/* 2 or 3 */
-			/* The vex bit is set for c4/c5 VEX and EVEX. */
-			uint32_t vex:1;
+			/* 0=novex, 1=c4/c5 VEX, 2=EVEX. */
+			uint32_t vex:2;
 			/* The R and W bits in REX, VEX, or EVEX. */
 			uint32_t rex_r:2;
 			uint32_t rex_w:1;

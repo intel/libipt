@@ -1070,7 +1070,7 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	p2 = get_byte(ild, length + 2);
 
-	ild->u.s.vex = 1;
+	ild->u.s.vex = 2;
 	ild->u.s.rex_r = ((~p1 >> 7) & 0x01) | ((~p1 >> 3) & 0x02);
 	ild->u.s.rex_w = (p2 >> 7) & 0x01;
 
