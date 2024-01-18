@@ -280,14 +280,6 @@ static int imm_dec(struct pt_ild *ild, uint8_t length)
 	if (!ild)
 		return -pte_internal;
 
-	if (ild->map == PTI_MAP_AMD3DNOW) {
-		if (ild->max_bytes <= length)
-			return -pte_bad_insn;
-
-		ild->nominal_opcode = get_byte(ild, length);
-		return length + 1;
-	}
-
 	errcode = set_imm_bytes(ild);
 	if (errcode < 0)
 		return errcode;
@@ -502,14 +494,6 @@ static int opcode_dec(struct pt_ild *ild, uint8_t length)
 		ild->map = PTI_MAP_INVALID;
 
 		return get_next_as_opcode(ild, length + 1);
-	} else if (m == 0x0F) {	/* 3dNow */
-		ild->map = PTI_MAP_AMD3DNOW;
-		ild->imm1_bytes = 1;
-		/* real opcode is in immediate later on, but we need an
-		 * opcode now. */
-		ild->nominal_opcode = 0x0F;
-
-		return modrm_dec(ild, length + 1);
 	} else {	/* map 1 (simple two byte opcodes) */
 		ild->nominal_opcode = m;
 		ild->map = PTI_MAP_1;

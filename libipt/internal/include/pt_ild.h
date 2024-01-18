@@ -44,8 +44,7 @@ typedef enum {
 	PTI_MAP_5,
 	PTI_MAP_6,
 	PTI_MAP_7,
-	PTI_MAP_INVALID,
-	PTI_MAP_AMD3DNOW	/* 3d-now opcodes (0x0f0f).  has modrm */
+	PTI_MAP_INVALID
 } pti_map_enum_t;
 
 struct pt_ild {
