@@ -235,21 +235,21 @@ static int set_imm_bytes(struct pt_ild *ild)
 		return resolve_z(&ild->imm1_bytes,
 				 pti_get_nominal_eosz_df64(ild));
 
-	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf7_l1:
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_maplegacy_map0_op0xf7_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2) {
 			return resolve_z(&ild->imm1_bytes,
 					 pti_get_nominal_eosz(ild));
 		}
 		return 0;
 
-	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xc7_l1:
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_maplegacy_map0_op0xc7_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) == 0) {
 			return resolve_z(&ild->imm1_bytes,
 					 pti_get_nominal_eosz(ild));
 		}
 		return 0;
 
-	case PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf6_l1:
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_maplegacy_map0_op0xf6_l1:
 		if (ild->map == PTI_MAP_0 && pti_get_modrm_reg(ild) < 2)
 			ild->imm1_bytes = 1;
 
@@ -273,6 +273,19 @@ static int set_imm_bytes(struct pt_ild *ild)
 				ild->imm2_bytes = 1;
 			}
 		}
+		return 0;
+
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_mapevex_map4_op0xf6_l1:
+		if (pti_get_modrm_reg(ild) < 2)
+			ild->imm1_bytes = 1;
+
+		return 0;
+
+	case PTI_RESOLVE_BYREG_IMM_WIDTH_mapevex_map4_op0xf7_l1:
+		if (pti_get_modrm_reg(ild) < 2)
+			return resolve_z(&ild->imm1_bytes,
+					 pti_get_nominal_eosz(ild));
+
 		return 0;
 	}
 }
