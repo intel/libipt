@@ -31,7 +31,6 @@
 #define PTI_IMM_H
 
 enum pti_imm {
-	PTI_IMM_NONE,
 	PTI_0_IMM_WIDTH_CONST_l2,
 	PTI_UIMM8_IMM_WIDTH_CONST_l2,
 	PTI_SIMM8_IMM_WIDTH_CONST_l2,
@@ -561,6 +560,48 @@ static uint8_t imm_bytes_map_0x0F[256] = {
 /*opcode 0xfd*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0xfe*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0xff*/ 0,
+};
+
+struct pti_imm_desc {
+	/* A pointer to a table indexed by opcode if not NULL. */
+	const uint8_t *table;
+
+	/* A fixed immediate width in bytes if not 0xff. */
+	uint8_t width;
+};
+
+/* Indexed by vex status (0=novex, 1=vex, 2=evex) and map number. */
+static const struct pti_imm_desc imm_bytes_desc[3][PTI_MAP_INVALID] = {
+	/* Legacy */ {
+		/* Map 0 */ {imm_bytes_map_0x0, 0xff},
+		/* Map 1 */ {imm_bytes_map_0x0F, 0xff},
+		/* Map 2 */ {NULL, 0},
+		/* Map 3 */ {NULL, 1},
+		/* Map 4 */ {NULL, 0xff},
+		/* Map 5 */ {NULL, 0xff},
+		/* Map 6 */ {NULL, 0xff},
+		/* Map 7 */ {NULL, 0xff}
+	},
+	/* VEX */ {
+		/* Map 0 */ {imm_bytes_map_0x0, 0xff},
+		/* Map 1 */ {imm_bytes_map_0x0F, 0xff},
+		/* Map 2 */ {NULL, 0},
+		/* Map 3 */ {NULL, 1},
+		/* Map 4 */ {NULL, 0xff},
+		/* Map 5 */ {NULL, 0xff},
+		/* Map 6 */ {NULL, 0xff},
+		/* Map 7 */ {NULL, 0xff}
+	},
+	/* EVEX */ {
+		/* Map 0 */ {imm_bytes_map_0x0, 0xff},
+		/* Map 1 */ {imm_bytes_map_0x0F, 0xff},
+		/* Map 2 */ {NULL, 0},
+		/* Map 3 */ {NULL, 1},
+		/* Map 4 */ {NULL, 0xff},
+		/* Map 5 */ {NULL, 0xff},
+		/* Map 6 */ {NULL, 0xff},
+		/* Map 7 */ {NULL, 0xff}
+	}
 };
 
 #endif /* PTI_IMM_H */
