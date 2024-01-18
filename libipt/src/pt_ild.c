@@ -181,25 +181,31 @@ static inline int resolve_v(uint8_t *pbytes, enum pt_exec_mode eosz)
 
 static int set_imm_bytes(struct pt_ild *ild)
 {
-	/*: set ild->imm1_bytes and  ild->imm2_bytes for maps 0/1 */
-	static uint8_t const *const map_map[] = {
-		/* map 0 */ imm_bytes_map_0x0,
-		/* map 1 */ imm_bytes_map_0x0F
-	};
+	const struct pti_imm_desc *imm_desc;
+	const uint8_t *imm_table;
 	enum pti_imm imm;
-	uint8_t map;
+	uint8_t map, width;
 
 	if (!ild)
 		return -pte_internal;
 
 	map = ild->map;
+	if (PTI_MAP_INVALID <= map)
+		return -pte_bad_insn;
 
-	if ((sizeof(map_map) / sizeof(*map_map)) <= map)
+	imm_desc = &imm_bytes_desc[ild->u.s.vex][map];
+	imm_table = imm_desc->table;
+	if (!imm_table) {
+		width = imm_desc->width;
+		if (width == 0xff)
+			return -pte_bad_insn;
+
+		ild->imm1_bytes = width;
 		return 0;
+	}
 
-	imm = map_map[map][ild->nominal_opcode];
+	imm = imm_table[ild->nominal_opcode];
 	switch (imm) {
-	case PTI_IMM_NONE:
 	case PTI_0_IMM_WIDTH_CONST_l2:
 	default:
 		return 0;
@@ -1009,13 +1015,9 @@ static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	resolve_vex_pp(ild, p2 & 0x03);
 
-	map = p1 & 0x1f;
+	ild->map = map = p1 & 0x1f;
 	if (PTI_MAP_INVALID <= map)
 		return -pte_bad_insn;
-
-	ild->map = map;
-	if (map == PTI_MAP_3)
-		ild->imm1_bytes = 1;
 
 	/* Eat the VEX. */
 	length += 3;
@@ -1059,11 +1061,7 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	resolve_vex_pp(ild, p2 & 0x03);
 
-	map = p1 & 0x07;
-	ild->map = map;
-
-	if (map == PTI_MAP_3)
-		ild->imm1_bytes = 1;
+	ild->map = map = p1 & 0x07;
 
 	/* Eat the EVEX. */
 	length += 4;
