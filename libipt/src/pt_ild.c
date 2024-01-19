@@ -309,9 +309,9 @@ static int imm_dec(struct pt_ild *ild, uint8_t length)
 	return length;
 }
 
-static int compute_disp_dec(struct pt_ild *ild)
+static int compute_legacy_disp(struct pt_ild *ild)
 {
-	/* set ild->disp_bytes for maps 0 and 1. */
+	/* set ild->disp_bytes for legacy maps 0 and 1. */
 	static uint8_t const *const map_map[] = {
 		/* map 0 */ disp_bytes_map_0x0,
 		/* map 1 */ disp_bytes_map_0x0F
@@ -383,9 +383,11 @@ static int disp_dec(struct pt_ild *ild, uint8_t length)
 	if (!ild)
 		return -pte_internal;
 
-	errcode = compute_disp_dec(ild);
-	if (errcode < 0)
-		return errcode;
+	if (!ild->u.s.vex) {
+		errcode = compute_legacy_disp(ild);
+		if (errcode < 0)
+			return errcode;
+	}
 
 	disp_bytes = ild->disp_bytes;
 	if (disp_bytes == 0)
