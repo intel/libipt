@@ -407,47 +407,53 @@ static int sib_dec(struct pt_ild *ild, uint8_t length)
 
 static int modrm_dec(struct pt_ild *ild, uint8_t length)
 {
-	static uint8_t const *const has_modrm_2d[2] = {
-		has_modrm_map_0x0,
-		has_modrm_map_0x0F
-	};
-	enum pti_modrm has_modrm = PTI_MODRM_FALSE;
+	const struct pti_modrm_desc *desc;
+	const uint8_t *table;
+	enum pti_modrm has_modrm;
 	pti_map_enum_t map;
 
 	if (!ild)
 		return -pte_internal;
 
 	map = pti_get_map(ild);
-	if (map >= PTI_MAP_2)
-		has_modrm = PTI_MODRM_TRUE;
-	else
-		has_modrm = has_modrm_2d[map][ild->nominal_opcode];
-
-	if (has_modrm == PTI_MODRM_FALSE || has_modrm == PTI_MODRM_UNDEF)
-		return disp_dec(ild, length);
-
-	/* really >= here because we have not eaten the byte yet */
-	if (length >= ild->max_bytes)
+	if (PTI_MAP_INVALID <= map)
 		return -pte_bad_insn;
 
-	ild->modrm_byte = get_byte(ild, length);
+	desc = &has_modrm_table[ild->u.s.vex][map];
+	table = desc->table;
+	has_modrm = table ? table[ild->nominal_opcode] : desc->has_modrm;
+	switch (has_modrm) {
+	case PTI_MODRM_FALSE:
+	case PTI_MODRM_UNDEF:
+		return disp_dec(ild, length);
 
-	if (has_modrm != PTI_MODRM_IGNORE_MOD) {
-		/* set disp_bytes and sib using simple tables */
+	case PTI_MODRM_IGNORE_MOD:
+		if (length >= ild->max_bytes)
+			return -pte_bad_insn;
 
+		ild->modrm_byte = get_byte(ild, length);
+		return disp_dec(ild, length + 1);
+
+	case PTI_MODRM_TRUE: {
 		uint8_t eamode = eamode_table[ild->u.s.asz][ild->mode];
-		uint8_t mod = (uint8_t) pti_get_modrm_mod(ild);
-		uint8_t rm = (uint8_t) pti_get_modrm_rm(ild);
-		uint8_t sib;
+		uint8_t mod, rm, sib;
+
+		if (length >= ild->max_bytes)
+			return -pte_bad_insn;
+
+		ild->modrm_byte = get_byte(ild, length);
+		mod = pti_get_modrm_mod(ild);
+		rm = pti_get_modrm_rm(ild);
 
 		ild->disp_bytes = disp_default[eamode][mod][rm];
-
 		sib = has_sib[eamode][mod][rm];
 		if (sib)
 			return sib_dec(ild, length + 1);
 	}
+		return disp_dec(ild, length + 1);
+	}
 
-	return disp_dec(ild, length + 1);
+	return -pte_bad_insn;
 }
 
 static inline int get_next_as_opcode(struct pt_ild *ild, uint8_t length)
