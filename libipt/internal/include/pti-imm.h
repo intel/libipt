@@ -27,6 +27,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if !defined(PTI_IMM_H)
+#define PTI_IMM_H
+
+enum pti_imm {
+	PTI_IMM_NONE,
+	PTI_0_IMM_WIDTH_CONST_l2,
+	PTI_UIMM8_IMM_WIDTH_CONST_l2,
+	PTI_SIMM8_IMM_WIDTH_CONST_l2,
+	PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2,
+	PTI_UIMMv_IMM_WIDTH_OSZ_NONTERM_EOSZ_l2,
+	PTI_UIMM16_IMM_WIDTH_CONST_l2,
+	PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf7_l1,
+	PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xc7_l1,
+	PTI_SIMMz_IMM_WIDTH_OSZ_NONTERM_DF64_EOSZ_l2,
+	PTI_RESOLVE_BYREG_IMM_WIDTH_map0x0_op0xf6_l1,
+	PTI_IMM_hasimm_map0x0_op0xc8_l1,
+	PTI_IMM_hasimm_map0x0F_op0x78_l1,
+};
+
 static uint8_t imm_bytes_map_0x0[256] = {
 /*opcode 0x0*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0x1*/ PTI_0_IMM_WIDTH_CONST_l2,
@@ -543,3 +562,5 @@ static uint8_t imm_bytes_map_0x0F[256] = {
 /*opcode 0xfe*/ PTI_0_IMM_WIDTH_CONST_l2,
 /*opcode 0xff*/ 0,
 };
+
+#endif /* PTI_IMM_H */
