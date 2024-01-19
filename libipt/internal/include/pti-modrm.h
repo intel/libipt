@@ -554,4 +554,46 @@ static uint8_t has_modrm_map_0x0F[256] = {
 /*opcode 0xff*/ PTI_MODRM_UNDEF,
 };
 
+struct pti_modrm_desc {
+	/* A table indexed by opcode if not NULL. */
+	const uint8_t *table;
+
+	/* A fixed value if table is NULL. */
+	enum pti_modrm has_modrm;
+};
+
+/* Indexed by vex status (0=novex, 1=vex, 2=evex) and map number. */
+static const struct pti_modrm_desc has_modrm_table[3][PTI_MAP_INVALID] = {
+	/* Legacy */ {
+		/* Map 0 */ {has_modrm_map_0x0, PTI_MODRM_UNDEF},
+		/* Map 1 */ {has_modrm_map_0x0F, PTI_MODRM_UNDEF},
+		/* Map 2 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 3 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 4 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 5 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 6 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 7 */ {NULL, PTI_MODRM_TRUE}
+	},
+	/* VEX */ {
+		/* Map 0 */ {has_modrm_map_0x0, PTI_MODRM_UNDEF},
+		/* Map 1 */ {has_modrm_map_0x0F, PTI_MODRM_UNDEF},
+		/* Map 2 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 3 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 4 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 5 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 6 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 7 */ {NULL, PTI_MODRM_TRUE}
+	},
+	/* EVEX */ {
+		/* Map 0 */ {has_modrm_map_0x0, PTI_MODRM_UNDEF},
+		/* Map 1 */ {has_modrm_map_0x0F, PTI_MODRM_UNDEF},
+		/* Map 2 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 3 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 4 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 5 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 6 */ {NULL, PTI_MODRM_TRUE},
+		/* Map 7 */ {NULL, PTI_MODRM_TRUE}
+	}
+};
+
 #endif /* PTI_MODRM_H */
