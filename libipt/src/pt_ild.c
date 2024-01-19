@@ -30,7 +30,6 @@
 #include "pt_ild.h"
 #include "pti-imm.h"
 #include "pti-modrm.h"
-#include "pti-disp-defs.h"
 #include "pti-disp.h"
 #include "pti-disp_default.h"
 #include "pti-sib.h"
@@ -298,7 +297,8 @@ static int compute_disp_dec(struct pt_ild *ild)
 		/* map 0 */ disp_bytes_map_0x0,
 		/* map 1 */ disp_bytes_map_0x0F
 	};
-	uint8_t map, disp_kind;
+	enum pti_disp disp;
+	uint8_t map;
 
 	if (!ild)
 		return -pte_internal;
@@ -311,8 +311,8 @@ static int compute_disp_dec(struct pt_ild *ild)
 	if ((sizeof(map_map) / sizeof(*map_map)) <= map)
 		return 0;
 
-	disp_kind = map_map[map][ild->nominal_opcode];
-	switch (disp_kind) {
+	disp = map_map[map][ild->nominal_opcode];
+	switch (disp) {
 	case PTI_DISP_NONE:
 		ild->disp_bytes = 0;
 		return 0;
