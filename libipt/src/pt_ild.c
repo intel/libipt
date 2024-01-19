@@ -28,7 +28,6 @@
  */
 
 #include "pt_ild.h"
-#include "pti-imm-defs.h"
 #include "pti-imm.h"
 #include "pti-modrm-defs.h"
 #include "pti-modrm.h"
@@ -189,7 +188,8 @@ static int set_imm_bytes(struct pt_ild *ild)
 		/* map 0 */ imm_bytes_map_0x0,
 		/* map 1 */ imm_bytes_map_0x0F
 	};
-	uint8_t map, imm_code;
+	enum pti_imm imm;
+	uint8_t map;
 
 	if (!ild)
 		return -pte_internal;
@@ -199,8 +199,8 @@ static int set_imm_bytes(struct pt_ild *ild)
 	if ((sizeof(map_map) / sizeof(*map_map)) <= map)
 		return 0;
 
-	imm_code = map_map[map][ild->nominal_opcode];
-	switch (imm_code) {
+	imm = map_map[map][ild->nominal_opcode];
+	switch (imm) {
 	case PTI_IMM_NONE:
 	case PTI_0_IMM_WIDTH_CONST_l2:
 	default:
