@@ -27,6 +27,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if !defined(PTI_MODRM_H)
+#define PTI_MODRM_H
+
+enum pti_modrm {
+	PTI_MODRM_FALSE,
+	PTI_MODRM_TRUE,
+	PTI_MODRM_IGNORE_MOD,
+	PTI_MODRM_UNDEF,
+};
+
 static uint8_t has_modrm_map_0x0[256] = {
 /*opcode 0x0*/ PTI_MODRM_TRUE,
 /*opcode 0x1*/ PTI_MODRM_TRUE,
@@ -543,3 +553,5 @@ static uint8_t has_modrm_map_0x0F[256] = {
 /*opcode 0xfe*/ PTI_MODRM_TRUE,
 /*opcode 0xff*/ PTI_MODRM_UNDEF,
 };
+
+#endif /* PTI_MODRM_H */

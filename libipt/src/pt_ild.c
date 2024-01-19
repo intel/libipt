@@ -29,7 +29,6 @@
 
 #include "pt_ild.h"
 #include "pti-imm.h"
-#include "pti-modrm-defs.h"
 #include "pti-modrm.h"
 #include "pti-disp-defs.h"
 #include "pti-disp.h"
@@ -406,7 +405,7 @@ static int modrm_dec(struct pt_ild *ild, uint8_t length)
 		has_modrm_map_0x0,
 		has_modrm_map_0x0F
 	};
-	int has_modrm = PTI_MODRM_FALSE;
+	enum pti_modrm has_modrm = PTI_MODRM_FALSE;
 	pti_map_enum_t map;
 
 	if (!ild)
