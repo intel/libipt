@@ -61,8 +61,6 @@ struct pt_ild {
 			uint32_t f3:1;
 			uint32_t f2:1;
 			uint32_t last_f2f3:2;	/* 2 or 3 */
-			/* 0=novex, 1=c4/c5 VEX, 2=EVEX. */
-			uint32_t vex:2;
 			/* The R and W bits in REX, VEX, or EVEX. */
 			uint32_t rex_r:2;
 			uint32_t rex_w:1;
@@ -73,6 +71,8 @@ struct pt_ild {
 	uint8_t imm2_bytes;	/* # of bytes in 2nd immediate */
 	uint8_t disp_bytes;	/* # of displacement bytes */
 	uint8_t modrm_byte;
+	/* 0=novex, 1=c4/c5 VEX, 2=EVEX. */
+	uint8_t vex;
 	/* 5b but valid values=  0,1,2,3 could be in bit union */
 	uint8_t map;
 	uint8_t nominal_opcode;
