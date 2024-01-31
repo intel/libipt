@@ -53,20 +53,15 @@ struct pt_ild {
 	uint8_t max_bytes;	/*1..15 bytes  */
 	enum pt_exec_mode mode;
 
-	union {
-		struct {
-			uint32_t osz:1;
-			uint32_t asz:1;
-			uint32_t lock:1;
-			uint32_t f3:1;
-			uint32_t f2:1;
-			uint32_t last_f2f3:2;	/* 2 or 3 */
-			/* The R and W bits in REX, VEX, or EVEX. */
-			uint32_t rex_r:2;
-			uint32_t rex_w:1;
-		} s;
-		uint32_t i;
-	} u;
+	uint32_t osz:1;
+	uint32_t asz:1;
+	uint32_t lock:1;
+	uint32_t f3:1;
+	uint32_t f2:1;
+	uint32_t last_f2f3:2;	/* 2 or 3 */
+	/* The R and W bits in REX, VEX, or EVEX. */
+	uint32_t rex_r:2;
+	uint32_t rex_w:1;
 	uint8_t imm1_bytes;	/* # of bytes in 1st immediate */
 	uint8_t imm2_bytes;	/* # of bytes in 2nd immediate */
 	uint8_t disp_bytes;	/* # of displacement bytes */
