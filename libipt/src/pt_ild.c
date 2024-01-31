@@ -193,7 +193,7 @@ static int set_imm_bytes(struct pt_ild *ild)
 	if (PTI_MAP_INVALID <= map)
 		return -pte_bad_insn;
 
-	imm_desc = &imm_bytes_desc[ild->u.s.vex][map];
+	imm_desc = &imm_bytes_desc[ild->vex][map];
 	imm_table = imm_desc->table;
 	if (!imm_table) {
 		width = imm_desc->width;
@@ -383,7 +383,7 @@ static int disp_dec(struct pt_ild *ild, uint8_t length)
 	if (!ild)
 		return -pte_internal;
 
-	if (!ild->u.s.vex) {
+	if (!ild->vex) {
 		errcode = compute_legacy_disp(ild);
 		if (errcode < 0)
 			return errcode;
@@ -434,7 +434,7 @@ static int modrm_dec(struct pt_ild *ild, uint8_t length)
 	if (PTI_MAP_INVALID <= map)
 		return -pte_bad_insn;
 
-	desc = &has_modrm_table[ild->u.s.vex][map];
+	desc = &has_modrm_table[ild->vex][map];
 	table = desc->table;
 	has_modrm = table ? table[ild->nominal_opcode] : desc->has_modrm;
 	switch (has_modrm) {
@@ -987,7 +987,7 @@ static int prefix_vex_c5(struct pt_ild *ild, uint8_t length, uint8_t rex)
 	if (max_bytes < (length + 3))
 		return -pte_bad_insn;
 
-	ild->u.s.vex = 1;
+	ild->vex = 1;
 	ild->u.s.rex_r = (~p1 >> 7) & 0x01;
 
 	resolve_vex_pp(ild, p1 & 0x03);
@@ -1030,7 +1030,7 @@ static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	p2 = get_byte(ild, length + 2);
 
-	ild->u.s.vex = 1;
+	ild->vex = 1;
 	ild->u.s.rex_r = (~p1 >> 7) & 0x01;
 	ild->u.s.rex_w = (p2 >> 7) & 0x01;
 
@@ -1076,7 +1076,7 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	p2 = get_byte(ild, length + 2);
 
-	ild->u.s.vex = 2;
+	ild->vex = 2;
 	ild->u.s.rex_r = ((~p1 >> 7) & 0x01) | ((~p1 >> 3) & 0x02);
 	ild->u.s.rex_w = (p2 >> 7) & 0x01;
 
@@ -1132,6 +1132,7 @@ static int pt_instruction_length_decode(struct pt_ild *ild)
 	ild->imm2_bytes = 0;
 	ild->disp_bytes = 0;
 	ild->modrm_byte = 0;
+	ild->vex = 0;
 	ild->map = PTI_MAP_INVALID;
 
 	if (!ild->mode)
@@ -1158,7 +1159,7 @@ static int pt_instruction_decode(struct pt_insn *insn, struct pt_insn_ext *iext,
 
 	if (map > PTI_MAP_1)
 		return 0;	/* uninteresting */
-	if (ild->u.s.vex)
+	if (ild->vex)
 		return 0;	/* uninteresting */
 
 	/* PTI_INST_JCC,   70...7F, 0F (0x80...0x8F) */
