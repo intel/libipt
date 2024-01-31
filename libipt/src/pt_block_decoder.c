@@ -635,8 +635,7 @@ static int pt_blk_proceed_with_trace(struct pt_block_decoder *decoder,
 			if (tnt < 0)
 				return tnt;
 
-			ip += (uint64_t) (int64_t)
-				iext->variant.branch.displacement;
+			ip += (uint64_t) iext->variant.branch.displacement;
 		}
 
 		decoder->ip = ip;
@@ -2545,7 +2544,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 				if (status < 0)
 					return status;
 
-				ip += (uint64_t) (int64_t)
+				ip += (uint64_t)
 					iext.variant.branch.displacement;
 			}
 

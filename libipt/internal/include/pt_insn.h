@@ -108,7 +108,7 @@ struct pt_insn_ext {
 			 * The displacement is applied to the address of the
 			 * instruction following the branch.
 			 */
-			int32_t displacement;
+			int64_t displacement;
 
 			/* A flag saying whether the branch is direct.
 			 *

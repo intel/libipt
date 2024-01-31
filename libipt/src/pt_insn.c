@@ -245,8 +245,7 @@ int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 	case ptic_call:
 	case ptic_jump:
 		if (iext->variant.branch.is_direct) {
-			ip += (uint64_t) (int64_t)
-				iext->variant.branch.displacement;
+			ip += (uint64_t) iext->variant.branch.displacement;
 			break;
 		}
 
