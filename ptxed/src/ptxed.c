@@ -667,10 +667,9 @@ static const char *visualize_iclass(enum pt_insn_class iclass)
 	return "undefined";
 }
 
-static void check_insn_iclass(const xed_inst_t *inst,
+static void check_insn_iclass(const xed_decoded_inst_t *inst,
 			      const struct pt_insn *insn, uint64_t offset)
 {
-	xed_category_enum_t category;
 	xed_iclass_enum_t iclass;
 
 	if (!inst || !insn) {
@@ -678,176 +677,135 @@ static void check_insn_iclass(const xed_inst_t *inst,
 		return;
 	}
 
-	category = xed_inst_category(inst);
-	iclass = xed_inst_iclass(inst);
+	iclass = xed_decoded_inst_get_iclass(inst);
+	switch (iclass) {
+	default:
+		if (insn->iclass == ptic_other)
+			return;
+		break;
 
-	switch (insn->iclass) {
+	case XED_ICLASS_CALL_NEAR:
+		if (insn->iclass == ptic_call)
+			return;
 #if (LIBIPT_VERSION >= 0x201)
-	case ptic_unknown:
-		break;
-#else
-	case ptic_error:
-		break;
+		if (insn->iclass == ptic_indirect)
+			return;
 #endif
-	case ptic_ptwrite:
-	case ptic_other:
-		switch (category) {
-		default:
-			return;
-
-		case XED_CATEGORY_CALL:
-		case XED_CATEGORY_RET:
-		case XED_CATEGORY_UNCOND_BR:
-		case XED_CATEGORY_SYSCALL:
-		case XED_CATEGORY_SYSRET:
-			break;
-
-		case XED_CATEGORY_COND_BR:
-			switch (iclass) {
-			case XED_ICLASS_XBEGIN:
-			case XED_ICLASS_XEND:
-				return;
-
-			default:
-				break;
-			}
-			break;
-
-		case XED_CATEGORY_INTERRUPT:
-			switch (iclass) {
-			case XED_ICLASS_BOUND:
-				return;
-
-			default:
-				break;
-			}
-			break;
-		}
 		break;
 
-	case ptic_call:
-		if (iclass == XED_ICLASS_CALL_NEAR)
+	case XED_ICLASS_RET_NEAR:
+		if (insn->iclass == ptic_return)
 			return;
-
+#if (LIBIPT_VERSION >= 0x201)
+		if (insn->iclass == ptic_indirect)
+			return;
+#endif
 		break;
 
-	case ptic_return:
-		if (iclass == XED_ICLASS_RET_NEAR)
+	case XED_ICLASS_JMP:
+#if defined(XED_ICLASS_JMPABS_DEFINED) && XED_ICLASS_JMPABS_DEFINED
+	case XED_ICLASS_JMPABS:
+#endif
+		if (insn->iclass == ptic_jump)
 			return;
-
+#if (LIBIPT_VERSION >= 0x201)
+		if (insn->iclass == ptic_indirect)
+			return;
+#endif
 		break;
 
-	case ptic_jump:
-		if (iclass == XED_ICLASS_JMP)
+	case XED_ICLASS_JB:
+	case XED_ICLASS_JBE:
+	case XED_ICLASS_JCXZ:
+	case XED_ICLASS_JECXZ:
+	case XED_ICLASS_JL:
+	case XED_ICLASS_JLE:
+	case XED_ICLASS_JNB:
+	case XED_ICLASS_JNBE:
+	case XED_ICLASS_JNL:
+	case XED_ICLASS_JNLE:
+	case XED_ICLASS_JNO:
+	case XED_ICLASS_JNP:
+	case XED_ICLASS_JNS:
+	case XED_ICLASS_JNZ:
+	case XED_ICLASS_JO:
+	case XED_ICLASS_JP:
+	case XED_ICLASS_JRCXZ:
+	case XED_ICLASS_JS:
+	case XED_ICLASS_JZ:
+	case XED_ICLASS_LOOP:
+	case XED_ICLASS_LOOPE:
+	case XED_ICLASS_LOOPNE:
+		if (insn->iclass == ptic_cond_jump)
 			return;
-
 		break;
 
-	case ptic_cond_jump:
-		if (category == XED_CATEGORY_COND_BR)
-			return;
-
-		break;
-
-	case ptic_far_call:
-		switch (iclass) {
-		default:
-			break;
-
-		case XED_ICLASS_CALL_FAR:
-		case XED_ICLASS_INT:
-		case XED_ICLASS_INT1:
-		case XED_ICLASS_INT3:
-		case XED_ICLASS_INTO:
-		case XED_ICLASS_SYSCALL:
+	case XED_ICLASS_CALL_FAR:
+	case XED_ICLASS_INT:
+	case XED_ICLASS_INT1:
+	case XED_ICLASS_INT3:
+	case XED_ICLASS_INTO:
+	case XED_ICLASS_SYSCALL:
 #if defined(XED_ICLASS_SYSCALL_AMD_DEFINED) && XED_ICLASS_SYSCALL_AMD_DEFINED
-		case XED_ICLASS_SYSCALL_AMD:
+	case XED_ICLASS_SYSCALL_AMD:
 #endif
 #if defined(XED_ICLASS_SYSCALL_32_DEFINED) && XED_ICLASS_SYSCALL_32_DEFINED
-		case XED_ICLASS_SYSCALL_32:
+	case XED_ICLASS_SYSCALL_32:
 #endif
-		case XED_ICLASS_SYSENTER:
-		case XED_ICLASS_VMCALL:
+	case XED_ICLASS_SYSENTER:
+	case XED_ICLASS_VMCALL:
+		if (insn->iclass == ptic_far_call)
 			return;
-		}
+#if (LIBIPT_VERSION >= 0x201)
+		if (insn->iclass == ptic_indirect)
+			return;
+#endif
 		break;
 
-	case ptic_far_return:
-		switch (iclass) {
-		default:
-			break;
-
-		case XED_ICLASS_RET_FAR:
-		case XED_ICLASS_IRET:
-		case XED_ICLASS_IRETD:
-		case XED_ICLASS_IRETQ:
-		case XED_ICLASS_SYSRET:
-		case XED_ICLASS_SYSRET64:
-		case XED_ICLASS_SYSRET_AMD:
-		case XED_ICLASS_SYSEXIT:
-		case XED_ICLASS_VMLAUNCH:
-		case XED_ICLASS_VMRESUME:
-		case XED_ICLASS_UIRET:
 #if defined(XED_ICLASS_ERETS_DEFINED) && XED_ICLASS_ERETS_DEFINED
-		case XED_ICLASS_ERETS:
+	case XED_ICLASS_ERETS:
 #endif
 #if defined(XED_ICLASS_ERETU_DEFINED) && XED_ICLASS_ERETU_DEFINED
-		case XED_ICLASS_ERETU:
+	case XED_ICLASS_ERETU:
 #endif
+	case XED_ICLASS_IRET:
+	case XED_ICLASS_IRETD:
+	case XED_ICLASS_IRETQ:
+	case XED_ICLASS_RET_FAR:
+	case XED_ICLASS_SYSEXIT:
+	case XED_ICLASS_SYSRET:
+	case XED_ICLASS_SYSRET64:
+	case XED_ICLASS_SYSRET_AMD:
+	case XED_ICLASS_UIRET:
+	case XED_ICLASS_VMLAUNCH:
+	case XED_ICLASS_VMRESUME:
+		if (insn->iclass == ptic_far_return)
 			return;
-		}
-		break;
-
-	case ptic_far_jump:
-		if (iclass == XED_ICLASS_JMP_FAR)
-			return;
-
-		break;
-
 #if (LIBIPT_VERSION >= 0x201)
-	case ptic_indirect:
-		switch (iclass) {
-		default:
-			break;
-
-		case XED_ICLASS_CALL_FAR:
-		case XED_ICLASS_INT:
-		case XED_ICLASS_INT1:
-		case XED_ICLASS_INT3:
-		case XED_ICLASS_INTO:
-		case XED_ICLASS_SYSCALL:
-#if defined(XED_ICLASS_SYSCALL_AMD_DEFINED) && XED_ICLASS_SYSCALL_AMD_DEFINED
-		case XED_ICLASS_SYSCALL_AMD:
-#endif
-#if defined(XED_ICLASS_SYSCALL_32_DEFINED) && XED_ICLASS_SYSCALL_32_DEFINED
-		case XED_ICLASS_SYSCALL_32:
-#endif
-		case XED_ICLASS_SYSENTER:
-		case XED_ICLASS_VMCALL:
-		case XED_ICLASS_RET_FAR:
-		case XED_ICLASS_IRET:
-		case XED_ICLASS_IRETD:
-		case XED_ICLASS_IRETQ:
-		case XED_ICLASS_SYSRET:
-		case XED_ICLASS_SYSRET64:
-		case XED_ICLASS_SYSRET_AMD:
-		case XED_ICLASS_SYSEXIT:
-		case XED_ICLASS_VMLAUNCH:
-		case XED_ICLASS_VMRESUME:
-		case XED_ICLASS_JMP_FAR:
-		case XED_ICLASS_JMP:
+		if (insn->iclass == ptic_indirect)
 			return;
-		}
+#endif
 		break;
-#endif /* (LIBIPT_VERSION >= 0x201) */
+
+	case XED_ICLASS_JMP_FAR:
+		if (insn->iclass == ptic_far_jump)
+			return;
+#if (LIBIPT_VERSION >= 0x201)
+		if (insn->iclass == ptic_indirect)
+			return;
+#endif
+		break;
+
+	case XED_ICLASS_PTWRITE:
+		if (insn->iclass == ptic_ptwrite)
+			return;
+		break;
 	}
 
 	/* If we get here, @insn->iclass doesn't match XED's classification. */
 	printf("[%" PRIx64 ", %" PRIx64 ": iclass error: iclass: %s, "
-	       "xed iclass: %s, category: %s]\n", offset, insn->ip,
-	       visualize_iclass(insn->iclass), xed_iclass_enum_t2str(iclass),
-	       xed_category_enum_t2str(category));
-
+	       "xed iclass: %s]\n", offset, insn->ip,
+	       visualize_iclass(insn->iclass), xed_iclass_enum_t2str(iclass));
 }
 
 static void check_insn_decode(xed_decoded_inst_t *inst,
@@ -910,7 +868,7 @@ static void check_insn(const struct pt_insn *insn, uint64_t offset)
 	if (!xed_decoded_inst_valid(&inst))
 		return;
 
-	check_insn_iclass(xed_decoded_inst_inst(&inst), insn, offset);
+	check_insn_iclass(&inst, insn, offset);
 }
 
 static void print_raw_insn(const struct pt_insn *insn)
@@ -1859,7 +1817,7 @@ static void check_block(const struct pt_block *block,
 	/* Check the last instruction's classification, if available. */
 	insn.iclass = block->iclass;
 	if (insn.iclass)
-		check_insn_iclass(xed_decoded_inst_inst(&inst), &insn, offset);
+		check_insn_iclass(&inst, &insn, offset);
 }
 
 static int drain_events_block(struct ptxed_decoder *decoder, uint64_t *time,
