@@ -56,7 +56,7 @@ buffer.
 They search for a Packet Stream Boundary (PSB) packet in the trace stream and,
 if successful, set *decoder*'s current position and synchronization position to
 that packet and start processing packets.  For synchronization to be
-successfull, there must be a full PSB+ header in the trace stream.
+successful, there must be a full PSB+ header in the trace stream.
 
 **pt_insn_sync_forward**() searches in forward direction from *decoder*'s
 current position towards the end of the trace buffer.  If *decoder* has been

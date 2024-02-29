@@ -211,7 +211,7 @@ errata
     The *pt_errata* structure is a collection of one-bit-fields, one for each
     supported erratum.  Duplicate errata are indicated by comments for the
     erratum for which the workaround was first implemented.  Set the field of an
-    erratum to enable the correspondig workaround.
+    erratum to enable the corresponding workaround.
 
     The *pt_errata* structure is declared as:
 

@@ -342,7 +342,7 @@ When decoding system-wide trace, we need to correlate context switch sideband
 events with decoded instructions from the trace to find a suitable location for
 switching the traced memory image for the scheduled-in process.  The heuristics
 we use rely on sufficiently precise timing information.  If timing information
-is too coarse, we might map the contex switch to the wrong location.
+is too coarse, we might map the context switch to the wrong location.
 
 When tracing ring-0, we use any code in kernel space.  Since the kernel is
 mapped into every process, this is good enough as long as we are not interested

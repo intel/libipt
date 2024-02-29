@@ -104,7 +104,7 @@ struct file_list {
 
 /* Allocates a new file list.
  *
- * Returns a non-NULL file list object on succes; NULL otherwise.
+ * Returns a non-NULL file list object on success; NULL otherwise.
  */
 extern struct file_list *fl_alloc(void);
 

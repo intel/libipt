@@ -27,7 +27,7 @@
 
 ; Test that ptdump honors --no-offset
 ;
-; Variant: the packet is printed inthe first column.
+; Variant: the packet is printed in the first column.
 ;
 ; opt:ptdump --no-offset
 
