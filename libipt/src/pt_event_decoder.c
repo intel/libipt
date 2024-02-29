@@ -1093,7 +1093,7 @@ static int pt_evt_decode_exstop(struct pt_event_decoder *decoder,
 			 *
 			 * Let's enqueue MWAIT; we'll enqueue EXSTOP below, as
 			 * well, unless we have further events pending.  In
-			 * that case, enqueing EXSTOP will have to wait.
+			 * that case, enqueuing EXSTOP will have to wait.
 			 */
 			if (packet->ip) {
 				struct pt_event *mwait;
@@ -2213,7 +2213,7 @@ static int pt_evt_handle_skd010(struct pt_event_decoder *decoder)
 		case ppt_tnt_8:
 		case ppt_tnt_64:
 			/* This is a clear indication that the erratum
-			 * apllies.
+			 * applies.
 			 *
 			 * Yet, we can't recover from it as we wouldn't know how
 			 * many TNT bits will have been used when we eventually

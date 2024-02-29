@@ -192,7 +192,7 @@ static int pt_ipc_size(enum pt_ip_compression ipc)
 
 /* Encode an integer value.
  *
- * Writes the \@size least signifficant bytes of \@value starting from \@pos.
+ * Writes the \@size least significant bytes of \@value starting from \@pos.
  *
  * The caller needs to ensure that there is enough space available.
  *

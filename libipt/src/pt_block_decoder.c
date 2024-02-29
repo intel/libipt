@@ -332,7 +332,7 @@ static int pt_blk_start(struct pt_block_decoder *decoder)
 	if (!decoder)
 		return -pte_internal;
 
-	/* We need to process satus update events from PSB+ in order to
+	/* We need to process status update events from PSB+ in order to
 	 * initialize our internal state and be able to diagnose
 	 * inconsistencies during tracing.
 	 *
@@ -2173,7 +2173,7 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 *     entries that point to this decision point will have non-zero
 	 *     displacement.
 	 *
-	 *     We could proceed after a near direct call but we migh as well
+	 *     We could proceed after a near direct call but we might as well
 	 *     postpone it to the next iteration.  Make sure to end the block if
 	 *     @decoder->flags.variant.block.end_on_call is set, though.
 	 *
@@ -2434,7 +2434,7 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 							  bcache, msec,
 							  bcache_fill_steps);
 
-	/* If we switched sections, the origianl section must have been split
+	/* If we switched sections, the original section must have been split
 	 * underneath us.  A split preserves the block cache of the original
 	 * section.
 	 *

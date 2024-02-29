@@ -145,7 +145,7 @@ extern int parse(const char *pttfile, const struct pt_config *conf);
 
 /* Parses an empty payload.
  *
- * Returns 0 on success; a negative enum errcode othewise.
+ * Returns 0 on success; a negative enum errcode otherwise.
  * Returns -err_parse_trailing_tokens if @payload has non whitespace
  * characters.
  */

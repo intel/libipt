@@ -429,7 +429,7 @@ static int p_gen_expfile(struct parser *p)
 				zero_padding = 1;
 				line += 1;
 			}
-			/* chek if ? padding is requested.  */
+			/* check if ? padding is requested.  */
 			else if (*line == '?') {
 				qmark_padding = 1;
 				zero_padding = 1;
@@ -437,7 +437,7 @@ static int p_gen_expfile(struct parser *p)
 				line += 1;
 			}
 
-			/* advance i to the first non alpha-numeric
+			/* advance i to the first non alphanumeric
 			 * character. all characters everything from
 			 * line[0] to line[i-1] belongs to the label
 			 * name.

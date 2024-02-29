@@ -345,7 +345,7 @@ extern int ptunit_report(const struct ptunit_suite *suite);
 	} while (0)
 
 
-/* Run a single unit test with fixture and an explict argument list.
+/* Run a single unit test with fixture and an explicit argument list.
  *
  * The first argument in the argument list is typically the fixture.
  */

@@ -29,7 +29,7 @@
 ;
 ;        Certain Intel PT (Processor Trace) packets including FUPs (Flow
 ;        Update Packets), should be issued only between TIP.PGE (Target IP
-;        Packet - Packet Generaton Enable) and TIP.PGD (Target IP Packet -
+;        Packet - Packet Generation Enable) and TIP.PGD (Target IP Packet -
 ;        Packet Generation Disable) packets.  When outside a TIP.PGE/TIP.PGD
 ;        pair, as a result of IA32_RTIT_STATUS.FilterEn[0] (MSR 571H) being
 ;        cleared, an OVF (Overflow) packet may be unexpectedly followed by a

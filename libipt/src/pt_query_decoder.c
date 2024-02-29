@@ -213,7 +213,7 @@ static int pt_qry_start(struct pt_query_decoder *decoder, uint64_t *ip)
 	if (!decoder)
 		return -pte_invalid;
 
-	/* We need to process satus update events from PSB+ in order to
+	/* We need to process status update events from PSB+ in order to
 	 * provide the start IP.
 	 *
 	 * On the other hand, we need to provide those same status events to

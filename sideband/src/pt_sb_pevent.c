@@ -1194,7 +1194,7 @@ static int pt_sb_pevent_map(struct pt_sb_session *session,
 	if (errcode < 0)
 		return errcode;
 
-	/* The optional system root directoy. */
+	/* The optional system root directory. */
 	sysroot = priv->sysroot;
 
 	/* Some filenames do not represent actual files on disk.  We handle

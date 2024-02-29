@@ -43,7 +43,7 @@
  */
 extern int duplicate_name(char **d, const char *s, size_t n);
 
-/* Converts the string @str into an usigned x-bit value @val using base @base.
+/* Converts the string @str into an unsigned x-bit value @val using base @base.
  *
  * Returns 0 on success; a negative enum errcode otherwise.
  * Returns -err_internal if either @str or @val is NULL.
