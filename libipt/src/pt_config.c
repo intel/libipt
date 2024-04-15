@@ -106,6 +106,9 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 		case 0xac:
 		case 0xba:
 		case 0xcc:
+		case 0xbd:
+		case 0xc5:
+		case 0xc6:
 			errata->bdm70 = 1;
 			errata->skl014 = 1;
 			errata->skd022 = 1;
