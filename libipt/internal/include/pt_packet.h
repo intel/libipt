@@ -52,6 +52,7 @@ struct pt_packet_pwrx;
 struct pt_packet_ptw;
 struct pt_packet_cfe;
 struct pt_packet_evd;
+struct pt_packet_trig;
 
 
 /* Read the payload of an Intel PT packet.
@@ -114,5 +115,7 @@ extern int pt_pkt_read_cfe(struct pt_packet_cfe *packet, const uint8_t *pos,
 			   const struct pt_config *config);
 extern int pt_pkt_read_evd(struct pt_packet_evd *packet, const uint8_t *pos,
 			   const struct pt_config *config);
+extern int pt_pkt_read_trig(struct pt_packet_trig *packet, const uint8_t *pos,
+			    const struct pt_config *config);
 
 #endif /* PT_PACKET_H */

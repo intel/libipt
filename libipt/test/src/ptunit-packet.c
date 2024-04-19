@@ -489,6 +489,21 @@ static struct ptunit_result evd(struct packet_fixture *pfix)
 	return ptu_passed();
 }
 
+static struct ptunit_result trig(struct packet_fixture *pfix, int ip,
+				 int icntv, int mult, uint16_t icnt)
+{
+	pfix->packet[0].type = ppt_trig;
+	pfix->packet[0].payload.trig.ip = ip ? 1 : 0;
+	pfix->packet[0].payload.trig.icntv = icntv ? 1 : 0;
+	pfix->packet[0].payload.trig.mult = mult ? 1 : 0;
+	pfix->packet[0].payload.trig.trbv = 0xcd;
+	pfix->packet[0].payload.trig.icnt = icnt;
+
+	ptu_test(pfix_test, pfix);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result cutoff(struct packet_fixture *pfix,
 				   enum pt_packet_type type)
 {
@@ -554,6 +569,25 @@ static struct ptunit_result cutoff_mode(struct packet_fixture *pfix,
 
 	pfix->packet[0].type = ppt_mode;
 	pfix->packet[0].payload.mode.leaf = leaf;
+
+	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
+	ptu_int_gt(size, 0);
+
+	pfix->decoder.config.end = pfix->encoder.pos - 1;
+
+	size = pt_pkt_next(&pfix->decoder, &pfix->packet[1],
+			   sizeof(pfix->packet[1]));
+	ptu_int_eq(size, -pte_eos);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cutoff_trig(struct packet_fixture *pfix, int icntv)
+{
+	int size;
+
+	pfix->packet[0].type = ppt_trig;
+	pfix->packet[0].payload.trig.icntv = icntv ? 1 : 0;
 
 	size = pt_enc_next(&pfix->encoder, &pfix->packet[0]);
 	ptu_int_gt(size, 0);
@@ -651,6 +685,10 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, ptw, pfix, 1, 0);
 	ptu_run_f(suite, cfe, pfix);
 	ptu_run_f(suite, evd, pfix);
+	ptu_run_fp(suite, trig, pfix, 0, 0, 0, 0);
+	ptu_run_fp(suite, trig, pfix, 1, 0, 1, 0);
+	ptu_run_fp(suite, trig, pfix, 0, 1, 1, 0);
+	ptu_run_fp(suite, trig, pfix, 0, 1, 0, 0xabcd);
 
 	ptu_run_fp(suite, cutoff, pfix, ppt_psb);
 	ptu_run_fp(suite, cutoff_ip, pfix, ppt_tip);
@@ -676,6 +714,8 @@ int main(int argc, char **argv)
 	ptu_run_fp(suite, cutoff, pfix, ppt_ptw);
 	ptu_run_fp(suite, cutoff, pfix, ppt_cfe);
 	ptu_run_fp(suite, cutoff, pfix, ppt_evd);
+	ptu_run_fp(suite, cutoff_trig, pfix, 0);
+	ptu_run_fp(suite, cutoff_trig, pfix, 1);
 
 	return ptunit_report(&suite);
 }

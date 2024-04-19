@@ -1,4 +1,4 @@
-; Copyright (c) 2018-2024, Intel Corporation
+; Copyright (c) 2024, Intel Corporation
 ; SPDX-License-Identifier: BSD-3-Clause
 ;
 ; Redistribution and use in source and binary forms, with or without
@@ -25,38 +25,59 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 
-; Test that ptdump resyncs at the next PSB after a decode error.
+; Test TRIG with instruction attribution
 ;
-; We try to synchronize at PSB that have been partially consumed by the
-; previous packet.  Make sure we do not resync at the current PSB if the
-; error occurred right after it.
+; Variant: explicit anchor
 ;
-; We pad the trace stream to place the error at a 64b boundary to account
-; for the aligning we do in our PSB pattern search.
+; opt:ptxed --event:ip
+;
 
 org 0x1000
 bits 64
 
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
 ; @pt p0: psb()
-; @pt p1: raw-8(0xc9)
-; @pt p2: psb()
-; @pt p3: fup(3: 0xa0001000)
-; @pt p4: psbend()
+; @pt p1: mode.exec(64bit)
+; @pt p2: fup(3: %l0)
+; @pt p3: psbend()
 
-; yasm does not like empty files
-        nop
+; @pt p4: tnt(t)
+l0: jle l2
+l1: hlt
+
+; @pt p5: trig(0x1a, ip, icnt: 0)
+; @pt p6: fup(2: %l2)
+; @pt p7: tip.pgd(1: %l4)
+l2: call l4
+l3: hlt
+
+; @pt p8: trig(0xa1, ip, icnt: 0)
+; @pt p9: fup(1: %l4)
+l4: nop
+
+; @pt p10: trig(0xa2, ip, icnt: 0)
+; @pt p11: fup(3: %l5)
+l5: nop
 
 
 ; @pt .exp(ptdump)
-;%0p0  psb
-;[%p1: error decoding packet: unknown opcode]
-;%0p2  psb
-;%0p3  fup  3: 00000000a0001000
-;%0p4  psbend
+;%0p0   psb
+;%0p1   mode.exec  cs.l
+;%0p2   fup        3: %?l0
+;%0p3   psbend
+;%0p4   tnt.8      !
+;%0p5   trig       1a, ip, icnt: 0
+;%0p6   fup        2: %?l2.4
+;%0p7   tip.pgd    1: %?l4.2
+;%0p8   trig       a1, ip, icnt: 0
+;%0p9   fup        1: %?l4.2
+;%0p10  trig       a2, ip, icnt: 0
+;%0p11  fup        3: %?l5
+
+
+; @pt .exp(ptxed)
+;%0l0       # jle l2
+;[trig 1a, ip: %0l2]
+;%0l2       # call rax (l4)
+;[disabled, ip: %0l4]
+;[trig a1, ip: %0l4]
+;[trig a2, ip: %0l5]

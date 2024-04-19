@@ -94,6 +94,9 @@ bits 64
 ; @pt p60: cfe(3: 0xf0, ip)
 ; @pt p61: cfe(1: 14)
 ; @pt p62: evd(2: 0xf00baa)
+; @pt p63: trig(0xa1, mult)
+; @pt p64: trig(0xa1, icnt: 23)
+; @pt p65: trig(0xa1, icnt: 23, mult, ip)
 
 ; @pt .exp(ptdump)
 ;%0p01  psbend
@@ -158,3 +161,6 @@ bits 64
 ;%0p60  cfe        3, ip
 ;%0p61  cfe        1: 14
 ;%0p62  evd        2: f00baa
+;%0p63  trig       a1, mult
+;%0p64  trig       a1, icnt: 23
+;%0p65  trig       a1, ip, mult, icnt: 23

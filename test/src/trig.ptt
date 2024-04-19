@@ -1,4 +1,4 @@
-; Copyright (c) 2018-2024, Intel Corporation
+; Copyright (c) 2024, Intel Corporation
 ; SPDX-License-Identifier: BSD-3-Clause
 ;
 ; Redistribution and use in source and binary forms, with or without
@@ -25,38 +25,66 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 
-; Test that ptdump resyncs at the next PSB after a decode error.
+; Test TRIG without instruction attribution.
 ;
-; We try to synchronize at PSB that have been partially consumed by the
-; previous packet.  Make sure we do not resync at the current PSB if the
-; error occurred right after it.
-;
-; We pad the trace stream to place the error at a 64b boundary to account
-; for the aligning we do in our PSB pattern search.
 
 org 0x1000
 bits 64
 
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
-; @pt pad()
 ; @pt p0: psb()
-; @pt p1: raw-8(0xc9)
-; @pt p2: psb()
-; @pt p3: fup(3: 0xa0001000)
-; @pt p4: psbend()
+; @pt p1: mode.exec(64bit)
+; @pt p2: psbend()
 
-; yasm does not like empty files
-        nop
+; @pt p3: trig(1)
+; @pt p4: tip.pge(3: %l0)
+; @pt p5: trig(2)
+l0: jle l2
+l1: hlt
+
+; @pt p6: tnt(t)
+; @pt p7: trig(3, mult)
+l2: call rax
+l3: hlt
+
+; @pt p8: tip(2: %l4)
+; @pt p9: trig(4)
+; @pt p10: trig(5, mult)
+
+; @pt p11:fup(3: %l4)
+; @pt p12:tip.pgd(0: %l4)
+l4: hlt
+
+; @pt p13: trig(6)
+; @pt p14: trig(7, mult)
 
 
 ; @pt .exp(ptdump)
-;%0p0  psb
-;[%p1: error decoding packet: unknown opcode]
-;%0p2  psb
-;%0p3  fup  3: 00000000a0001000
-;%0p4  psbend
+;%0p0   psb
+;%0p1   mode.exec  cs.l
+;%0p2   psbend
+;%0p3   trig       01
+;%0p4   tip.pge    3: %?l0
+;%0p5   trig       02
+;%0p6   tnt.8      !
+;%0p7   trig       03, mult
+;%0p8   tip        2: %?l4.4
+;%0p9   trig       04
+;%0p10  trig       05, mult
+;%0p11  fup        3: %?l4
+;%0p12  tip.pgd    0: %?l4.0
+;%0p13  trig       06
+;%0p14  trig       07, mult
+
+
+; @pt .exp(ptxed)
+;[trig 01]
+;[enabled]
+;[trig 02]
+;%0l0       # jle l2
+;[trig 03, mult]
+;%0l2       # call rax (l4)
+;[trig 04]
+;[trig 05, mult]
+;[disabled]
+;[trig 06]
+;[trig 07, mult]

@@ -1303,6 +1303,21 @@ static void print_event(const struct pt_event *event,
 			       event->variant.uiret.ip);
 		break;
 #endif
+#if (LIBIPT_VERSION >= 0x202)
+	case ptev_trig:
+		printf("trig %02x", event->variant.trig.trbv);
+
+		if (event->variant.trig.mult)
+			printf(", mult");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64, event->variant.trig.ip);
+
+		if (event->variant.trig.icnt)
+			printf(", icnt: %u", event->variant.trig.icnt);
+
+		break;
+#endif /* (LIBIPT_VERSION >= 0x202) */
 	}
 
 	printf("]\n");

@@ -108,6 +108,12 @@ struct pt_block_decoder {
 	/* The last CBR. */
 	uint32_t cbr;
 
+	/* The instruction count past the last TRIG anchor.
+	 *
+	 * This is only valid if @has_icnt is set.
+	 */
+	uint32_t icnt;
+
 	/* The current execution mode. */
 	enum pt_exec_mode mode;
 
@@ -125,6 +131,9 @@ struct pt_block_decoder {
 
 	/* - whether @tsc tracks wall-clock time. */
 	uint32_t has_tsc:1;
+
+	/* - whether @icnt is valid. */
+	uint32_t has_icnt:1;
 
 	/* - process @insn/@iext.
 	 *

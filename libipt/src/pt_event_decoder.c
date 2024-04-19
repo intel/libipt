@@ -1861,6 +1861,15 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 
 		return pt_evt_decode_fup(decoder, packet);
 
+	case ptev_trig:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.trig.ip, ev,
+					  &decoder->ip);
+		break;
+
 	default:
 		errcode = -pte_bad_context;
 		break;
@@ -1932,6 +1941,7 @@ static int pt_evt_find_ovf_fup(const struct pt_packet_decoder *pacdec)
 		case ppt_ptw:
 		case ppt_cfe:
 		case ppt_evd:
+		case ppt_trig:
 			return 0;
 
 		case ppt_psbend:
@@ -2381,6 +2391,7 @@ static int pt_evt_handle_skd010(struct pt_event_decoder *decoder)
 		case ppt_pwre:
 		case ppt_pwrx:
 		case ppt_evd:
+		case ppt_trig:
 			/* Ignore this packet. */
 			break;
 
@@ -2599,6 +2610,7 @@ static int pt_evt_handle_apl11(struct pt_event_decoder *decoder)
 		case ppt_mnt:
 		case ppt_cfe:
 		case ppt_evd:
+		case ppt_trig:
 			/* Skip those packets. */
 			break;
 
@@ -2719,6 +2731,7 @@ static int pt_evt_handle_apl12(struct pt_event_decoder *decoder,
 		case ppt_mode:
 		case ppt_cfe:
 		case ppt_evd:
+		case ppt_trig:
 			/* Skip those packets. */
 			break;
 
@@ -3665,6 +3678,69 @@ static int pt_evt_decode_evd(struct pt_event_decoder *decoder,
 	return 1;
 }
 
+static int pt_evt_decode_trig(struct pt_event_decoder *decoder,
+			      const struct pt_packet_trig *packet)
+{
+	struct pt_event *ev;
+	int errcode;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	/* If TRIG.IP is set, it uses a subsequent FUP as anchor. */
+	if (packet->ip) {
+		/* There is no need for a FUP if we have no valid ICNT.
+		 *
+		 * While this is theoretically allowed, it looks suspicious.
+		 */
+		if (!packet->icntv)
+			return -pte_bad_packet;
+
+		/* The subsequent FUP provides the precise IP. */
+		if (packet->icnt)
+			return -pte_bad_packet;
+
+		ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->type = ptev_trig;
+		ev->variant.trig.trbv = packet->trbv;
+		ev->variant.trig.mult = packet->mult;
+
+		return 1;
+	}
+
+	decoder->event = ev = pt_evq_standalone(&decoder->evq);
+	if (!ev)
+		return -pte_internal;
+
+	ev->type = ptev_trig;
+	ev->variant.trig.trbv = packet->trbv;
+	ev->variant.trig.mult = packet->mult;
+
+	if (packet->icntv) {
+		/* We should only get a non-zero ICNT with tracing enabled.
+		 *
+		 * When tracing is disabled, the precise IP is provided.
+		 */
+		if (packet->icnt && !decoder->enabled)
+			return -pte_bad_packet;
+
+		ev->variant.trig.icnt = packet->icnt;
+		ev->ip_suppressed = 0;
+	} else {
+		ev->variant.trig.icnt = 0u;
+		ev->ip_suppressed = 1;
+	}
+
+	errcode = pt_evt_event_time(ev, &decoder->time);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_evt_fetch_packet(decoder);
+}
+
 static int pt_evt_decode_unknown(struct pt_event_decoder *decoder,
 				 const struct pt_packet_unknown *packet)
 {
@@ -3766,6 +3842,9 @@ static int pt_evt_decode_packet(struct pt_event_decoder *decoder)
 
 	case ppt_evd:
 		return pt_evt_decode_evd(decoder, &packet->payload.evd);
+
+	case ppt_trig:
+		return pt_evt_decode_trig(decoder, &packet->payload.trig);
 
 	case ppt_invalid:
 		if (decoder->status < 0)

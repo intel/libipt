@@ -45,6 +45,95 @@
 static int pt_blk_proceed_trailing_event(struct pt_block_decoder *,
 					 struct pt_block *);
 
+static int pt_blk_set_trig_anchor(struct pt_block_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	decoder->has_icnt = 1;
+	decoder->icnt = 0u;
+
+	return 0;
+}
+
+static int pt_blk_clear_trig_anchor(struct pt_block_decoder *decoder)
+{
+	if (!decoder)
+		return -pte_internal;
+
+	decoder->has_icnt = 0;
+	decoder->icnt = 0u;
+
+	return 0;
+}
+
+/* Use knowledge about how events are represented at the packet level to
+ * determine potential TRIG anchor IPs.
+ */
+static int pt_blk_find_trig_anchor(struct pt_block_decoder *decoder,
+				   const struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	switch (ev->type) {
+	case ptev_paging:
+	case ptev_sipi:
+	case ptev_cbr:
+	case ptev_mnt:
+	case ptev_stop:
+	case ptev_vmcs:
+	case ptev_mwait:
+	case ptev_pwre:
+	case ptev_pwrx:
+		return 0;
+
+	case ptev_exec_mode:
+	case ptev_tsx:
+	case ptev_async_paging:
+	case ptev_async_vmcs:
+	case ptev_exstop:
+	case ptev_ptwrite:
+	case ptev_tick:
+	case ptev_iflags:
+	case ptev_interrupt:
+	case ptev_iret:
+	case ptev_smi:
+	case ptev_rsm:
+	case ptev_init:
+	case ptev_vmentry:
+	case ptev_vmexit:
+	case ptev_shutdown:
+	case ptev_uintr:
+	case ptev_uiret:
+	case ptev_trig:
+		if (ev->ip_suppressed)
+			return 0;
+
+		return pt_blk_set_trig_anchor(decoder);
+
+	case ptev_enabled:
+	case ptev_async_branch:
+	case ptev_tip:
+	case ptev_tnt:
+		if (ev->ip_suppressed)
+			return -pte_internal;
+
+		return pt_blk_set_trig_anchor(decoder);
+
+	case ptev_disabled:
+	case ptev_async_disabled:
+		return pt_blk_clear_trig_anchor(decoder);
+
+	case ptev_overflow:
+		return (ev->ip_suppressed ?
+			pt_blk_clear_trig_anchor(decoder) :
+			pt_blk_set_trig_anchor(decoder));
+	}
+
+	return -pte_internal;
+}
+
 static int pt_blk_fetch_event(struct pt_block_decoder *decoder)
 {
 	struct pt_event *ev;
@@ -58,6 +147,14 @@ static int pt_blk_fetch_event(struct pt_block_decoder *decoder)
 	decoder->has_tsc = ev->has_tsc;
 	decoder->lost_mtc = ev->lost_mtc;
 	decoder->lost_cyc = ev->lost_cyc;
+
+	/* Update our TRIG anchor before fetching the new event.  Since TRIG is
+	 * a valid anchor for the next TRIG, we update it once we're done with
+	 * an event.
+	 */
+	errcode = pt_blk_find_trig_anchor(decoder, ev);
+	if (errcode < 0)
+		return errcode;
 
 	errcode = pt_evt_next(&decoder->evdec, ev, sizeof(*ev));
 	if (errcode < 0) {
@@ -91,12 +188,14 @@ static int pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->lost_mtc = 0u;
 	decoder->lost_cyc = 0u;
 	decoder->cbr = 0u;
+	decoder->icnt = 0u;
 	decoder->mode = ptem_unknown;
 	decoder->ip = 0ull;
 	decoder->status = -pte_nosync;
 	decoder->enabled = 0;
 	decoder->speculative = 0;
 	decoder->has_tsc = 0;
+	decoder->has_icnt = 0;
 	decoder->process_insn = 0;
 	decoder->bound_paging = 0;
 	decoder->bound_vmcs = 0;
@@ -832,6 +931,17 @@ static int pt_blk_proceed_one_insn(struct pt_block_decoder *decoder,
 	block->end_ip = insn.ip;
 	block->ninsn = ninsn;
 
+	/* Update the instruction counter from the last anchor IP. */
+	if (decoder->has_icnt) {
+		uint32_t icnt;
+
+		icnt = decoder->icnt + 1;
+		if (!icnt)
+			return -pte_overflow;
+
+		decoder->icnt = icnt;
+	}
+
 	*pinsn = insn;
 	*piext = iext;
 
@@ -1389,6 +1499,114 @@ static int pt_blk_proceed_to_uiret(struct pt_block_decoder *decoder,
 	return pt_blk_proceed_one_insn(decoder, block, insn, iext);
 }
 
+/* Provide a TRIG anchor IP for @ev unless @ev already has one.
+ *
+ * Returns zero on success, a negative error code otherwise.
+ */
+static int pt_blk_provide_trig_anchor(struct pt_block_decoder *decoder,
+				      struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	if (ev->type != ptev_trig)
+		return -pte_internal;
+
+	/* A TRIG with suppressed IP doesn't have an anchor. */
+	if (ev->ip_suppressed)
+		return -pte_internal;
+
+	if (ev->variant.trig.ip)
+		return 0;
+
+	/* We start at the anchor IP and proceed away from it, counting
+	 * instructions along our way in @icnt.
+	 *
+	 * We must have seen an anchor IP.
+	 */
+	if (!decoder->has_icnt)
+		return -pte_bad_packet;
+
+	/* The anchor IP must be in range. */
+	if (ev->variant.trig.icnt < decoder->icnt)
+		return -pte_bad_packet;
+
+	ev->variant.trig.icnt -= (uint16_t) decoder->icnt;
+	ev->variant.trig.ip = decoder->ip;
+
+	return 0;
+}
+
+/* Proceed to the event location for a trig event.
+ *
+ * We have a trig event pending.  Proceed to the event location and indicate
+ * whether we were able to reach it.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_trig(struct pt_block_decoder *decoder,
+				  struct pt_block *block,
+				  struct pt_insn *insn,
+				  struct pt_insn_ext *iext,
+				  struct pt_event *ev)
+{
+	int status;
+
+	if (!decoder || !insn || !ev)
+		return -pte_internal;
+
+	/* Without an IP, we're as close as we can get. */
+	if (ev->ip_suppressed)
+		return 1;
+
+	status = pt_blk_provide_trig_anchor(decoder, ev);
+	if (status < 0)
+		return status;
+
+	/* With tracing disabled, the TRIG IP must already be precise. */
+	if (!decoder->enabled) {
+		/* The event decoder must have guaranteed that. */
+		if (!ev->variant.trig.icnt)
+			return -pte_internal;
+
+		return 1;
+	}
+
+	/* Proceed to the anchor IP.  This is a NOP if we just provided one but
+	 * in case we had an anchor IP provided in the original event, we need
+	 * to reach it before we start counting instructions.
+	 *
+	 * We adjust the event IP when counting instructions, so when we get
+	 * here again, we will skip this part.
+	 */
+	status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				      ev->variant.trig.ip);
+	if (status <= 0)
+		return status;
+
+	/* Proceed the requested number of instructions from the anchor IP.
+	 *
+	 * We store our progress in the event in case we need to return on the
+	 * way when @block runs full.
+	 */
+	while (ev->variant.trig.icnt) {
+		status = pt_blk_proceed_one_insn(decoder, block, insn, iext);
+		if (status <= 0)
+			return status;
+
+		status = pt_insn_next_ip(&decoder->ip, insn, iext);
+		if (status < 0)
+			return status;
+
+		ev->variant.trig.ip = decoder->ip;
+		ev->variant.trig.icnt -= 1;
+	}
+
+	return 1;
+}
+
 /* Try to work around erratum SKD022.
  *
  * If we get an asynchronous disable on VMLAUNCH or VMRESUME, the FUP that
@@ -1870,6 +2088,14 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 		decoder->bound_uiret = 1;
 
 		return pt_blk_postpone_insn(decoder, &insn, &iext);
+
+	case ptev_trig:
+		status = pt_blk_proceed_to_trig(decoder, block, &insn, &iext,
+						ev);
+		if (status <= 0)
+			return status;
+
+		break;
 	}
 
 	return pt_blk_status(decoder, pts_event_pending);
@@ -2431,6 +2657,18 @@ static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *decoder,
 	ninsn = binsn + (uint16_t) bce.ninsn;
 	if (ninsn < binsn)
 		return 0;
+
+	/* Update the instruction counter from the last anchor IP. */
+	if (decoder->has_icnt) {
+		uint32_t icnt, nicnt;
+
+		icnt = decoder->icnt;
+		nicnt = icnt + bce.ninsn;
+		if (nicnt < icnt)
+			return -pte_overflow;
+
+		decoder->icnt = nicnt;
+	}
 
 	/* Jump ahead to the decision point and proceed from there.
 	 *
@@ -3550,6 +3788,36 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		decoder->bound_uiret = 1;
 
 		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_trig:
+		/* This event does not bind to an instruction. */
+		status = pt_blk_proceed_postponed_insn(decoder);
+		if (status < 0)
+			return status;
+
+		/* We need an event IP and we need tracing to be enabled to
+		 * place the event more precisely.
+		 */
+		if (!decoder->enabled || ev->ip_suppressed)
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* The event may not have an anchor IP, yet. */
+		status = pt_blk_provide_trig_anchor(decoder, ev);
+		if (status < 0)
+			return status;
+
+		/* We only handle trailing events at the current location.
+		 *
+		 * We will proceed to the TRIG location in the next iteraion.
+		 */
+		if (ev->variant.trig.icnt)
+			break;
+
+		/* If this is the TRIG location, it better be right here. */
+		if (ev->variant.trig.ip != decoder->ip)
+			return -pte_bad_packet;
+
+		return pt_blk_status(decoder, pts_event_pending);
 	}
 
 	/* No further events.  Proceed past any postponed instruction. */
@@ -3656,6 +3924,16 @@ static int pt_blk_process_disabled(struct pt_block_decoder *decoder,
 	 * actually does resume from there.
 	 */
 	decoder->enabled = 0;
+
+	/* As long as tracing is enabled, we update a TRIG event's IP and ICNT,
+	 * using our current IP, instead of the original anchor for new TRIG
+	 * packets.
+	 *
+	 * With tracing disabled, our current IP is stale, so we use the anchor
+	 * IP, instead.  Drop the number of instructions between that anchor IP
+	 * and our current IP.
+	 */
+	decoder->icnt = 0;
 
 	return 0;
 }
@@ -4109,6 +4387,13 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	case ptev_uintr:
 		if (decoder->enabled && !ev->ip_suppressed &&
 		    decoder->ip != ev->variant.uintr.ip)
+			return -pte_bad_query;
+
+		break;
+
+	case ptev_trig:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.trig.ip)
 			return -pte_bad_query;
 
 		break;

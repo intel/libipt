@@ -721,6 +721,27 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		encoder->pos = pos;
 		return (int) (pos - begin);
 
+	case ppt_trig:
+		errcode = pt_reserve(encoder,
+				     packet->payload.trig.icntv ?
+				     ptps_trig_icnt : ptps_trig);
+		if (errcode < 0)
+			return errcode;
+
+		*pos++ = pt_opc_trig;
+		*pos++ = (uint8_t)
+			((packet->payload.trig.ip << pt_pl_trig_ip_shr) |
+			 (packet->payload.trig.icntv << pt_pl_trig_icntv_shr) |
+			 (packet->payload.trig.mult << pt_pl_trig_mult_shr));
+		*pos++ = packet->payload.trig.trbv;
+
+		if (packet->payload.trig.icntv)
+			pos = pt_encode_int(pos, packet->payload.trig.icnt,
+					    pt_pl_trig_icnt_size);
+
+		encoder->pos = pos;
+		return (int) (pos - begin);
+
 	case ppt_unknown:
 	case ppt_invalid:
 		return -pte_bad_opc;

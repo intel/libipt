@@ -82,6 +82,12 @@ struct pt_insn_decoder {
 	 */
 	uint64_t ip;
 
+	/* The instruction count past the last TRIG anchor.
+	 *
+	 * This is only valid if @has_icnt is set.
+	 */
+	uint32_t icnt;
+
 	/* The current execution mode. */
 	enum pt_exec_mode mode;
 
@@ -103,6 +109,9 @@ struct pt_insn_decoder {
 
 	/* - instructions are executed speculatively. */
 	uint32_t speculative:1;
+
+	/* - whether @icnt is valid. */
+	uint32_t has_icnt:1;
 
 	/* - process @insn/@iext.
 	 *

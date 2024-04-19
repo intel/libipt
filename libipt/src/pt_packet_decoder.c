@@ -807,6 +807,25 @@ static int pt_pkt_decode_evd(struct pt_packet_decoder *decoder,
 	return size;
 }
 
+static int pt_pkt_decode_trig(struct pt_packet_decoder *decoder,
+			      struct pt_packet *packet)
+{
+	int size;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	size = pt_pkt_read_trig(&packet->payload.trig, decoder->pos,
+				&decoder->config);
+	if (size < 0)
+		return size;
+
+	packet->type = ppt_trig;
+	packet->size = (uint8_t) size;
+
+	return size;
+}
+
 static int pt_pkt_decode(struct pt_packet_decoder *decoder,
 			 struct pt_packet *packet)
 {
@@ -862,6 +881,9 @@ static int pt_pkt_decode(struct pt_packet_decoder *decoder,
 
 	case pt_opc_pad:
 		return pt_pkt_decode_pad(decoder, packet);
+
+	case pt_opc_trig:
+		return pt_pkt_decode_trig(decoder, packet);
 
 	case pt_opc_ext:
 		if (end <= pos)

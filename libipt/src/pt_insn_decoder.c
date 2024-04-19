@@ -55,6 +55,7 @@ static void pt_insn_reset(struct pt_insn_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->process_event = 0;
 	decoder->speculative = 0;
+	decoder->has_icnt = 0;
 	decoder->process_insn = 0;
 	decoder->bound_paging = 0;
 	decoder->bound_vmcs = 0;
@@ -519,10 +520,60 @@ static inline int handle_erratum_skd022(struct pt_insn_decoder *decoder)
 	return 1;
 }
 
+/* TRIG requires decoders to count instructions from an anchor IP.
+ *
+ * That anchor IP may be provided by a packet preceding TRIG.  To avoid going
+ * backwards, we keep track of potential anchor IPs and we count instructions
+ * from those anchors in case we find a TRIG packet later on that wants to use
+ * that anchor.
+ */
+static int pt_insn_update_trig(struct pt_insn_decoder *decoder, uint64_t ip)
+{
+	uint32_t icnt;
+
+	if (!decoder)
+		return -pte_invalid;
+
+	if (!decoder->has_icnt)
+		return 0;
+
+	/* We should not have an anchor when tracing is disabled. */
+	if (!decoder->enabled)
+		return -pte_internal;
+
+	icnt = decoder->icnt + 1;
+	if (!icnt)
+		return -pte_overflow;
+
+	decoder->icnt = icnt;
+
+	/* Update any in-progress TRIG event, as well.
+	 *
+	 * Provided we already reached the TRIG's anchor IP, of course.
+	 */
+	if (decoder->process_event) {
+		struct pt_event *ev;
+
+		ev = &decoder->event;
+		if ((ev->type == ptev_trig) && (ev->variant.trig.ip == ip)) {
+			/* We should not have proceeded past the TRIG IP. */
+			if (!ev->variant.trig.icnt)
+				return -pte_internal;
+
+			ev->variant.trig.icnt -= 1;
+			ev->variant.trig.ip = decoder->ip;
+		}
+	}
+
+	return 0;
+}
+
 static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 			   const struct pt_insn *insn,
 			   const struct pt_insn_ext *iext)
 {
+	int status;
+
 	if (!decoder || !insn || !iext)
 		return -pte_internal;
 
@@ -538,20 +589,29 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 	switch (insn->iclass) {
 	case ptic_ptwrite:
 	case ptic_other:
-		return 0;
+		return pt_insn_update_trig(decoder, insn->ip);
 
 	case ptic_cond_jump: {
-		int status, taken;
+		int taken;
 
 		status = pt_insn_cond_branch(decoder, &taken);
 		if (status < 0)
 			return status;
 
 		decoder->status = status;
-		if (!taken)
-			return 0;
+		if (taken)
+			decoder->ip += (uint64_t)
+				iext->variant.branch.displacement;
 
-		break;
+		/* This event provides a TRIG anchor IP.
+		 *
+		 * Only the last bit in a TNT provides the TRIG anchor IP, but
+		 * since TRIG closes TNT, intermediate updates won't matter.
+		 */
+		decoder->has_icnt = 1;
+		decoder->icnt = 0u;
+
+		return 0;
 	}
 
 	case ptic_call:
@@ -567,24 +627,34 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 		break;
 
 	case ptic_return: {
-		int taken, status;
+		int taken;
 
 		/* Check for a compressed return. */
 		status = pt_insn_cond_branch(decoder, &taken);
-		if (status >= 0) {
-			decoder->status = status;
+		if (status < 0)
+			break;
 
-			/* A compressed return is indicated by a taken
-			 * conditional branch.
-			 */
-			if (!taken)
-				return -pte_bad_retcomp;
+		decoder->status = status;
 
-			return pt_retstack_pop(&decoder->retstack,
-					       &decoder->ip);
-		}
+		/* A compressed return is indicated by a taken conditional
+		 * branch.
+		 */
+		if (!taken)
+			return -pte_bad_retcomp;
 
-		break;
+		status = pt_retstack_pop(&decoder->retstack, &decoder->ip);
+		if (status < 0)
+			return status;
+
+		/* This event provides a TRIG anchor IP.
+		 *
+		 * Only the last bit in a TNT provides the TRIG anchor IP, but
+		 * since TRIG closes TNT, intermediate updates won't matter.
+		 */
+		decoder->has_icnt = 1;
+		decoder->icnt = 0u;
+
+		return 0;
 	}
 
 	case ptic_jump:
@@ -598,29 +668,27 @@ static int pt_insn_proceed(struct pt_insn_decoder *decoder,
 		return -pte_bad_insn;
 	}
 
-	/* Process a direct or indirect branch.
-	 *
-	 * This combines calls, uncompressed returns, taken conditional jumps,
-	 * and all flavors of far transfers.
-	 *
-	 * JMPABS is direct but behaves like indirect.
-	 */
+	/* JMPABS is direct but behaves like indirect. */
 	if (iext->variant.branch.is_direct &&
-	    (iext->iclass != PTI_INST_JMPABS))
+	    (iext->iclass != PTI_INST_JMPABS)) {
 		decoder->ip += (uint64_t) iext->variant.branch.displacement;
-	else {
-		int status;
 
-		status = pt_insn_indirect_branch(decoder, &decoder->ip);
-		if (status < 0)
-			return status;
-
-		decoder->status = status;
-
-		/* We do need an IP to proceed. */
-		if (status & pts_ip_suppressed)
-			return -pte_noip;
+		return pt_insn_update_trig(decoder, insn->ip);
 	}
+
+	status = pt_insn_indirect_branch(decoder, &decoder->ip);
+	if (status < 0)
+		return status;
+
+	decoder->status = status;
+
+	/* We do need an IP to proceed. */
+	if (status & pts_ip_suppressed)
+		return -pte_noip;
+
+	/* This event provides a TRIG anchor IP. */
+	decoder->has_icnt = 1;
+	decoder->icnt = 0u;
 
 	return 0;
 }
@@ -866,6 +934,7 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 	case ptev_vmexit:
 	case ptev_shutdown:
 	case ptev_uintr:
+	case ptev_trig:
 		/* We're only interested in events that bind to instructions. */
 		return 0;
 
@@ -1422,6 +1491,50 @@ static int pt_insn_check_ip_event(struct pt_insn_decoder *decoder,
 			break;
 
 		return pt_insn_status(decoder, pts_event_pending);
+
+	case ptev_trig:
+		if (ev->ip_suppressed)
+			return pt_insn_status(decoder, pts_event_pending);
+
+		/* If we do not have an anchor IP, yet, provide it. */
+		if (!ev->variant.trig.ip) {
+			/* We start at the anchor IP and proceed away from it,
+			 * counting instructions along our way in @icnt.
+			 *
+			 * We must have seen an anchor IP.
+			 */
+			if (!decoder->has_icnt)
+				return -pte_bad_packet;
+
+			/* The anchor IP must be in range. */
+			if (ev->variant.trig.icnt < decoder->icnt)
+				return -pte_bad_packet;
+
+			ev->variant.trig.icnt -= (uint16_t)
+				decoder->icnt;
+			ev->variant.trig.ip = decoder->ip;
+		}
+
+		/* We update the event's IP with the current IP as we
+		 * proceed, and we decrement its instruction count
+		 * accordingly.
+		 *
+		 * The event decoder already checks that ICNT is zero when
+		 * tracing is disabled or ICNT isn't valid, so we won't loop
+		 * infinitely.
+		 */
+		if (ev->variant.trig.icnt)
+			break;
+
+		/* Once we reach zero, the IPs must match.
+		 *
+		 * Note that even with tracing enabled, we may get a precise IP
+		 * provided by a subsequent FUP, e.g. in case of overflows.
+		 */
+		if (decoder->enabled && (ev->variant.trig.ip != decoder->ip))
+			break;
+
+		return pt_insn_status(decoder, pts_event_pending);
 	}
 
 	return pt_insn_status(decoder, 0);
@@ -1644,6 +1757,10 @@ static int pt_insn_process_enabled(struct pt_insn_decoder *decoder)
 	decoder->ip = ev->variant.enabled.ip;
 	decoder->enabled = 1;
 
+	/* This event provides a TRIG anchor IP. */
+	decoder->has_icnt = 1;
+	decoder->icnt = 0u;
+
 	return 0;
 }
 
@@ -1674,6 +1791,12 @@ static int pt_insn_process_disabled(struct pt_insn_decoder *decoder)
 	 */
 	decoder->enabled = 0;
 
+	/* Drop our TRIG anchor.
+	 *
+	 * With tracing disabled, we expect a precise IP or no IP.
+	 */
+	decoder->has_icnt = 0;
+
 	return 0;
 }
 
@@ -1695,6 +1818,10 @@ static int pt_insn_process_async_branch(struct pt_insn_decoder *decoder)
 		return -pte_bad_context;
 
 	decoder->ip = ev->variant.async_branch.to;
+
+	/* This event provides a TRIG anchor IP. */
+	decoder->has_icnt = 1;
+	decoder->icnt = 0u;
 
 	return 0;
 }
@@ -1745,12 +1872,22 @@ static int pt_insn_process_overflow(struct pt_insn_decoder *decoder)
 		 */
 		decoder->enabled = 0;
 		decoder->ip = 0ull;
+
+		/* Drop our TRIG anchor.
+		 *
+		 * With tracing disabled, we expect a precise IP or no IP.
+		 */
+		decoder->has_icnt = 0;
 	} else {
 		/* Tracing is enabled and we're at the IP at which the overflow
 		 * resolved.
 		 */
 		decoder->ip = ev->variant.overflow.ip;
 		decoder->enabled = 1;
+
+		/* This event provides a TRIG anchor IP. */
+		decoder->has_icnt = 1;
+		decoder->icnt = 0u;
 	}
 
 	/* We don't know the TSX state.  Let's assume we execute normally.
@@ -1782,6 +1919,10 @@ static int pt_insn_process_exec_mode(struct pt_insn_decoder *decoder)
 
 	decoder->mode = mode;
 
+	/* This event provides a TRIG anchor IP. */
+	decoder->has_icnt = 1;
+	decoder->icnt = 0u;
+
 	return 0;
 }
 
@@ -1791,6 +1932,10 @@ static int pt_insn_process_tsx(struct pt_insn_decoder *decoder)
 		return -pte_internal;
 
 	decoder->speculative = decoder->event.variant.tsx.speculative;
+
+	/* This event provides a TRIG anchor IP. */
+	decoder->has_icnt = 1;
+	decoder->icnt = 0u;
 
 	return 0;
 }
@@ -1830,6 +1975,12 @@ static int pt_insn_process_vmcs(struct pt_insn_decoder *decoder)
 			return errcode;
 
 		decoder->asid.vmcs = vmcs;
+	}
+
+	if (!decoder->event.ip_suppressed) {
+		/* This event provides a TRIG anchor IP. */
+		decoder->has_icnt = 1;
+		decoder->icnt = 0u;
 	}
 
 	return 0;
@@ -1950,9 +2101,15 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		break;
 
 	case ptev_exstop:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.exstop.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.exstop.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
@@ -1961,6 +2118,9 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		    decoder->ip != ev->variant.mwait.ip)
 			return -pte_bad_query;
 
+		/* This event does not provide a TRIG anchor IP since the IP is
+		 * provided by a subsequent EXSTOP.
+		 */
 		break;
 
 	case ptev_pwre:
@@ -1979,23 +2139,41 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 		return -pte_internal;
 
 	case ptev_iflags:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.iflags.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.iflags.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
 	case ptev_interrupt:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.interrupt.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.interrupt.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
 	case ptev_smi:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.smi.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.smi.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
@@ -2012,30 +2190,79 @@ int pt_insn_event(struct pt_insn_decoder *decoder, struct pt_event *uevent,
 
 		break;
 	case ptev_init:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.init.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.init.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
 	case ptev_vmexit:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.vmexit.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.vmexit.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
 	case ptev_shutdown:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.shutdown.ip)
-			return -pte_bad_query;
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.shutdown.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
 
 		break;
 
 	case ptev_uintr:
-		if (!ev->ip_suppressed && decoder->enabled &&
-		    decoder->ip != ev->variant.uintr.ip)
+		if (!ev->ip_suppressed) {
+			if (decoder->enabled &&
+			    decoder->ip != ev->variant.uintr.ip)
+				return -pte_bad_query;
+
+			/* This event provides a TRIG anchor IP. */
+			decoder->has_icnt = 1;
+			decoder->icnt = 0u;
+		}
+
+		break;
+
+	case ptev_trig:
+		if (ev->ip_suppressed)
+			break;
+
+		/* If we proceeded to the TRIG location with tracing enabled,
+		 * we must be right there.
+		 */
+		if (decoder->enabled &&
+		    (ev->variant.trig.ip != decoder->ip))
 			return -pte_bad_query;
+
+		/* If we have an IP, it must be precise.
+		 *
+		 * If it wasn't precise from the beginning, tracing must have
+		 * been enabled and we proceeded to the precise location.
+		 */
+		if (ev->variant.trig.icnt)
+			return -pte_internal;
+
+		/* This TRIG can provide the anchor IP for the next TRIG. */
+		decoder->has_icnt = 1;
+		decoder->icnt = 0u;
 
 		break;
 	}

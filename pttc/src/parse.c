@@ -723,6 +723,19 @@ static int parse_uint_8(const char **pinput, uint8_t *uint)
 	return 0;
 }
 
+static int parse_uint_16(const char **pinput, uint16_t *uint)
+{
+	unsigned long long tmp;
+	int status;
+
+	status = parse_uint(pinput, &tmp, 16, 0);
+	if (status != 0)
+		return status;
+
+	*uint = (uint16_t) tmp;
+	return 0;
+}
+
 static int parse_uint_64(const char **pinput, uint64_t *uint)
 {
 	unsigned long long tmp;
@@ -1072,6 +1085,105 @@ static int parse_evd(const char **input, const struct parser *p,
 			return status;
 
 		return 1;
+	}
+
+	return 0;
+}
+
+/* Parse trig arguments in @input into @packet.
+ *
+ * Returns zero on success and updates @input.
+ * Returns a positive integer on failure.
+ * Returns a negative integer on error.
+ */
+static int parse_trig(const char **input, const struct parser *p,
+		      struct pt_packet_trig *packet)
+{
+	int status;
+
+	if (!p || !packet)
+		return -err_internal;
+
+	memset(packet, 0, sizeof(*packet));
+
+	status = parse_uint_8(input, &packet->trbv);
+	if (status != 0) {
+		if (status < 0)
+			return status;
+
+		status = yasm_print_err(p->y, "trig: bad argument, expected "
+					"8-bit unsigned integer 'trbv'",
+					-err_parse);
+		if (status < 0)
+			return status;
+
+		return 1;
+	}
+
+	for (;;) {
+		status = parse_token(input, ",");
+		if (status != 0) {
+			if (status < 0)
+				return status;
+
+			break;
+		}
+
+		status = parse_token(input, "ip");
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			packet->ip = 1;
+			continue;
+		}
+
+		status = parse_token(input, "mult");
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			packet->mult = 1;
+			continue;
+		}
+
+		status = parse_token(input, "icnt");
+		if (status <= 0) {
+			if (status < 0)
+				return status;
+
+			packet->icntv = 1;
+
+			status = parse_token(input, ":");
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				status = yasm_print_err(p->y, "trig: expected "
+							"':' after 'icnt'",
+							-err_parse);
+				if (status < 0)
+					return status;
+
+				return 1;
+			}
+
+			status = parse_uint_16(input, &packet->icnt);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				status = yasm_print_err(p->y, "trig: expected "
+							"16-bit uint 'icnt'",
+							-err_parse);
+				if (status < 0)
+					return status;
+
+				return 1;
+			}
+
+			continue;
+		}
 	}
 
 	return 0;
@@ -1567,6 +1679,22 @@ static int p_process_pt(struct parser *p, struct pt_encoder *e)
 		}
 
 		return pt_raw_64(p, e, value);
+	} else if (strcmp(directive, "trig") == 0) {
+		const char *cpl;
+
+		cpl = (const char *) payload;
+		errcode = parse_trig(&cpl, p, &packet.payload.trig);
+		if (errcode != 0) {
+			if (errcode < 0)
+				yasm_print_err(p->y, "trig: parsing failed",
+					       errcode);
+			else
+				errcode = -err_parse;
+
+			return errcode;
+		}
+
+		packet.type = ppt_trig;
 	} else {
 		errcode = yasm_print_err(p->y, "invalid syntax",
 					 -err_parse_unknown_directive);

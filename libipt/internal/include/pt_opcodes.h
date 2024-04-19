@@ -45,9 +45,10 @@ enum pt_opcode {
 	pt_opc_tsc		= 0x19,
 	pt_opc_mtc		= 0x59,
 	pt_opc_cyc		= 0x03,
+	pt_opc_trig		= 0xd9,
 
 	/* A free opcode to trigger a decode fault. */
-	pt_opc_bad		= 0xd9
+	pt_opc_bad		= 0xc9
 };
 
 /* A one byte extension code for ext opcodes. */
@@ -151,6 +152,7 @@ enum pt_opcode_size {
 	pt_opcs_ptw		= 2,
 	pt_opcs_cfe		= 2,
 	pt_opcs_evd		= 2,
+	pt_opcs_trig		= 1
 };
 
 /* The psb magic payload.
@@ -341,6 +343,20 @@ enum pt_payload {
 
 	/* The bit mask for the type field in the EVD payload. */
 	pt_pl_evd_type		= 0x1f,
+
+	/* Payload sizes for the TRIG packet. */
+	pt_pl_trig_size		= 2,
+	pt_pl_trig_icnt_size	= 2,
+
+	/* Shift counts for the various bits in the first TRIG payload byte. */
+	pt_pl_trig_ip_shr	= 7,
+	pt_pl_trig_icntv_shr	= 6,
+	pt_pl_trig_mult_shr	= 5,
+
+	/* Bit masks for the various bits in the first TRIG payload byte. */
+	pt_pl_trig_ip		= (1u << pt_pl_trig_ip_shr),
+	pt_pl_trig_icntv	= (1u << pt_pl_trig_icntv_shr),
+	pt_pl_trig_mult		= (1u << pt_pl_trig_mult_shr),
 };
 
 /* Mode packet masks. */
@@ -411,6 +427,8 @@ enum pt_packet_size {
 	ptps_ptw_64		= pt_opcs_ptw + 8,
 	ptps_cfe		= pt_opcs_cfe + pt_pl_cfe_size,
 	ptps_evd		= pt_opcs_evd + pt_pl_evd_size,
+	ptps_trig		= pt_opcs_trig + pt_pl_trig_size,
+	ptps_trig_icnt		= ptps_trig + pt_pl_trig_icnt_size,
 };
 
 /* Supported address range configurations. */

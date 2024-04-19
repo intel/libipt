@@ -1418,6 +1418,25 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		return 0;
 
 #endif /* (LIBIPT_VERSION >= 0x201) */
+
+#if (LIBIPT_VERSION >= 0x202)
+	case ppt_trig:
+		print_field(buffer->opcode, "trig");
+		if (packet->payload.trig.icntv)
+			print_field(buffer->payload.extended,
+				    "%02x%s%s, icnt: %u",
+				    packet->payload.trig.trbv,
+				    packet->payload.trig.ip ? ", ip" : "",
+				    packet->payload.trig.mult ? ", mult" : "",
+				    packet->payload.trig.icnt);
+		else
+			print_field(buffer->payload.extended, "%02x%s%s",
+				    packet->payload.trig.trbv,
+				    packet->payload.trig.ip ? ", ip" : "",
+				    packet->payload.trig.mult ? ", mult" : "");
+
+		return 0;
+#endif /* (LIBIPT_VERSION >= 0x202) */
 	}
 
 	return diag("unknown packet", offset, -pte_bad_opc);

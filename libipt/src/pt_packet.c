@@ -611,3 +611,34 @@ int pt_pkt_read_evd(struct pt_packet_evd *packet, const uint8_t *pos,
 
 	return ptps_evd;
 }
+
+int pt_pkt_read_trig(struct pt_packet_trig *packet, const uint8_t *pos,
+		     const struct pt_config *config)
+{
+	int size = ptps_trig;
+
+	if (!packet || !pos || !config)
+		return -pte_internal;
+
+	if (config->end < pos + ptps_trig)
+		return -pte_eos;
+
+	if (pos[1] & pt_pl_trig_icntv) {
+		if (config->end < pos + ptps_trig_icnt)
+			return -pte_eos;
+
+		packet->icnt = (uint16_t)
+			pt_pkt_read_value(pos + ptps_trig,
+					  pt_pl_trig_icnt_size);
+		size = ptps_trig_icnt;
+	}
+
+	pos += pt_opcs_trig;
+
+	packet->ip = (pos[0] >> pt_pl_trig_ip_shr) & 0x01;
+	packet->icntv = (pos[0] >> pt_pl_trig_icntv_shr) & 0x01;
+	packet->mult = (pos[0] >> pt_pl_trig_mult_shr) & 0x01;
+	packet->trbv = pos[1];
+
+	return size;
+}
