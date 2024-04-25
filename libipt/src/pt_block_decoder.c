@@ -377,11 +377,13 @@ static int pt_blk_start(struct pt_block_decoder *decoder)
 		break;
 	}
 
-	decoder->status = 0;
-
-	errcode = pt_blk_fetch_event(decoder);
-	if (errcode < 0)
-		return errcode;
+	/* Fetch the first event.
+	 *
+	 * We cannot use pt_blk_fetch_event() since that would access the
+	 * current event, which hasn't been initialized.
+	 */
+	decoder->status = pt_evt_next(&decoder->evdec, &decoder->event,
+				      sizeof(decoder->event));
 
 	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
