@@ -263,6 +263,11 @@ if (CMAKE_HOST_UNIX)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-switch-enum")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-padded")
+
+      add_cflag_if_available("-Wno-switch-default" HAVE_C_Wno_switch_default)
+      add_cflag_if_available("-Wno-unsafe-buffer-usage"
+        HAVE_C_Wno_unsafe_buffer_usage)
+
     else (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
