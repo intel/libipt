@@ -949,12 +949,6 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		if (ev->ip_suppressed) {
 			if (!pt_insn_is_ptwrite(insn, iext))
 				return 0;
-
-			/* Fill in the event IP.  Our users will need them to
-			 * make sense of the PTWRITE payload.
-			 */
-			ev->variant.ptwrite.ip = decoder->ip;
-			ev->ip_suppressed = 0;
 		} else {
 			/* The ptwrite event contains the IP of the ptwrite
 			 * instruction (CLIP) unlike most events that contain
@@ -982,10 +976,6 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		if (ev->ip_suppressed) {
 			if (!pt_insn_is_iret(insn, iext))
 				return 0;
-
-			/* Fill in the event IP. */
-			ev->variant.iret.ip = decoder->ip;
-			ev->ip_suppressed = 0;
 		} else {
 			/* The iret event contains the IP of the iret
 			 * instruction (CLIP) unlike most events that contain
@@ -1013,10 +1003,6 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		if (ev->ip_suppressed) {
 			if (!pt_insn_is_vmentry(insn, iext))
 				return 0;
-
-			/* Fill in the event IP. */
-			ev->variant.vmentry.ip = decoder->ip;
-			ev->ip_suppressed = 0;
 		} else {
 			/* The vmentry event contains the IP of the vmentry
 			 * instruction (CLIP) unlike most events that contain
@@ -1044,10 +1030,6 @@ static int pt_insn_check_insn_event(struct pt_insn_decoder *decoder,
 		if (ev->ip_suppressed) {
 			if (!pt_insn_is_uiret(insn, iext))
 				return 0;
-
-			/* Fill in the event IP. */
-			ev->variant.uiret.ip = decoder->ip;
-			ev->ip_suppressed = 0;
 		} else {
 			/* The uiret event contains the IP of the uiret
 			 * instruction (CLIP) unlike most events that contain

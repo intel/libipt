@@ -1196,37 +1196,23 @@ static int pt_blk_proceed_to_ptwrite(struct pt_block_decoder *decoder,
 	 * the last instruction in the current block and @decoder->ip will point
 	 * to the instruction following it.
 	 */
-	if (ev->ip_suppressed) {
-		status = pt_blk_proceed_to_insn(decoder, block, insn, iext,
-						pt_insn_is_ptwrite);
-		if (status <= 0)
-			return status;
+	if (ev->ip_suppressed)
+		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
+					      pt_insn_is_ptwrite);
 
-		/* We now know the IP of the PTWRITE instruction corresponding
-		 * to this event.  Fill it in to make it more convenient for the
-		 * user to process the event.
-		 */
-		ev->variant.ptwrite.ip = insn->ip;
-		ev->ip_suppressed = 0;
-	} else {
-		status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
-					      ev->variant.ptwrite.ip);
-		if (status <= 0)
-			return status;
+	status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				      ev->variant.ptwrite.ip);
+	if (status <= 0)
+		return status;
 
-		/* We reached the PTWRITE instruction and @decoder->ip points to
-		 * it; @insn/@iext still contain the preceding instruction.
-		 *
-		 * Proceed beyond the PTWRITE to account for it.  Note that we
-		 * may still overflow the block, which would cause us to
-		 * postpone both instruction and event to the next block.
-		 */
-		status = pt_blk_proceed_one_insn(decoder, block, insn, iext);
-		if (status <= 0)
-			return status;
-	}
-
-	return 1;
+	/* We reached the PTWRITE instruction and @decoder->ip points to it;
+	 * @insn/@iext still contain the preceding instruction.
+	 *
+	 * Proceed beyond the PTWRITE to account for it.  Note that we may
+	 * still overflow the block, which would cause us to postpone both
+	 * instruction and event to the next block.
+	 */
+	return pt_blk_proceed_one_insn(decoder, block, insn, iext);
 }
 
 /* Proceed to the event location for an iret event.
@@ -1268,37 +1254,23 @@ static int pt_blk_proceed_to_iret(struct pt_block_decoder *decoder,
 	 * the last instruction in the current block and @decoder->ip will
 	 * point to the instruction following it.
 	 */
-	if (ev->ip_suppressed) {
-		status = pt_blk_proceed_to_insn(decoder, block, insn, iext,
-						pt_insn_is_iret);
-		if (status <= 0)
-			return status;
+	if (ev->ip_suppressed)
+		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
+					      pt_insn_is_iret);
 
-		/* We now know the IP of the IRET instruction corresponding to
-		 * this event.  Fill it in to make it more convenient for the
-		 * user to process the event.
-		 */
-		ev->variant.iret.ip = insn->ip;
-		ev->ip_suppressed = 0;
-	} else {
-		status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
-					      ev->variant.iret.ip);
-		if (status <= 0)
-			return status;
+	status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				      ev->variant.iret.ip);
+	if (status <= 0)
+		return status;
 
-		/* We reached the IRET instruction and @decoder->ip points to
-		 * it; @insn/@iext still contain the preceding instruction.
-		 *
-		 * Proceed beyond the IRET to account for it.  Note that we may
-		 * still overflow the block, which would cause us to postpone
-		 * both instruction and event to the next block.
-		 */
-		status = pt_blk_proceed_one_insn(decoder, block, insn, iext);
-		if (status <= 0)
-			return status;
-	}
-
-	return 1;
+	/* We reached the IRET instruction and @decoder->ip points to it;
+	 * @insn/@iext still contain the preceding instruction.
+	 *
+	 * Proceed beyond the IRET to account for it.  Note that we may still
+	 * overflow the block, which would cause us to postpone both
+	 * instruction and event to the next block.
+	 */
+	return pt_blk_proceed_one_insn(decoder, block, insn, iext);
 }
 
 /* Proceed to the event location for a vmentry event.
@@ -1340,37 +1312,23 @@ static int pt_blk_proceed_to_vmentry(struct pt_block_decoder *decoder,
 	 * the last instruction in the current block and @decoder->ip will
 	 * point to the instruction following it.
 	 */
-	if (ev->ip_suppressed) {
-		status = pt_blk_proceed_to_insn(decoder, block, insn, iext,
-						pt_insn_is_vmentry);
-		if (status <= 0)
-			return status;
+	if (ev->ip_suppressed)
+		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
+					      pt_insn_is_vmentry);
 
-		/* We now know the IP of the vmentry instruction corresponding
-		 * to this event.  Fill it in to make it more convenient for
-		 * the user to process the event.
-		 */
-		ev->variant.vmentry.ip = insn->ip;
-		ev->ip_suppressed = 0;
-	} else {
-		status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
-					      ev->variant.vmentry.ip);
-		if (status <= 0)
-			return status;
+	status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				      ev->variant.vmentry.ip);
+	if (status <= 0)
+		return status;
 
-		/* We reached the vmentry instruction and @decoder->ip points
-		 * to it; @insn/@iext still contain the preceding instruction.
-		 *
-		 * Proceed beyond the vmentry to account for it.  Note that we
-		 * may still overflow the block, which would cause us to
-		 * postpone both instruction and event to the next block.
-		 */
-		status = pt_blk_proceed_one_insn(decoder, block, insn, iext);
-		if (status <= 0)
-			return status;
-	}
-
-	return 1;
+	/* We reached the vmentry instruction and @decoder->ip points to it;
+	 * @insn/@iext still contain the preceding instruction.
+	 *
+	 * Proceed beyond the vmentry to account for it.  Note that we may
+	 * still overflow the block, which would cause us to postpone both
+	 * instruction and event to the next block.
+	 */
+	return pt_blk_proceed_one_insn(decoder, block, insn, iext);
 }
 
 /* Proceed to the event location for an uiret event.
@@ -1412,37 +1370,23 @@ static int pt_blk_proceed_to_uiret(struct pt_block_decoder *decoder,
 	 * the last instruction in the current block and @decoder->ip will
 	 * point to the instruction following it.
 	 */
-	if (ev->ip_suppressed) {
-		status = pt_blk_proceed_to_insn(decoder, block, insn, iext,
-						pt_insn_is_uiret);
-		if (status <= 0)
-			return status;
+	if (ev->ip_suppressed)
+		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
+					      pt_insn_is_uiret);
 
-		/* We now know the IP of the UIRET instruction corresponding to
-		 * this event.  Fill it in to make it more convenient for the
-		 * user to process the event.
-		 */
-		ev->variant.uiret.ip = insn->ip;
-		ev->ip_suppressed = 0;
-	} else {
-		status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
-					      ev->variant.uiret.ip);
-		if (status <= 0)
-			return status;
+	status = pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				      ev->variant.uiret.ip);
+	if (status <= 0)
+		return status;
 
-		/* We reached the UIRET instruction and @decoder->ip points to
-		 * it; @insn/@iext still contain the preceding instruction.
-		 *
-		 * Proceed beyond the UIRET to account for it.  Note that we
-		 * may still overflow the block, which would cause us to
-		 * postpone both instruction and event to the next block.
-		 */
-		status = pt_blk_proceed_one_insn(decoder, block, insn, iext);
-		if (status <= 0)
-			return status;
-	}
-
-	return 1;
+	/* We reached the UIRET instruction and @decoder->ip points to it;
+	 * @insn/@iext still contain the preceding instruction.
+	 *
+	 * Proceed beyond the UIRET to account for it.  Note that we may still
+	 * overflow the block, which would cause us to postpone both
+	 * instruction and event to the next block.
+	 */
+	return pt_blk_proceed_one_insn(decoder, block, insn, iext);
 }
 
 /* Try to work around erratum SKD022.
