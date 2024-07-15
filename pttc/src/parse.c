@@ -816,9 +816,9 @@ static int parse_c_state(uint8_t *state, uint8_t *sub_state, const char *input)
 		break;
 	}
 
-	*state = (uint8_t) ((maj - 1) & 0xf);
+	*state = (uint8_t) (((int) maj - 1) & 0xf);
 	if (sub_state)
-		*sub_state = (uint8_t) ((min - 1) & 0xf);
+		*sub_state = (uint8_t) (((int) min - 1) & 0xf);
 
 	return 0;
 }
