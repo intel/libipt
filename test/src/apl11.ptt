@@ -25,7 +25,7 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 
-; APL11: Intel(R) PT OVF Pakcet May Be Followed by TIP.PGD Packet
+; APL11: Intel(R) PT OVF Packet May Be Followed by TIP.PGD Packet
 ;
 ;        If Intel PT (Processor Trace) encounters an internal buffer overflow
 ;        and generates an OVF (Overflow) packet just as IA32_RTIT_CTL (MSR
