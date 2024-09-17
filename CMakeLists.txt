@@ -257,36 +257,38 @@ if (CMAKE_HOST_UNIX)
     #
     if (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Weverything")
-
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-disabled-macro-expansion")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-covered-switch-default")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-switch-enum")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-padded")
-
-      add_cflag_if_available("-Wno-switch-default" HAVE_C_Wno_switch_default)
-      add_cflag_if_available("-Wno-unsafe-buffer-usage"
-        HAVE_C_Wno_unsafe_buffer_usage)
-
     else (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-
-      add_cflag_if_available("-Wimplicit-fallthrough=5"
-        HAVE_C_Wimplicit_fallthrough)
-      add_cflag_if_available("-Wno-format-truncation"
-        HAVE_C_Wno_format_truncation)
     endif (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
-
-    add_cflag_if_available("-Wno-debug-disables-optimization"
-      HAVE_C_Wno_debug_disables_optimization)
 
     # warnings are errors
     #
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
   endif (DEVBUILD)
 
+  # disable some warnings
+  #
+  if (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-disabled-macro-expansion")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-covered-switch-default")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-switch-enum")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-padded")
+
+    add_cflag_if_available("-Wno-switch-default" HAVE_C_Wno_switch_default)
+    add_cflag_if_available("-Wno-unsafe-buffer-usage"
+      HAVE_C_Wno_unsafe_buffer_usage)
+  else (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
+    add_cflag_if_available("-Wimplicit-fallthrough=5"
+      HAVE_C_Wimplicit_fallthrough)
+    add_cflag_if_available("-Wno-format-truncation"
+      HAVE_C_Wno_format_truncation)
+  endif (CMAKE_C_COMPILER_ID MATCHES "[Cc]lang")
+
+  add_cflag_if_available("-Wno-debug-disables-optimization"
+    HAVE_C_Wno_debug_disables_optimization)
 endif (CMAKE_HOST_UNIX)
 
 
