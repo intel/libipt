@@ -46,7 +46,7 @@
 #include <inttypes.h>
 #include <errno.h>
 
-#include <xed-interface.h>
+#include <xed/xed-interface.h>
 
 
 /* The type of decoder to be used. */
