@@ -132,6 +132,17 @@ int pt_cpu_errata(struct pt_errata *errata, const struct pt_cpu *cpu)
 			return 0;
 		}
 		break;
+
+	case 0x13:
+		switch (cpu->model) {
+		case 0x01:
+			errata->bdm70 = 1;
+			errata->skl014 = 1;
+			errata->skd022 = 1;
+			errata->skz84 = 1;
+			return 0;
+		}
+		break;
 	}
 
 	return -pte_bad_cpu;
