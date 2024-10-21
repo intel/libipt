@@ -1,7 +1,7 @@
 % PT_BLK_ALLOC_DECODER(3)
 
 <!---
- ! Copyright (c) 2016-2024, Intel Corporation
+ ! Copyright (C) 2016-2024 Intel Corporation
  ! SPDX-License-Identifier: BSD-3-Clause
  !
  ! Redistribution and use in source and binary forms, with or without
