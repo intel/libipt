@@ -70,7 +70,7 @@ static void pt_section_list_free(struct pt_section_list *list)
 	if (!list)
 		return;
 
-	pt_section_put(list->section.section);
+	(void) pt_section_put(list->section.section);
 	pt_msec_fini(&list->section);
 	free(list);
 }
