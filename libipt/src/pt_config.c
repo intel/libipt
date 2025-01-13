@@ -198,7 +198,7 @@ static inline size_t pt_filter_addr_ncfg(void)
 		(2 * sizeof(uint64_t));
 }
 
-uint32_t pt_filter_addr_cfg(const struct pt_conf_addr_filter *filter, uint8_t n)
+uint32_t pt_filter_addr_cfg(const struct pt_conf_addr_filter *filter, size_t n)
 {
 	if (!filter)
 		return 0u;
@@ -209,7 +209,7 @@ uint32_t pt_filter_addr_cfg(const struct pt_conf_addr_filter *filter, uint8_t n)
 	return (filter->config.addr_cfg >> (4 * n)) & 0xf;
 }
 
-uint64_t pt_filter_addr_a(const struct pt_conf_addr_filter *filter, uint8_t n)
+uint64_t pt_filter_addr_a(const struct pt_conf_addr_filter *filter, size_t n)
 {
 	const uint64_t *addr;
 
@@ -223,7 +223,7 @@ uint64_t pt_filter_addr_a(const struct pt_conf_addr_filter *filter, uint8_t n)
 	return addr[2 * n];
 }
 
-uint64_t pt_filter_addr_b(const struct pt_conf_addr_filter *filter, uint8_t n)
+uint64_t pt_filter_addr_b(const struct pt_conf_addr_filter *filter, size_t n)
 {
 	const uint64_t *addr;
 
@@ -240,7 +240,7 @@ uint64_t pt_filter_addr_b(const struct pt_conf_addr_filter *filter, uint8_t n)
 static int pt_filter_check_cfg_filter(const struct pt_conf_addr_filter *filter,
 				      uint64_t addr)
 {
-	uint8_t n;
+	size_t n;
 
 	if (!filter)
 		return -pte_internal;
@@ -278,7 +278,7 @@ static int pt_filter_check_cfg_filter(const struct pt_conf_addr_filter *filter,
 static int pt_filter_check_cfg_stop(const struct pt_conf_addr_filter *filter,
 				    uint64_t addr)
 {
-	uint8_t n;
+	size_t n;
 
 	if (!filter)
 		return -pte_internal;

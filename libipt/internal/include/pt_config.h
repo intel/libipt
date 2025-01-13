@@ -51,7 +51,7 @@ extern int pt_config_from_user(struct pt_config *config,
  * This corresponds to IA32_RTIT_CTL.ADDRn_CFG.
  */
 extern uint32_t pt_filter_addr_cfg(const struct pt_conf_addr_filter *filter,
-				   uint8_t n);
+				   size_t n);
 
 /* Get the lower bound (inclusive) of the n'th address filter.
  *
@@ -60,7 +60,7 @@ extern uint32_t pt_filter_addr_cfg(const struct pt_conf_addr_filter *filter,
  * This corresponds to IA32_RTIT_ADDRn_A.
  */
 extern uint64_t pt_filter_addr_a(const struct pt_conf_addr_filter *filter,
-				 uint8_t n);
+				 size_t n);
 
 /* Get the upper bound (inclusive) of the n'th address filter.
  *
@@ -69,7 +69,7 @@ extern uint64_t pt_filter_addr_a(const struct pt_conf_addr_filter *filter,
  * This corresponds to IA32_RTIT_ADDRn_B.
  */
 extern uint64_t pt_filter_addr_b(const struct pt_conf_addr_filter *filter,
-				 uint8_t n);
+				 size_t n);
 
 /* Check address filters.
  *

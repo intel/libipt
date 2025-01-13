@@ -184,7 +184,7 @@ static struct ptunit_result addr_filter_size(void)
 static struct ptunit_result addr_filter_none(void)
 {
 	struct pt_config config;
-	uint8_t filter;
+	size_t filter;
 
 	pt_config_init(&config);
 
@@ -206,7 +206,7 @@ static struct ptunit_result addr_filter_0(void)
 	struct pt_config config;
 	uint64_t addr_a, addr_b;
 	uint32_t addr_cfg;
-	uint8_t filter;
+	size_t filter;
 
 	pt_config_init(&config);
 	config.addr_filter.config.ctl.addr0_cfg = pt_addr_cfg_filter;
