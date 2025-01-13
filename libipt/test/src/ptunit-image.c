@@ -893,7 +893,8 @@ static struct ptunit_result same_different_isid(struct image_fixture *ifix)
 
 static struct ptunit_result same_different_offset(struct image_fixture *ifix)
 {
-	uint8_t buffer[] = { 0xcc, 0xcc }, i;
+	uint64_t idx;
+	uint8_t buffer[] = { 0xcc, 0xcc };
 	int status, isid, index;
 
 	/* Add another section from a different part of the same file as an
@@ -906,8 +907,8 @@ static struct ptunit_result same_different_offset(struct image_fixture *ifix)
 	ptu_uint_eq(ifix->section[index].size, ifix->section[0].size);
 
 	/* Change the content of the new section so we can distinguish them. */
-	for (i = 0; i < ifix->mapping[index].size; ++i)
-		ifix->mapping[index].content[i] += 0x10;
+	for (idx = 0; idx < ifix->mapping[index].size; ++idx)
+		ifix->mapping[index].content[idx] += 0x10;
 
 
 	status = pt_image_add(&ifix->image, &ifix->section[0], &ifix->asid[0],
