@@ -2530,6 +2530,8 @@ static int pt_evt_handle_apl11(struct pt_event_decoder *decoder)
 			errcode = pt_evt_recover_ovf_disabled(decoder, &pacdec,
 							      &packet, &time,
 							      &tcal);
+			if (errcode < 0)
+				return errcode;
 
 			return pt_evt_fetch_packet(decoder);
 
