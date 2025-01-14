@@ -599,9 +599,6 @@ int pd_parse(struct pt_directive *pd, struct state *st)
 	while (isspace(*directive))
 		directive += 1;
 
-	/* directive found, now parse the payload.  */
-	errcode = 0;
-
 	/* find position of next '(', separating the directive and the
 	 * payload.
 	 */
