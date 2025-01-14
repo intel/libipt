@@ -188,7 +188,6 @@ static int fl_append(struct file_list *fl, struct text **t,
 	if (bug_on(!filename))
 		return -err_internal;
 
-	s = NULL;
 	*t = NULL;
 
 	while (fl->next)
