@@ -226,7 +226,7 @@ int pt_sync_backward(const uint8_t **sync, const uint8_t *pos,
 
 	/* Search for the psb payload pattern in the buffer. */
 	for (;;) {
-		const uint8_t *next = pos;
+		const uint8_t *next;
 		uint64_t val;
 
 		pos -= sizeof(uint64_t);
