@@ -2,7 +2,7 @@ Decoding Intel(R) Processor Trace Using libipt {#libipt}
 ========================================================
 
 <!---
- ! Copyright (C) 2013-2024 Intel Corporation
+ ! Copyright (C) 2013-2025 Intel Corporation
  ! SPDX-License-Identifier: BSD-3-Clause
  !
  ! Redistribution and use in source and binary forms, with or without
