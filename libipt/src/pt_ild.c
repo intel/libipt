@@ -1049,7 +1049,7 @@ static int prefix_vex_c4(struct pt_ild *ild, uint8_t length, uint8_t rex)
 static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 {
 	uint8_t max_bytes;
-	uint8_t p1, p2, map;
+	uint8_t p1, p2;
 
 	(void) rex;
 
@@ -1083,7 +1083,7 @@ static int prefix_evex(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	resolve_vex_pp(ild, p2 & 0x03);
 
-	ild->map = map = p1 & 0x07;
+	ild->map = p1 & 0x07;
 
 	/* Eat the EVEX. */
 	length += 4;
