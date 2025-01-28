@@ -151,6 +151,11 @@ struct ptxed_options {
 	/* Print sideband warnings. */
 	uint32_t print_sb_warnings:1;
 #endif
+
+#if (LIBIPT_VERSION >= 0x202)
+	/* Resync on error. */
+	uint32_t resync_on_error:1;
+#endif
 };
 
 /* A collection of flags selecting which stats to collect/print. */
@@ -248,6 +253,9 @@ static void help(const char *name)
 	printf("  --time                               print the current timestamp.\n");
 	printf("  --raw-insn                           print the raw bytes of each instruction.\n");
 	printf("  --check                              perform checks (expensive).\n");
+#if (LIBIPT_VERSION >= 0x202)
+	printf("  --resync-on-error                    resync on decode errors more aggressively.\n");
+#endif
 	printf("  --iscache-limit <size>               set the image section cache limit to <size> bytes.\n");
 	printf("  --event:time                         print the tsc for events if available.\n");
 	printf("  --event:ip                           print the ip of events if available.\n");
@@ -1532,6 +1540,36 @@ static int drain_events_insn(struct ptxed_decoder *decoder, uint64_t *time,
 	return status;
 }
 
+#if (LIBIPT_VERSION >= 0x202)
+static int resync_insn(struct ptxed_decoder *decoder,
+		       const struct ptxed_options *options,
+		       uint64_t *time)
+{
+	int status;
+
+	if (!decoder || !options)
+		return -pte_internal;
+
+	for (;;) {
+		status = pt_insn_resync(decoder->variant.insn);
+		if (status >= 0)
+			break;
+
+		if (status != -pte_event_ignored)
+			return status;
+
+		status = handle_one_event_insn(decoder, options, time);
+		if (status < 0)
+			return status;
+	}
+
+	if ((status & pts_ip_suppressed) && !options->quiet)
+		printf("[disabled]\n");
+
+	return status;
+}
+#endif /* (LIBIPT_VERSION >= 0x202) */
+
 static int decode_one_insn(struct ptxed_decoder *decoder,
 			   const struct ptxed_options *options,
 			   struct ptxed_stats *stats, struct pt_insn *insn,
@@ -1633,31 +1671,49 @@ static void decode_insn(struct ptxed_decoder *decoder,
 		}
 
 		for (;;) {
-			status = drain_events_insn(decoder, &time, status,
-						   options);
-			if (status < 0)
-				break;
+			for (;;) {
+				status = drain_events_insn(decoder, &time,
+							   status, options);
+				if (status < 0)
+					break;
 
-			if (status & pts_eos) {
-				if (!(status & pts_ip_suppressed) &&
-				    !options->quiet)
-					printf("[end of trace]\n");
+				if (status & pts_eos) {
+					if (!(status & pts_ip_suppressed) &&
+					    !options->quiet)
+						printf("[end of trace]\n");
 
-				status = -pte_eos;
-				break;
+					status = -pte_eos;
+					break;
+				}
+
+				status = decode_one_insn(decoder, options,
+							 stats, &insn, time);
+				if (status < 0)
+					break;
 			}
 
-			status = decode_one_insn(decoder, options, stats,
-						 &insn, time);
-			if (status < 0)
+			/* We're done when we reach the end of the trace
+			 * stream.
+			 */
+			if (status == -pte_eos)
+				return;
+
+			diagnose_insn(decoder, "error",  status, &insn);
+
+#if (LIBIPT_VERSION >= 0x202)
+			if (!options->resync_on_error)
 				break;
-		}
 
-		/* We're done when we reach the end of the trace stream. */
-		if (status == -pte_eos)
+			status = resync_insn(decoder, options, &time);
+			if (status < 0) {
+				diagnose_insn(decoder, "resync error", status,
+					      &insn);
+				break;
+			}
+#else
 			break;
-
-		diagnose_insn(decoder, "error",  status, &insn);
+#endif
+		}
 	}
 }
 
@@ -1992,6 +2048,36 @@ static int drain_events_block(struct ptxed_decoder *decoder, uint64_t *time,
 	return status;
 }
 
+#if (LIBIPT_VERSION >= 0x202)
+static int resync_block(struct ptxed_decoder *decoder,
+			const struct ptxed_options *options,
+			uint64_t *time)
+{
+	int status;
+
+	if (!decoder || !options)
+		return -pte_internal;
+
+	for (;;) {
+		status = pt_blk_resync(decoder->variant.block);
+		if (status >= 0)
+			break;
+
+		if (status != -pte_event_ignored)
+			return status;
+
+		status = handle_one_event_block(decoder, options, time);
+		if (status < 0)
+			return status;
+	}
+
+	if ((status & pts_ip_suppressed) && !options->quiet)
+		printf("[disabled]\n");
+
+	return status;
+}
+#endif /* (LIBIPT_VERSION >= 0x202) */
+
 static int decode_one_block(struct ptxed_decoder *decoder,
 			    const struct ptxed_options *options,
 			    struct ptxed_stats *stats,
@@ -2081,31 +2167,49 @@ static void decode_block(struct ptxed_decoder *decoder,
 		}
 
 		for (;;) {
-			status = drain_events_block(decoder, &time, status,
-						    options);
-			if (status < 0)
-				break;
+			for (;;) {
+				status = drain_events_block(decoder, &time,
+							    status, options);
+				if (status < 0)
+					break;
 
-			if (status & pts_eos) {
-				if (!(status & pts_ip_suppressed) &&
-				    !options->quiet)
-					printf("[end of trace]\n");
+				if (status & pts_eos) {
+					if (!(status & pts_ip_suppressed) &&
+					    !options->quiet)
+						printf("[end of trace]\n");
 
-				status = -pte_eos;
-				break;
+					status = -pte_eos;
+					break;
+				}
+
+				status = decode_one_block(decoder, options,
+							  stats, &block, time);
+				if (status < 0)
+					break;
 			}
 
-			status = decode_one_block(decoder, options, stats,
-						  &block, time);
-			if (status < 0)
+			/* We're done when we reach the end of the trace
+			 * stream.
+			 */
+			if (status == -pte_eos)
+				return;
+
+			diagnose_block(decoder, "error", status, &block);
+
+#if (LIBIPT_VERSION >= 0x202)
+			if (!options->resync_on_error)
 				break;
-		}
 
-		/* We're done when we reach the end of the trace stream. */
-		if (status == -pte_eos)
+			status = resync_block(decoder, options, &time);
+			if (status < 0) {
+				diagnose_block(decoder, "resync error", status,
+					       &block);
+				break;
+			}
+#else
 			break;
-
-		diagnose_block(decoder, "error", status, &block);
+#endif
+		}
 	}
 }
 
@@ -2824,6 +2928,12 @@ extern int main(int argc, char *argv[])
 			options.check = 1;
 			continue;
 		}
+#if (LIBIPT_VERSION >= 0x202)
+		if (strcmp(arg, "--resync-on-error") == 0) {
+			options.resync_on_error = 1;
+			continue;
+		}
+#endif
 		if (strcmp(arg, "--iscache-limit") == 0) {
 			uint64_t limit;
 
