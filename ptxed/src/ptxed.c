@@ -1580,10 +1580,8 @@ static void decode_insn(struct ptxed_decoder *decoder,
 			}
 
 			if (options->print_offset || options->check) {
-				int errcode;
-
-				errcode = pt_insn_get_offset(ptdec, &offset);
-				if (errcode < 0)
+				status = pt_insn_get_offset(ptdec, &offset);
+				if (status < 0)
 					break;
 			}
 
@@ -1619,10 +1617,6 @@ static void decode_insn(struct ptxed_decoder *decoder,
 			if (options->check)
 				check_insn(&insn, offset);
 		}
-
-		/* We shouldn't break out of the loop without an error. */
-		if (!status)
-			status = -pte_internal;
 
 		/* We're done when we reach the end of the trace stream. */
 		if (status == -pte_eos)
@@ -1989,10 +1983,8 @@ static void decode_block(struct ptxed_decoder *decoder,
 			}
 
 			if (options->print_offset || options->check) {
-				int errcode;
-
-				errcode = pt_blk_get_offset(ptdec, &offset);
-				if (errcode < 0)
+				status = pt_blk_get_offset(ptdec, &offset);
+				if (status < 0)
 					break;
 			}
 
@@ -2031,10 +2023,6 @@ static void decode_block(struct ptxed_decoder *decoder,
 			if (options->check)
 				check_block(&block, iscache, offset);
 		}
-
-		/* We shouldn't break out of the loop without an error. */
-		if (!status)
-			status = -pte_internal;
 
 		/* We're done when we reach the end of the trace stream. */
 		if (status == -pte_eos)
