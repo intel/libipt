@@ -43,24 +43,30 @@ l0: nop
 ; @pt p5: evd(2: 0)
 ; @pt p6: cfe(9: 14)
 ; @pt p7: fup(1: %l1)
-; @pt p8: tip(3: %l5)
+; @pt p8: pip(0xf00)
+; @pt p9: tip(3: %l5)
 ; ...
-; @pt p9: cfe(7)
-; @pt p10: tip(3: %l1)
+; @pt p10: cfe(7, ip)
+; @pt p11: fup(1: %l5)
+; @pt p12: pip(0xb00, nr)
+; @pt p13: tip(3: %l1)
 l1: mov rax, [rbx]
 
-; @pt p11: evd(2: 10)
-; @pt p12: cfe(8)
-; @pt p13: fup(1: %l2)
-; @pt p14: tip(3: %l7)
+; @pt p14: evd(2: 10)
+; @pt p15: cfe(8)
+; @pt p16: fup(1: %l2)
+; @pt p17: pip(0xf00)
+; @pt p18: tip(3: %l7)
 ; ...
-; @pt p15: cfe(7)
-; @pt p16: tip(3: %l3)
+; @pt p19: cfe(7, ip)
+; @pt p20: fup(1: %l7)
+; @pt p21: pip(0xb00, nr)
+; @pt p22: tip(3: %l3)
 l2: cpuid
 l3: nop
 
-; @pt p17: fup(1: %l4)
-; @pt p18: tip.pgd(0: %l4)
+; @pt p23: fup(1: %l4)
+; @pt p24: tip.pgd(0: %l4)
 l4: hlt
 
 l5: vmresume
@@ -79,29 +85,39 @@ l8: hlt
 ;%0p5  evd        2: 0
 ;%0p6  cfe        9: 14
 ;%0p7  fup        1: %?l1.2
-;%0p8  tip        3: %?l5
-;%0p9  cfe        7
-;%0p10 tip        3: %?l1
-;%0p11 evd        2: a
-;%0p12 cfe        8
-;%0p13 fup        1: %?l2.2
-;%0p14 tip        3: %?l7
-;%0p15 cfe        7
-;%0p16 tip        3: %?l3
-;%0p17 fup        1: %?l4.2
-;%0p18 tip.pgd    0: %?l4.0
+;%0p8  pip        f00         cr3 0000000000000f00
+;%0p9  tip        3: %?l5
+;%0p10 cfe        7, ip
+;%0p11 fup        1: %?l5.2
+;%0p12 pip        b00, nr     cr3 0000000000000b00
+;%0p13 tip        3: %?l1
+;%0p14 evd        2: a
+;%0p15 cfe        8
+;%0p16 fup        1: %?l2.2
+;%0p17 pip        f00         cr3 0000000000000f00
+;%0p18 tip        3: %?l7
+;%0p19 cfe        7, ip
+;%0p20 fup        1: %?l7.2
+;%0p21 pip        b00, nr     cr3 0000000000000b00
+;%0p22 tip        3: %?l3
+;%0p23 fup        1: %?l4.2
+;%0p24 tip.pgd    0: %?l4.0
 
 
 ; @pt .exp(ptxed)
 ;%0l0
 ;[vmexit, intr: 14, vmxr: 0000000000000000, vmxq: 0000000000f00baa]
 ;[interrupt]
+;[paging, cr3: 0000000000000f00]
 ;%0l5
 ;[vmentry]
+;[paging, cr3: 0000000000000b00, nr]
 ;%0l1
 ;[vmexit, vmxr: 000000000000000a]
 ;[interrupt]
+;[paging, cr3: 0000000000000f00]
 ;%0l7
 ;[vmentry]
+;[paging, cr3: 0000000000000b00, nr]
 ;%0l3
 ;[disabled]
