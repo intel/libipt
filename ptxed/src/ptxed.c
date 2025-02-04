@@ -1976,12 +1976,53 @@ static int drain_events_block(struct ptxed_decoder *decoder, uint64_t *time,
 	return status;
 }
 
+static int decode_one_block(struct ptxed_decoder *decoder,
+			    const struct ptxed_options *options,
+			    struct ptxed_stats *stats,
+			    struct pt_block *block,
+			    uint64_t time)
+{
+	struct pt_block_decoder *ptdec;
+	uint64_t offset;
+	int status;
+
+	if (!decoder || !options || !block)
+		return -pte_internal;
+
+	ptdec = decoder->variant.block;
+	offset = 0ull;
+
+	if (options->print_offset || options->check) {
+		status = pt_blk_get_offset(ptdec, &offset);
+		if (status < 0)
+			return status;
+	}
+
+	status = pt_blk_next(ptdec, block, sizeof(*block));
+
+	/* Even in case of errors, we may have succeeded in decoding some
+	 * instructions.
+	 */
+	if (stats) {
+		stats->insn += block->ninsn;
+		stats->blocks += 1;
+	}
+
+	if (!options->quiet)
+		print_block(decoder, block, options, stats, offset, time);
+
+	if (options->check)
+		check_block(decoder, block, offset);
+
+	return status;
+}
+
 static void decode_block(struct ptxed_decoder *decoder,
 			 const struct ptxed_options *options,
 			 struct ptxed_stats *stats)
 {
 	struct pt_block_decoder *ptdec;
-	uint64_t offset, sync, time;
+	uint64_t sync, time;
 
 	if (!decoder || !options) {
 		printf("[internal error]\n");
@@ -1989,7 +2030,6 @@ static void decode_block(struct ptxed_decoder *decoder,
 	}
 
 	ptdec = decoder->variant.block;
-	offset = 0ull;
 	sync = 0ull;
 	time = 0ull;
 	for (;;) {
@@ -2039,46 +2079,10 @@ static void decode_block(struct ptxed_decoder *decoder,
 				break;
 			}
 
-			if (options->print_offset || options->check) {
-				status = pt_blk_get_offset(ptdec, &offset);
-				if (status < 0)
-					break;
-			}
-
-			status = pt_blk_next(ptdec, &block, sizeof(block));
-			if (status < 0) {
-				/* Even in case of errors, we may have succeeded
-				 * in decoding some instructions.
-				 */
-				if (block.ninsn) {
-					if (stats) {
-						stats->insn += block.ninsn;
-						stats->blocks += 1;
-					}
-
-					if (!options->quiet)
-						print_block(decoder, &block,
-							    options, stats,
-							    offset, time);
-
-					if (options->check)
-						check_block(decoder, &block,
-							    offset);
-				}
+			status = decode_one_block(decoder, options, stats,
+						  &block, time);
+			if (status < 0)
 				break;
-			}
-
-			if (stats) {
-				stats->insn += block.ninsn;
-				stats->blocks += 1;
-			}
-
-			if (!options->quiet)
-				print_block(decoder, &block, options, stats,
-					    offset, time);
-
-			if (options->check)
-				check_block(decoder, &block, offset);
 		}
 
 		/* We're done when we reach the end of the trace stream. */
