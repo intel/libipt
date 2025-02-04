@@ -1842,10 +1842,11 @@ static void print_block(struct ptxed_decoder *decoder,
 		diagnose(decoder, ip, "reconstruct error", -pte_nosync);
 }
 
-static void check_block(const struct pt_block *block,
-			struct pt_image_section_cache *iscache,
+static void check_block(struct ptxed_decoder *decoder,
+			const struct pt_block *block,
 			uint64_t offset)
 {
+	struct pt_image_section_cache *iscache;
 	struct pt_insn insn;
 	xed_address_width_enum_t addr_width;
 	xed_machine_mode_enum_t mode;
@@ -1856,7 +1857,7 @@ static void check_block(const struct pt_block *block,
 	uint16_t ninsn;
 	int errcode;
 
-	if (!block) {
+	if (!decoder || !block) {
 		printf("[internal error]\n");
 		return;
 	}
@@ -1874,6 +1875,7 @@ static void check_block(const struct pt_block *block,
 	mode = to_xed_mode(block->mode);
 	xed_state_init2(&xed, mode, addr_width);
 
+	iscache = decoder->iscache;
 	ip = block->ip;
 	do {
 		errcode = block_fetch_insn(&insn, block, ip, iscache);
@@ -1978,7 +1980,6 @@ static void decode_block(struct ptxed_decoder *decoder,
 			 const struct ptxed_options *options,
 			 struct ptxed_stats *stats)
 {
-	struct pt_image_section_cache *iscache;
 	struct pt_block_decoder *ptdec;
 	uint64_t offset, sync, time;
 
@@ -1987,7 +1988,6 @@ static void decode_block(struct ptxed_decoder *decoder,
 		return;
 	}
 
-	iscache = decoder->iscache;
 	ptdec = decoder->variant.block;
 	offset = 0ull;
 	sync = 0ull;
@@ -2062,7 +2062,7 @@ static void decode_block(struct ptxed_decoder *decoder,
 							    offset, time);
 
 					if (options->check)
-						check_block(&block, iscache,
+						check_block(decoder, &block,
 							    offset);
 				}
 				break;
@@ -2078,7 +2078,7 @@ static void decode_block(struct ptxed_decoder *decoder,
 					    offset, time);
 
 			if (options->check)
-				check_block(&block, iscache, offset);
+				check_block(decoder, &block, offset);
 		}
 
 		/* We're done when we reach the end of the trace stream. */
