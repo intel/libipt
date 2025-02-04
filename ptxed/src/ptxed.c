@@ -932,7 +932,7 @@ static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
 	printf("  %s", buffer);
 }
 
-static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
+static void print_insn(const struct pt_insn *insn,
 		       const struct ptxed_options *options, uint64_t offset,
 		       uint64_t time)
 {
@@ -956,11 +956,11 @@ static void print_insn(const struct pt_insn *insn, xed_state_t *xed,
 		xed_machine_mode_enum_t mode;
 		xed_decoded_inst_t inst;
 		xed_error_enum_t errcode;
+		xed_state_t xed;
 
 		mode = translate_mode(insn->mode);
-
-		xed_state_set_machine_mode(xed, mode);
-		xed_decoded_inst_zero_set_mode(&inst, xed);
+		xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
+		xed_decoded_inst_zero_set_mode(&inst, &xed);
 
 		errcode = xed_decode(&inst, insn->raw, insn->size);
 		switch (errcode) {
@@ -1519,15 +1519,12 @@ static void decode_insn(struct ptxed_decoder *decoder,
 			struct ptxed_stats *stats)
 {
 	struct pt_insn_decoder *ptdec;
-	xed_state_t xed;
 	uint64_t offset, sync, time;
 
 	if (!decoder || !options) {
 		printf("[internal error]\n");
 		return;
 	}
-
-	xed_state_zero(&xed);
 
 	ptdec = decoder->variant.insn;
 	offset = 0ull;
@@ -1597,7 +1594,7 @@ static void decode_insn(struct ptxed_decoder *decoder,
 #endif
 				{
 					if (!options->quiet)
-						print_insn(&insn, &xed, options,
+						print_insn(&insn, options,
 							   offset, time);
 					if (stats)
 						stats->insn += 1;
@@ -1609,7 +1606,7 @@ static void decode_insn(struct ptxed_decoder *decoder,
 			}
 
 			if (!options->quiet)
-				print_insn(&insn, &xed, options, offset, time);
+				print_insn(&insn, options, offset, time);
 
 			if (stats)
 				stats->insn += 1;
