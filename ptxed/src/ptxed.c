@@ -1523,12 +1523,59 @@ static int drain_events_insn(struct ptxed_decoder *decoder, uint64_t *time,
 	return status;
 }
 
+static int decode_one_insn(struct ptxed_decoder *decoder,
+			   const struct ptxed_options *options,
+			   struct ptxed_stats *stats, struct pt_insn *insn,
+			   uint64_t time)
+{
+	struct pt_insn_decoder *ptdec;
+	uint64_t offset;
+	int status;
+
+	if (!decoder || !options || !insn)
+		return -pte_internal;
+
+	ptdec = decoder->variant.insn;
+	offset = 0ull;
+
+	if (options->print_offset || options->check) {
+		status = pt_insn_get_offset(ptdec, &offset);
+		if (status < 0)
+			return status;
+	}
+
+	status = pt_insn_next(ptdec, insn, sizeof(*insn));
+	if (status < 0) {
+		/* Even in case of errors, we may have succeeded in decoding
+		 * the current instruction.
+		 */
+#if (LIBIPT_VERSION >= 0x201)
+		if (insn->iclass == ptic_unknown)
+			return status;
+#else
+		if (insn->iclass == ptic_error)
+			return status;
+#endif
+	}
+
+	if (!options->quiet)
+		print_insn(insn, options, offset, time);
+
+	if (stats)
+		stats->insn += 1;
+
+	if (options->check)
+		check_insn(insn, offset);
+
+	return status;
+}
+
 static void decode_insn(struct ptxed_decoder *decoder,
 			const struct ptxed_options *options,
 			struct ptxed_stats *stats)
 {
 	struct pt_insn_decoder *ptdec;
-	uint64_t offset, sync, time;
+	uint64_t sync, time;
 
 	if (!decoder || !options) {
 		printf("[internal error]\n");
@@ -1536,7 +1583,6 @@ static void decode_insn(struct ptxed_decoder *decoder,
 	}
 
 	ptdec = decoder->variant.insn;
-	offset = 0ull;
 	sync = 0ull;
 	time = 0ull;
 	for (;;) {
@@ -1585,43 +1631,10 @@ static void decode_insn(struct ptxed_decoder *decoder,
 				break;
 			}
 
-			if (options->print_offset || options->check) {
-				status = pt_insn_get_offset(ptdec, &offset);
-				if (status < 0)
-					break;
-			}
-
-			status = pt_insn_next(ptdec, &insn, sizeof(insn));
-			if (status < 0) {
-				/* Even in case of errors, we may have succeeded
-				 * in decoding the current instruction.
-				 */
-#if (LIBIPT_VERSION >= 0x201)
-				if (insn.iclass != ptic_unknown)
-#else
-				if (insn.iclass != ptic_error)
-#endif
-				{
-					if (!options->quiet)
-						print_insn(&insn, options,
-							   offset, time);
-					if (stats)
-						stats->insn += 1;
-
-					if (options->check)
-						check_insn(&insn, offset);
-				}
+			status = decode_one_insn(decoder, options, stats,
+						 &insn, time);
+			if (status < 0)
 				break;
-			}
-
-			if (!options->quiet)
-				print_insn(&insn, options, offset, time);
-
-			if (stats)
-				stats->insn += 1;
-
-			if (options->check)
-				check_insn(&insn, offset);
 		}
 
 		/* We're done when we reach the end of the trace stream. */
