@@ -1482,42 +1482,51 @@ static int ptxed_sb_event(struct ptxed_decoder *decoder,
 
 #endif /* defined(FEATURE_SIDEBAND) */
 
-static int drain_events_insn(struct ptxed_decoder *decoder, uint64_t *time,
-			     int status, const struct ptxed_options *options)
+static int handle_one_event_insn(struct ptxed_decoder *decoder,
+				 const struct ptxed_options *options,
+				 uint64_t *time)
 {
 	struct pt_insn_decoder *ptdec;
-	int errcode;
+	struct pt_event event;
+	uint64_t offset;
+	int status, errcode;
 
-	if (!decoder || !time || !options)
+	if (!decoder || !options || !time)
 		return -pte_internal;
 
 	ptdec = decoder->variant.insn;
-
-	while (status & pts_event_pending) {
-		struct pt_event event;
-		uint64_t offset;
-
-		offset = 0ull;
-		if (options->print_offset) {
-			errcode = pt_insn_get_offset(ptdec, &offset);
-			if (errcode < 0)
-				return errcode;
-		}
-
-		status = pt_insn_event(ptdec, &event, sizeof(event));
-		if (status < 0)
-			return status;
-
-		*time = event.tsc;
-
-		if (!options->quiet && !event.status_update)
-			print_event(&event, options, offset);
-
-#if defined(FEATURE_SIDEBAND)
-		errcode = ptxed_sb_event(decoder, &event, options);
+	offset = 0ull;
+	if (options->print_offset) {
+		errcode = pt_insn_get_offset(ptdec, &offset);
 		if (errcode < 0)
 			return errcode;
+	}
+
+	status = pt_insn_event(ptdec, &event, sizeof(event));
+	if (status < 0)
+		return status;
+
+	*time = event.tsc;
+
+	if (!options->quiet && !event.status_update)
+		print_event(&event, options, offset);
+
+#if defined(FEATURE_SIDEBAND)
+	errcode = ptxed_sb_event(decoder, &event, options);
+	if (errcode < 0)
+		return errcode;
 #endif /* defined(FEATURE_SIDEBAND) */
+
+	return status;
+}
+
+static int drain_events_insn(struct ptxed_decoder *decoder, uint64_t *time,
+			     int status, const struct ptxed_options *options)
+{
+	while (status & pts_event_pending) {
+		status = handle_one_event_insn(decoder, options, time);
+		if (status < 0)
+			break;
 	}
 
 	return status;
