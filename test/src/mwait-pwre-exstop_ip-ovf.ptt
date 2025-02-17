@@ -27,7 +27,7 @@
 
 ; Test overflow during a power event session.
 ;
-; Variant: mwait and exstop are incomplete and hence discarded.
+; Variant: exstop is incomplete causing power events to get reordered.
 ;
 
 org 0x1000
@@ -55,4 +55,6 @@ bits 64
 
 ; @pt .exp(ptxed)
 ;[pwre c1.0 hw]
+;[mwait 7 0]
+;[exstop]
 ;[overflow]

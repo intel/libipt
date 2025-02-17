@@ -2765,6 +2765,50 @@ static int pt_evt_decode_ovf(struct pt_event_decoder *decoder)
 	if (errcode <= 0)
 		return errcode;
 
+	/* Similarly, publish other pending events. */
+	for (;;) {
+		/* Drop events if tracing is enabled; we wouldn't be able to
+		 * place the events correctly.
+		 */
+		if (decoder->enabled)
+			break;
+
+		ev = pt_evq_dequeue(&decoder->evq, evb_fup_bound | evb_fup |
+				    evb_tip | evb_exstop);
+		if (!ev)
+			break;
+
+		switch (ev->type) {
+		case ptev_exstop:
+		case ptev_mwait:
+		case ptev_ptwrite:
+		case ptev_tsx:
+		case ptev_exec_mode:
+		case ptev_iflags:
+		case ptev_interrupt:
+		case ptev_iret:
+		case ptev_smi:
+		case ptev_init:
+		case ptev_vmentry:
+		case ptev_vmexit:
+		case ptev_shutdown:
+		case ptev_uintr:
+		case ptev_uiret:
+		case ptev_trig:
+			ev->ip_suppressed = 1;
+
+			fallthrough;
+		case ptev_pwre:
+		case ptev_rsm:
+		case ptev_sipi:
+			decoder->event = ev;
+			return 0;
+
+		default:
+			continue;
+		}
+	}
+
 	config = pt_evt_config(decoder);
 	if (!config)
 		return -pte_internal;
