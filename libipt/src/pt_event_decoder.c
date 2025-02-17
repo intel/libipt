@@ -1180,9 +1180,9 @@ static int pt_evt_decode_pwre(struct pt_event_decoder *decoder,
 	if (!decoder || !packet)
 		return -pte_internal;
 
-	decoder->event = ev = pt_evq_standalone(&decoder->evq);
+	ev = pt_evq_enqueue(&decoder->evq, evb_pwrx);
 	if (!ev)
-		return -pte_internal;
+		return -pte_nomem;
 
 	ev->type = ptev_pwre;
 	ev->variant.pwre.state = packet->state;
@@ -1195,7 +1195,7 @@ static int pt_evt_decode_pwre(struct pt_event_decoder *decoder,
 	if (errcode < 0)
 		return errcode;
 
-	return pt_evt_fetch_packet(decoder);
+	return 1;
 }
 
 static int pt_evt_decode_pwrx(struct pt_event_decoder *decoder,
@@ -1206,6 +1206,20 @@ static int pt_evt_decode_pwrx(struct pt_event_decoder *decoder,
 
 	if (!decoder || !packet)
 		return -pte_internal;
+
+	ev = pt_evq_dequeue(&decoder->evq, evb_pwrx);
+	if (ev) {
+		switch (ev->type) {
+		case ptev_pwre:
+			decoder->event = ev;
+
+			/* We preserve the PWRE time. */
+			return 0;
+
+		default:
+			return -pte_internal;
+		}
+	}
 
 	decoder->event = ev = pt_evq_standalone(&decoder->evq);
 	if (!ev)
@@ -2774,7 +2788,7 @@ static int pt_evt_decode_ovf(struct pt_event_decoder *decoder)
 			break;
 
 		ev = pt_evq_dequeue(&decoder->evq, evb_fup_bound | evb_fup |
-				    evb_tip | evb_exstop);
+				    evb_tip | evb_exstop | evb_pwrx);
 		if (!ev)
 			break;
 

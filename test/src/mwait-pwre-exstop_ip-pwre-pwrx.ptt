@@ -1,4 +1,4 @@
-; Copyright (C) 2015-2025 Intel Corporation
+; Copyright (C) 2025 Intel Corporation
 ; SPDX-License-Identifier: BSD-3-Clause
 ;
 ; Redistribution and use in source and binary forms, with or without
@@ -25,9 +25,11 @@
 ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 
-; Test overflow during a power event session.
+; Test a power event session.
 ;
-; Variant: no power events are discarded
+; Variant: branch tracing enabled
+;
+;          Multiple pwre events indicate that we reached different C-states.
 ;
 ; opt:ptxed --event:ip
 ;
@@ -36,27 +38,48 @@ org 0x1000
 bits 64
 
 ; @pt p0: psb()
-; @pt p1: psbend()
+; @pt p1: mode.exec(64bit)
+; @pt p2: fup(3: %l0)
+; @pt p3: psbend()
 l0: nop
 
-; @pt p2: mwait(5, 0)
-; @pt p3: pwre(c1.0, hw)
-; @pt p4: exstop(ip)
-; @pt p5: fup(3: %l0)
-; @pt p6: ovf()
+; @pt p4: mwait(0x50, 1)
+; @pt p5: pwre(c1.0)
+; @pt p6: exstop(ip)
+; @pt p7: fup(3: %l1)
+l1: mwait
+
+; @pt p8: pwre(c6.0)
+; @pt p9: pwrx(int: c6, c6)
+l2: nop
+
+; @pt p10: fup(1: %l3)
+; @pt p11: tip.pgd(0: %l3)
+l3: hlt
 
 
 ; @pt .exp(ptdump)
 ;%0p0  psb
-;%0p1  psbend
-;%0p2  mwait      00000005, 00000000
-;%0p3  pwre       c1.0, hw
-;%0p4  exstop     ip
-;%0p5  fup        3: %?l0
-;%0p6  ovf
+;%0p1  mode.exec  cs.l
+;%0p2  fup        3: %?l0
+;%0p3  psbend
+;%0p4  mwait      00000050, 00000001
+;%0p5  pwre       c1.0
+;%0p6  exstop     ip
+;%0p7  fup        3: %?l1
+;%0p8  pwre       c6.0
+;%0p9  pwrx       int: c6, c6
+;%0p10 fup        1: %?l3.2
+;%0p11 tip.pgd    0: %?l3.0
+
 
 ; @pt .exp(ptxed)
-;[mwait 5 0, ip: %0l0]
-;[exstop, ip: %0l0]
-;[pwre c1.0 hw]
-;[overflow]
+;%0l0
+;[mwait 50 1, ip: %0l1]
+;[exstop, ip: %0l1]
+;[pwre c1.0]
+;[pwre c6.0]
+;[pwrx int: c6 (c6)]
+;%0l1
+;%0l2
+;[disabled, at: %0l3]

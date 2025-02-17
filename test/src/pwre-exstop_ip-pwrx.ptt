@@ -64,9 +64,9 @@ l4: hlt
 ;%0p9  tip.pgd    0: %?l4.0
 
 ; @pt .exp(ptxed)
-;[pwre c1.0 hw]
 ;%0l0
 ;[exstop]
+;[pwre c1.0 hw]
 ;[pwrx hw: c1 (c0)]
 ;%0l1
 ;%0l2

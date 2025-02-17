@@ -73,9 +73,9 @@ l4: hlt
 ; @pt .exp(ptxed)
 ;%0l0
 ;[disabled]
-;[pwre c1.0]
 ;[mwait 7 1]
 ;[exstop]
+;[pwre c1.0]
 ;[pwrx int: c1 (c0)]
 ;[enabled]
 ;%0l2

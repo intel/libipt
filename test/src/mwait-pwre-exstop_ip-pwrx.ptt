@@ -27,10 +27,7 @@
 
 ; Test a power event session.
 ;
-; Variant: no branch tracing
-;
-;          Whereas mwait and exstop bind to fup, pwre is stand-alone, so
-;          the mwait event seems to overtake the pwre event.
+; Variant: branch tracing enabled
 ;
 ; opt:ptxed --event:ip
 ;
@@ -40,29 +37,42 @@ bits 64
 
 ; @pt p0: psb()
 ; @pt p1: mode.exec(64bit)
-; @pt p2: psbend()
-
-; @pt p3: mwait(7, 1)
-; @pt p4: pwre(c1.0)
-; @pt p5: exstop(ip)
-; @pt p6: fup(3: %l0)
+; @pt p2: fup(3: %l0)
+; @pt p3: psbend()
 l0: nop
 
-; @pt p7: pwrx(int: c1, c0)
+; @pt p4: mwait(7, 1)
+; @pt p5: pwre(c1.0)
+; @pt p6: exstop(ip)
+; @pt p7: fup(3: %l1)
+l1: mwait
 
+; @pt p8: pwrx(int: c1, c0)
+l2: nop
+
+; @pt p9: fup(1: %l3)
+; @pt p10: tip.pgd(0: %l3)
+l3: hlt
 
 ; @pt .exp(ptdump)
 ;%0p0  psb
 ;%0p1  mode.exec  cs.l
-;%0p2  psbend
-;%0p3  mwait      00000007, 00000001
-;%0p4  pwre       c1.0
-;%0p5  exstop     ip
-;%0p6  fup        3: %?l0
-;%0p7  pwrx       int: c1, c0
+;%0p2  fup        3: %?l0
+;%0p3  psbend
+;%0p4  mwait      00000007, 00000001
+;%0p5  pwre       c1.0
+;%0p6  exstop     ip
+;%0p7  fup        3: %?l1
+;%0p8  pwrx       int: c1, c0
+;%0p9  fup        1: %?l3.2
+;%0p10 tip.pgd    0: %?l3.0
 
 ; @pt .exp(ptxed)
+;%0l0
+;[mwait 7 1, ip: %0l1]
+;[exstop, ip: %0l1]
 ;[pwre c1.0]
-;[mwait 7 1, ip: %0l0]
-;[exstop, ip: %0l0]
 ;[pwrx int: c1 (c0)]
+;%0l1
+;%0l2
+;[disabled, at: %0l3]
