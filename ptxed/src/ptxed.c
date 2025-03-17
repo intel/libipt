@@ -1352,6 +1352,93 @@ static void diagnose(struct ptxed_decoder *decoder, uint64_t ip,
 		       ip, errtype, pt_errstr(pt_errcode(errcode)));
 }
 
+static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
+		       uint64_t ip)
+{
+	xed_uint_t length, disp_width;
+
+	if (!pip || !inst)
+		return -pte_internal;
+
+	length = xed_decoded_inst_get_length(inst);
+	if (!length) {
+		printf("[xed error: failed to determine instruction length]\n");
+		return -pte_bad_insn;
+	}
+
+	ip += length;
+
+	/* If it got a branch displacement it must be a branch.
+	 *
+	 * This includes conditional branches for which we don't know whether
+	 * they were taken.  The next IP won't be used in this case as a
+	 * conditional branch ends a block.  The next block will start with the
+	 * correct IP.
+	 */
+	disp_width = xed_decoded_inst_get_branch_displacement_width(inst);
+	if (disp_width)
+		ip += (uint64_t) (int64_t)
+			xed_decoded_inst_get_branch_displacement(inst);
+
+	*pip = ip;
+	return 0;
+}
+
+static void diagnose_insn(struct ptxed_decoder *decoder,
+			  const char *errtype, int errcode,
+			  const struct pt_insn *insn)
+{
+	xed_decoded_inst_t inst;
+	xed_error_enum_t xederr;
+	uint64_t ip;
+
+	if (!decoder || !insn) {
+		printf("ptxed: internal error");
+		return;
+	}
+
+	/* Determine the IP at which to report the error.
+	 *
+	 * When an error is reported by pt_insn_next(), the error may refer to
+	 * that instruction, e.g. it cannot be decoded, or it may refer to the
+	 * next instruction, e.g. cannot determine the next IP.
+	 *
+	 * As a general rule, if the instruction can be decoded and we can
+	 * determine the next IP, we attribute the error to the next IP.
+	 * Otherwise, we attribute it to the instruction's IP.
+	 *
+	 * There are exceptions, though, to make the IP we report more useful:
+	 *
+	 *   -pte_bad_query applies to that instruction.
+	 */
+	ip = insn->ip;
+	switch (errcode) {
+	case -pte_bad_query:
+		break;
+
+	default:
+#if (LIBIPT_VERSION >= 0x201)
+		if (insn->iclass == ptic_unknown)
+			break;
+#else
+		if (insn.iclass == ptic_error)
+			break;
+#endif
+		xed_decoded_inst_zero(&inst);
+		xed_decoded_inst_set_mode(&inst,
+					  translate_mode(insn->mode),
+					  XED_ADDRESS_WIDTH_INVALID);
+
+		xederr = xed_decode(&inst, insn->raw, insn->size);
+		if (xederr == XED_ERROR_NONE)
+			(void) xed_next_ip(&ip, &inst, ip);
+
+		break;
+	}
+
+	diagnose(decoder, ip, errtype, errcode);
+}
+
 #if defined(FEATURE_SIDEBAND)
 
 static int ptxed_sb_event(struct ptxed_decoder *decoder,
@@ -1450,8 +1537,8 @@ static void decode_insn(struct ptxed_decoder *decoder,
 		struct pt_insn insn;
 		int status;
 
-		/* Initialize the IP - we use it for error reporting. */
-		insn.ip = 0ull;
+		/* Initialize @insn.  We use it for error reporting. */
+		memset(&insn, 0, sizeof(insn));
 
 		status = pt_insn_sync_forward(ptdec);
 		if (status < 0) {
@@ -1541,40 +1628,8 @@ static void decode_insn(struct ptxed_decoder *decoder,
 		if (status == -pte_eos)
 			break;
 
-		diagnose(decoder, insn.ip, "error",  status);
+		diagnose_insn(decoder, "error",  status, &insn);
 	}
-}
-
-static int xed_next_ip(uint64_t *pip, const xed_decoded_inst_t *inst,
-		       uint64_t ip)
-{
-	xed_uint_t length, disp_width;
-
-	if (!pip || !inst)
-		return -pte_internal;
-
-	length = xed_decoded_inst_get_length(inst);
-	if (!length) {
-		printf("[xed error: failed to determine instruction length]\n");
-		return -pte_bad_insn;
-	}
-
-	ip += length;
-
-	/* If it got a branch displacement it must be a branch.
-	 *
-	 * This includes conditional branches for which we don't know whether
-	 * they were taken.  The next IP won't be used in this case as a
-	 * conditional branch ends a block.  The next block will start with the
-	 * correct IP.
-	 */
-	disp_width = xed_decoded_inst_get_branch_displacement_width(inst);
-	if (disp_width)
-		ip += (uint64_t) (int64_t)
-			xed_decoded_inst_get_branch_displacement(inst);
-
-	*pip = ip;
-	return 0;
 }
 
 static int block_fetch_insn(struct pt_insn *insn, const struct pt_block *block,
@@ -1617,6 +1672,9 @@ static void diagnose_block(struct ptxed_decoder *decoder,
 			   const char *errtype, int errcode,
 			   const struct pt_block *block)
 {
+	struct pt_insn insn;
+	xed_decoded_inst_t inst;
+	xed_error_enum_t xederr;
 	uint64_t ip;
 	int err;
 
@@ -1627,11 +1685,16 @@ static void diagnose_block(struct ptxed_decoder *decoder,
 
 	/* Determine the IP at which to report the error.
 	 *
-	 * Depending on the type of error, the IP varies between that of the
-	 * last instruction in @block or the next instruction outside of @block.
+	 * When an error is reported by pt_blk_next(), the error typically
+	 * refers to the first instruction after the block.
 	 *
-	 * When the block is empty, we use the IP of the block itself,
-	 * i.e. where the first instruction should have been.
+	 * As a general rule, if the last instruction in the block can be
+	 * decoded and we can determine the next IP, we attribute the error to
+	 * that IP.  Otherwise, we attribute it to the instruction's IP.
+	 *
+	 * There are exceptions, though, to make the IP we report more useful:
+	 *
+	 *   -pte_bad_query applies to the last instruction.
 	 */
 	if (!block->ninsn)
 		ip = block->ip;
@@ -1639,21 +1702,10 @@ static void diagnose_block(struct ptxed_decoder *decoder,
 		ip = block->end_ip;
 
 		switch (errcode) {
-		case -pte_nomap:
-		case -pte_bad_insn: {
-			struct pt_insn insn;
-			xed_decoded_inst_t inst;
-			xed_error_enum_t xederr;
+		case -pte_bad_query:
+			break;
 
-			/* Decode failed when trying to fetch or decode the next
-			 * instruction.  Since indirect or conditional branches
-			 * end a block and don't cause an additional fetch, we
-			 * should be able to reach that IP from the last
-			 * instruction in @block.
-			 *
-			 * We ignore errors and fall back to the IP of the last
-			 * instruction.
-			 */
+		default:
 			err = block_fetch_insn(&insn, block, ip,
 					       decoder->iscache);
 			if (err < 0)
@@ -1665,14 +1717,9 @@ static void diagnose_block(struct ptxed_decoder *decoder,
 						  XED_ADDRESS_WIDTH_INVALID);
 
 			xederr = xed_decode(&inst, insn.raw, insn.size);
-			if (xederr != XED_ERROR_NONE)
-				break;
+			if (xederr == XED_ERROR_NONE)
+				(void) xed_next_ip(&ip, &inst, insn.ip);
 
-			(void) xed_next_ip(&ip, &inst, insn.ip);
-		}
-			break;
-
-		default:
 			break;
 		}
 	}
