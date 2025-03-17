@@ -3295,8 +3295,13 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 		/* Synchronous disable events are normally indicated on the
 		 * event flow.
 		 */
-		if (!decoder->process_insn)
+		if (!decoder->process_insn) {
+			/* Except for status updates. */
+			if (ev->status_update)
+				return pt_blk_status(decoder,
+						     pts_event_pending);
 			break;
+		}
 
 		/* A sync disable may bind to a CR3 changing instruction. */
 		if (ev->ip_suppressed &&
