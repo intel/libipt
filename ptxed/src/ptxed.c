@@ -1555,6 +1555,13 @@ static int decode_one_insn(struct ptxed_decoder *decoder,
 
 	status = pt_insn_next(ptdec, insn, sizeof(*insn));
 	if (status < 0) {
+		/* We encountered an event that hasn't been indicated upfront.
+		 * The block decoder can handle this by returning an empty
+		 * block.  The instruction flow decoder fails with ...
+		 */
+		if (status == -pte_event_ignored)
+			return pts_event_pending;
+
 		/* Even in case of errors, we may have succeeded in decoding
 		 * the current instruction.
 		 */

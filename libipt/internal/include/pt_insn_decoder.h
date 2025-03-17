@@ -30,116 +30,28 @@
 #ifndef PT_INSN_DECODER_H
 #define PT_INSN_DECODER_H
 
-#include "pt_query_decoder.h"
-#include "pt_image.h"
-#include "pt_retstack.h"
-#include "pt_ild.h"
-#include "pt_msec_cache.h"
-
-#include <inttypes.h>
+#include "pt_block_decoder.h"
 
 
 struct pt_insn_decoder {
-	/* The Intel(R) Processor Trace query decoder. */
-	struct pt_query_decoder query;
+	/* The Intel(R) Processor Trace block decoder. */
+	struct pt_block_decoder blkdec;
 
 	/* The configuration flags.
 	 *
-	 * Those are our flags set by the user.  In @query.config.flags, we set
-	 * the flags we need for the query decoder.
+	 * Those are our flags set by the user.  In @blkdec.config.flags, we
+	 * set the flags we need for the block decoder.
 	 */
 	struct pt_conf_flags flags;
 
-	/* The default image. */
-	struct pt_image default_image;
+	/* The current block. */
+	struct pt_block block;
 
-	/* The image. */
-	struct pt_image *image;
-
-	/* The current cached section. */
-	struct pt_msec_cache scache;
-
-	/* The current address space. */
-	struct pt_asid asid;
-
-	/* The current Intel(R) Processor Trace event. */
-	struct pt_event event;
-
-	/* The call/return stack for ret compression. */
-	struct pt_retstack retstack;
-
-	/* The current instruction.
+	/* The status of the last successful block decoder query.
 	 *
-	 * This is only valid if @process_insn is set.
-	 */
-	struct pt_insn insn;
-	struct pt_insn_ext iext;
-
-	/* The current IP.
-	 *
-	 * If tracing is disabled, this is the IP at which we assume tracing to
-	 * be resumed.
-	 */
-	uint64_t ip;
-
-	/* The instruction count past the last TRIG anchor.
-	 *
-	 * This is only valid if @has_icnt is set.
-	 */
-	uint32_t icnt;
-
-	/* The current execution mode. */
-	enum pt_exec_mode mode;
-
-	/* The status of the last successful decoder query.
-	 *
-	 * Errors are reported directly; the status is always a non-negative
-	 * pt_status_flag bit-vector.
+	 * We defer status returns until the current block has become empty.
 	 */
 	int status;
-
-	/* A collection of flags defining how to proceed flow reconstruction:
-	 *
-	 * - tracing is enabled.
-	 */
-	uint32_t enabled:1;
-
-	/* - process @event. */
-	uint32_t process_event:1;
-
-	/* - instructions are executed speculatively. */
-	uint32_t speculative:1;
-
-	/* - whether @icnt is valid. */
-	uint32_t has_icnt:1;
-
-	/* - process @insn/@iext.
-	 *
-	 *   We have started processing events binding to @insn/@iext.  We have
-	 *   not yet proceeded past it.
-	 *
-	 *   We will do so in pt_insn_event() after processing all events that
-	 *   bind to it.
-	 */
-	uint32_t process_insn:1;
-
-	/* - a paging event has already been bound to @insn/@iext. */
-	uint32_t bound_paging:1;
-
-	/* - a vmcs event has already been bound to @insn/@iext. */
-	uint32_t bound_vmcs:1;
-
-	/* - a ptwrite event has already been bound to @insn/@iext. */
-	uint32_t bound_ptwrite:1;
-
-	/* - an iret event has already been bound to @insn/@iext. */
-	uint32_t bound_iret:1;
-
-	/* - a vmentry event has already been bound to @insn/@iext. */
-	uint32_t bound_vmentry:1;
-
-	/* - an uiret event has already been bound to @insn/@iext. */
-	uint32_t bound_uiret:1;
 };
 
 
@@ -154,14 +66,5 @@ extern int pt_insn_decoder_init(struct pt_insn_decoder *decoder,
 
 /* Finalize an instruction flow decoder. */
 extern void pt_insn_decoder_fini(struct pt_insn_decoder *decoder);
-
-static inline const struct pt_config *
-pt_insn_config(const struct pt_insn_decoder *decoder)
-{
-	if (!decoder)
-		return NULL;
-
-	return pt_qry_config(&decoder->query);
-}
 
 #endif /* PT_INSN_DECODER_H */

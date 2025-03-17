@@ -2777,6 +2777,9 @@ extern pt_export int pt_insn_asid(const struct pt_insn_decoder *decoder,
  * to pt_insn_next() will continue to return pts_eos until trace is required
  * to determine the next instruction.
  *
+ * Returns -pte_event_ignored to indicate that the user needs to drain events
+ * using pt_insn_event() before continuing.
+ *
  * Returns -pte_bad_context if the decoder encountered an unexpected packet.
  * Returns -pte_bad_opc if the decoder encountered unknown packets.
  * Returns -pte_bad_packet if the decoder encountered unknown packet payloads.
