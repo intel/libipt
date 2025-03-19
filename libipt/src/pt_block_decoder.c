@@ -4415,3 +4415,331 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 	/* Indicate further events. */
 	return pt_blk_proceed_trailing_event(decoder, NULL);
 }
+
+/* Resync at the previous synchronization point.
+ *
+ * This is called if we detect that we're resyncing in the middle of PSB+
+ * events.  Since we cannot tell where exactly in the PSB+ we are, sync
+ * backwards to the beginning and start over.
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_resync_at_sync(struct pt_block_decoder *decoder)
+{
+	uint64_t offset;
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_blk_get_sync_offset(decoder, &offset);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_blk_sync_set(decoder, offset);
+}
+
+/* Resync at the current event.
+ *
+ * This is called if we can resync at the current event and consume the event
+ * in the process.
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_resync_at_event(struct pt_block_decoder *decoder)
+{
+	int errcode;
+
+	if (!decoder)
+		return -pte_internal;
+
+	errcode = pt_blk_fetch_event(decoder);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_blk_proceed_trailing_event(decoder, NULL);
+}
+
+int pt_blk_resync(struct pt_block_decoder *decoder)
+{
+	struct pt_event *ev;
+	int errcode;
+
+	if (!decoder)
+		return -pte_invalid;
+
+	errcode = pt_blk_clear_postponed_insn(decoder);
+	if (errcode < 0)
+		return errcode;
+
+	ev = &decoder->event;
+	for (;;) {
+		errcode = decoder->status;
+		if (errcode < 0)
+			return errcode;
+
+		if (ev->status_update)
+			return pt_blk_resync_at_sync(decoder);
+
+		switch (ev->type) {
+		case ptev_enabled:
+			decoder->enabled = 0;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_disabled:
+			decoder->enabled = 1;
+			decoder->ip = 0;
+
+			errcode = pt_blk_process_disabled(decoder, ev);
+			if (errcode < 0)
+				return errcode;
+
+			return pt_blk_resync_at_event(decoder);
+
+		case ptev_async_disabled: {
+			const struct pt_config *config;
+			int status;
+
+			decoder->ip = ev->variant.async_disabled.at;
+
+			config = pt_blk_config(decoder);
+			if (!config)
+				return -pte_internal;
+
+			if (config->errata.skd022) {
+				status = pt_blk_handle_erratum_skd022(decoder,
+								      ev);
+				if (status != 0)
+					break;
+			}
+
+			return pt_blk_status(decoder, pts_event_pending);
+		}
+
+		case ptev_async_branch:
+			decoder->ip = ev->variant.async_branch.from;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_async_paging:
+			if (!ev->ip_suppressed) {
+				decoder->ip = ev->variant.async_paging.ip;
+
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+			}
+
+			fallthrough;
+		case ptev_paging:
+			errcode = pt_blk_process_paging(decoder, ev);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ptev_overflow:
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_exec_mode:
+			if (ev->ip_suppressed)
+				decoder->enabled = 0;
+			else {
+				decoder->enabled = 1;
+				decoder->ip = ev->variant.exec_mode.ip;
+			}
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_tsx:
+			if (ev->ip_suppressed)
+				decoder->enabled = 0;
+			else {
+				decoder->enabled = 1;
+				decoder->ip = ev->variant.tsx.ip;
+			}
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_stop:
+			break;
+
+		case ptev_async_vmcs:
+			if (!ev->ip_suppressed) {
+				decoder->ip = ev->variant.async_vmcs.ip;
+
+				return pt_blk_status(decoder,
+						     pts_event_pending);
+			}
+
+			fallthrough;
+		case ptev_vmcs:
+			errcode = pt_blk_process_vmcs(decoder, ev);
+			if (errcode < 0)
+				return errcode;
+
+			break;
+
+		case ptev_exstop:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.exstop.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_mwait:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.mwait.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_pwre:
+		case ptev_pwrx:
+			break;
+
+		case ptev_ptwrite:
+			/* We cannot ignore the event, but we don't have an IP;
+			 * the event binds to a specific type of instruction.
+			 *
+			 * Indicate that the caller should use pt_blk_event(),
+			 * process the event, and call us again.
+			 */
+			if (ev->ip_suppressed)
+				return -pte_event_ignored;
+
+			decoder->ip = ev->variant.ptwrite.ip;
+
+			/* We report the event after the instruction. */
+			return pt_blk_status(decoder, 0);
+
+		case ptev_tick:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.tick.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_cbr:
+		case ptev_mnt:
+			break;
+
+		case ptev_tip:
+			decoder->ip = ev->variant.tip.ip;
+
+			return pt_blk_resync_at_event(decoder);
+
+		case ptev_tnt:
+			break;
+
+		case ptev_iflags:
+			if (ev->ip_suppressed)
+				decoder->enabled = 0;
+			else {
+				decoder->enabled = 1;
+				decoder->ip = ev->variant.iflags.ip;
+			}
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_interrupt:
+			if (ev->ip_suppressed)
+				decoder->enabled = 0;
+			else {
+				decoder->enabled = 1;
+				decoder->ip = ev->variant.interrupt.ip;
+			}
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_iret:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.iret.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_smi:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.smi.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_rsm:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.rsm.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_sipi:
+			break;
+
+		case ptev_init:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.init.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_vmentry:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.vmentry.ip;
+
+			/* We report the event after the instruction. */
+			return pt_blk_status(decoder, 0);
+
+		case ptev_vmexit:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.vmexit.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_shutdown:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.shutdown.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_uintr:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.uintr.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_uiret:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.uiret.ip;
+
+			/* We report the event after the instruction. */
+			return pt_blk_status(decoder, 0);
+
+		case ptev_trig:
+			break;
+		}
+
+		errcode = pt_blk_fetch_event(decoder);
+		if (errcode < 0)
+			return errcode;
+	}
+}

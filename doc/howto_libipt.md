@@ -237,6 +237,57 @@ Intel PT shall be generated (for encoders).  This allows implementing
 processor-specific behavior such as erratum workarounds.
 
 
+### Resync
+
+In case of errors, re-synchronizing at the next PSB is the safest option
+and should be the default.  This may lose a fair amount of trace, though,
+as PSB are infrequent.  To avoid that, one may attempt to synchronize at a
+subsequent IP packet using:
+
+  * `pt_<lyr>_resync()`     Synchronize at the next IP packet while keeping
+                            track of the execution state.
+
+
+It only skips packets that do not provide an IP, such as TNT.  Decoders
+still keep track of the execution state via MODE, PIP, and VMCS packets.
+Since TNT are skipped, deferred TIPs may not get placed correctly, and may
+lead to subsequent errors when synchronizing at the TIP IP assuming the
+TIP has not been deferred.
+
+An example of such an extended decode loop is given below:
+
+~~~{.c}
+    for (;;) {
+        int errcode;
+
+        errcode = <use decoder>(decoder);
+        if (errcode >= 0)
+            continue;
+
+        if (errcode == -pte_eos)
+            return;
+
+        <report error>(errcode);
+
+        errcode = pt_<lyr>_resync(decoder);
+        if (errcode >= 0)
+            continue;
+
+        if (errcode == -pte_eos)
+            return;
+
+        do {
+            errcode = pt_<lyr>_sync_forward(decoder);
+
+            if (errcode == -pte_eos)
+                return;
+        } while (errcode < 0);
+    }
+~~~
+
+This option is only supported for the block and instruction flow decoders.
+
+
 ## The Packet Layer
 
 This layer deals with Intel PT packet encoding and decoding.  It can further be

@@ -2652,6 +2652,30 @@ extern pt_export int pt_insn_sync_backward(struct pt_insn_decoder *decoder);
 extern pt_export int pt_insn_sync_set(struct pt_insn_decoder *decoder,
 				      uint64_t offset);
 
+#if (LIBIPT_VERSION >= 0x202)
+/** Re-synchronize an Intel PT instruction flow decoder.
+ *
+ * Scan ahead for the next IP providing packet.  Apply state changing packets
+ * along the way, including timing packets, but ignore everything else.
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative
+ * error code otherwise.
+ *
+ * Returns pts_ip_suppressed if re-synchronization succeeded with tracing
+ * disabled.
+ *
+ * Returns -pte_event_ignored if an event cannot safely be skipped
+ * (e.g. ptwrite).  Use pt_insn_event() to read the event, then continue with
+ * pt_insn_resync() until re-synchronization completes or fails with an error.
+ *
+ * Returns -pte_bad_opc if an unknown packet is encountered.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if no further synchronization point is found.
+ * Returns -pte_invalid if \@decoder is NULL.
+ */
+extern pt_export int pt_insn_resync(struct pt_insn_decoder *decoder);
+#endif
+
 /** Get the current decoder position.
  *
  * Fills the current \@decoder position into \@offset.
@@ -2935,6 +2959,30 @@ extern pt_export int pt_blk_sync_backward(struct pt_block_decoder *decoder);
  */
 extern pt_export int pt_blk_sync_set(struct pt_block_decoder *decoder,
 				     uint64_t offset);
+
+#if (LIBIPT_VERSION >= 0x202)
+/** Re-synchronize an Intel PT block decoder.
+ *
+ * Scan ahead for the next IP providing packet.  Apply state changing packets
+ * along the way, including timing packets, but ignore everything else.
+ *
+ * Returns a non-negative pt_status_flag bit-vector on success, a negative
+ * error code otherwise.
+ *
+ * Returns pts_ip_suppressed if re-synchronization succeeded with tracing
+ * disabled.
+ *
+ * Returns -pte_event_ignored if an event cannot safely be skipped
+ * (e.g. ptwrite).  Use pt_blk_event() to read the event, then continue with
+ * pt_blk_resync() until re-synchronization completes or fails with an error.
+ *
+ * Returns -pte_bad_opc if an unknown packet is encountered.
+ * Returns -pte_bad_packet if an unknown packet payload is encountered.
+ * Returns -pte_eos if no further synchronization point is found.
+ * Returns -pte_invalid if \@decoder is NULL.
+ */
+extern pt_export int pt_blk_resync(struct pt_block_decoder *decoder);
+#endif
 
 /** Get the current decoder position.
  *

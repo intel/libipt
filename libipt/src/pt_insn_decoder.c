@@ -177,6 +177,24 @@ int pt_insn_sync_set(struct pt_insn_decoder *decoder, uint64_t offset)
 	return status;
 }
 
+int pt_insn_resync(struct pt_insn_decoder *decoder)
+{
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	pt_insn_reset(decoder);
+
+	status = pt_blk_resync(&decoder->blkdec);
+	if (status < 0)
+		return status;
+
+	decoder->status = status;
+
+	return status;
+}
+
 int pt_insn_get_offset(const struct pt_insn_decoder *decoder, uint64_t *offset)
 {
 	if (!decoder)

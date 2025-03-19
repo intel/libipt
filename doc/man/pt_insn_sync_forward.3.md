@@ -34,6 +34,8 @@
 pt_insn_sync_forward, pt_insn_sync_backward, pt_insn_sync_set - synchronize an
 Intel(R) Processor Trace instruction flow decoder
 
+pt_insn_resync - resynchronize at the next IP
+
 
 # SYNOPSIS
 
@@ -43,15 +45,18 @@ Intel(R) Processor Trace instruction flow decoder
 | **int pt_insn_sync_backward(struct pt_insn_decoder \**decoder*);**
 | **int pt_insn_sync_set(struct pt_insn_decoder \**decoder*,**
 |                      **uint64_t *offset*);**
+|
+| **int pt_insn_resync(struct pt_insn_decoder \**decoder*);**
 
 Link with *-lipt*.
 
 
 # DESCRIPTION
 
-These functions synchronize an Intel Processor Trace (Intel PT) instruction flow
-decoder pointed to by *decoder* onto the trace stream in *decoder*'s trace
-buffer.
+**pt_insn_sync_forward**(), **pt_insn_sync_backward**() and
+**pt_insn_sync_set**() synchronize an Intel Processor Trace (Intel PT)
+instruction flow decoder pointed to by *decoder* onto the trace stream in
+*decoder*'s trace buffer.
 
 They search for a Packet Stream Boundary (PSB) packet in the trace stream and,
 if successful, set *decoder*'s current position and synchronization position to
@@ -71,6 +76,9 @@ the end of the trace.
 **pt_insn_sync_set**() searches at *offset* bytes from the beginning of its
 trace buffer.
 
+**pt_insn_resync**() resynchronizes *decoder* at the next IP packet,
+skipping packets that do not provide an IP, such as TNT.  This may lead to
+subsequent errors when synchronizing at a deferred TIP.
 
 # RETURN VALUE
 
@@ -139,7 +147,11 @@ int foo(struct pt_insn_decoder *decoder) {
 			return status;
 
 		do {
-			status = decode(decoder, status);
+			do {
+				status = decode(decoder, status);
+			} while (status >= 0);
+
+			status = pt_insn_resync(decoder);
 		} while (status >= 0);
 	}
 }

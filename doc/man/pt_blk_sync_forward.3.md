@@ -34,6 +34,8 @@
 pt_blk_sync_forward, pt_blk_sync_backward, pt_blk_sync_set - synchronize an
 Intel(R) Processor Trace block decoder
 
+pt_blk_resync - resynchronize at the next IP
+
 
 # SYNOPSIS
 
@@ -43,14 +45,18 @@ Intel(R) Processor Trace block decoder
 | **int pt_blk_sync_backward(struct pt_block_decoder \**decoder*);**
 | **int pt_blk_sync_set(struct pt_block_decoder \**decoder*,**
 |                     **uint64_t *offset*);**
+|
+| **int pt_blk_resync(struct pt_block_decoder \**decoder*);**
 
 Link with *-lipt*.
 
 
 # DESCRIPTION
 
-These functions synchronize an Intel Processor Trace (Intel PT) block decoder
-pointed to by *decoder* onto the trace stream in *decoder*'s trace buffer.
+**pt_blk_sync_forward**(), **pt_blk_sync_backward**() and
+**pt_blk_sync_set**() synchronize an Intel Processor Trace (Intel PT)
+block decoder pointed to by *decoder* onto the trace stream in *decoder*'s
+trace buffer.
 
 They search for a Packet Stream Boundary (PSB) packet in the trace stream and,
 if successful, set *decoder*'s current position and synchronization position to
@@ -69,6 +75,10 @@ the end of the trace.
 
 **pt_blk_sync_set**() searches at *offset* bytes from the beginning of its
 trace buffer.
+
+**pt_blk_resync**() resynchronizes *decoder* at the next IP packet,
+skipping packets that do not provide an IP, such as TNT.  This may lead to
+subsequent errors when synchronizing at a deferred TIP.
 
 
 # RETURN VALUE
@@ -138,7 +148,11 @@ int foo(struct pt_block_decoder *decoder) {
             return errcode;
 
         do {
-            errcode = decode(decoder);
+            do {
+                errcode = decode(decoder);
+            } while (errcode >= 0);
+
+            errcode = pt_blk_resync(decoder);
         } while (errcode >= 0);
     }
 }

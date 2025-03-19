@@ -283,5 +283,5 @@ pte_bad_query
 
 **pt_blk_alloc_decoder**(3), **pt_blk_free_decoder**(3),
 **pt_blk_sync_forward**(3), **pt_blk_sync_backward**(3),
-**pt_blk_sync_set**(3), **pt_blk_time**(3), **pt_blk_core_bus_ratio**(3),
-**pt_blk_event**(3)
+**pt_blk_sync_set**(3), **pt_blk_resync**(3), **pt_blk_time**(3),
+**pt_blk_core_bus_ratio**(3), **pt_blk_event**(3)
