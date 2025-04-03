@@ -884,48 +884,6 @@ static int pt_evt_header_pip(struct pt_event_decoder *decoder,
 	return 0;
 }
 
-static int pt_evt_decode_pip(struct pt_event_decoder *decoder,
-			     const struct pt_packet_pip *packet)
-{
-	struct pt_event *ev;
-	int errcode;
-
-	if (!decoder || !packet)
-		return -pte_internal;
-
-	/* PIP is standalone or binds to the same TIP as an unbound FUP.
-	 *
-	 * That unbound FUP will queue an async branch event at TIP.  Let's
-	 * search for that.
-	 */
-	ev = pt_evq_find(&decoder->evq, evb_tip, ptev_async_branch);
-	if (ev) {
-		ev = pt_evq_enqueue(&decoder->evq, evb_tip);
-		if (!ev)
-			return -pte_nomem;
-
-		ev->type = ptev_async_paging;
-		ev->variant.async_paging.cr3 = packet->cr3;
-		ev->variant.async_paging.non_root = packet->nr;
-
-		return 1;
-	}
-
-	decoder->event = ev = pt_evq_standalone(&decoder->evq);
-	if (!ev)
-		return -pte_internal;
-
-	ev->type = ptev_paging;
-	ev->variant.paging.cr3 = packet->cr3;
-	ev->variant.paging.non_root = packet->nr;
-
-	errcode = pt_evt_event_time(ev, &decoder->time);
-	if (errcode < 0)
-		return errcode;
-
-	return pt_evt_fetch_packet(decoder);
-}
-
 static int pt_evt_header_vmcs(struct pt_event_decoder *decoder,
 			      const struct pt_packet_vmcs *packet)
 {
@@ -3895,6 +3853,245 @@ static int pt_evt_decode_trig(struct pt_event_decoder *decoder,
 		ev->variant.trig.icnt = 0u;
 		ev->ip_suppressed = 1;
 	}
+
+	errcode = pt_evt_event_time(ev, &decoder->time);
+	if (errcode < 0)
+		return errcode;
+
+	return pt_evt_fetch_packet(decoder);
+}
+
+/* Handle erratum SRF76.
+ *
+ * With erratum SRF76, paging and VM-entry events are re-ordered.  Check
+ * whether the PIP is followed by a CFE.VMENTRY and, if so, swap the events.
+ *
+ * We keep decoding packets in a copy of @decoder until a VM-entry event is
+ * created or we find a packet that does not contribute to a VM-entry event.
+ *
+ * If a VM-entry event is created, we want to provide it in the current
+ * pt_evt_next() call, and move the current PIP packet as the next packet to be
+ * processed in the next pt_evt_next() call.
+ *
+ * The decoder copy will have fetched the next packet, though, so we cannot
+ * copy it back after it created the VM-entry event.  To address that, we
+ * create candidate copies along the way that still have a packet contributing
+ * to the VM-entry event as current packet.
+ *
+ * Returns zero if the erratum applies and was handled.
+ * Returns a positive value if the erratum does not apply or cannot be handled.
+ * Returns a negative pt_error_code otherwise.
+ */
+static int pt_evt_handle_srf76(struct pt_event_decoder *decoder)
+{
+	struct pt_event_decoder evdec, cand;
+	const struct pt_config *config;
+	int status;
+
+	if (!decoder)
+		return -pte_internal;
+
+	config = pt_evt_config(decoder);
+	if (!config)
+		return -pte_internal;
+
+	evdec = *decoder;
+	for (;;) {
+		status = pt_evt_fetch_packet(&evdec);
+		if (status < 0)
+			return status;
+
+		switch (evdec.packet.type) {
+		case ppt_cfe:
+			if (evdec.packet.payload.cfe.type != pt_cfe_vmentry)
+				return 1;
+
+			cand = evdec;
+
+			status = pt_evt_decode_cfe(&evdec,
+						    &evdec.packet.payload.cfe);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				break;
+			}
+
+			if (!evdec.event)
+				return -pte_internal;
+
+			if (evdec.event->type != ptev_vmentry)
+				return -pte_internal;
+
+			/* Update the decoder.
+			 *
+			 * We need to re-allocate the event as it still points
+			 * into @evdec's event queue.
+			 */
+			cand.packet = decoder->packet;
+			*decoder = cand;
+
+			decoder->event = pt_evq_standalone(&decoder->evq);
+			if (!decoder->event)
+				return -pte_internal;
+
+			*decoder->event = *evdec.event;
+
+			return 0;
+
+		case ppt_fup:
+			/* The FUP packet is special in that it does not fetch
+			 * the next packet when creating an event.
+			 *
+			 * It asks for more packets when there are no more
+			 * packets bound to it.
+			 */
+			status = pt_evt_decode_fup(&evdec,
+						    &evdec.packet.payload.ip);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				return 1;
+			}
+
+			if (!evdec.event)
+				return -pte_internal;
+
+			if (evdec.event->type != ptev_vmentry)
+				return 1;
+
+			/* Replace the FUP packet with decoder's PIP packet.
+			 *
+			 * Also drop the bound indication that applied to the
+			 * FUP packet we replaced.
+			 */
+			evdec.packet = decoder->packet;
+			evdec.bound = 0;
+
+			/* We cannot have any further events pending at the
+			 * replaced FUP packet.
+			 */
+			status = pt_evq_pending(&evdec.evq,
+						evb_fup | evb_fup_bound);
+			if (status != 0) {
+				if (status < 0)
+					return status;
+
+				return 1;
+			}
+
+			/* Update the decoder.
+			 *
+			 * We need to re-allocate the event as it still points
+			 * into @evdec's event queue.
+			 */
+			*decoder = evdec;
+
+			decoder->event = pt_evq_standalone(&decoder->evq);
+			if (!decoder->event)
+				return -pte_internal;
+
+			*decoder->event = *evdec.event;
+
+			return 0;
+
+		default:
+			return 1;
+
+		case ppt_tsc:
+			status = pt_evt_decode_tsc(&evdec,
+						    &evdec.packet.payload.tsc);
+			if (status <= 0) {
+				if (!status)
+					status = -pte_internal;
+
+				return status;
+			}
+			break;
+
+		case ppt_tma:
+			status = pt_evt_decode_tma(&evdec,
+						    &evdec.packet.payload.tma);
+			if (status <= 0) {
+				if (!status)
+					status = -pte_internal;
+
+				return status;
+			}
+			break;
+
+		case ppt_mtc:
+			status = pt_evt_decode_mtc(&evdec,
+						    &evdec.packet.payload.mtc);
+			if (status <= 0) {
+				if (!status)
+					status = -pte_internal;
+
+				return status;
+			}
+			break;
+
+		case ppt_cyc:
+			status = pt_evt_decode_cyc(&evdec,
+						    &evdec.packet.payload.cyc);
+			if (status <= 0) {
+				if (!status)
+					status = -pte_internal;
+
+				return status;
+			}
+			break;
+		}
+	}
+}
+
+static int pt_evt_decode_pip(struct pt_event_decoder *decoder,
+			     const struct pt_packet_pip *packet)
+{
+	const struct pt_config *config;
+	struct pt_event *ev;
+	int errcode;
+
+	if (!decoder || !packet)
+		return -pte_internal;
+
+	/* PIP is standalone or binds to the same TIP as an unbound FUP.
+	 *
+	 * That unbound FUP will queue an async branch event at TIP.  Let's
+	 * search for that.
+	 */
+	ev = pt_evq_find(&decoder->evq, evb_tip, ptev_async_branch);
+	if (ev) {
+		ev = pt_evq_enqueue(&decoder->evq, evb_tip);
+		if (!ev)
+			return -pte_nomem;
+
+		ev->type = ptev_async_paging;
+		ev->variant.async_paging.cr3 = packet->cr3;
+		ev->variant.async_paging.non_root = packet->nr;
+
+		return 1;
+	}
+
+	config = pt_evt_config(decoder);
+	if (!config)
+		return -pte_internal;
+
+	/* PIP may get re-ordered with a VMENTRY event. */
+	if (config->errata.srf76) {
+		errcode = pt_evt_handle_srf76(decoder);
+		if (errcode <= 0)
+			return errcode;
+	}
+
+	decoder->event = ev = pt_evq_standalone(&decoder->evq);
+	if (!ev)
+		return -pte_internal;
+
+	ev->type = ptev_paging;
+	ev->variant.paging.cr3 = packet->cr3;
+	ev->variant.paging.non_root = packet->nr;
 
 	errcode = pt_evt_event_time(ev, &decoder->time);
 	if (errcode < 0)

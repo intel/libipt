@@ -371,6 +371,18 @@ struct pt_errata {
 	 */
 	uint32_t srf77:1;
 
+	/** SRF76: Intel(R) PT Event Trace Generates CFE And FUP After VMCS/PIP
+	 *         Packets During VM Entry.
+	 *
+	 * When the Intel(R) Processor Trace (Intel(R) PT) event trace feature
+	 * is enabled, a VMLAUNCH/VMRESUME instruction will insert a Control
+	 * Flow Event (CFE) packet and Flow Update Packet (FUP) packet into the
+	 * trace output. These packets should be inserted before any VMCS or
+	 * Paging Information Packet (PIP) packets, but are incorrectly
+	 * inserted after those packets.
+	 */
+	uint32_t srf76:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };
