@@ -602,7 +602,7 @@ static int load_raw(struct pt_image_section_cache *iscache,
 	return 0;
 }
 
-static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
+static xed_machine_mode_enum_t to_xed_mode(enum pt_exec_mode mode)
 {
 	switch (mode) {
 	case ptem_unknown:
@@ -619,6 +619,25 @@ static xed_machine_mode_enum_t translate_mode(enum pt_exec_mode mode)
 	}
 
 	return XED_MACHINE_MODE_INVALID;
+}
+
+static xed_address_width_enum_t to_xed_addr_width(enum pt_exec_mode mode)
+{
+	switch (mode) {
+	case ptem_unknown:
+		return XED_ADDRESS_WIDTH_INVALID;
+
+	case ptem_16bit:
+		return XED_ADDRESS_WIDTH_16b;
+
+	case ptem_32bit:
+		return XED_ADDRESS_WIDTH_32b;
+
+	case ptem_64bit:
+		return XED_ADDRESS_WIDTH_64b;
+	}
+
+	return XED_ADDRESS_WIDTH_INVALID;
 }
 
 static const char *visualize_iclass(enum pt_insn_class iclass)
@@ -808,46 +827,13 @@ static void check_insn_iclass(const xed_decoded_inst_t *inst,
 	       visualize_iclass(insn->iclass), xed_iclass_enum_t2str(iclass));
 }
 
-static void check_insn_decode(xed_decoded_inst_t *inst,
-			      const struct pt_insn *insn, uint64_t offset)
-{
-	xed_error_enum_t errcode;
-
-	if (!inst || !insn) {
-		printf("[internal error]\n");
-		return;
-	}
-
-	xed_decoded_inst_set_mode(inst, translate_mode(insn->mode),
-				  XED_ADDRESS_WIDTH_INVALID);
-
-	/* Decode the instruction (again).
-	 *
-	 * We may have decoded the instruction already for printing.  In this
-	 * case, we will decode it twice.
-	 *
-	 * The more common use-case, however, is to check the instruction class
-	 * while not printing instructions since the latter is too expensive for
-	 * regular use with long traces.
-	 */
-	errcode = xed_decode(inst, insn->raw, insn->size);
-	if (errcode != XED_ERROR_NONE) {
-		printf("[%" PRIx64 ", %" PRIx64 ": xed error: (%u) %s]\n",
-		       offset, insn->ip, errcode,
-		       xed_error_enum_t2str(errcode));
-		return;
-	}
-
-	if (!xed_decoded_inst_valid(inst)) {
-		printf("[%" PRIx64 ", %" PRIx64 ": xed error: "
-		       "invalid instruction]\n", offset, insn->ip);
-		return;
-	}
-}
-
 static void check_insn(const struct pt_insn *insn, uint64_t offset)
 {
+	xed_address_width_enum_t addr_width;
+	xed_machine_mode_enum_t mode;
 	xed_decoded_inst_t inst;
+	xed_error_enum_t errcode;
+	xed_state_t xed;
 
 	if (!insn) {
 		printf("[internal error]\n");
@@ -858,15 +844,33 @@ static void check_insn(const struct pt_insn *insn, uint64_t offset)
 		printf("[%" PRIx64 ", %" PRIx64 ": check error: "
 		       "bad isid]\n", offset, insn->ip);
 
-	xed_decoded_inst_zero(&inst);
-	check_insn_decode(&inst, insn, offset);
+	addr_width = to_xed_addr_width(insn->mode);
+	mode = to_xed_mode(insn->mode);
+	xed_state_init2(&xed, mode, addr_width);
+	xed_decoded_inst_zero_set_mode(&inst, &xed);
 
-	/* We need a valid instruction in order to do further checks.
+	/* Decode the instruction (again).
 	 *
-	 * Invalid instructions have already been diagnosed.
+	 * We may have decoded the instruction already for printing.  In this
+	 * case, we will decode it twice.
+	 *
+	 * The more common use-case, however, is to check the instruction class
+	 * while not printing instructions since the latter is too expensive for
+	 * regular use with long traces.
 	 */
-	if (!xed_decoded_inst_valid(&inst))
+	errcode = xed_decode(&inst, insn->raw, insn->size);
+	if (errcode != XED_ERROR_NONE) {
+		printf("[%" PRIx64 ", %" PRIx64 ": xed error: (%u) %s]\n",
+		       offset, insn->ip, errcode,
+		       xed_error_enum_t2str(errcode));
 		return;
+	}
+
+	if (!xed_decoded_inst_valid(&inst)) {
+		printf("[%" PRIx64 ", %" PRIx64 ": xed error: "
+		       "invalid instruction]\n", offset, insn->ip);
+		return;
+	}
 
 	check_insn_iclass(&inst, insn, offset);
 }
@@ -953,13 +957,15 @@ static void print_insn(const struct pt_insn *insn,
 	printf("%016" PRIx64, insn->ip);
 
 	if (!options->dont_print_insn) {
+		xed_address_width_enum_t addr_width;
 		xed_machine_mode_enum_t mode;
 		xed_decoded_inst_t inst;
 		xed_error_enum_t errcode;
 		xed_state_t xed;
 
-		mode = translate_mode(insn->mode);
-		xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
+		addr_width = to_xed_addr_width(insn->mode);
+		mode = to_xed_mode(insn->mode);
+		xed_state_init2(&xed, mode, addr_width);
 		xed_decoded_inst_zero_set_mode(&inst, &xed);
 
 		errcode = xed_decode(&inst, insn->raw, insn->size);
@@ -1388,8 +1394,11 @@ static void diagnose_insn(struct ptxed_decoder *decoder,
 			  const char *errtype, int errcode,
 			  const struct pt_insn *insn)
 {
+	xed_address_width_enum_t addr_width;
+	xed_machine_mode_enum_t mode;
 	xed_decoded_inst_t inst;
 	xed_error_enum_t xederr;
+	xed_state_t xed;
 	uint64_t ip;
 
 	if (!decoder || !insn) {
@@ -1424,10 +1433,10 @@ static void diagnose_insn(struct ptxed_decoder *decoder,
 		if (insn.iclass == ptic_error)
 			break;
 #endif
-		xed_decoded_inst_zero(&inst);
-		xed_decoded_inst_set_mode(&inst,
-					  translate_mode(insn->mode),
-					  XED_ADDRESS_WIDTH_INVALID);
+		addr_width = to_xed_addr_width(insn->mode);
+		mode = to_xed_mode(insn->mode);
+		xed_state_init2(&xed, mode, addr_width);
+		xed_decoded_inst_zero_set_mode(&inst, &xed);
 
 		xederr = xed_decode(&inst, insn->raw, insn->size);
 		if (xederr == XED_ERROR_NONE)
@@ -1664,8 +1673,11 @@ static void diagnose_block(struct ptxed_decoder *decoder,
 			   const struct pt_block *block)
 {
 	struct pt_insn insn;
+	xed_address_width_enum_t addr_width;
+	xed_machine_mode_enum_t mode;
 	xed_decoded_inst_t inst;
 	xed_error_enum_t xederr;
+	xed_state_t xed;
 	uint64_t ip;
 	int err;
 
@@ -1702,10 +1714,10 @@ static void diagnose_block(struct ptxed_decoder *decoder,
 			if (err < 0)
 				break;
 
-			xed_decoded_inst_zero(&inst);
-			xed_decoded_inst_set_mode(&inst,
-						  translate_mode(insn.mode),
-						  XED_ADDRESS_WIDTH_INVALID);
+			addr_width = to_xed_addr_width(block->mode);
+			mode = to_xed_mode(block->mode);
+			xed_state_init2(&xed, mode, addr_width);
+			xed_decoded_inst_zero_set_mode(&inst, &xed);
 
 			xederr = xed_decode(&inst, insn.raw, insn.size);
 			if (xederr == XED_ERROR_NONE)
@@ -1724,6 +1736,7 @@ static void print_block(struct ptxed_decoder *decoder,
 			const struct ptxed_stats *stats,
 			uint64_t offset, uint64_t time)
 {
+	xed_address_width_enum_t addr_width;
 	xed_machine_mode_enum_t mode;
 	xed_state_t xed;
 	uint64_t ip;
@@ -1741,8 +1754,9 @@ static void print_block(struct ptxed_decoder *decoder,
 		printf("]\n");
 	}
 
-	mode = translate_mode(block->mode);
-	xed_state_init2(&xed, mode, XED_ADDRESS_WIDTH_INVALID);
+	addr_width = to_xed_addr_width(block->mode);
+	mode = to_xed_mode(block->mode);
+	xed_state_init2(&xed, mode, addr_width);
 
 	/* There's nothing to do for empty blocks. */
 	ninsn = block->ninsn;
@@ -1811,7 +1825,11 @@ static void check_block(const struct pt_block *block,
 			uint64_t offset)
 {
 	struct pt_insn insn;
+	xed_address_width_enum_t addr_width;
+	xed_machine_mode_enum_t mode;
 	xed_decoded_inst_t inst;
+	xed_error_enum_t xederr;
+	xed_state_t xed;
 	uint64_t ip;
 	uint16_t ninsn;
 	int errcode;
@@ -1830,6 +1848,10 @@ static void check_block(const struct pt_block *block,
 		printf("[%" PRIx64 ", %" PRIx64 ": check error: "
 		       "bad isid]\n", offset, block->ip);
 
+	addr_width = to_xed_addr_width(block->mode);
+	mode = to_xed_mode(block->mode);
+	xed_state_init2(&xed, mode, addr_width);
+
 	ip = block->ip;
 	do {
 		errcode = block_fetch_insn(&insn, block, ip, iscache);
@@ -1839,15 +1861,31 @@ static void check_block(const struct pt_block *block,
 			return;
 		}
 
-		xed_decoded_inst_zero(&inst);
-		check_insn_decode(&inst, &insn, offset);
+		xed_decoded_inst_zero_set_mode(&inst, &xed);
 
-		/* We need a valid instruction in order to do further checks.
+		/* Decode the instruction (again).
 		 *
-		 * Invalid instructions have already been diagnosed.
+		 * We may have decoded the instruction already for printing.
+		 * In this case, we will decode it twice.
+		 *
+		 * The more common use-case, however, is to check the
+		 * instruction class while not printing instructions since the
+		 * latter is too expensive for regular use with long traces.
 		 */
-		if (!xed_decoded_inst_valid(&inst))
+		xederr = xed_decode(&inst, insn.raw, insn.size);
+		if (xederr != XED_ERROR_NONE) {
+			printf("[%" PRIx64 ", %" PRIx64
+			       ": xed error: (%u) %s]\n",
+			       offset, insn.ip, xederr,
+			       xed_error_enum_t2str(xederr));
 			return;
+		}
+
+		if (!xed_decoded_inst_valid(&inst)) {
+			printf("[%" PRIx64 ", %" PRIx64 ": xed error: "
+			       "invalid instruction]\n", offset, insn.ip);
+			return;
+		}
 
 		errcode = xed_next_ip(&ip, &inst, ip);
 		if (errcode < 0) {
