@@ -76,18 +76,18 @@ l8: hlt
 ;%0p1  fup        3: %0l0
 ;%0p2  mode.exec  cs.l, if
 ;%0p3  psbend
-;%0p4  evd        1: f00baa
-;%0p5  evd        2: 0
-;%0p6  cfe        9: 14
+;%0p4  evd        1: f00baa     type vmxq
+;%0p5  evd        2: 0          type vmxr
+;%0p6  cfe        9: 14         type vmexit_intr
 ;%0p7  fup        1: %?l1.2
 ;%0p8  tip.pgd    0: %?l5.0
-;%0p9  cfe        7
+;%0p9  cfe        7             type vmentry
 ;%0p10 tip.pge    3: %?l1
-;%0p11 evd        2: a
-;%0p12 cfe        8
+;%0p11 evd        2: a          type vmxr
+;%0p12 cfe        8             type vmexit
 ;%0p13 fup        1: %?l2.2
 ;%0p14 tip.pgd    0: %?l7.0
-;%0p15 cfe        7
+;%0p15 cfe        7             type vmentry
 ;%0p16 tip.pge    3: %?l3
 ;%0p17 fup        1: %?l4.2
 ;%0p18 tip.pgd    0: %?l4.0

@@ -156,11 +156,11 @@ bits 64
 ;%0p55  mode.exec  if
 ;%0p56  mode.exec  cs.d, if
 ;%0p57  mode.exec  cs.l, if
-;%0p58  cfe        2
-;%0p59  cfe        3, ip
-;%0p60  cfe        3, ip
-;%0p61  cfe        1: 14
-;%0p62  evd        2: f00baa
+;%0p58  cfe        2                    type iret
+;%0p59  cfe        3, ip                type smi
+;%0p60  cfe        3, ip                type smi
+;%0p61  cfe        1: 14                type intr
+;%0p62  evd        2: f00baa            type vmxr
 ;%0p63  trig       a1, mult
 ;%0p64  trig       a1, icnt: 23
 ;%0p65  trig       a1, ip, mult, icnt: 23

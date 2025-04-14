@@ -110,49 +110,49 @@ l14: nop
 ;%0p4   fup        3: %?l0
 ;%0p5   mode.exec  cs.l, if
 ;%0p6   fup        1: %?l1.2
-;%0p7   evd        0: f00baa
-;%0p8   cfe        1: 14, ip
+;%0p7   evd        0: f00baa    type cr2
+;%0p8   cfe        1: 14, ip    type intr
 ;%0p9   fup        1: %?l2.2
-;%0p10  cfe        2
-;%0p11  cfe        1: 128
-;%0p12  cfe        2, ip
+;%0p10  cfe        2            type iret
+;%0p11  cfe        1: 128       type intr
+;%0p12  cfe        2, ip        type iret
 ;%0p13  fup        1: %?l3.2
-;%0p14  cfe        3, ip
+;%0p14  cfe        3, ip        type smi
 ;%0p15  fup        1: %?l4.2
-;%0p16  cfe        4
-;%0p17  cfe        6, ip
+;%0p16  cfe        4            type rsm
+;%0p17  cfe        6, ip        type init
 ;%0p18  fup        1: %?l5.2
-;%0p19  cfe        5: ce
-;%0p20  evd        1: f00baa
-;%0p21  evd        2: 0
-;%0p22  cfe        9: 14, ip
+;%0p19  cfe        5: ce        type sipi
+;%0p20  evd        1: f00baa    type vmxq
+;%0p21  evd        2: 0         type vmxr
+;%0p22  cfe        9: 14, ip    type vmexit_intr
 ;%0p23  fup        1: %?l6.2
-;%0p24  cfe        7, ip
+;%0p24  cfe        7, ip        type vmentry
 ;%0p25  fup        1: %?l6.2
-;%0p26  evd        2: a
-;%0p27  cfe        8, ip
+;%0p26  evd        2: a         type vmxr
+;%0p27  cfe        8, ip        type vmexit
 ;%0p28  fup        1: %?l7.2
-;%0p29  cfe        7, ip
+;%0p29  cfe        7, ip        type vmentry
 ;%0p30  fup        1: %?l8.2
-;%0p31  cfe        10, ip
+;%0p31  cfe        10, ip       type shutdown
 ;%0p32  fup        1: %?l9.2
-;%0p33  cfe        12: 4, ip
+;%0p33  cfe        12: 4, ip    type uintr
 ;%0p34  fup        1: %?l10.2
-;%0p35  cfe        13, ip
+;%0p35  cfe        13, ip       type uiret
 ;%0p36  fup        1: %?l11.2
-;%0p37  evd        31: 0
-;%0p38  cfe        1: 128, ip
+;%0p37  evd        31: 0        type unknown
+;%0p38  cfe        1: 128, ip   type intr
 ;%0p39  fup        1: %?l12.2
-;%0p40  evd        31: 0
-;%0p41  evd        1: f00
-;%0p42  evd        31: 0
-;%0p43  evd        2: baa
-;%0p44  evd        31: 0
-;%0p45  cfe        9: 14, ip
+;%0p40  evd        31: 0        type unknown
+;%0p41  evd        1: f00       type vmxq
+;%0p42  evd        31: 0        type unknown
+;%0p43  evd        2: baa       type vmxr
+;%0p44  evd        31: 0        type unknown
+;%0p45  cfe        9: 14, ip    type vmexit_intr
 ;%0p46  fup        1: %?l13.2
-;%0p47  cfe        31, ip
+;%0p47  cfe        31, ip       type unknown
 ;%0p48  fup        1: %?l14.2
-;%0p49  cfe        31
+;%0p49  cfe        31           type unknown
 
 
 ; @pt .exp(ptxed)

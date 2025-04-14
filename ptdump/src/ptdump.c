@@ -1056,6 +1056,67 @@ static const char *print_pwrx_wr(const struct pt_packet_pwrx *packet)
 	return wr;
 }
 
+#if (LIBIPT_VERSION >= 0x201)
+static const char *print_cfe_type(enum pt_cfe_type type)
+{
+	switch (type) {
+	case pt_cfe_intr:
+		return "intr";
+
+	case pt_cfe_iret:
+		return "iret";
+
+	case pt_cfe_smi:
+		return "smi";
+
+	case pt_cfe_rsm:
+		return "rsm";
+
+	case pt_cfe_sipi:
+		return "sipi";
+
+	case pt_cfe_init:
+		return "init";
+
+	case pt_cfe_vmentry:
+		return "vmentry";
+
+	case pt_cfe_vmexit:
+		return "vmexit";
+
+	case pt_cfe_vmexit_intr:
+		return "vmexit_intr";
+
+	case pt_cfe_shutdown:
+		return "shutdown";
+
+	case pt_cfe_uintr:
+		return "uintr";
+
+	case pt_cfe_uiret:
+		return "uiret";
+	}
+
+	return "unknown";
+}
+
+static const char *print_evd_type(enum pt_evd_type type)
+{
+	switch (type) {
+	case pt_evd_cr2:
+		return "cr2";
+
+	case pt_evd_vmxq:
+		return "vmxq";
+
+	case pt_evd_vmxr:
+		return "vmxr";
+	}
+
+	return "unknown";
+}
+#endif /* (LIBIPT_VERSION >= 0x201) */
+
 static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 			const struct pt_packet *packet,
 			struct ptdump_tracking *tracking,
@@ -1369,6 +1430,10 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 	case ppt_cfe:
 		print_field(buffer->opcode, "cfe");
 
+		print_field(buffer->tracking.id, "type");
+		print_field(buffer->tracking.payload, "%s",
+			    print_cfe_type(packet->payload.cfe.type));
+
 		switch (packet->payload.cfe.type) {
 		case pt_cfe_intr:
 		case pt_cfe_vmexit_intr:
@@ -1407,6 +1472,9 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		print_field(buffer->payload.standard, "%u: %" PRIx64,
 			    packet->payload.evd.type,
 			    packet->payload.evd.payload);
+		print_field(buffer->tracking.id, "type");
+		print_field(buffer->tracking.payload, "%s",
+			    print_evd_type(packet->payload.evd.type));
 
 		switch (packet->payload.evd.type) {
 		case pt_evd_cr2:

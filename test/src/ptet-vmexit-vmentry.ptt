@@ -81,22 +81,22 @@ l8: hlt
 ;%0p1  fup        3: %0l0
 ;%0p2  mode.exec  cs.l, if
 ;%0p3  psbend
-;%0p4  evd        1: f00baa
-;%0p5  evd        2: 0
-;%0p6  cfe        9: 14
+;%0p4  evd        1: f00baa     type vmxq
+;%0p5  evd        2: 0          type vmxr
+;%0p6  cfe        9: 14         type vmexit_intr
 ;%0p7  fup        1: %?l1.2
 ;%0p8  pip        f00         cr3 0000000000000f00
 ;%0p9  tip        3: %?l5
-;%0p10 cfe        7, ip
+;%0p10 cfe        7, ip       type vmentry
 ;%0p11 fup        1: %?l5.2
 ;%0p12 pip        b00, nr     cr3 0000000000000b00
 ;%0p13 tip        3: %?l1
-;%0p14 evd        2: a
-;%0p15 cfe        8
+;%0p14 evd        2: a        type vmxr
+;%0p15 cfe        8           type vmexit
 ;%0p16 fup        1: %?l2.2
 ;%0p17 pip        f00         cr3 0000000000000f00
 ;%0p18 tip        3: %?l7
-;%0p19 cfe        7, ip
+;%0p19 cfe        7, ip       type vmentry
 ;%0p20 fup        1: %?l7.2
 ;%0p21 pip        b00, nr     cr3 0000000000000b00
 ;%0p22 tip        3: %?l3
