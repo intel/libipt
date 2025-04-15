@@ -266,14 +266,18 @@ static int pt_pkt_decode_pad(struct pt_packet_decoder *decoder,
 static int pt_pkt_decode_psb(struct pt_packet_decoder *decoder,
 			     struct pt_packet *packet)
 {
+	const uint8_t *pos;
 	int size;
 
 	if (!decoder)
 		return -pte_internal;
 
-	size = pt_pkt_read_psb(decoder->pos, &decoder->config);
+	pos = decoder->pos;
+	size = pt_pkt_read_psb(pos, &decoder->config);
 	if (size < 0)
 		return size;
+
+	decoder->sync = pos;
 
 	packet->type = ppt_psb;
 	packet->size = (uint8_t) size;
