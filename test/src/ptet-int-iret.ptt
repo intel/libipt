@@ -49,7 +49,7 @@ l0: nop
 ; @pt p9: tip(3: %l1)
 l1: mov rax, [rbx]
 
-; @pt p10: cfe(1: 0x80)
+; @pt p10: cfe(14: 0x80)
 ; @pt p11: fup(1: %l2)
 ; @pt p12: tip(3: %l7)
 ; ...
@@ -80,7 +80,7 @@ l8: hlt
 ;%0p7  tip        3: %?l5
 ;%0p8  cfe        2             type iret
 ;%0p9  tip        3: %?l1
-;%0p10 cfe        1: 128        type intr
+;%0p10 cfe        14: 128       type swintr
 ;%0p11 fup        1: %?l2.2
 ;%0p12 tip        3: %?l7
 ;%0p13 cfe        2             type iret
@@ -96,7 +96,7 @@ l8: hlt
 ;%0l5
 ;[iret]
 ;%0l1                                   # mov rax, [rbx]
-;[interrupt 128]                        # int 0x80
+;[swintr 128]                           # int 0x80
 ;[interrupt]
 ;%0l7
 ;[iret]

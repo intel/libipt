@@ -1331,6 +1331,22 @@ static void print_event(const struct pt_event *event,
 			printf(", icnt: %u", event->variant.trig.icnt);
 
 		break;
+
+	case ptev_swintr:
+		printf("swintr %u", event->variant.swintr.vector);
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.swintr.ip);
+		break;
+
+	case ptev_syscall:
+		printf("syscall");
+
+		if (options->print_event_ip && !event->ip_suppressed)
+			printf(", ip: %016" PRIx64,
+			       event->variant.syscall.ip);
+		break;
 #endif /* (LIBIPT_VERSION >= 0x202) */
 	}
 

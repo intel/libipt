@@ -1095,6 +1095,14 @@ static const char *print_cfe_type(enum pt_cfe_type type)
 
 	case pt_cfe_uiret:
 		return "uiret";
+
+#if (LIBIPT_VERSION >= 0x202)
+	case pt_cfe_swintr:
+		return "swintr";
+
+	case pt_cfe_syscall:
+		return "syscall";
+#endif
 	}
 
 	return "unknown";
@@ -1438,6 +1446,9 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		case pt_cfe_intr:
 		case pt_cfe_vmexit_intr:
 		case pt_cfe_uintr:
+#if (LIBIPT_VERSION >= 0x202)
+		case pt_cfe_swintr:
+#endif
 			print_field(buffer->payload.standard, "%u: %u%s",
 				    packet->payload.cfe.type,
 				    packet->payload.cfe.vector,
@@ -1459,6 +1470,9 @@ static int print_packet(struct ptdump_buffer *buffer, uint64_t offset,
 		case pt_cfe_vmexit:
 		case pt_cfe_shutdown:
 		case pt_cfe_uiret:
+#if (LIBIPT_VERSION >= 0x202)
+		case pt_cfe_syscall:
+#endif
 			break;
 		}
 

@@ -101,6 +101,13 @@ l13: nop
 ; @pt p48:  fup(1: %l14)
 l14: nop
 ; @pt p49:  cfe(31)
+; @pt p50:  cfe(14: 3, ip)
+; @pt p51:  fup(1: %l15)
+l15: int3
+; @pt p52:  cfe(15, ip)
+; @pt p53:  fup(1: %l16)
+l16: syscall
+
 
 ; @pt .exp(ptdump)
 ;%0p0   psb
@@ -153,6 +160,10 @@ l14: nop
 ;%0p47  cfe        31, ip       type unknown
 ;%0p48  fup        1: %?l14.2
 ;%0p49  cfe        31           type unknown
+;%0p50  cfe        14: 3, ip    type swintr
+;%0p51  fup        1: %?l15.2
+;%0p52  cfe        15, ip       type syscall
+;%0p53  fup        1: %?l16.2
 
 
 ; @pt .exp(ptxed)
@@ -177,3 +188,5 @@ l14: nop
 ;[uiret, ip: %0l11]
 ;[interrupt 128, ip: %0l12]
 ;[vmexit, intr: 14, vmxr: 0000000000000baa, vmxq: 0000000000000f00, ip: %0l13]
+;[swintr 3, ip: %0l15]
+;[syscall, ip: %0l16]

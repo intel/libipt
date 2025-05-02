@@ -112,6 +112,8 @@ static int pt_blk_find_trig_anchor(struct pt_block_decoder *decoder,
 	case ptev_uintr:
 	case ptev_uiret:
 	case ptev_trig:
+	case ptev_swintr:
+	case ptev_syscall:
 		if (ev->ip_suppressed)
 			return 0;
 
@@ -209,6 +211,8 @@ static int pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->bound_iret = 0;
 	decoder->bound_vmentry = 0;
 	decoder->bound_uiret = 0;
+	decoder->bound_swintr = 0;
+	decoder->bound_syscall = 0;
 
 	memset(&decoder->event, 0xff, sizeof(decoder->event));
 	pt_retstack_init(&decoder->retstack);
@@ -1619,6 +1623,84 @@ static int pt_blk_proceed_to_trig(struct pt_block_decoder *decoder,
 	return 1;
 }
 
+/* Proceed to the event location for a swintr event.
+ *
+ * We have a swintr event pending.  Proceed to the event location and indicate
+ * whether we were able to reach it.
+ *
+ * We do not pass beyond the instruction.  The event may be followed by an
+ * async branch event at the instruction's IP.  If we moved beyond the
+ * instruction, we wouldn't be able to place that event.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_swintr(struct pt_block_decoder *decoder,
+				    struct pt_block *block,
+				    struct pt_insn *insn,
+				    struct pt_insn_ext *iext,
+				    struct pt_event *ev)
+{
+	if (!ev)
+		return -pte_internal;
+
+	/* If we don't have an IP, the event binds to the next INT*
+	 * instruction.
+	 *
+	 * If we have an IP it still binds to the next INT* instruction but now
+	 * the IP tells us where that instruction is.  This makes most sense
+	 * when tracing is disabled and we don't have any other means of
+	 * finding the INT* instruction.  We nevertheless distinguish the two
+	 * cases, here.
+	 */
+	if (ev->ip_suppressed)
+		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
+					      pt_insn_is_swint);
+
+	return pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				    ev->variant.swintr.ip);
+}
+
+/* Proceed to the event location for a syscall event.
+ *
+ * We have a syscall event pending.  Proceed to the event location and indicate
+ * whether we were able to reach it.
+ *
+ * We do not pass beyond the instruction.  The event may be followed by a TIP
+ * event that we need to place at the instruction.  If we moved beyond the
+ * instruction, we wouldn't be able to place that event.
+ *
+ * Returns a positive integer if the event location was reached.
+ * Returns zero if the event location was not reached.
+ * Returns a negative error code otherwise.
+ */
+static int pt_blk_proceed_to_syscall(struct pt_block_decoder *decoder,
+				     struct pt_block *block,
+				     struct pt_insn *insn,
+				     struct pt_insn_ext *iext,
+				     struct pt_event *ev)
+{
+	if (!ev)
+		return -pte_internal;
+
+	/* If we don't have an IP, the event binds to the next SYSCALL or
+	 * SYSENTER instruction.
+	 *
+	 * If we have an IP it still binds to the next SYSCALL or SYSENTER
+	 * instruction but now the IP tells us where that instruction is.  This
+	 * makes most sense when tracing is disabled and we don't have any
+	 * other means of finding the instruction.  We nevertheless distinguish
+	 * the two cases, here.
+	 */
+	if (ev->ip_suppressed)
+		return pt_blk_proceed_to_insn(decoder, block, insn, iext,
+					      pt_insn_is_syscall);
+
+	return pt_blk_proceed_to_ip(decoder, block, insn, iext,
+				    ev->variant.syscall.ip);
+}
+
 /* Try to work around erratum SKD022.
  *
  * If we get an asynchronous disable on VMLAUNCH or VMRESUME, the FUP that
@@ -1707,6 +1789,8 @@ static int pt_blk_clear_postponed_insn(struct pt_block_decoder *decoder)
 	decoder->bound_iret = 0;
 	decoder->bound_vmentry = 0;
 	decoder->bound_uiret = 0;
+	decoder->bound_swintr = 0;
+	decoder->bound_syscall = 0;
 
 	return 0;
 }
@@ -2108,6 +2192,38 @@ static int pt_blk_proceed_event(struct pt_block_decoder *decoder,
 			return status;
 
 		break;
+
+	case ptev_swintr:
+		if (!decoder->enabled)
+			break;
+
+		status = pt_blk_proceed_to_swintr(decoder, block, &insn, &iext,
+						  ev);
+		if (status <= 0)
+			return status;
+
+		/* We bound a swintr event.  Make sure we do not bind further
+		 * swintr events to this instruction.
+		 */
+		decoder->bound_swintr = 1;
+
+		return pt_blk_postpone_insn(decoder, &insn, &iext);
+
+	case ptev_syscall:
+		if (!decoder->enabled)
+			break;
+
+		status = pt_blk_proceed_to_syscall(decoder, block, &insn,
+						   &iext, ev);
+		if (status <= 0)
+			return status;
+
+		/* We bound a syscall event.  Make sure we do not bind further
+		 * syscall events to this instruction.
+		 */
+		decoder->bound_syscall = 1;
+
+		return pt_blk_postpone_insn(decoder, &insn, &iext);
 	}
 
 	return pt_blk_status(decoder, pts_event_pending);
@@ -3845,6 +3961,64 @@ static int pt_blk_proceed_trailing_event(struct pt_block_decoder *decoder,
 			return -pte_bad_packet;
 
 		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_swintr:
+		/* We apply the event immediately if we're not tracing. */
+		if (!decoder->enabled)
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* Swintr events are normally indicated on the event flow,
+		 * unless they bind to the same instruction as a previous
+		 * event.
+		 *
+		 * We bind at most one swintr event to an instruction, though.
+		 */
+		if (!decoder->process_insn || decoder->bound_swintr)
+			break;
+
+		/* We're done if we're not binding to the currently postponed
+		 * instruction.  We will process the event on the normal event
+		 * flow in the next iteration.
+		 */
+		if (!ev->ip_suppressed ||
+		    !pt_insn_is_swint(&decoder->insn, &decoder->iext))
+			break;
+
+		/* We bound a swintr event.  Make sure we do not bind further
+		 * swintr events to this instruction.
+		 */
+		decoder->bound_swintr = 1;
+
+		return pt_blk_status(decoder, pts_event_pending);
+
+	case ptev_syscall:
+		/* We apply the event immediately if we're not tracing. */
+		if (!decoder->enabled)
+			return pt_blk_status(decoder, pts_event_pending);
+
+		/* Syscall events are normally indicated on the event flow,
+		 * unless they bind to the same instruction as a previous
+		 * event.
+		 *
+		 * We bind at most one syscall event to an instruction, though.
+		 */
+		if (!decoder->process_insn || decoder->bound_syscall)
+			break;
+
+		/* We're done if we're not binding to the currently postponed
+		 * instruction.  We will process the event on the normal event
+		 * flow in the next iteration.
+		 */
+		if (!ev->ip_suppressed ||
+		    !pt_insn_is_syscall(&decoder->insn, &decoder->iext))
+			break;
+
+		/* We bound a syscall event.  Make sure we do not bind further
+		 * syscall events to this instruction.
+		 */
+		decoder->bound_syscall = 1;
+
+		return pt_blk_status(decoder, pts_event_pending);
 	}
 
 	/* No further events.  Proceed past any postponed instruction. */
@@ -4425,6 +4599,20 @@ int pt_blk_event(struct pt_block_decoder *decoder, struct pt_event *uevent,
 			return -pte_bad_query;
 
 		break;
+
+	case ptev_swintr:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.swintr.ip)
+			return -pte_bad_query;
+
+		break;
+
+	case ptev_syscall:
+		if (decoder->enabled && !ev->ip_suppressed &&
+		    decoder->ip != ev->variant.syscall.ip)
+			return -pte_bad_query;
+
+		break;
 	}
 
 	/* Copy the event to the user. */
@@ -4759,6 +4947,22 @@ int pt_blk_resync(struct pt_block_decoder *decoder)
 
 		case ptev_trig:
 			break;
+
+		case ptev_swintr:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.swintr.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
+
+		case ptev_syscall:
+			if (ev->ip_suppressed)
+				break;
+
+			decoder->ip = ev->variant.syscall.ip;
+
+			return pt_blk_status(decoder, pts_event_pending);
 		}
 
 		errcode = pt_blk_fetch_event(decoder);

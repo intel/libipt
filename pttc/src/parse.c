@@ -968,6 +968,7 @@ static int parse_cfe(const char **input, const struct parser *p,
 		case pt_cfe_sipi:
 		case pt_cfe_vmexit_intr:
 		case pt_cfe_uintr:
+		case pt_cfe_swintr:
 			status = yasm_print_err(p->y, "cfe: type needs "
 						"'vector' argument",
 						-err_parse);
@@ -984,6 +985,7 @@ static int parse_cfe(const char **input, const struct parser *p,
 		case pt_cfe_vmexit:
 		case pt_cfe_shutdown:
 		case pt_cfe_uiret:
+		case pt_cfe_syscall:
 			packet->vector = 0;
 			break;
 		}

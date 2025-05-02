@@ -1884,6 +1884,24 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 					  &decoder->ip);
 		break;
 
+	case ptev_swintr:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.swintr.ip, ev,
+					  &decoder->ip);
+		break;
+
+	case ptev_syscall:
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			break;
+
+		errcode = pt_evt_event_ip(&ev->variant.syscall.ip, ev,
+					  &decoder->ip);
+		break;
+
 	default:
 		errcode = -pte_bad_context;
 		break;
@@ -2809,6 +2827,8 @@ static int pt_evt_decode_ovf(struct pt_event_decoder *decoder)
 		case ptev_uintr:
 		case ptev_uiret:
 		case ptev_trig:
+		case ptev_swintr:
+		case ptev_syscall:
 			ev->ip_suppressed = 1;
 
 			fallthrough;
@@ -3629,6 +3649,69 @@ static int pt_evt_decode_cfe(struct pt_event_decoder *decoder,
 			return -pte_internal;
 
 		ev->type = ptev_uiret;
+		ev->ip_suppressed = 1;
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
+	case pt_cfe_swintr:
+		if (ev)
+			return -pte_bad_context;
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_swintr;
+		ev->variant.swintr.vector = packet->vector;
+
+		if (packet->ip) {
+			ev = pt_evq_requeue(&decoder->evq, ev, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			return 1;
+		}
+
+		if (decoder->enabled) {
+			ev = pt_evq_requeue(&decoder->evq, ev, evb_fup);
+			if (!ev)
+				return -pte_nomem;
+
+			return 1;
+		}
+
+		errcode = pt_evt_event_time(ev, &decoder->time);
+		if (errcode < 0)
+			return errcode;
+
+		ev->ip_suppressed = 1;
+
+		decoder->event = ev;
+		return pt_evt_fetch_packet(decoder);
+
+	case pt_cfe_syscall:
+		if (ev)
+			return -pte_bad_context;
+
+		if (packet->ip) {
+			ev = pt_evq_enqueue(&decoder->evq, evb_fup_bound);
+			if (!ev)
+				return -pte_nomem;
+
+			ev->type = ptev_syscall;
+			return 1;
+		}
+
+		ev = pt_evq_standalone(&decoder->evq);
+		if (!ev)
+			return -pte_internal;
+
+		ev->type = ptev_syscall;
 		ev->ip_suppressed = 1;
 
 		errcode = pt_evt_event_time(ev, &decoder->time);

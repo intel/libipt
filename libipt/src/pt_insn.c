@@ -227,6 +227,44 @@ int pt_insn_is_uiret(const struct pt_insn *insn,
 	}
 }
 
+int pt_insn_is_swint(const struct pt_insn *insn,
+		     const struct pt_insn_ext *iext)
+{
+	(void) insn;
+
+	if (!iext)
+		return 0;
+
+	switch (iext->iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_INT:
+	case PTI_INST_INT3:
+	case PTI_INST_INT1:
+	case PTI_INST_INTO:
+		return 1;
+	}
+}
+
+int pt_insn_is_syscall(const struct pt_insn *insn,
+		       const struct pt_insn_ext *iext)
+{
+	(void) insn;
+
+	if (!iext)
+		return 0;
+
+	switch (iext->iclass) {
+	default:
+		return 0;
+
+	case PTI_INST_SYSCALL:
+	case PTI_INST_SYSENTER:
+		return 1;
+	}
+}
+
 int pt_insn_next_ip(uint64_t *pip, const struct pt_insn *insn,
 		    const struct pt_insn_ext *iext)
 {

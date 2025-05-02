@@ -44,7 +44,7 @@ bits 64
 ; @pt p3: psbend()
 l0: nop
 
-; @pt p4: cfe(1: 42)
+; @pt p4: cfe(14: 42)
 ; @pt p5: fup(1: %l1)
 ; @pt p6: tip(3: %l4)
 l1: int 42
@@ -76,7 +76,7 @@ l8: hlt
 ;%0p1  fup        3: %0l0
 ;%0p2  mode.exec  cs.l, if
 ;%0p3  psbend
-;%0p4  cfe        1: 42         type intr
+;%0p4  cfe        14: 42        type swintr
 ;%0p5  fup        1: %?l1.2
 ;%0p6  tip        3: %?l4
 ;%0p7  evd        0: f00baa     type cr2
@@ -93,7 +93,7 @@ l8: hlt
 
 ; @pt .exp(ptxed)
 ;%0l0                                   # nop
-;[interrupt 42]                         # int 42
+;[swintr 42]                            # int 42
 ;[interrupt]
 ;[interrupt 14, cr2: 0000000000f00baa]  # mov rax, [rbx]
 ;[interrupt]

@@ -905,6 +905,10 @@ enum pt_cfe_type {
 	pt_cfe_shutdown		= 0x0a,
 	pt_cfe_uintr		= 0x0c,
 	pt_cfe_uiret		= 0x0d,
+#if (LIBIPT_VERSION >= 0x202)
+	pt_cfe_swintr		= 0x0e,
+	pt_cfe_syscall		= 0x0f,
+#endif
 };
 
 /* Interrupt vectors defined in Table 6-1 in §6.5 of Vol.1 of the SDM. */
@@ -942,6 +946,7 @@ struct pt_packet_cfe {
 	 *  pt_cfe_vmexit_intr:	the event vector.
 	 *  pt_cfe_sipi:	the SIPI vector.
 	 *  pt_cfe_uintr:	the user interrupt vector.
+	 *  pt_cfe_swintr:	the event vector.
 	 */
 	uint8_t vector;
 
@@ -1389,6 +1394,12 @@ enum pt_event_type {
 #if (LIBIPT_VERSION >= 0x202)
 	/* A trigger event. */
 	ptev_trig,
+
+	/* A software interrupt. */
+	ptev_swintr,
+
+	/* A system call. */
+	ptev_syscall,
 #endif
 };
 
@@ -1922,6 +1933,28 @@ struct pt_event {
 			 */
 			uint32_t mult:1;
 		} trig;
+
+		/** Event: software interrupt. */
+		struct {
+			/** The interrupt vector. */
+			uint8_t vector;
+
+			/** The address of the instruction that generated the
+			 * software interrupt.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} swintr;
+
+		/** Event: system call. */
+		struct {
+			/** The address of the instruction.
+			 *
+			 * This field is not valid, if \@ip_suppressed is set.
+			 */
+			uint64_t ip;
+		} syscall;
 #endif /* (LIBIPT_VERSION >= 0x202) */
 	} variant;
 };

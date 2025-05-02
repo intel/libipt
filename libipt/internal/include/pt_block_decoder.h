@@ -166,6 +166,12 @@ struct pt_block_decoder {
 
 	/* - an uiret event has already been bound to @insn/@iext. */
 	uint32_t bound_uiret:1;
+
+	/* - a swintr event has already been bound to @insn/@iext. */
+	uint32_t bound_swintr:1;
+
+	/* - a syscall event has already been bound to @insn/@iext. */
+	uint32_t bound_syscall:1;
 };
 
 
