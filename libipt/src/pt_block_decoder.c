@@ -45,6 +45,11 @@
 static int pt_blk_proceed_trailing_event(struct pt_block_decoder *,
 					 struct pt_block *);
 
+static int pt_blk_proceed_no_event_cached(struct pt_block_decoder *,
+					 struct pt_block *,
+					 struct pt_block_cache *,
+					 const struct pt_mapped_section *);
+
 static int pt_blk_set_trig_anchor(struct pt_block_decoder *decoder)
 {
 	if (!decoder)
@@ -2249,6 +2254,7 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	uint64_t nip, dip, ioff, noff;
 	int64_t disp;
 	int status;
+	int fill_cache;
 
 	if (!decoder || !steps)
 		return -pte_internal;
@@ -2436,7 +2442,8 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * On our way back, we add a cache entry for this instruction based on
 	 * the cache entry of the succeeding instruction.
 	 */
-	if (!pt_bce_is_valid(bce)) {
+	fill_cache = !pt_bce_is_valid(bce);
+	if (fill_cache) {
 		/* If we exceeded the maximum number of allowed steps, we insert
 		 * a trampoline to the next instruction.
 		 *
@@ -2515,7 +2522,15 @@ pt_blk_proceed_no_event_fill_cache(struct pt_block_decoder *decoder,
 	 * Cache updates are atomic so even if the two versions were not
 	 * identical, we wouldn't care because they are both correct.
 	 */
-	return pt_bcache_add(bcache, ioff, bce);
+	status = pt_bcache_add(bcache, ioff, bce);
+	if (status < 0)
+		return status;
+
+	/* Filling the cache may have extended @block, so we cannot proceed. */
+	if (fill_cache)
+		return status;
+
+	return pt_blk_proceed_no_event_cached(decoder, block, bcache, msec);
 }
 
 /* Proceed at a potentially truncated instruction.
