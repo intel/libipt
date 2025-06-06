@@ -272,6 +272,29 @@ static struct ptunit_result cbr_null(void)
 	return ptu_passed();
 }
 
+static struct ptunit_result time_init(struct test_fixture *tfix)
+{
+	uint64_t time;
+	uint32_t lost_mtc, lost_cyc;
+	int errcode;
+
+	errcode = pt_blk_time(&tfix->decoder, &time, &lost_mtc, &lost_cyc);
+	ptu_int_eq(errcode, -pte_no_time);
+
+	return ptu_passed();
+}
+
+static struct ptunit_result cbr_init(struct test_fixture *tfix)
+{
+	uint32_t cbr;
+	int errcode;
+
+	errcode = pt_blk_core_bus_ratio(&tfix->decoder, &cbr);
+	ptu_int_eq(errcode, -pte_no_cbr);
+
+	return ptu_passed();
+}
+
 static struct ptunit_result asid_null(void)
 {
 	struct pt_block_decoder decoder;
@@ -350,6 +373,9 @@ int main(int argc, char **argv)
 	ptu_run(suite, time_null);
 	ptu_run(suite, cbr_null);
 	ptu_run(suite, asid_null);
+
+	ptu_run_f(suite, time_init, tfix);
+	ptu_run_f(suite, cbr_init, tfix);
 
 	ptu_run(suite, next_null);
 	ptu_run(suite, event_null);

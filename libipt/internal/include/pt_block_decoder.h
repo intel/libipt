@@ -132,6 +132,9 @@ struct pt_block_decoder {
 	/* - whether @tsc tracks wall-clock time. */
 	uint32_t has_tsc:1;
 
+	/* - whether @cbr is valid. */
+	uint32_t has_cbr:1;
+
 	/* - whether @icnt is valid. */
 	uint32_t has_icnt:1;
 

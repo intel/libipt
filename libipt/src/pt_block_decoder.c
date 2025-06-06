@@ -200,6 +200,7 @@ static int pt_blk_reset(struct pt_block_decoder *decoder)
 	decoder->enabled = 0;
 	decoder->speculative = 0;
 	decoder->has_tsc = 0;
+	decoder->has_cbr = 0;
 	decoder->has_icnt = 0;
 	decoder->process_insn = 0;
 	decoder->bound_paging = 0;
@@ -643,6 +644,9 @@ int pt_blk_time(struct pt_block_decoder *decoder, uint64_t *time,
 	*lost_mtc = decoder->lost_mtc;
 	*lost_cyc = decoder->lost_cyc;
 
+	if (!decoder->has_tsc)
+		return -pte_no_time;
+
 	return 0;
 }
 
@@ -650,6 +654,9 @@ int pt_blk_core_bus_ratio(struct pt_block_decoder *decoder, uint32_t *cbr)
 {
 	if (!decoder || !cbr)
 		return -pte_invalid;
+
+	if (!decoder->has_cbr)
+		return -pte_no_cbr;
 
 	*cbr = decoder->cbr;
 
@@ -4147,6 +4154,7 @@ static int pt_blk_process_cbr(struct pt_block_decoder *decoder,
 	if (!decoder || !ev)
 		return -pte_internal;
 
+	decoder->has_cbr = 1;
 	decoder->cbr = ev->variant.cbr.ratio;
 
 	return 0;
