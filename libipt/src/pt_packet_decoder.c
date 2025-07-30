@@ -851,27 +851,36 @@ static int pt_pkt_decode(struct pt_packet_decoder *decoder,
 		return -pte_eos;
 
 	opc = *pos++;
+
+	/* Check opcodes that require masking of the first byte. */
+	if ((opc & pt_opm_cyc) == pt_opc_cyc)
+		return pt_pkt_decode_cyc(decoder, packet);
+	/*
+	 * All tnt.8 packets have at least a bit set (that acts as payload
+	 * terminator) at bit 2 or higher. Therefore, tnt.8 packets raw value is
+	 * always >= 4.
+	 * This check eliminates any ambiguity with other packet types.
+	 */
+	if ((opc & pt_opm_tnt_8) == pt_opc_tnt_8 && opc >= 0x04)
+		return pt_pkt_decode_tnt_8(decoder, packet);
+
+	if ((opc & pt_opm_fup) == pt_opc_fup)
+		return pt_pkt_decode_fup(decoder, packet);
+
+	switch (opc & pt_opm_tip) {
+	case pt_opc_tip:
+		return pt_pkt_decode_tip(decoder, packet);
+	case pt_opc_tip_pge:
+		return pt_pkt_decode_tip_pge(decoder, packet);
+	case pt_opc_tip_pgd:
+		return pt_pkt_decode_tip_pgd(decoder, packet);
+	default:
+		break;
+	}
+
+	/* Check opcodes that do not require masking of the first byte. */
 	switch (opc) {
 	default:
-		/* Check opcodes that require masking. */
-		if ((opc & pt_opm_cyc) == pt_opc_cyc)
-			return pt_pkt_decode_cyc(decoder, packet);
-
-		if ((opc & pt_opm_tnt_8) == pt_opc_tnt_8)
-			return pt_pkt_decode_tnt_8(decoder, packet);
-
-		if ((opc & pt_opm_fup) == pt_opc_fup)
-			return pt_pkt_decode_fup(decoder, packet);
-
-		if ((opc & pt_opm_tip) == pt_opc_tip)
-			return pt_pkt_decode_tip(decoder, packet);
-
-		if ((opc & pt_opm_tip) == pt_opc_tip_pge)
-			return pt_pkt_decode_tip_pge(decoder, packet);
-
-		if ((opc & pt_opm_tip) == pt_opc_tip_pgd)
-			return pt_pkt_decode_tip_pgd(decoder, packet);
-
 		return pt_pkt_decode_unknown(decoder, packet);
 
 	case pt_opc_mode:
