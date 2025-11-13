@@ -695,7 +695,7 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		*pos++ = pt_opc_ext;
 		*pos++ = pt_ext_cfe;
 
-		type = packet->payload.cfe.type & pt_pl_cfe_type;
+		type = (uint8_t) packet->payload.cfe.type & (uint8_t) pt_pl_cfe_type;
 		if (packet->payload.cfe.ip)
 			type |= pt_pl_cfe_ip;
 
@@ -714,7 +714,7 @@ int pt_enc_next(struct pt_encoder *encoder, const struct pt_packet *packet)
 		*pos++ = pt_opc_ext;
 		*pos++ = pt_ext_evd;
 
-		*pos++ = packet->payload.evd.type & pt_pl_evd_type;
+		*pos++ = (uint8_t) packet->payload.evd.type & (uint8_t) pt_pl_evd_type;
 		pos = pt_encode_int(pos, packet->payload.evd.payload,
 				    pt_pl_evd_pl_size);
 

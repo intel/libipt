@@ -248,6 +248,8 @@ static struct ptunit_result time_null(void)
 	uint32_t lost_mtc, lost_cyc;
 	int errcode;
 
+	memset(&decoder, 0, sizeof(decoder));
+
 	errcode = pt_insn_time(NULL, &time, &lost_mtc, &lost_cyc);
 	ptu_int_eq(errcode, -pte_invalid);
 
@@ -277,6 +279,8 @@ static struct ptunit_result asid_null(void)
 	struct pt_insn_decoder decoder;
 	struct pt_asid asid;
 	int errcode;
+
+	memset(&decoder, 0, sizeof(decoder));
 
 	errcode = pt_insn_asid(NULL, &asid, sizeof(asid));
 	ptu_int_eq(errcode, -pte_invalid);
