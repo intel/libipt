@@ -301,6 +301,8 @@ static struct ptunit_result asid_null(void)
 	struct pt_asid asid;
 	int errcode;
 
+	memset(&decoder, 0, sizeof(decoder));
+
 	errcode = pt_blk_asid(NULL, &asid, sizeof(asid));
 	ptu_int_eq(errcode, -pte_invalid);
 

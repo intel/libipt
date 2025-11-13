@@ -473,6 +473,8 @@ static struct ptunit_result cpu_errata_null(void)
 	struct pt_cpu cpu;
 	int errcode;
 
+	memset(&cpu, 0, sizeof(cpu));
+
 	errcode = pt_cpu_errata(&errata, NULL);
 	ptu_int_eq(errcode, -pte_invalid);
 
