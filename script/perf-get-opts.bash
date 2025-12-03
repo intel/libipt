@@ -103,13 +103,13 @@ perf script --header-only -i $file | \
 perf script --no-itrace -i $file -D | \
   grep -A18 -e PERF_RECORD_AUXTRACE_INFO | \
   gawk -F' ' -- '
-  /^ *Time Shift/           { printf(" --pevent:time-shift %s", $NF) }
-  /^ *Time Muliplier/       { printf(" --pevent:time-mult %s", $NF) }
-  /^ *Time Multiplier/      { printf(" --pevent:time-mult %s", $NF) }
-  /^ *Time Zero/            { printf(" --pevent:time-zero %s", $NF) }
-  /^ *TSC:CTC numerator/    { printf(" --cpuid-0x15.ebx %s", $NF) }
-  /^ *TSC:CTC denominator/  { printf(" --cpuid-0x15.eax %s", $NF) }
-  /^ *Max non-turbo ratio/  { printf(" --nom-freq %s", $NF) }
+  /^ *Time Shift/           { printf(" --pevent:time-shift %d", strtonum($NF)) }
+  /^ *Time Muliplier/       { printf(" --pevent:time-mult %d", strtonum($NF)) }
+  /^ *Time Multiplier/      { printf(" --pevent:time-mult %d", strtonum($NF)) }
+  /^ *Time Zero/            { printf(" --pevent:time-zero %d", strtonum($NF)) }
+  /^ *TSC:CTC numerator/    { printf(" --cpuid-0x15.ebx %d", strtonum($NF)) }
+  /^ *TSC:CTC denominator/  { printf(" --cpuid-0x15.eax %d", strtonum($NF)) }
+  /^ *Max non-turbo ratio/  { printf(" --nom-freq %d", strtonum($NF)) }
 '
 
 gawk_sample_type() {
