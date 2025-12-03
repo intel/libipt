@@ -148,33 +148,33 @@ if [[ -d $buildid_cache ]]; then
         function copy(src, dst) {
             # do not overwrite existing files
             #
-            status = system("ls " dst " > /dev/null 2>&1")
+            status = system("ls \"" dst "\" > /dev/null 2>&1")
             if (status == 0) {
                 return
             }
 
             dir = dirname(dst)
 
-            run("mkdir -p " dir)
-            run("cp " src " " dst)
+            run("mkdir -p \"" dir "\"")
+            run("cp \"" src "\" \"" dst "\"")
         }
 
         /^[0-9a-z]+ *\[vdso/ {
             src = cache "/[vdso]/" $1 "/vdso"
 
-            status = system("file " src " | grep -e \"ELF 64-bit.*x86-64\" >/dev/null 2>&1")
+            status = system("file \"" src "\" | grep -e \"ELF 64-bit.*x86-64\" >/dev/null 2>&1")
             if (status == 0) {
                 copy(src, outdir "/vdso/vdso-x64.so")
                 next
             }
 
-            status = system("file " src " | grep -e \"ELF 32-bit.*x86-64\" >/dev/null 2>&1")
+            status = system("file \"" src "\" | grep -e \"ELF 32-bit.*x86-64\" >/dev/null 2>&1")
             if (status == 0) {
                 copy(src, outdir "/vdso/vdso-x32.so")
                 next
             }
 
-            status = system("file " src " | grep -e \"ELF 32-bit.*Intel 80386\" >/dev/null 2>&1")
+            status = system("file \"" src "\" | grep -e \"ELF 32-bit.*Intel 80386\" >/dev/null 2>&1")
             if (status == 0) {
                 copy(src, outdir "/vdso/vdso-x32.so")
                 next
@@ -261,15 +261,15 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
 
         # do not overwrite existing files
         #
-        status = system("ls " dst " > /dev/null 2>&1")
+        status = system("ls \"" dst "\" > /dev/null 2>&1")
         if (status == 0) {
             return
         }
 
         dir = dirname(dst)
 
-        run("mkdir -p " dir)
-        run("cp " file " " dst)
+        run("mkdir -p \"" dir "\"")
+        run("cp \"" file "\" \"" dst "\"")
     }
 
     /PERF_RECORD_MMAP/     { handle_mmap($NF) }
