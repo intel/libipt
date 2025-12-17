@@ -903,14 +903,15 @@ static void print_raw_insn(const struct pt_insn *insn)
 		printf("   ");
 }
 
-static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
+static void xed_print_insn(const xed_decoded_inst_t *inst,
+			   const struct pt_insn *insn,
 			   const struct ptxed_options *options)
 {
 	xed_print_info_t pi;
 	char buffer[256];
 	xed_bool_t ok;
 
-	if (!inst || !options) {
+	if (!inst || !insn || !options) {
 		printf(" [internal error]");
 		return;
 	}
@@ -919,8 +920,12 @@ static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
 		xed_uint_t length, i;
 
 		length = xed_decoded_inst_get_length(inst);
+		if (insn->size < length) {
+			printf(" [xed error: decoded inst exceeds bounds]");
+			length = insn->size;
+		}
 		for (i = 0; i < length; ++i)
-			printf(" %02x", xed_decoded_inst_get_byte(inst, i));
+			printf(" %02x", insn->raw[i]);
 
 		for (; i < pt_max_insn_size; ++i)
 			printf("   ");
@@ -930,7 +935,7 @@ static void xed_print_insn(const xed_decoded_inst_t *inst, uint64_t ip,
 	pi.p = inst;
 	pi.buf = buffer;
 	pi.blen = sizeof(buffer);
-	pi.runtime_address = ip;
+	pi.runtime_address = insn->ip;
 
 	if (options->att_format)
 		pi.syntax = XED_SYNTAX_ATT;
@@ -979,7 +984,7 @@ static void print_insn(const struct pt_insn *insn,
 		errcode = xed_decode(&inst, insn->raw, insn->size);
 		switch (errcode) {
 		case XED_ERROR_NONE:
-			xed_print_insn(&inst, insn->ip, options);
+			xed_print_insn(&inst, insn, options);
 			break;
 
 		default:
@@ -1901,7 +1906,7 @@ static void print_block(struct ptxed_decoder *decoder,
 		}
 
 		if (!options->dont_print_insn)
-			xed_print_insn(&inst, insn.ip, options);
+			xed_print_insn(&inst, &insn, options);
 
 		printf("\n");
 
