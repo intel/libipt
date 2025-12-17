@@ -108,8 +108,8 @@ perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
     ofile = sprintf("%s-aux-idx%d%s.bin", base, idx, ext)
     begin = offset + hsize
 
-    cmd = sprintf("dd if=%s of=%s conv=notrunc oflag=append ibs=1 skip=%d " \
-                  "count=%d status=none", file, ofile, begin, size)
+    cmd = sprintf("dd if=\"%s\" of=\"%s\" conv=notrunc oflag=append ibs=1 " \
+                  "skip=%d count=%d status=none", file, ofile, begin, size)
 
     if (dry_run != 0) {
       print cmd
