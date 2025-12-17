@@ -91,8 +91,8 @@ fi
 
 perf script --no-itrace -i "$file" -D | gawk -F' ' -- '
   function handle_record(ofile, offset, size) {
-    cmd = sprintf("dd if=%s of=%s conv=notrunc oflag=append ibs=1 skip=%d " \
-                  "count=%d status=none", file, ofile, offset, size)
+    cmd = sprintf("dd if=\"%s\" of=\"%s\" conv=notrunc oflag=append ibs=1 " \
+                  "skip=%d count=%d status=none", file, ofile, offset, size)
 
     if (dry_run != 0) {
       print cmd
