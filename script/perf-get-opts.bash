@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# Copyright (C) 2015-2025 Intel Corporation
+# Copyright (C) 2015-2026 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Redistribution and use in source and binary forms, with or without
