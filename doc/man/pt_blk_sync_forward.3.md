@@ -1,7 +1,7 @@
 % PT_BLK_SYNC_FORWARD(3)
 
 <!---
- ! Copyright (c) 2016-2025, Intel Corporation
+ ! Copyright (c) 2016-2026, Intel Corporation
  ! SPDX-License-Identifier: BSD-3-Clause
  !
  ! Redistribution and use in source and binary forms, with or without
