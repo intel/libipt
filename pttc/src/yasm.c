@@ -155,7 +155,7 @@ static int lookup_section_vstart(struct label *l, char *line,
 }
 
 static const char key_section[] = "[section";
-static const char key_org[] = "[org";
+static const char *key_org[] = {"[org", "org", NULL};
 
 int parse_yasm_labels(struct label *l, const struct text *t)
 {
@@ -192,12 +192,33 @@ int parse_yasm_labels(struct label *l, const struct text *t)
 			continue;
 		}
 
-		tmp = strstr(line, key_org);
-		if (tmp) {
+		/* Try both yasm format "[org" and nasm format "org" */
+		tmp = NULL;
+		int org_style = -1;
+		for (int j = 0; key_org[j] != NULL; j++) {
+			tmp = strstr(line, key_org[j]);
+			if (tmp) {
+				org_style = j;
+				break;
+			}
+		}
+
+		if (tmp && org_style >= 0) {
 			char *org;
 
-			org = tmp + sizeof(key_org) - 1;
-			tmp = strstr(org, "]");
+			org = tmp + strlen(key_org[org_style]);
+			/* For yasm format "[org", look for ] */
+			if (org_style == 0) {
+				tmp = strstr(org, "]");
+			} else {
+				/* For nasm, skip whitespace to find hex value */
+				while (isspace(*org))
+					org++;
+				tmp = org;
+				/* Find end of hex number */
+				while (*tmp && !isspace(*tmp))
+					tmp++;
+			}
 			if (!tmp)
 				return -err_no_org_directive;
 
@@ -720,18 +741,17 @@ error:
 static int yasm_run(struct yasm *y)
 {
 	char *argv[] = {
-		"yasm",
+		"nasm",
 		"<pttfile>",
 		"-f", "bin",
 		"-o", "<binfile>",
-		"-L", "nasm",
 		"-l", "<lstfile>",
 		NULL,
 	};
 
 	argv[1] = y->pttfile;
 	argv[5] = y->binfile;
-	argv[9] = y->lstfile;
+	argv[7] = y->lstfile;
 
 	return run(argv[0], argv);
 }
@@ -825,9 +845,32 @@ static int yasm_advance_next_line(struct yasm *y)
 		/* if line number or increment in the previous line
 		 * directive is <= 0, the current lst line has no
 		 * corresponding line in the source file.
+		 * 
+		 * For nasm compatibility: if no %line directives have been
+		 * seen yet, assume 1:1 mapping with source file.
 		 */
-		if (y->st_asm->n <= 0 || y->st_asm->inc <= 0)
-			continue;
+		if (y->st_asm->n <= 0 || y->st_asm->inc <= 0) {
+			/* If we haven't seen any %line directive, try to use
+			 * the source file directly with 1:1 line mapping.
+			 */
+			if (!y->st_asm->filename || y->st_asm->filename[0] == '\0') {
+				/* Set to source .ptt file for first time */
+				st_set_file(y->st_asm, y->pttfile, 1, 1);
+			}
+			
+			/* Calculate source line from listing line for nasm */
+			asm_line = (int)y->lst_curr_line;
+			
+			/* Read from source file at same line number */
+			errcode = fl_getline(y->fl, s, (size_t) sizeof(s),
+					     y->st_asm->filename,
+					     (size_t) asm_line - 1u);
+			if (errcode < 0)
+				continue;  /* Skip if can't read source line */
+
+			errcode = st_update(y->st_asm, s);
+			break;
+		}
 
 		/* finally the current line in the lst file can be
 		 * correlated to the source file, so we retrieve the
