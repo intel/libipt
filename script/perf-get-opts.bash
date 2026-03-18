@@ -41,8 +41,8 @@ usage: $prog [<options>] <perf.data-file>
 Create --pevent options for ptdump and ptxed based on <perf.data-file>
 and previously generated <perf.data-file>-sideband*.pevent files.
 
-When tracing ring-0, use perf-with-kcore and supply the path to kcore_dir
-using the -k option.
+When tracing ring-0, use --kcore and leave <perf.data-file> at perf.data
+(default) or supply the path to kcore_dir using the -k option.
 
 options:
   -h         this text
@@ -83,6 +83,10 @@ elif [[ $# == 1 ]]; then
 else
     usage
     exit 1
+fi
+
+if [[ -d "$file" && -z "$kcore" ]]; then
+    kcore="$file/kcore_dir"
 fi
 
 
