@@ -233,9 +233,6 @@ fi
 fbase="$(basename "$file")"
 mbase="$(basename "$master")"
 sdir="$(dirname "$master")"
-if [[ "$mbase" == "$master" ]]; then
-    sdir="$(dirname "$file")"
-fi
 for sbfile in "$sdir/$fbase"-sideband*.pevent; do
     if [[ ! -e "$sbfile" ]]; then
         break
