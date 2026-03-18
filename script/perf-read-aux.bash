@@ -78,6 +78,10 @@ fi
 
 base="$(basename $file)"
 
+if [[ -d "$file" ]]; then
+    file="$file/data"
+fi
+
 if [[ "$dry_run" == 0 ]]; then
     nofiles=0
 
