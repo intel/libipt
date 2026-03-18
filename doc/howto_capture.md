@@ -442,26 +442,21 @@ grain sideband correlation.
 ~~~
 
 
-When tracing ring-0 code, we need to use `perf-with-kcore` for recording and
-supply the `perf.data` directory as additional argument after the `record` perf
-sub-command.  When `perf-with-kcore` completes, the `perf.data` directory
-contains `perf.data` as well as a directory `kcore_dir` that contains copies of
-`/proc/kcore` and `/proc/kallsyms`.  We need to supply the path to `kcore_dir`
-to `script/perf-get-opts.bash` using the `-k` option.
+When tracing ring-0 code, we need to use `--kcore` for recording.  This
+turns `perf.data` into a directory that contains the recorded data in
+`perf.data/data` and a copy of `/proc/kcore` and `/proc/kallsyms` in
+`perf.data/kcore_dir`.  Scripts will find both `data` and `kcore_dir` when
+pointed to the `perf.data` directory.
 
 ~~~{.sh}
-    $ perf-with-kcore record dir -e intel_pt// -T -a --switch-events -- sleep 10
+    $ perf record -e intel_pt// --kcore -T -a --switch-events -- sleep 10
     [ perf record: Woken up 26 times to write data ]
     [ perf record: Captured and wrote 54.238 MB perf.data ]
-    Copying kcore
-    Done
-    $ cd dir
     $ script/perf-read-aux.bash
     $ script/perf-read-sideband.bash
     $ ptdump $(script/perf-get-opts.bash) perf.data-aux-idx0.bin
     [...]
-    $ ptxed $(script/perf-get-opts.bash -k kcore_dir
-                -m perf.data-sideband-cpu0.pevent)
+    $ ptxed $(script/perf-get-opts.bash -m data-sideband-cpu0.pevent)
         --pevent:vdso... --event:tick --pt perf.data-aux-idx0.bin
     [...]
 ~~~
@@ -547,11 +542,9 @@ For the remote decode case, we thus get (assuming kernel and user tracing on a
 
 ~~~{.sh}
     [record]
-    $ perf-with-kcore record dir -e intel_pt// -T -a --switch-events -- sleep 10
+    $ perf record -e intel_pt// --kcore -T -a --switch-events -- sleep 10
     [ perf record: Woken up 26 times to write data ]
     [ perf record: Captured and wrote 54.238 MB perf.data ]
-    Copying kcore
-    Done
     $ cd dir
     $ script/perf-copy-mapped-files.bash -o sysroot
 
@@ -562,7 +555,7 @@ For the remote decode case, we thus get (assuming kernel and user tracing on a
     $ script/perf-read-sideband.bash
     $ ptdump $(script/perf-get-opts.bash -s sysroot) perf.data-aux-idx0.bin
     [...]
-    $ ptxed $(script/perf-get-opts.bash -s sysroot -k kcore_dir
+    $ ptxed $(script/perf-get-opts.bash -s sysroot \
                 -m perf.data-sideband-cpu0.pevent)
         --event:tick --pt perf.data-aux-idx0.bin
     [...]
