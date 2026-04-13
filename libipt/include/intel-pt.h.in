@@ -359,6 +359,18 @@ struct pt_errata {
 	 */
 	uint32_t skz84:1;
 
+	/** SRF77: Intel(R) PT Event Trace Generates Incorrect IP For FUP
+	 *         Packet During VM Entry.
+	 *
+	 * When the Intel(R) Processor Trace (Intel(R) PT) event trace feature
+	 * is enabled, a VMLAUNCH/VMRESUME instruction will insert a Control
+	 * Flow Event (CFE) alongside a Flow Update Packet (FUP) packet into
+	 * the trace output. This FUP packet should include the Instruction
+	 * Pointer (IP) address of the VMLAUNCH/VMRESUME instruction, but
+	 * incorrectly includes the target IP of the VM entry instead.
+	 */
+	uint32_t srf77:1;
+
 	/* Reserve a few bytes for the future. */
 	uint32_t reserved[15];
 };

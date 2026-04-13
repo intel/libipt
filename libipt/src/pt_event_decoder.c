@@ -1660,14 +1660,18 @@ static int pt_evt_decode_psbend(struct pt_event_decoder *decoder)
 static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 			     const struct pt_packet_ip *packet)
 {
+	const struct pt_config *config;
 	struct pt_event *ev;
 	int errcode, status;
 
 	if (!decoder || !packet)
 		return -pte_internal;
 
-	errcode = pt_last_ip_update_ip(&decoder->ip, packet,
-				       pt_evt_config(decoder));
+	config = pt_evt_config(decoder);
+	if (!config)
+		return -pte_internal;
+
+	errcode = pt_last_ip_update_ip(&decoder->ip, packet, config);
 	if (errcode < 0)
 		return errcode;
 
@@ -1838,8 +1842,15 @@ static int pt_evt_decode_fup(struct pt_event_decoder *decoder,
 		if (errcode < 0)
 			break;
 
-		errcode = pt_evt_event_ip(&ev->variant.vmentry.ip, ev,
-					  &decoder->ip);
+		/* We may get the target IP within the guest instead of the IP
+		 * of the VMLAUNCH/VMRESUME instruction.  Let's ignore it and
+		 * rely on the decoder to bind the event.
+		 */
+		if (config->errata.srf77)
+			ev->ip_suppressed = 1;
+		else
+			errcode = pt_evt_event_ip(&ev->variant.vmentry.ip, ev,
+						  &decoder->ip);
 		break;
 
 	case ptev_vmexit:
