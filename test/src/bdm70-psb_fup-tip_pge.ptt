@@ -88,7 +88,7 @@ bits 64
 ; @pt p4: mode.tsx(begin)
 ; @pt p5: psbend()
 l1:     nop
-; @pt p6: tip.pge(3: %l1)
+; @pt p6: tip.pge(1: %l1)
 l2:     nop
 ; @pt p7: fup(1: %l2)
 ; @pt p8: tip.pgd(0: %l3)
@@ -101,7 +101,7 @@ l3:     hlt
 ;%0p3  fup        3: %0l1
 ;%0p4  mode.tsx   intx
 ;%0p5  psbend
-;%0p6  tip.pge    3: %0l1
+;%0p6  tip.pge    1: %?l1.2
 ;%0p7  fup        1: %?l2.2
 ;%0p8  tip.pgd    0: %?l3.0
 
