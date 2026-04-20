@@ -664,8 +664,6 @@ static int pt_evt_header_fup(struct pt_event_decoder *decoder,
 	}
 
 	decoder->enabled = enabled;
-	if (!enabled)
-		return 0;
 
 	return pt_last_ip_update_ip(&decoder->ip, packet, config);
 }
@@ -1587,6 +1585,57 @@ pt_evt_get_config(const struct pt_event_decoder *decoder)
 	return pt_pkt_get_config(&decoder->pacdec);
 }
 
+static int pt_evt_psbend_event_ip(const struct pt_event_decoder *decoder,
+				  struct pt_event *ev)
+{
+	if (!decoder || !ev)
+		return -pte_internal;
+
+	/* If tracing is disabled, we do not supply an event IP.
+	 *
+	 * The decoder's IP would normally be suppressed, but due to BDM70 we
+	 * may have an unsuppressed IP even though tracing is disabled.
+	 */
+	if (!decoder->enabled) {
+		ev->ip_suppressed = 1;
+		return 0;
+	}
+
+	switch (ev->type) {
+	case ptev_enabled:
+		return pt_evt_event_ip(&ev->variant.enabled.ip, ev,
+				       &decoder->ip);
+
+	case ptev_exec_mode:
+		return pt_evt_event_ip(&ev->variant.exec_mode.ip, ev,
+				       &decoder->ip);
+
+	case ptev_iflags:
+		return pt_evt_event_ip(&ev->variant.iflags.ip, ev,
+				       &decoder->ip);
+
+	case ptev_tsx:
+		return pt_evt_event_ip(&ev->variant.tsx.ip, ev,
+				       &decoder->ip);
+
+	case ptev_async_paging:
+		return pt_evt_event_ip(&ev->variant.async_paging.ip, ev,
+				       &decoder->ip);
+
+	case ptev_async_vmcs:
+		return pt_evt_event_ip(&ev->variant.async_vmcs.ip, ev,
+				       &decoder->ip);
+
+	case ptev_disabled:
+	case ptev_cbr:
+	case ptev_mnt:
+		return 0;
+
+	default:
+		return -pte_bad_context;
+	}
+}
+
 static int pt_evt_decode_psbend(struct pt_event_decoder *decoder)
 {
 	struct pt_event *ev;
@@ -1601,48 +1650,7 @@ static int pt_evt_decode_psbend(struct pt_event_decoder *decoder)
 
 	decoder->event = ev;
 
-	switch (ev->type) {
-	case ptev_enabled:
-		errcode = pt_evt_event_ip(&ev->variant.enabled.ip, ev,
-					  &decoder->ip);
-		break;
-
-	case ptev_exec_mode:
-		errcode = pt_evt_event_ip(&ev->variant.exec_mode.ip, ev,
-					  &decoder->ip);
-		break;
-
-	case ptev_iflags:
-		errcode = pt_evt_event_ip(&ev->variant.iflags.ip, ev,
-					  &decoder->ip);
-		break;
-
-	case ptev_tsx:
-		errcode = pt_evt_event_ip(&ev->variant.tsx.ip, ev,
-					  &decoder->ip);
-		break;
-
-	case ptev_async_paging:
-		errcode = pt_evt_event_ip(&ev->variant.async_paging.ip, ev,
-					  &decoder->ip);
-		break;
-
-	case ptev_async_vmcs:
-		errcode = pt_evt_event_ip(&ev->variant.async_vmcs.ip, ev,
-					  &decoder->ip);
-		break;
-
-	case ptev_disabled:
-	case ptev_cbr:
-	case ptev_mnt:
-		errcode = 0;
-		break;
-
-	default:
-		errcode = -pte_bad_context;
-		break;
-	}
-
+	errcode = pt_evt_psbend_event_ip(decoder, ev);
 	if (errcode < 0)
 		return errcode;
 
