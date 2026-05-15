@@ -414,7 +414,10 @@ struct pt_sb_decoder_config {
 	int (*print)(struct pt_sb_session *session, FILE *stream,
 		     uint32_t flags, void *priv);
 
-	/* Destroy the private data. */
+	/* Destroy the private data.
+	 *
+	 * Do not free(@priv); this is left to the caller.
+	 */
 	void (*dtor)(void *priv);
 
 	/* Decoder-specific private data. */

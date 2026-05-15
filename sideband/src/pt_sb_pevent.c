@@ -248,7 +248,6 @@ static void pt_sb_pevent_dtor(void *priv_arg)
 	free(priv->vdso_x32);
 	free(priv->vdso_ia32);
 	free(priv->begin);
-	free(priv);
 }
 
 static int pt_sb_pevent_init_path(char **dst, const char *src)

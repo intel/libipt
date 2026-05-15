@@ -74,6 +74,7 @@ static void pt_sb_free_decoder(struct pt_sb_decoder *decoder)
 	if (dtor)
 		dtor(decoder->priv);
 
+	free(decoder->priv);
 	free(decoder);
 }
 
