@@ -76,3 +76,10 @@ install(TARGETS libipt-sb
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+
+function(add_ptunit_std_test name)
+    add_ptunit_c_test(sb-${name} src/pt_sb_${name}.c ${ARGN})
+endfunction(add_ptunit_std_test)
+
+add_ptunit_std_test(file)
