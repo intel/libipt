@@ -1720,6 +1720,9 @@ static int pt_blk_handle_erratum_skd022(struct pt_block_decoder *decoder,
 	if (!decoder || !ev)
 		return -pte_internal;
 
+	memset(&iext, 0, sizeof(iext));
+	memset(&insn, 0, sizeof(insn));
+
 	insn.mode = decoder->mode;
 	insn.ip = ev->variant.async_disabled.at;
 
@@ -3255,6 +3258,9 @@ static int pt_blk_handle_erratum_bdm64(struct pt_block_decoder *decoder,
 	 */
 	if (pt_blk_block_is_empty(block))
 		return 0;
+
+	memset(&iext, 0, sizeof(iext));
+	memset(&insn, 0, sizeof(insn));
 
 	insn.mode = block->mode;
 	insn.ip = block->end_ip;
