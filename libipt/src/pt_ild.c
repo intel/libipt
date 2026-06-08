@@ -1106,11 +1106,11 @@ static int prefix_rex2(struct pt_ild *ild, uint8_t length, uint8_t rex)
 
 	max_bytes = ild->max_bytes;
 
-	/* We need at least 2 bytes
-	 * - 1 for the prefix payload.
+	/* We need at least 3 bytes
+	 * - 2 for the REX2 prefix and payload.
 	 * - 1 for the opcode.
 	 */
-	if (max_bytes < (length + 2))
+	if (max_bytes < (length + 3))
 		return -pte_bad_insn;
 
 	payload = get_byte(ild, length + 1);
