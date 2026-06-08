@@ -69,3 +69,9 @@ target_link_libraries(libipt-sb libipt)
 if (PEVENT)
   target_link_libraries(libipt-sb pevent)
 endif (PEVENT)
+
+function(add_ptunit_std_test name)
+    add_ptunit_c_test(sb-${name} src/pt_sb_${name}.c ${ARGN})
+endfunction(add_ptunit_std_test)
+
+add_ptunit_std_test(file)

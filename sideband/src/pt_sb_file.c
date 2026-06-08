@@ -76,6 +76,9 @@ int pt_sb_file_load(void **pbuffer, size_t *psize, const char *filename,
 			fend = fsize;
 	}
 
+	if (fend <= fbegin)
+		goto out_file;
+
 	size = (size_t) (fend - fbegin);
 
 	errcode = fseek(file, fbegin, SEEK_SET);
