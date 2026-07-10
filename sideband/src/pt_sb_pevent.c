@@ -248,6 +248,7 @@ static void pt_sb_pevent_dtor(void *priv_arg)
 	free(priv->vdso_x32);
 	free(priv->vdso_ia32);
 	free(priv->begin);
+	free(priv->pev.sample_config);
 }
 
 static int pt_sb_pevent_init_path(char **dst, const char *src)
@@ -273,6 +274,32 @@ static int pt_sb_pevent_init_path(char **dst, const char *src)
 		return -pte_nomem;
 
 	memcpy(copy, src, len);
+
+	*dst = copy;
+
+	return 0;
+}
+
+static int pt_sb_pevent_init_sample_config(struct pev_sample_config **dst,
+					   const struct pev_sample_config *src)
+{
+	struct pev_sample_config *copy;
+	size_t size;
+
+	if (!dst)
+		return -pte_internal;
+
+	if (!src) {
+		*dst = NULL;
+		return 0;
+	}
+
+	size = sizeof(*src) + (src->nstypes * sizeof(src->stypes[0]));
+	copy = malloc(size);
+	if (!copy)
+		return -pte_nomem;
+
+	memcpy(copy, src, size);
 
 	*dst = copy;
 
@@ -351,8 +378,14 @@ int pt_sb_pevent_init(struct pt_sb_pevent_priv *priv,
 	priv->location = ploc_unknown;
 
 #if (LIBIPT_SB_VERSION >= 0x201)
-	if (pev_config_has(config, sample_config))
-		priv->pev.sample_config = config->sample_config;
+	if (pev_config_has(config, sample_config)) {
+		errcode = pt_sb_pevent_init_sample_config
+			(&priv->pev.sample_config, config->sample_config);
+		if (errcode < 0) {
+			pt_sb_pevent_dtor(priv);
+			return errcode;
+		}
+	}
 #endif
 
 	return 0;
