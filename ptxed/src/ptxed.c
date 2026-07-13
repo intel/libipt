@@ -190,20 +190,22 @@ static int ptxed_have_decoder(const struct ptxed_decoder *decoder)
 
 static int ptxed_init_decoder(struct ptxed_decoder *decoder)
 {
+	struct pt_image_section_cache *iscache;
+
 	if (!decoder)
 		return -pte_internal;
 
 	memset(decoder, 0, sizeof(*decoder));
 	decoder->type = pdt_block_decoder;
 
-	decoder->iscache = pt_iscache_alloc(NULL);
-	if (!decoder->iscache)
+	iscache = pt_iscache_alloc(NULL);
+	if (!iscache)
 		return -pte_nomem;
 
 #if defined(FEATURE_SIDEBAND)
-	decoder->session = pt_sb_alloc(decoder->iscache);
+	decoder->session = pt_sb_alloc(iscache);
 	if (!decoder->session) {
-		pt_iscache_free(decoder->iscache);
+		pt_iscache_free(iscache);
 		return -pte_nomem;
 	}
 
@@ -215,6 +217,7 @@ static int ptxed_init_decoder(struct ptxed_decoder *decoder)
 #endif /* defined(FEATURE_PEVENT) */
 #endif /* defined(FEATURE_SIDEBAND) */
 
+	decoder->iscache = iscache;
 	return 0;
 }
 
