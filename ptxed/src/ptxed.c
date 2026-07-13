@@ -2189,6 +2189,7 @@ static int pt_parse_sample_config(struct pt_sb_pevent_config *pevent,
 	struct pev_sample_type *stype;
 	uint64_t identifier, sample_type;
 	uint8_t nstypes, i;
+	size_t size;
 	char *rest;
 
 	if (!pevent || !arg)
@@ -2228,16 +2229,20 @@ static int pt_parse_sample_config(struct pt_sb_pevent_config *pevent,
 		return 0;
 	}
 
-	sample_config = realloc(sample_config,
-				sizeof(*sample_config) +
-				((nstypes + 1) *
-				 sizeof(struct pev_sample_type)));
+	nstypes += 1;
+	if (!nstypes)
+		return -pte_bad_config;
+
+	size = sizeof(*sample_config) +
+		(nstypes * sizeof(sample_config->stypes[0]));
+
+	sample_config = realloc(sample_config, size);
 	if (!sample_config)
 		return -pte_nomem;
 
-	sample_config->stypes[nstypes].identifier = identifier;
-	sample_config->stypes[nstypes].sample_type = sample_type;
-	sample_config->nstypes = nstypes + 1;
+	sample_config->stypes[nstypes-1].identifier = identifier;
+	sample_config->stypes[nstypes-1].sample_type = sample_type;
+	sample_config->nstypes = nstypes;
 
 	pevent->sample_config = sample_config;
 
