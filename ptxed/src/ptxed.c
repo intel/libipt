@@ -235,6 +235,10 @@ static void ptxed_free_decoder(struct ptxed_decoder *decoder)
 
 #if defined(FEATURE_SIDEBAND)
 	pt_sb_free(decoder->session);
+
+#if defined(FEATURE_PEVENT)
+	free(decoder->pevent.sample_config);
+#endif
 #endif
 
 	pt_iscache_free(decoder->iscache);
