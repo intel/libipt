@@ -1829,8 +1829,10 @@ int pt_sb_alloc_pevent_decoder(struct pt_sb_session *session,
 	config.primary = pev->primary;
 
 	errcode = pt_sb_alloc_decoder(session, &config);
-	if (errcode < 0)
+	if (errcode < 0) {
+		pt_sb_pevent_dtor(priv);
 		free(priv);
+	}
 
 	return errcode;
 }
